@@ -1,0 +1,43 @@
+-- Rendimiento: indices en llaves foraneas y RLS con (select auth.uid()). Ya aplicado en el proyecto tienda-gregory y ya incluido al final de schema.sql.
+create index if not exists idx_incidents_customer on incidents(customer_id);
+create index if not exists idx_incidents_order on incidents(order_id);
+create index if not exists idx_invoices_customer on invoices(customer_id);
+create index if not exists idx_orders_customer on orders(customer_id);
+create index if not exists idx_orders_metodo on orders(metodo_id);
+create index if not exists idx_orders_product on orders(product_id);
+create index if not exists idx_orders_pendientes on orders(created_at) where estado = 'pendiente';
+create index if not exists idx_orders_vence on orders(vence) where estado = 'entregado';
+create index if not exists idx_products_category on products(category_id);
+create index if not exists idx_profiles_mother on profiles_inventory(mother_id);
+create index if not exists idx_profiles_product_estado on profiles_inventory(product_id, estado);
+create index if not exists idx_purchases_mother on purchases(mother_id);
+create index if not exists idx_refunds_customer on refunds(customer_id);
+create index if not exists idx_refunds_order on refunds(order_id);
+create index if not exists idx_transfers_customer on transfers(customer_id);
+create index if not exists idx_transfers_order on transfers(order_id);
+create index if not exists idx_transfers_from on transfers(from_profile);
+create index if not exists idx_transfers_to on transfers(to_profile);
+create index if not exists idx_ledger_customer on zeny_ledger(customer_id);
+create index if not exists idx_ledger_order on zeny_ledger(order_id);
+
+drop policy if exists ref_me on refunds;
+create policy ref_me on refunds for select to authenticated using (customer_id = (select auth.uid()));
+drop policy if exists me_cust on customers;
+create policy me_cust on customers for select to authenticated using (id = (select auth.uid()));
+drop policy if exists me_cust_upd on customers;
+create policy me_cust_upd on customers for update to authenticated using (id = (select auth.uid()))
+  with check (id = (select auth.uid()) and zeny_balance = (select c.zeny_balance from customers c where c.id = (select auth.uid())));
+drop policy if exists me_orders on orders;
+create policy me_orders on orders for select to authenticated using (customer_id = (select auth.uid()));
+drop policy if exists me_inv on invoices;
+create policy me_inv on invoices for select to authenticated using (customer_id = (select auth.uid()));
+drop policy if exists me_ledger on zeny_ledger;
+create policy me_ledger on zeny_ledger for select to authenticated using (customer_id = (select auth.uid()));
+drop policy if exists me_recarga on zeny_ledger;
+create policy me_recarga on zeny_ledger for insert to authenticated with check (customer_id = (select auth.uid()) and tipo = 'recarga' and estado = 'pendiente' and monto > 0);
+drop policy if exists me_inc_sel on incidents;
+create policy me_inc_sel on incidents for select to authenticated using (customer_id = (select auth.uid()));
+drop policy if exists me_inc_ins on incidents;
+create policy me_inc_ins on incidents for insert to authenticated with check (customer_id = (select auth.uid()) and estado = 'abierta');
+drop policy if exists me_log on login_log;
+create policy me_log on login_log for insert to authenticated with check (customer_id = (select auth.uid()));

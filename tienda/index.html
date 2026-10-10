@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Emprendimiento Gregory Izquierdo</title>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#030812"><meta name="color-scheme" content="dark"><meta name="description" content="Pantallas, cuentas completas y servicios digitales con garantía. Emprendimiento Gregory Izquierdo."><link rel="apple-touch-icon" href="/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Gregory Izquierdo">
+<link rel="preconnect" href="https://tevjiqnnnjnakftrjgud.supabase.co" crossorigin><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#030812;--card:#0a1628;--line:#16335a;--tx:#ecf6ff;--mut:#8ea8c8;--a:#00f5a0;--g:#00f5a0;--c:#00d4ff;--b:#2563ff;--grad:linear-gradient(135deg,#00f5a0 0%,#00d4ff 48%,#2563ff 100%);--r:16px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font-family:Sora,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--tx);background:var(--bg);background-image:radial-gradient(1200px 600px at 8% -10%,rgba(0,245,160,.16),transparent 60%),radial-gradient(900px 520px at 100% 0%,rgba(37,99,255,.28),transparent 60%);background-attachment:fixed;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);-webkit-font-smoothing:antialiased}
+header{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(3,8,18,.72);backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);border-bottom:1px solid rgba(0,212,255,.14)}
+.brand{display:flex;align-items:center;gap:10px}.logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-weight:800;color:#03121c;background:var(--grad);box-shadow:0 0 22px rgba(0,245,160,.45)}
+h1{font-size:1rem;margin:0;font-weight:800}.rate{font-size:.74rem;color:var(--mut)}
+main{max-width:1160px;margin:auto;padding:18px 16px 90px}
+button,input,select,textarea{font:inherit;color:var(--tx)}
+input,select,textarea{width:100%;background:rgba(7,19,38,.9);border:1px solid var(--line);border-radius:12px;padding:11px 13px;transition:border-color .2s,box-shadow .2s}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--c);box-shadow:0 0 0 3px rgba(0,212,255,.18)}
+button{cursor:pointer;border:0;border-radius:12px;padding:10px 16px;font-weight:700;color:#03121c;background:var(--grad);box-shadow:0 6px 22px -8px rgba(0,212,255,.6);transition:transform .15s,box-shadow .2s,filter .2s}
+button:hover{transform:translateY(-1px);filter:brightness(1.08);box-shadow:0 10px 28px -8px rgba(0,245,160,.6)}button:active{transform:none}
+button:disabled{opacity:.5;cursor:not-allowed;transform:none}button:focus-visible{outline:2px solid var(--c);outline-offset:2px}
+button.g{background:rgba(255,255,255,.04);color:var(--tx);border:1px solid var(--line);box-shadow:none}button.g:hover{border-color:var(--c);box-shadow:0 0 0 3px rgba(0,212,255,.12)}
+button.d{background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;box-shadow:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.hide{display:none!important}.mut{color:var(--mut);font-size:.85rem}
+.card{background:linear-gradient(180deg,rgba(13,29,54,.85),rgba(8,18,34,.85));border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.price{font-size:1.55rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pill{padding:3px 10px;border-radius:99px;background:rgba(0,245,160,.12);color:var(--g);font-size:.74rem;font-weight:700}.pill.off{background:rgba(255,77,109,.14);color:#ff7b93}
+.tabs{display:flex;gap:8px;overflow-x:auto;margin:14px 0;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs button{white-space:nowrap}
+table{width:100%;border-collapse:collapse;font-size:.85rem}td,th{border-bottom:1px solid rgba(22,51,90,.8);padding:8px 6px;text-align:left;vertical-align:top}th{color:var(--mut);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.4px}tr:hover td{background:rgba(0,212,255,.04)}.wrap{overflow-x:auto;border-radius:12px}
+dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border:1px solid rgba(0,212,255,.3);border-radius:20px;max-width:460px;width:92%;box-shadow:0 30px 80px -20px rgba(0,212,255,.35);padding:20px}dialog::backdrop{background:rgba(2,6,14,.72);backdrop-filter:blur(4px)}
+.hero{position:relative;overflow:hidden;border-radius:24px;padding:34px 22px;margin-bottom:18px;border:1px solid rgba(0,212,255,.22);background:radial-gradient(600px 260px at 15% 0%,rgba(0,245,160,.22),transparent 65%),radial-gradient(600px 300px at 100% 100%,rgba(37,99,255,.35),transparent 65%),linear-gradient(180deg,#081a33,#050e1d)}
+.hero h2{margin:0 0 8px;font-size:clamp(1.6rem,5.5vw,2.6rem);line-height:1.1;font-weight:800}.hero h2 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:0 0 16px;color:var(--mut);max-width:560px}.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.chips span{font-size:.76rem;padding:6px 11px;border-radius:99px;border:1px solid rgba(0,245,160,.25);background:rgba(0,245,160,.07);color:#baffe4}.search{max-width:460px}
+.ban{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin-bottom:16px;scrollbar-width:none}.ban::-webkit-scrollbar{display:none}
+.ban a,.ban div{flex:0 0 100%;scroll-snap-align:start;border-radius:20px;min-height:170px;padding:22px;background:linear-gradient(135deg,#0a3b4a,#12307a) center/cover;color:#fff;text-decoration:none;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid rgba(0,212,255,.25)}.ban h3{margin:0 0 4px;font-size:1.3rem}.ban p{margin:0;opacity:.92}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.pc{position:relative;display:flex;flex-direction:column;border-radius:20px;overflow:hidden;background:linear-gradient(180deg,rgba(13,29,54,.9),rgba(7,16,30,.95));border:1px solid var(--line);transition:transform .2s,border-color .2s,box-shadow .25s}
+.pc:hover{transform:translateY(-4px);border-color:rgba(0,245,160,.55);box-shadow:0 18px 50px -18px rgba(0,245,160,.45)}
+.pc img,.ph{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}.ph{display:grid;place-items:center;font-size:3rem;font-weight:800;color:#03121c;background:var(--grad)}
+.pb{display:flex;flex-direction:column;gap:6px;padding:14px 16px 16px;flex:1}.pb h3{margin:0;font-size:1.05rem}.pb p{margin:0;min-height:1.2em}
+.tag{align-self:flex-start;font-size:.68rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:3px 9px;border-radius:99px;color:#03121c;background:var(--grad)}
+.t-cuenta_completa .tag{background:linear-gradient(135deg,#00d4ff,#2563ff);color:#fff}.t-servicio .tag{background:linear-gradient(135deg,#00f5a0,#00d4ff)}
+.meta{display:flex;gap:12px;font-size:.78rem;color:var(--mut)}.buy{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-top:8px}.sub{font-size:.74rem;color:var(--mut)}.cta{padding:10px 18px}.empty{padding:40px 10px;text-align:center;grid-column:1/-1}
+.sk{border-radius:20px;min-height:280px;background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(0,212,255,.10) 50%,rgba(255,255,255,.04) 70%);background-size:200% 100%;animation:sh 1.4s infinite linear;border:1px solid var(--line)}@keyframes sh{to{background-position:-200% 0}}
+.wa{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:6;border-radius:99px;text-decoration:none;padding:12px 18px;font-weight:800;color:#03121c;background:linear-gradient(135deg,#00f5a0,#00d4ff);box-shadow:0 10px 30px -6px rgba(0,245,160,.7)}
+@media(max-width:560px){header{padding:8px 12px}.hero{padding:26px 16px;border-radius:20px}main{padding:14px 12px 90px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<header><div class="brand"><div class="logo">GI</div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
+<div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
+<button class="g" id="bHome">Tienda</button><button class="g" id="bInstall">Instalar app</button><button class="g hide" id="bSnd">🔔 Sonido</button><button class="g hide" id="bPortal">Mi portal</button><button class="g hide" id="bAdmin">Admin</button><button id="bLogin">Ingresar</button><button class="g hide" id="bOut">Salir</button></div></header>
+<main id="app"></main>
+
+<dialog id="dlg"><div id="dlgBody"></div><div class="row" style="margin-top:12px"><button class="g" onclick="dlg.close()">Cerrar</button></div></dialog>
+
+<script src="/config.js"></script>
+<script>
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg');
+const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}};
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const toast = m => { $('#dlgBody').innerHTML = '<p>'+esc(m)+'</p>'; if(!dlg.open) dlg.showModal(); };
+
+async function init(){
+  app.innerHTML=skeleton();
+  const {data:{session}} = await sb.auth.getSession(); await onSession(session);
+  sb.auth.onAuthStateChange((_e,s)=>onSession(s));
+  await loadPublic(); home();
+  // Realtime: cualquier cambio en catalogo/tasa se refleja en vivo
+  sb.channel('pub').on('postgres_changes',{event:'*',schema:'public',table:'products'},()=>loadPublic().then(()=>S.view==='home'&&home()))
+    .on('postgres_changes',{event:'*',schema:'public',table:'exchange_rates'},loadPublic).on('postgres_changes',{event:'*',schema:'public',table:'banners'},()=>loadPublic().then(()=>S.view==='home'&&home())).subscribe();
+}
+async function loadPublic(){
+  const [r,p,s,bn,st] = await Promise.all([
+    sb.from('exchange_rates').select('*').order('fecha',{ascending:false}).limit(1),
+    sb.from('products').select('*').eq('activo',true).order('orden'),
+    sb.from('settings').select('*'),
+    sb.from('banners').select('*').order('orden'),
+    sb.rpc('stock')]);
+  S.banners = bn.data||[]; S.stock = Object.fromEntries((st.data||[]).map(x=>[x.product_id,Number(x.disponibles)]));
+  S.rate = Number(r.data?.[0]?.bs_por_usd||0); S.products = p.data||[];
+  S.settings = Object.fromEntries((s.data||[]).map(x=>[x.key,x.value]));
+  $('#rate').textContent = S.rate ? `Tasa oficial BCV: ${S.rate.toLocaleString('es-VE')} Bs/USD · ${r.data[0].fecha}` : 'Tasa BCV no disponible';
+  if(S.settings.negocio) $('#biz').textContent = S.settings.negocio.nombre;
+}
+async function onSession(session){
+  if(session?.provider_token) sessionStorage.setItem('gtk',session.provider_token);
+  S.user = session?.user||null; S.me=null; S.isAdmin=false;
+  if(S.user){
+    const [m,a] = await Promise.all([sb.from('customers').select('*').eq('id',S.user.id).maybeSingle(), sb.from('admins').select('email').eq('email',S.user.email||'').maybeSingle()]);
+    S.me = m.data; S.isAdmin = !!a.data;
+    sb.from('login_log').insert({customer_id:S.user.id,email:S.user.email,user_agent:navigator.userAgent}).then(()=>{});
+  }
+  $('#bLogin').classList.toggle('hide',!!S.user); $('#bOut').classList.toggle('hide',!S.user);
+  $('#bPortal').classList.toggle('hide',!S.user); $('#bAdmin').classList.toggle('hide',!S.isAdmin); $('#bSnd').classList.toggle('hide',!S.isAdmin); updSnd(); badge(); checkVenc();
+}
+$('#cur').onchange = e => { S.cur=e.target.value; if(S.view==='home') renderGrid(); };
+$('#bHome').onclick = home; $('#bPortal').onclick = portal; $('#bAdmin').onclick = () => admin('finanzas');
+$('#bOut').onclick = async()=>{ await sb.auth.signOut(); sessionStorage.removeItem('gtk'); home(); };
+$('#bLogin').onclick = loginDlg;
+
+// ---------- TIENDA ----------
+const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Servicio'};
+function skeleton(){ return '<div class="hero"><div class="sk" style="min-height:120px;border:0"></div></div><div class="pgrid">'+'<div class="sk"></div>'.repeat(6)+'</div>'; }
+function productCard(p){
+  const out=!(S.stock[p.id]>0||p.tipo==='servicio'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(p.precio_usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
+  return `<article class="pc t-${esc(p.tipo)}">${p.imagen_url?`<img src="${esc(p.imagen_url)}" alt="" loading="lazy" decoding="async">`:`<div class="ph" aria-hidden="true">${esc((p.nombre||'?').slice(0,1).toUpperCase())}</div>`}
+   <div class="pb"><span class="tag">${esc(TL[p.tipo]||p.tipo)}</span><h3>${esc(p.nombre)}</h3><p class="mut">${esc(p.descripcion)}</p>
+   <div class="meta"><span>⏱ ${p.duracion_dias} días</span><span>🛡 Garantía ${p.garantia_dias||0} días</span></div>
+   <div class="buy"><div><div class="price">${money(p.precio_usd)}</div>${bs}</div>${out?'<span class="pill off">Agotado</span>':`<button class="cta" data-buy="${p.id}">Comprar</button>`}</div></div></article>`;
+}
+function renderGrid(){
+  const q=(S.q||'').toLowerCase(), list=S.products.filter(p=>(S.tipo?p.tipo===S.tipo:true)&&(p.nombre||'').toLowerCase().includes(q)), g=$('#grid'); if(!g) return;
+  g.innerHTML=list.map(productCard).join('')||'<p class="mut empty">Aún no hay productos disponibles. Vuelve pronto.</p>';
+  g.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>buyDlg(b.dataset.buy));
+}
+function renderTabs(){
+  $('#tabs').innerHTML=[['','Todo'],['pantalla','Pantallas'],['cuenta_completa','Cuentas completas'],['servicio','Servicios']].map(([v,t])=>`<button class="${(S.tipo||'')===v?'':'g'}" data-t="${v}">${t}</button>`).join('');
+  $('#tabs').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.tipo=b.dataset.t;renderTabs();renderGrid();});
+}
+function home(){
+  S.view='home'; const tel=(S.settings.negocio?.telefono||'').replace(/\D/g,'');
+  app.innerHTML = `${S.banners.length?`<div class="ban">${S.banners.map(b=>{const t=`<h3>${esc(b.titulo)}</h3><p>${esc(b.texto)}</p>`,st=b.imagen_url?` style="background-image:linear-gradient(#0008,#000a),url('${esc(b.imagen_url)}')"`:'';return /^https?:\/\//.test(b.enlace||'')?`<a href="${esc(b.enlace)}" target="_blank" rel="noopener noreferrer"${st}>${t}</a>`:`<div${st}>${t}</div>`;}).join('')}</div>`:''}
+  <section class="hero"><h2>Streaming y cuentas digitales <span>al mejor precio</span></h2>
+   <p>Pantallas, cuentas completas y servicios con garantía. Tu pedido se entrega cuando verificamos tu pago.</p>
+   <div class="chips"><span>⚡ Entrega rápida</span><span>🛡 Garantía incluida</span><span>💬 Soporte por WhatsApp</span></div>
+   <input id="q" class="search" type="search" placeholder="Buscar servicio…" value="${esc(S.q||'')}" aria-label="Buscar servicio" autocomplete="off"></section>
+  <div class="tabs" id="tabs"></div><div class="pgrid" id="grid"></div>
+  <footer class="mut" style="margin:34px 0">Soporte: ${esc(S.settings.negocio?.telefono||'')} · ${esc(S.settings.negocio?.correo||'')}</footer>${tel?`<a class="wa" href="https://wa.me/${tel}" target="_blank" rel="noopener noreferrer">WhatsApp</a>`:''}`;
+  $('#q').oninput = e=>{S.q=e.target.value;renderGrid();};
+  renderTabs(); renderGrid();
+}
+async function buyDlg(id){
+  if(!S.user) return loginDlg(); const p = S.products.find(x=>x.id===id);
+  const [{data:pm},{data:h}] = await Promise.all([sb.from('payment_methods').select('*').eq('activo',true).order('orden'), sb.from('zeny_ledger').select('monto').eq('tipo','compra').eq('estado','pendiente')]);
+  const avail = Math.max(0, Number(S.me?.zeny_balance||0) + (h||[]).reduce((a,x)=>a+Number(x.monto),0)), maxZ = Math.min(avail, Number(p.precio_usd));
+  $('#dlgBody').innerHTML = `<h3>${esc(p.nombre)}</h3><p>Total: <b>$${p.precio_usd}</b> ≈ Bs. ${(p.precio_usd*S.rate).toFixed(2)}</p>
+  <p class="mut">Tu pedido pasa a revisión y conciliación manual. Las credenciales se entregan únicamente cuando el pago sea confirmado.</p>
+  ${maxZ>0?`<label class="mut">ZenyPoints a aplicar (disponibles: ${avail.toFixed(2)})</label><input id="zy" type="number" min="0" max="${maxZ}" step="0.01" value="0">`:''}
+  <p id="rest" class="mut"></p><div id="payBox"><select id="pm">${(pm||[]).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>
+  <div class="mut" id="pmd"></div></div><input id="ref" placeholder="Referencia del pago" style="margin-top:8px"><button id="send" style="margin-top:8px;width:100%">Enviar pedido</button>`;
+  const show=()=>{const m=(pm||[]).find(x=>x.id===$('#pm').value);$('#pmd').textContent=m?Object.entries(m.datos||{}).map(([k,v])=>k+': '+v).join(' · '):'';};
+  const rest=()=>{const z=Math.min(+($('#zy')?.value||0),maxZ), r=Math.max(0,p.precio_usd-z);$('#rest').textContent=`Resto a pagar: $${r.toFixed(2)} ≈ Bs. ${(r*S.rate).toFixed(2)}`;$('#payBox').classList.toggle('hide',r<=0);};
+  $('#pm').onchange=show; if($('#zy')) $('#zy').oninput=rest; show(); rest(); dlg.showModal();
+  $('#send').onclick = async()=>{ const z=Math.min(+($('#zy')?.value||0),maxZ), full=z>=p.precio_usd;
+    const {error}=await sb.rpc('create_order',{p_product:id,p_metodo:full?null:($('#pm').value||null),p_ref:$('#ref').value,p_zeny:z}); if(error) return toast(error.message.includes('Agotado')?'Este servicio se agotó. Elige otro.':error.message);
+    await loadPublic(); toast(`Pedido enviado. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} minutos mientras revisamos y conciliamos tu pago. Recibirás las credenciales cuando sea confirmado.`); portal(); };
+}
+// ---------- AUTH ----------
+function loginDlg(){
+  $('#dlgBody').innerHTML = `<h3>Ingresar / Registrarse</h3>
+  <button id="gg" style="width:100%">Continuar con Google</button><p class="mut">o con correo / teléfono</p>
+  <input id="id" placeholder="Correo o teléfono (+58…)" autocomplete="username"><input id="pw" type="password" placeholder="Contraseña (mín. 8)" autocomplete="current-password" style="margin-top:8px">
+  <input id="nm" placeholder="Nombre (solo al registrarte)" style="margin-top:8px">
+  <div class="row" style="margin-top:8px"><button id="in">Entrar</button><button class="g" id="up">Crear cuenta</button></div>`;
+  const cred=()=>{const v=$('#id').value.trim();return v.includes('@')?{email:v,password:$('#pw').value}:{phone:v,password:$('#pw').value};};
+  $('#gg').onclick=()=>sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/'}});
+  $('#in').onclick=async()=>{const {error}=await sb.auth.signInWithPassword(cred());error?toast(error.message):(dlg.close(),home());};
+  $('#up').onclick=async()=>{const {error}=await sb.auth.signUp({...cred(),options:{data:{nombre:$('#nm').value}}});error?toast(error.message):toast('Cuenta creada. Revisa tu correo si se pide confirmación.');};
+  dlg.showModal();
+}
+// ---------- PORTAL CLIENTE ----------
+async function portal(){
+  if(!S.user) return loginDlg(); S.view='portal';
+  const [o,i,l,inc,cr] = await Promise.all([
+    sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
+    sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false}),
+    sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
+    sb.from('incidents').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
+    sb.rpc('my_credentials')]);
+  const next = (o.data||[]).filter(x=>x.estado==='entregado'||x.estado==='pagado').map(x=>x.proximo_pago).filter(Boolean).sort()[0];
+  const hold=(l.data||[]).filter(x=>x.tipo==='compra'&&x.estado==='pendiente').reduce((a,x)=>a-Number(x.monto),0);
+  const T=(h,rows)=>`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+  app.innerHTML = `<h2>Hola, ${esc(S.me?.nombre||S.user.email||'cliente')}</h2>
+  <div class="grid"><div class="card"><div class="mut">Saldo Zeny</div><div class="price">${Number(S.me?.zeny_balance||0).toFixed(2)} ZP</div><div class="mut">1 ZenyPoint = 1 USD${hold?` · ${hold.toFixed(2)} en revisión`:''}</div><button id="rec" style="margin-top:8px">Recargar</button></div>
+  <div class="card"><div class="mut">Próximo pago</div><div class="price">${esc(next||'—')}</div></div></div>
+  <h3>Mis accesos</h3>${(cr.data||[]).length?T(['Servicio','Correo','Clave','Perfil','PIN','Vence'],(cr.data||[]).map(x=>[x.servicio,x.correo,x.clave,x.perfil,x.pin,x.vence])):'<p class="mut">Aquí verás tus accesos cuando tu pedido sea entregado.</p>'}
+  <h3>Mis compras y vencimientos</h3>${T(['Servicio','Estado','Inicia','Vence','Total'],(o.data||[]).map(x=>[x.products?.nombre,x.estado==='pendiente'?'En revisión (conciliación manual)':x.estado,x.inicia,x.vence,'$'+x.total_usd]))}
+  ${(o.data||[]).filter(x=>x.estado==='pendiente').map(x=>`<button class="g" data-cancel="${x.id}" style="margin:6px 6px 0 0">Cancelar pedido: ${esc(x.products?.nombre)}</button>`).join('')}
+  <h3>Facturas</h3>${T(['N°','Fecha','USD','Bs','Tasa'],(i.data||[]).map(x=>[String(x.numero).padStart(6,'0'),x.emitida?.slice(0,10),x.total_usd,x.total_bs,x.tasa_bs]))}
+  <h3>Movimientos Zeny</h3>${T(['Fecha','Tipo','Monto','Estado'],(l.data||[]).map(x=>[x.created_at.slice(0,10),x.tipo,x.monto,x.estado]))}
+  <h3>Incidencias</h3>${T(['Asunto','Estado'],(inc.data||[]).map(x=>[x.asunto,x.estado]))}<button class="g" id="ni" style="margin-top:8px">Reportar incidencia</button>`;
+  app.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('cancel_my_order',{p_order:b.dataset.cancel});error?toast(error.message):(await loadPublic(),portal());});
+  $('#rec').onclick=()=>{ $('#dlgBody').innerHTML='<h3>Recargar Zeny</h3><input id="m" type="number" min="1" placeholder="Monto en USD"><input id="r" placeholder="Referencia del pago" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Solicitar recarga</button>'; dlg.showModal();
+    $('#ok').onclick=async()=>{const {error}=await sb.from('zeny_ledger').insert({customer_id:S.user.id,tipo:'recarga',monto:+$('#m').value,referencia:$('#r').value,estado:'pendiente'});error?toast(error.message):(dlg.close(),portal());};};
+  $('#ni').onclick=()=>{ $('#dlgBody').innerHTML='<h3>Incidencia</h3><input id="a" placeholder="Asunto"><textarea id="d" placeholder="Detalle" style="margin-top:8px"></textarea><input id="f" type="file" accept="image/*" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Enviar</button>'; dlg.showModal();
+    $('#ok').onclick=async()=>{let url=null;const f=$('#f').files[0];if(f){const path=`${S.user.id}/${Date.now()}-${f.name}`;const u=await sb.storage.from('capturas').upload(path,f);if(!u.error)url=path;}
+      const {error}=await sb.from('incidents').insert({customer_id:S.user.id,asunto:$('#a').value,detalle:$('#d').value,captura_url:url});error?toast(error.message):(dlg.close(),portal());};};
+}
+// ---------- PANEL ADMIN (CRUD generico, protegido por RLS) ----------
+const TABLES = {
+ orders:['customer_id','product_id','total_usd','zeny_aplicado','referencia','estado','conciliado_por','inicia','vence','proximo_pago'],
+ zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
+ products:['nombre','descripcion','tipo','precio_usd','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
+ banners:['titulo','texto','imagen_url','enlace','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
+ payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
+ mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
+ profiles_inventory:['mother_id','product_id','nombre_perfil','pin','vendedor','inicia','vence','estado'],
+ customers:['nombre','email','telefono','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
+ bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
+ exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','notas'], purchases:['fecha','proveedor','plataforma','mother_id','monto_usd','notas'],
+ refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
+const SEL={orders:'*,customers(nombre,email),products(nombre)',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
+const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email']};
+const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta']};
+const BOOL=['activo','activa','enabled'], READONLY={customers:['zeny_balance']};
+const NOADD=['refunds','transfers'];
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:'';
+const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
+const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
+  if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
+  if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):''); return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
+async function admin(t){
+  if(!S.isAdmin) return toast('Acceso solo para el administrador'); S.view='admin'; S.t=t;
+  const tabs=[...Object.keys(TABLES),...Object.keys(EXTRA)];
+  const head=`<h2>Panel administrativo</h2><div class="tabs">${tabs.map(k=>`<button class="${k===t?'':'g'}" data-k="${k}">${k}</button>`).join('')}</div>`;
+  if(EXTRA[t]){ app.innerHTML=head+'<div id="ex"></div>'; app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>admin(b.dataset.k)); return EXTRA[t]($('#ex')); }
+  const cols=TABLES[t], {data,error}=await sb.from(t).select(SEL[t]||'*').order(cols.includes('created_at')?'created_at':cols[0],{ascending:false}).limit(300);
+  const pk=PK[t]||'id', hasAct=t==='orders'||t==='zeny_ledger';
+  app.innerHTML = head+`<div class="row">${NOADD.includes(t)?'':'<button id="add">+ Agregar</button>'}<span class="mut">${error?esc(error.message):(data||[]).length+' registros'}</span></div>
+  <div class="wrap"><table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th></th></tr>${(data||[]).map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c)}</td>`).join('')}<td class="row">${acts(t,r)}${NOADD.includes(t)?'':`<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}</table></div>`;
+  app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>admin(b.dataset.k));
+  app.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const {data:v,error:e}=await sb.rpc('reveal_secret',{p:b.dataset.rv});toast(e?e.message:v);});
+  app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!confirm(t==='orders'?`¿Verificaste el pago? Total $${b.dataset.tot} (ZenyPoints aplicados: $${b.dataset.z}). Se entregarán las credenciales al cliente.`:'¿Verificaste el pago de esta recarga?'))return;const {error:e}=t==='orders'?await sb.rpc('deliver_order',{p_order:b.dataset.ok}):await sb.from(t).update({estado:'aprobado'}).eq('id',b.dataset.ok);e?toast(e.message):admin(t);});
+  app.querySelectorAll('[data-rej]').forEach(b=>b.onclick=async()=>{if(confirm('¿Rechazar pedido y liberar el perfil reservado?')){const {error:e}=await sb.rpc('reject_order',{p_order:b.dataset.rej});e?toast(e.message):admin(t);}});
+  app.querySelectorAll('[data-ref]').forEach(b=>b.onclick=()=>refundDlg(b.dataset.ref,b.dataset.tot,()=>admin(t)));
+  app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));
+  app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
+  const form=async row=>{
+    const fks={}; await Promise.all(cols.filter(c=>FK[c]).map(async c=>{const [tb,lb]=FK[c];const {data:d}=await sb.from(tb).select('id,'+lb).limit(500);fks[c]=d||[];}));
+    const inp=c=>{const v=row?row[c]:''; const ro=(READONLY[t]||[]).includes(c)&&row;
+      if(fks[c]) return `<select data-c="${c}"><option value="">—</option>${fks[c].map(o=>`<option value="${o.id}" ${row&&row[c]===o.id?'selected':''}>${esc(o[FK[c][1]])}</option>`).join('')}</select>`;
+      if(ENUM[t+'.'+c]) return `<select data-c="${c}">${ENUM[t+'.'+c].map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('')}</select>`;
+      if(BOOL.includes(c)) return `<select data-c="${c}"><option value="true" ${v!==false?'selected':''}>Sí</option><option value="false" ${v===false?'selected':''}>No</option></select>`;
+      if(c==='imagen_url') return `<input data-c="${c}" value="${esc(v)}" placeholder="URL"><input type="file" accept="image/*" data-up style="margin-top:6px">`;
+      if(typeof v==='string'&&v.startsWith('enc:')) return `<input data-c="${c}" type="password" placeholder="(sin cambios — escribe para reemplazar)" autocomplete="off">`;
+      if(['clave','pin'].includes(c)) return `<input data-c="${c}" type="password" autocomplete="off">`;
+      return `<input data-c="${c}" ${ro?'disabled':''} value="${esc(v&&typeof v==='object'?JSON.stringify(v):v)}">`;};
+    $('#dlgBody').innerHTML=`<h3>${row?'Editar':'Agregar'} ${t}</h3><div style="max-height:62vh;overflow:auto">`+cols.map(c=>`<label class="mut">${c}</label>${inp(c)}`).join('')+'</div><button id="save" style="margin-top:10px;width:100%">Guardar</button>'; dlg.showModal();
+    $('#save').onclick=async()=>{const o={};
+      for(const i of dlg.querySelectorAll('[data-c]')){let v=i.value;if(v===''||i.disabled)continue;if(v==='true'||v==='false')v=v==='true';else if(/^[\[{]/.test(v))try{v=JSON.parse(v)}catch{};o[i.dataset.c]=v;}
+      for(const f of dlg.querySelectorAll('[data-up]')){const file=f.files[0];if(file){const path=`${t}/${Date.now()}-${file.name.replace(/[^\w.-]/g,'_')}`;const u=await sb.storage.from('catalogo').upload(path,file);if(u.error)return toast(u.error.message);o.imagen_url=sb.storage.from('catalogo').getPublicUrl(path).data.publicUrl;}}
+      const {error:e}=await (row?sb.from(t).update(o).eq(pk,row[pk]):sb.from(t).insert(o));e?toast(e.message):(dlg.close(),admin(t));};};
+  if($('#add')) $('#add').onclick=()=>form(null);
+  app.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>form(data.find(r=>String(r[pk])===b.dataset.e)));
+  app.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar registro?')){const {error:e}=await sb.from(t).delete().eq(pk,b.dataset.x);e?toast(e.message):admin(t);}});
+}
+// ---------- TIEMPO REAL, BADGE DE PENDIENTES E INSTALACION ----------
+let _rt; const refresh=()=>{clearTimeout(_rt);_rt=setTimeout(async()=>{ if(!S.user) return;
+  S.me=(await sb.from('customers').select('*').eq('id',S.user.id).maybeSingle()).data||S.me;
+  if(S.view==='portal') portal(); else if(S.view==='admin'&&!dlg.open&&(TABLES[S.t]||S.t==='finanzas')) admin(S.t); badge(); },600);};
+async function badge(){ if(!S.isAdmin) return; const c=(t,f)=>f(sb.from(t).select('id',{count:'exact',head:true}));
+  const [a,b,i]=await Promise.all([c('orders',x=>x.eq('estado','pendiente')),c('zeny_ledger',x=>x.eq('estado','pendiente').eq('tipo','recarga')),c('incidents',x=>x.eq('estado','abierta'))]);
+  const n=(a.count||0)+(b.count||0)+(i.count||0); $('#bAdmin').textContent=(n?`Admin (${n})`:'Admin')+(S.venc?` ⏰${S.venc}`:''); }
+// ---------- ALERTAS SONORAS (solo administrador, mientras la app o pestaña esté abierta) ----------
+let _ac; const sndOn=()=>localStorage.getItem('snd')!=='0';
+const unlock=()=>{ try{ _ac=_ac||new (window.AudioContext||window.webkitAudioContext)(); if(_ac.state==='suspended') _ac.resume(); }catch{} updSnd(); };
+addEventListener('pointerdown',unlock,{passive:true});
+function updSnd(){ const b=$('#bSnd'); if(b) b.textContent=!sndOn()?'🔕 Sin sonido':(_ac&&_ac.state==='running'?'🔔 Sonido':'🔔 Toca para activar'); }
+$('#bSnd').onclick=async()=>{ localStorage.setItem('snd',sndOn()?'0':'1'); unlock(); updSnd();
+  if(sndOn()){ beep('order'); if('Notification' in window&&Notification.permission==='default') Notification.requestPermission(); } };
+function beep(kind){ if(!sndOn()||!_ac||_ac.state!=='running') return;
+  const seq={order:[[880,.15],[1175,.3]],recarga:[[660,.15],[660,.15],[990,.3]],incidencia:[[440,.3],[330,.3],[440,.3]],venc:[[784,.2],[988,.2],[1175,.2],[988,.2]]}[kind]||[[880,.2]]; let t=_ac.currentTime;
+  for(const [f,d] of seq){ const o=_ac.createOscillator(),g=_ac.createGain(); o.type='sine'; o.frequency.value=f; o.connect(g); g.connect(_ac.destination);
+    g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.35,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+d); o.start(t); o.stop(t+d+.02); t+=d+.06; } }
+function banner(msg){ let b=$('#alertbox'); if(!b){ b=document.createElement('div'); b.id='alertbox'; b.style.cssText='position:fixed;top:calc(8px + env(safe-area-inset-top));left:8px;right:8px;z-index:20;display:grid;gap:6px;pointer-events:none;max-width:520px;margin:auto'; document.body.appendChild(b); }
+  const d=document.createElement('div'); d.className='card'; d.style.cssText='pointer-events:auto;border-color:var(--a);display:flex;justify-content:space-between;align-items:center;gap:8px'; d.innerHTML=`<span>🔔 ${esc(msg)}</span>`;
+  const x=document.createElement('button'); x.className='g'; x.textContent='✕'; x.onclick=()=>d.remove(); d.appendChild(x); b.appendChild(d); setTimeout(()=>d.remove(),20000); }
+function notify(kind,msg){ beep(kind); banner(msg); try{ if(navigator.vibrate) navigator.vibrate(kind==='incidencia'?[200,100,200,100,200]:[250]);
+  if('Notification' in window&&Notification.permission==='granted'&&document.hidden) new Notification('Gregory Izquierdo',{body:msg,icon:'/icon-192.png',tag:kind}); }catch{}
+  document.title='🔔 '+msg; setTimeout(()=>document.title='Emprendimiento Gregory Izquierdo',8000); badge(); }
+const ALERTS={orders:{ok:r=>r.estado==='pendiente',kind:'order',msg:'Nuevo pedido pendiente de conciliación'},
+  zeny_ledger:{ok:r=>r.tipo==='recarga'&&r.estado==='pendiente',kind:'recarga',msg:'Nueva recarga Zeny por aprobar'},
+  incidents:{ok:()=>true,kind:'incidencia',msg:'Nueva incidencia reportada por un cliente'}};
+Object.entries(ALERTS).reduce((ch,[t,a])=>ch.on('postgres_changes',{event:'INSERT',schema:'public',table:t},p=>{ if(S.isAdmin&&a.ok(p.new)) notify(a.kind,a.msg); }),sb.channel('alerts')).subscribe();
+// Vencimientos del dia: servicios de clientes y cuentas madre. Suena una vez por cada nuevo vencimiento del dia, y se revisa cada hora.
+async function checkVenc(){ if(!S.isAdmin) return; const d=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const [o,m]=await Promise.all([sb.from('orders').select('id',{count:'exact',head:true}).eq('estado','entregado').eq('vence',d), sb.from('mother_accounts').select('id',{count:'exact',head:true}).eq('activa',true).eq('vence',d)]);
+  const a=o.count||0, b=m.count||0, n=a+b; S.venc=n; const k='venc-'+d, prev=+(localStorage.getItem(k)||0);
+  if(n>prev){ localStorage.setItem(k,n); notify('venc',`Vencen hoy: ${a} servicio(s) de clientes y ${b} cuenta(s) madre`); } else badge(); }
+setInterval(checkVenc,3600000);
+['orders','zeny_ledger','customers','incidents','profiles_inventory','refunds','expenses','purchases','transfers'].reduce((ch,t)=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},refresh),sb.channel('live')).subscribe();
+let _dip; addEventListener('beforeinstallprompt',e=>{e.preventDefault();_dip=e;});
+if(matchMedia('(display-mode: standalone)').matches||navigator.standalone) $('#bInstall').classList.add('hide');
+$('#bInstall').onclick=()=>{ const apk=S.settings.app?.apk_url||'', ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  $('#dlgBody').innerHTML='<h3>Instalar la app</h3>'+(_dip?'<button id="ip" style="width:100%">Instalar en este dispositivo</button>':'')
+   +(ios?'<p>En iPhone/iPad (Safari): pulsa <b>Compartir</b> y luego <b>Añadir a pantalla de inicio</b>.</p>':(!_dip?'<p>En Android (Chrome): menú ⋮ → <b>Instalar aplicación</b>.</p>':''))
+   +(/^https:\/\//.test(apk)?`<p><a href="${esc(apk)}" rel="noopener noreferrer">Descargar APK (Android)</a></p><p class="mut">Android pedirá permitir la instalación de este archivo.</p>`:'')
+   +'<p class="mut">La app muestra siempre los datos en tiempo real de la tienda.</p>'; dlg.showModal();
+  if($('#ip')) $('#ip').onclick=async()=>{_dip.prompt();await _dip.userChoice;dlg.close();}; };
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+init();
+</script>
+<script src="/admin-extra.js"></script></body></html>
