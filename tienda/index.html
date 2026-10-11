@@ -46,6 +46,42 @@ dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border
 .sk{border-radius:20px;min-height:280px;background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(0,212,255,.10) 50%,rgba(255,255,255,.04) 70%);background-size:200% 100%;animation:sh 1.4s infinite linear;border:1px solid var(--line)}@keyframes sh{to{background-position:-200% 0}}
 .wa{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:6;border-radius:99px;text-decoration:none;padding:12px 18px;font-weight:800;color:#03121c;background:linear-gradient(135deg,#00f5a0,#00d4ff);box-shadow:0 10px 30px -6px rgba(0,245,160,.7)}
 @media(max-width:560px){header{padding:8px 12px}.hero{padding:26px 16px;border-radius:20px}main{padding:14px 12px 90px}}
+body.is-admin main{max-width:1440px;width:100%}
+.admin-wrapper{display:flex;flex-direction:column;gap:12px;width:100%}
+.admin-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start}
+.admin-sidebar{position:sticky;top:68px;max-height:calc(100vh - 84px);display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(10,22,40,.96),rgba(5,13,26,.98));border:1px solid var(--line);border-radius:var(--r);box-shadow:0 16px 40px -12px rgba(0,0,0,.7),0 0 0 1px rgba(0,212,255,.08);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);overflow:hidden;z-index:10}
+.admin-sidebar-head{padding:14px 14px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(22,51,90,.8);background:rgba(3,8,18,.4)}
+.admin-sidebar-brand{display:flex;align-items:center;gap:10px}
+.admin-sb-icon{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-weight:800;font-size:.9rem;color:#03121c;background:var(--grad);box-shadow:0 0 14px rgba(0,245,160,.35);flex-shrink:0}
+.admin-sb-title{font-weight:800;font-size:.92rem;color:var(--tx);line-height:1.15}
+.admin-sb-sub{font-size:.68rem;color:var(--mut)}
+.admin-sidebar-close{display:none;padding:4px 8px;font-size:.85rem}
+.admin-nav-scroll{overflow-y:auto;padding:10px 8px 16px;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:rgba(0,212,255,.25) transparent}
+.admin-nav-scroll::-webkit-scrollbar{width:5px}
+.admin-nav-scroll::-webkit-scrollbar-thumb{background:rgba(0,212,255,.25);border-radius:99px}
+.admin-sb-group{font-size:.68rem;font-weight:800;letter-spacing:.75px;text-transform:uppercase;color:var(--c);opacity:.85;padding:12px 10px 4px}
+.admin-sb-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 10px;border-radius:10px;font-size:.82rem;font-weight:600;text-align:left;background:transparent;color:var(--mut);border:1px solid transparent;box-shadow:none;cursor:pointer;transition:all .16s ease}
+.admin-sb-btn:hover{background:rgba(0,212,255,.08);color:var(--tx);border-color:rgba(0,212,255,.18);transform:translateX(2px)}
+.admin-sb-btn.active{background:linear-gradient(135deg,rgba(0,245,160,.14) 0%,rgba(0,212,255,.2) 100%);color:#fff;border-color:rgba(0,245,160,.4);border-left:3px solid var(--a);box-shadow:0 4px 16px -2px rgba(0,212,255,.3);font-weight:700;transform:none}
+.admin-sb-btn-main{display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-sb-btn-icon{font-size:.92rem;line-height:1}
+.admin-sb-badge{padding:2px 7px;border-radius:99px;font-size:.68rem;font-weight:800;background:rgba(0,245,160,.16);color:var(--a);border:1px solid rgba(0,245,160,.3);flex-shrink:0}
+.admin-sb-badge.warn{background:rgba(255,77,109,.18);color:#ff7b93;border-color:rgba(255,77,109,.35)}
+.admin-main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.admin-main-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 16px;background:linear-gradient(180deg,rgba(13,29,54,.85),rgba(8,18,34,.85));border:1px solid var(--line);border-radius:var(--r)}
+.admin-main-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.admin-main-title h2{margin:0;font-size:1.25rem;font-weight:800}
+.admin-mobile-bar{display:none;margin-bottom:6px}
+.admin-mobile-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:11px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(13,29,54,.95),rgba(8,18,34,.95));border:1px solid rgba(0,212,255,.25);color:var(--tx);font-size:.88rem;font-weight:700;box-shadow:0 4px 18px rgba(0,0,0,.4)}
+.admin-backdrop{display:none;position:fixed;inset:0;background:rgba(3,8,18,.75);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:40}
+@media(max-width:880px){
+  .admin-layout{grid-template-columns:1fr}
+  .admin-mobile-bar{display:block}
+  .admin-sidebar{position:fixed;top:0;left:0;bottom:0;width:280px;max-height:100vh;height:100vh;border-radius:0 20px 20px 0;transform:translateX(-105%);transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:50;box-shadow:0 0 50px rgba(0,0,0,.8)}
+  .admin-sidebar.open{transform:translateX(0)}
+  .admin-sidebar-close{display:block}
+  .admin-backdrop.open{display:block}
+}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style></head><body>
 <header><div class="brand"><div class="logo">GI</div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
@@ -122,6 +158,7 @@ function renderTabs(){
   $('#tabs').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.tipo=b.dataset.t;renderTabs();renderGrid();});
 }
 function home(){
+  document.body.classList.remove('is-admin');
   S.view='home'; const tel=(S.settings.negocio?.telefono||'').replace(/\D/g,'');
   app.innerHTML = `${S.banners.length?`<div class="ban">${S.banners.map(b=>{const t=`<h3>${esc(b.titulo)}</h3><p>${esc(b.texto)}</p>`,st=b.imagen_url?` style="background-image:linear-gradient(#0008,#000a),url('${esc(b.imagen_url)}')"`:'';return /^https?:\/\//.test(b.enlace||'')?`<a href="${esc(b.enlace)}" target="_blank" rel="noopener noreferrer"${st}>${t}</a>`:`<div${st}>${t}</div>`;}).join('')}</div>`:''}
   <section class="hero"><h2>Streaming y cuentas digitales <span>al mejor precio</span></h2>
@@ -164,7 +201,7 @@ function loginDlg(){
 }
 // ---------- PORTAL CLIENTE ----------
 async function portal(){
-  if(!S.user) return loginDlg(); S.view='portal';
+  if(!S.user) return loginDlg(); document.body.classList.remove('is-admin'); S.view='portal';
   const [o,i,l,inc,cr] = await Promise.all([
     sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
     sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false}),
@@ -213,16 +250,117 @@ const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
   if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):''); return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
+const ADMIN_MENU = [
+  {
+    group: 'Operaciones',
+    items: [
+      { id: 'finanzas', label: 'Finanzas', icon: '📊' },
+      { id: 'orders', label: 'Pedidos', icon: '🛒', badgeKey: 'orders' },
+      { id: 'zeny_ledger', label: 'Billetera Zeny', icon: '💰', badgeKey: 'zeny_ledger' },
+      { id: 'incidents', label: 'Incidencias', icon: '⚠️', badgeKey: 'incidents' }
+    ]
+  },
+  {
+    group: 'Inventario & Catálogo',
+    items: [
+      { id: 'mother_accounts', label: 'Cuentas madre', icon: '🔑' },
+      { id: 'profiles_inventory', label: 'Perfiles', icon: '👤' },
+      { id: 'products', label: 'Productos', icon: '📦' },
+      { id: 'categories', label: 'Categorías', icon: '🏷️' },
+      { id: 'banners', label: 'Banners', icon: '🎨' },
+      { id: 'importar', label: 'Importar Excel', icon: '📥' }
+    ]
+  },
+  {
+    group: 'Contabilidad',
+    items: [
+      { id: 'expenses', label: 'Gastos', icon: '📉' },
+      { id: 'purchases', label: 'Compras', icon: '🛍️' },
+      { id: 'refunds', label: 'Devoluciones', icon: '🔄' },
+      { id: 'transfers', label: 'Traslados', icon: '🔀' },
+      { id: 'exchange_rates', label: 'Tasa BCV', icon: '💵' }
+    ]
+  },
+  {
+    group: 'Clientes & Logs',
+    items: [
+      { id: 'customers', label: 'Clientes', icon: '👥' },
+      { id: 'login_log', label: 'Log accesos', icon: '📋' }
+    ]
+  },
+  {
+    group: 'Bots & IA',
+    items: [
+      { id: 'telegram', label: 'Bot Telegram', icon: '🤖' },
+      { id: 'bot_commands', label: 'Respuestas Bot', icon: '⚡' },
+      { id: 'gemini', label: 'Gemini AI', icon: '✨' },
+      { id: 'notificaciones', label: 'Notificaciones', icon: '🔔' }
+    ]
+  },
+  {
+    group: 'Ajustes & Sistema',
+    items: [
+      { id: 'payment_methods', label: 'Métodos pago', icon: '💳' },
+      { id: 'google', label: 'Google Cloud', icon: '🌐' },
+      { id: 'google_integrations', label: 'Config Google', icon: '🔌' },
+      { id: 'faqs', label: 'Preguntas FAQ', icon: '❓' },
+      { id: 'settings', label: 'Ajustes', icon: '⚙️' }
+    ]
+  }
+];
+
+function getTabInfo(t){
+  for(const g of ADMIN_MENU){
+    const f=g.items.find(x=>x.id===t);
+    if(f) return f;
+  }
+  return { id: t, label: t, icon: '📄' };
+}
+
+function renderAdminSidebar(curTab, allTabs){
+  const known = new Set(ADMIN_MENU.flatMap(g => g.items.map(i => i.id)));
+  const extra = allTabs.filter(k => !known.has(k));
+  const groups = [...ADMIN_MENU];
+  if(extra.length) groups.push({ group: 'Otras tablas', items: extra.map(k => ({ id: k, label: k, icon: '📄' })) });
+  return `<div class="admin-backdrop" id="adminBackdrop"></div><aside class="admin-sidebar" id="adminSidebar"><div class="admin-sidebar-head"><div class="admin-sidebar-brand"><div class="admin-sb-icon">GI</div><div><div class="admin-sb-title">Panel Admin</div><div class="admin-sb-sub">Emprendimiento Gregory</div></div></div><button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button></div><nav class="admin-nav-scroll">${groups.map(g=>`<div class="admin-sb-group">${esc(g.group)}</div>${g.items.map(it=>{
+    const act = it.id===curTab ? ' active' : '';
+    const bCount = (it.badgeKey && S.badges) ? (S.badges[it.badgeKey]||0) : 0;
+    const bCls = it.id==='incidents' ? 'admin-sb-badge warn' : 'admin-sb-badge';
+    return `<button class="admin-sb-btn${act}" data-k="${esc(it.id)}" type="button"><span class="admin-sb-btn-main"><span class="admin-sb-btn-icon">${it.icon}</span><span>${esc(it.label)}</span></span><span id="sbBadge-${esc(it.id)}" class="${bCls}${bCount?'':' hide'}">${bCount}</span></button>`;
+  }).join('')}`).join('')}</nav></aside>`;
+}
+
+function setupAdminEvents(){
+  app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{
+    const sb=$('#adminSidebar'), bd=$('#adminBackdrop');
+    if(sb) sb.classList.remove('open');
+    if(bd) bd.classList.remove('open');
+    admin(b.dataset.k);
+  });
+  const tBtn = $('#adminToggle'), sb = $('#adminSidebar'), bd = $('#adminBackdrop'), cBtn = $('#adminCloseSidebar');
+  const close = () => { if(sb) sb.classList.remove('open'); if(bd) bd.classList.remove('open'); };
+  const open = () => { if(sb) sb.classList.add('open'); if(bd) bd.classList.add('open'); };
+  if(tBtn) tBtn.onclick = open;
+  if(cBtn) cBtn.onclick = close;
+  if(bd) bd.onclick = close;
+  const activeBtn = app.querySelector('.admin-sb-btn.active');
+  if(activeBtn){ try{ activeBtn.scrollIntoView({ block:'nearest' }); }catch(e){} }
+}
+
 async function admin(t){
-  if(!S.isAdmin) return toast('Acceso solo para el administrador'); S.view='admin'; S.t=t;
+  if(!S.isAdmin) return toast('Acceso solo para el administrador'); document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
   const tabs=[...Object.keys(TABLES),...Object.keys(EXTRA)];
-  const head=`<h2>Panel administrativo</h2><div class="tabs">${tabs.map(k=>`<button class="${k===t?'':'g'}" data-k="${k}">${k}</button>`).join('')}</div>`;
-  if(EXTRA[t]){ app.innerHTML=head+'<div id="ex"></div>'; app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>admin(b.dataset.k)); return EXTRA[t]($('#ex')); }
+  const tabInfo=getTabInfo(t), sideHtml=renderAdminSidebar(t,tabs);
+  const mobBar=`<div class="admin-mobile-bar"><button class="admin-mobile-toggle" id="adminToggle" type="button"><span>☰ Menú: <strong>${tabInfo.icon} ${esc(tabInfo.label)}</strong></span><span class="mut" style="font-size:.74rem">Abrir ▾</span></button></div>`;
+
+  if(EXTRA[t]){
+    app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2></div></div><div id="ex"></div></div></div></div>`;
+    setupAdminEvents(); return EXTRA[t]($('#ex'));
+  }
   const cols=TABLES[t], {data,error}=await sb.from(t).select(SEL[t]||'*').order(cols.includes('created_at')?'created_at':cols[0],{ascending:false}).limit(300);
   const pk=PK[t]||'id', hasAct=t==='orders'||t==='zeny_ledger';
-  app.innerHTML = head+`<div class="row">${NOADD.includes(t)?'':'<button id="add">+ Agregar</button>'}<span class="mut">${error?esc(error.message):(data||[]).length+' registros'}</span></div>
-  <div class="wrap"><table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th></th></tr>${(data||[]).map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c)}</td>`).join('')}<td class="row">${acts(t,r)}${NOADD.includes(t)?'':`<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}</table></div>`;
-  app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>admin(b.dataset.k));
+  app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2><span class="mut">${error?esc(error.message):(data||[]).length+' registros'}</span></div><div class="row">${NOADD.includes(t)?'':'<button id="add">+ Agregar</button>'}</div></div><div class="wrap"><table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th></th></tr>${(data||[]).map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c)}</td>`).join('')}<td class="row">${acts(t,r)}${NOADD.includes(t)?'':`<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}</table></div></div></div></div>`;
+  setupAdminEvents();
   app.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const {data:v,error:e}=await sb.rpc('reveal_secret',{p:b.dataset.rv});toast(e?e.message:v);});
   app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!confirm(t==='orders'?`¿Verificaste el pago? Total $${b.dataset.tot} (ZenyPoints aplicados: $${b.dataset.z}). Se entregarán las credenciales al cliente.`:'¿Verificaste el pago de esta recarga?'))return;const {error:e}=t==='orders'?await sb.rpc('deliver_order',{p_order:b.dataset.ok}):await sb.from(t).update({estado:'aprobado'}).eq('id',b.dataset.ok);e?toast(e.message):admin(t);});
   app.querySelectorAll('[data-rej]').forEach(b=>b.onclick=async()=>{if(confirm('¿Rechazar pedido y liberar el perfil reservado?')){const {error:e}=await sb.rpc('reject_order',{p_order:b.dataset.rej});e?toast(e.message):admin(t);}});
@@ -254,7 +392,13 @@ let _rt; const refresh=()=>{clearTimeout(_rt);_rt=setTimeout(async()=>{ if(!S.us
   if(S.view==='portal') portal(); else if(S.view==='admin'&&!dlg.open&&(TABLES[S.t]||S.t==='finanzas')) admin(S.t); badge(); },600);};
 async function badge(){ if(!S.isAdmin) return; const c=(t,f)=>f(sb.from(t).select('id',{count:'exact',head:true}));
   const [a,b,i]=await Promise.all([c('orders',x=>x.eq('estado','pendiente')),c('zeny_ledger',x=>x.eq('estado','pendiente').eq('tipo','recarga')),c('incidents',x=>x.eq('estado','abierta'))]);
-  const n=(a.count||0)+(b.count||0)+(i.count||0); $('#bAdmin').textContent=(n?`Admin (${n})`:'Admin')+(S.venc?` ⏰${S.venc}`:''); }
+  const n=(a.count||0)+(b.count||0)+(i.count||0); $('#bAdmin').textContent=(n?`Admin (${n})`:'Admin')+(S.venc?` ⏰${S.venc}`:'');
+  S.badges={orders:a.count||0,zeny_ledger:b.count||0,incidents:i.count||0};
+  const bo=$('#sbBadge-orders'), bz=$('#sbBadge-zeny_ledger'), bi=$('#sbBadge-incidents');
+  if(bo){ bo.textContent=a.count||0; bo.classList.toggle('hide',!a.count); }
+  if(bz){ bz.textContent=b.count||0; bz.classList.toggle('hide',!b.count); }
+  if(bi){ bi.textContent=i.count||0; bi.classList.toggle('hide',!i.count); }
+}
 // ---------- ALERTAS SONORAS (solo administrador, mientras la app o pestaña esté abierta) ----------
 let _ac; const sndOn=()=>localStorage.getItem('snd')!=='0';
 const unlock=()=>{ try{ _ac=_ac||new (window.AudioContext||window.webkitAudioContext)(); if(_ac.state==='suspended') _ac.resume(); }catch{} updSnd(); };

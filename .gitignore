@@ -4,3 +4,9 @@
 node_modules
 .vercel
 *.xlsx
+node_modules/
+dist/
+build/
+.next/
+.env
+*.log
