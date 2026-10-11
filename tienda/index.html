@@ -142,64 +142,64 @@ body.is-admin main{max-width:1440px;width:100%}
 .cal-item-pill.mother{background:#fef3c7;color:#b45309;border-left:3px solid #f59e0b}
 .cal-sheet-notes{background:#f1f5f9;border-top:1px solid #0f172a;padding:10px 12px;margin-top:1px;font-size:.75rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:1px}
 
-/* Panel de Pago / Checkout Adaptado (Estilo Mobile Bottom-Sheet & Tarjetas Métodos) */
+/* Panel de Pago / Checkout Adaptado (Paleta Oficial de la Plataforma: Azul Oscuro, Cyan y Esmeralda) */
 .checkout-modal{border:0;background:transparent;padding:0;width:100%;max-width:480px;box-shadow:none;overflow:visible}
-.checkout-modal::backdrop{background:rgba(2,6,15,.75);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-.checkout-card{background:#ffffff;color:#0f172a;border-radius:28px 28px 20px 20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);position:relative;animation:slideUp .25s ease-out}
+.checkout-modal::backdrop{background:rgba(2,6,15,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.checkout-card{background:linear-gradient(180deg,#0a1a33 0%,#060f1e 100%);color:var(--tx);border-radius:28px 28px 22px 22px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.85),0 0 35px -5px rgba(0,212,255,.25);border:1px solid rgba(0,212,255,.28);position:relative;animation:slideUp .25s ease-out}
 @keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
-.checkout-top-bar{background:#ffe600;padding:14px 18px 8px;display:flex;align-items:center;justify-content:space-between;position:relative}
-.checkout-back-btn{background:transparent;border:none;color:#0f172a;font-size:1.3rem;cursor:pointer;padding:4px 8px;font-weight:800;box-shadow:none;display:flex;align-items:center}
-.checkout-back-btn:hover{background:transparent;transform:translateX(-2px);box-shadow:none}
-.checkout-progress-bar{flex:1;max-width:140px;height:4px;background:rgba(0,0,0,.2);border-radius:99px;margin:0 12px;overflow:hidden}
-.checkout-progress-fill{height:100%;background:#0f172a;border-radius:99px;transition:width .25s ease}
-.checkout-close-btn{background:transparent;border:none;color:#0f172a;font-size:1.3rem;cursor:pointer;padding:4px 8px;font-weight:800;box-shadow:none}
-.checkout-close-btn:hover{background:transparent;transform:none;box-shadow:none}
+.checkout-top-bar{background:linear-gradient(135deg,rgba(12,32,60,.95) 0%,rgba(6,18,36,.98) 100%);border-bottom:1px solid rgba(0,212,255,.18);padding:14px 18px 10px;display:flex;align-items:center;justify-content:space-between;position:relative}
+.checkout-back-btn{background:transparent;border:none;color:var(--c);font-size:1.4rem;cursor:pointer;padding:4px 8px;font-weight:800;box-shadow:none;display:flex;align-items:center;transition:transform .15s}
+.checkout-back-btn:hover{background:transparent;color:var(--a);transform:translateX(-2px);box-shadow:none}
+.checkout-progress-bar{flex:1;max-width:140px;height:4px;background:rgba(255,255,255,.12);border-radius:99px;margin:0 12px;overflow:hidden}
+.checkout-progress-fill{height:100%;background:var(--grad);border-radius:99px;transition:width .25s ease}
+.checkout-close-btn{background:transparent;border:none;color:var(--mut);font-size:1.3rem;cursor:pointer;padding:4px 8px;font-weight:800;box-shadow:none;transition:color .15s}
+.checkout-close-btn:hover{background:transparent;color:#ffffff;transform:none;box-shadow:none}
 .checkout-body{padding:18px 20px 24px;max-height:78vh;overflow-y:auto}
 
 /* Resumen del Pedido */
-.checkout-summary-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:14px 16px;margin-bottom:18px}
-.checkout-summary-row{display:flex;justify-content:space-between;align-items:center;font-size:.84rem;margin-bottom:6px;color:#475569}
-.checkout-summary-row b{color:#0f172a;font-size:.95rem}
-.checkout-summary-total{border-top:1px dashed #cbd5e1;padding-top:8px;margin-top:8px;display:flex;justify-content:space-between;align-items:baseline}
-.checkout-summary-total .price-usd{font-size:1.45rem;font-weight:800;color:#0f172a}
-.checkout-summary-total .price-bs{font-size:.85rem;color:#0284c7;font-weight:700}
+.checkout-summary-box{background:linear-gradient(180deg,rgba(13,29,54,.85),rgba(8,18,34,.9));border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-bottom:18px}
+.checkout-summary-row{display:flex;justify-content:space-between;align-items:center;font-size:.84rem;margin-bottom:6px;color:var(--mut)}
+.checkout-summary-row b{color:var(--tx);font-size:.95rem}
+.checkout-summary-total{border-top:1px dashed rgba(22,51,90,.9);padding-top:8px;margin-top:8px;display:flex;justify-content:space-between;align-items:baseline}
+.checkout-summary-total .price-usd{font-size:1.5rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.checkout-summary-total .price-bs{font-size:.85rem;color:var(--c);font-weight:700}
 
-/* Lista de Métodos de Pago (Pills / Cards) */
-.checkout-methods-title{font-size:.95rem;font-weight:800;color:#0f172a;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+/* Lista de Métodos de Pago */
+.checkout-methods-title{font-size:.95rem;font-weight:800;color:var(--tx);margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
 .checkout-methods-grid{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
-.checkout-method-card{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#ffffff;border:1.5px solid #e2e8f0;border-radius:20px;cursor:pointer;transition:all .18s ease;user-select:none}
-.checkout-method-card:hover{border-color:#ffd000;background:#fffdf0;transform:translateX(3px)}
-.checkout-method-card.active{border-color:#ffd000;background:#fffde6;box-shadow:0 4px 14px rgba(255,208,0,.35)}
+.checkout-method-card{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(10,24,46,.75);border:1.5px solid var(--line);border-radius:20px;cursor:pointer;transition:all .18s ease;user-select:none}
+.checkout-method-card:hover{border-color:var(--c);background:rgba(14,35,68,.9);transform:translateX(3px)}
+.checkout-method-card.active{border-color:var(--a);background:linear-gradient(135deg,rgba(0,245,160,.12) 0%,rgba(0,212,255,.14) 100%);box-shadow:0 4px 18px rgba(0,245,160,.25)}
 .checkout-method-left{display:flex;align-items:center;gap:12px}
-.checkout-method-icon{width:36px;height:36px;border-radius:10px;background:#f1f5f9;display:grid;place-items:center;font-size:1.25rem;flex-shrink:0}
-.checkout-method-card.active .checkout-method-icon{background:#ffe600}
-.checkout-method-name{font-size:.92rem;font-weight:700;color:#0f172a}
-.checkout-method-type{font-size:.72rem;color:#64748b;font-weight:500}
-.checkout-method-arrow{font-size:.9rem;color:#94a3b8;font-weight:800}
-.checkout-method-card.active .checkout-method-arrow{color:#0f172a}
+.checkout-method-icon{width:38px;height:38px;border-radius:11px;background:rgba(7,19,38,.9);border:1px solid var(--line);display:grid;place-items:center;font-size:1.25rem;flex-shrink:0}
+.checkout-method-card.active .checkout-method-icon{background:var(--grad);color:#03121c;border-color:transparent}
+.checkout-method-name{font-size:.92rem;font-weight:700;color:var(--tx)}
+.checkout-method-type{font-size:.72rem;color:var(--mut);font-weight:500}
+.checkout-method-arrow{font-size:.9rem;color:var(--mut);font-weight:800}
+.checkout-method-card.active .checkout-method-arrow{color:var(--a)}
 
-/* Datos de Pago e Instrucciones (Estilo exacto Screenshot) */
+/* Datos de Pago e Instrucciones */
 .checkout-bank-details{background:transparent;border:none;padding:0;margin:14px 0 16px}
-.checkout-bank-title{margin:0 0 10px;font-size:1.18rem;color:#0f172a;font-weight:800;letter-spacing:-.2px}
-.checkout-bank-alert{background:#fef9c3;border:1px solid #fef08a;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:.78rem;color:#854d0e;font-weight:600;margin-bottom:14px}
+.checkout-bank-title{margin:0 0 10px;font-size:1.18rem;color:var(--tx);font-weight:800;letter-spacing:-.2px}
+.checkout-bank-alert{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:.78rem;color:#b3e9ff;font-weight:600;margin-bottom:14px}
 .checkout-bank-list{display:flex;flex-direction:column;gap:10px}
-.checkout-bank-card{display:flex;align-items:center;justify-content:space-between;background:#f8fafc;padding:12px 16px;border-radius:16px;border:1px solid #e2e8f0;transition:all .15s ease}
-.checkout-bank-card:hover{background:#f1f5f9;border-color:#cbd5e1}
+.checkout-bank-card{display:flex;align-items:center;justify-content:space-between;background:rgba(9,22,42,.85);padding:12px 16px;border-radius:16px;border:1px solid var(--line);transition:all .15s ease}
+.checkout-bank-card:hover{background:rgba(13,32,60,.95);border-color:var(--c)}
 .checkout-bank-info{display:flex;flex-direction:column;gap:3px;overflow:hidden}
-.checkout-bank-label{font-size:.75rem;font-weight:600;color:#64748b}
-.checkout-bank-val{font-size:.98rem;font-weight:700;color:#0f172a;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.checkout-copy-btn{background:transparent;color:#475569;border:none;padding:6px;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;cursor:pointer;box-shadow:none;transition:all .15s ease;flex-shrink:0}
-.checkout-copy-btn:hover{background:#e2e8f0;color:#0f172a;transform:none}
-.checkout-copy-btn.copied{background:#dcfce7;color:#16a34a}
-.checkout-copy-btn svg{width:20px;height:20px;stroke-width:1.8}
+.checkout-bank-label{font-size:.73rem;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.checkout-bank-val{font-size:.98rem;font-weight:700;color:var(--tx);letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:monospace,sans-serif}
+.checkout-copy-btn{background:rgba(255,255,255,.05);color:var(--mut);border:1px solid var(--line);padding:6px;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;cursor:pointer;box-shadow:none;transition:all .15s ease;flex-shrink:0}
+.checkout-copy-btn:hover{background:rgba(0,212,255,.15);border-color:var(--c);color:var(--c);transform:none}
+.checkout-copy-btn.copied{background:rgba(0,245,160,.2);color:var(--a);border-color:var(--a)}
+.checkout-copy-btn svg{width:18px;height:18px;stroke-width:1.8}
 
 /* Inputs para Referencia y Envío */
 .checkout-input-group{margin-bottom:14px}
-.checkout-input-group label{display:block;font-size:.78rem;font-weight:700;color:#334155;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
-.checkout-input{background:#f8fafc!important;border:1.5px solid #cbd5e1!important;border-radius:12px!important;padding:12px 14px!important;color:#0f172a!important;font-size:.92rem!important;font-weight:600!important}
-.checkout-input:focus{border-color:#ffd000!important;background:#ffffff!important;box-shadow:0 0 0 3px rgba(255,208,0,.35)!important}
-.checkout-submit-btn{width:100%;background:linear-gradient(135deg,#ffe600 0%,#ffd000 100%);color:#0f172a;border:0;border-radius:16px;padding:14px;font-size:.95rem;font-weight:800;letter-spacing:.5px;box-shadow:0 6px 20px rgba(255,208,0,.45);cursor:pointer;transition:transform .15s,filter .15s}
-.checkout-submit-btn:hover{filter:brightness(1.04);transform:translateY(-1px);box-shadow:0 8px 24px rgba(255,208,0,.55)}
+.checkout-input-group label{display:block;font-size:.78rem;font-weight:700;color:var(--mut);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.checkout-input{background:rgba(7,19,38,.9)!important;border:1px solid var(--line)!important;border-radius:12px!important;padding:12px 14px!important;color:var(--tx)!important;font-size:.92rem!important;font-weight:600!important}
+.checkout-input:focus{border-color:var(--c)!important;box-shadow:0 0 0 3px rgba(0,212,255,.18)!important}
+.checkout-submit-btn{width:100%;background:var(--grad);color:#03121c;border:0;border-radius:14px;padding:13px;font-size:.95rem;font-weight:800;letter-spacing:.5px;box-shadow:0 6px 22px -6px rgba(0,212,255,.6);cursor:pointer;transition:transform .15s,filter .15s,box-shadow .2s}
+.checkout-submit-btn:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 10px 28px -6px rgba(0,245,160,.6)}
 .checkout-submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 </style></head><body>
 <header><div class="brand"><div class="logo">GI</div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
