@@ -6,7 +6,10 @@ create table if not exists admins (email text primary key);
 insert into admins values ('emprendimientogregoryizquierdo@gmail.com') on conflict do nothing;
 create or replace function is_admin() returns boolean language sql stable security definer set search_path = public as $$
   select exists(select 1 from admins where lower(email) = lower(auth.jwt()->>'email'))
-     and exists(select 1 from jsonb_array_elements(coalesce(auth.jwt()->'amr','[]'::jsonb)) a where a->>'method' = 'oauth') $$;
+     and (
+       coalesce(auth.jwt()->'app_metadata'->>'provider', '') = 'google'
+       or exists(select 1 from jsonb_array_elements(coalesce(auth.jwt()->'amr','[]'::jsonb)) a where a->>'method' in ('oauth', 'refresh_token', 'google'))
+     ) $$;
 
 -- ===== SECRETOS (llave de cifrado, token Telegram). Nadie del navegador puede leerla =====
 create table if not exists secrets (name text primary key, value text not null);

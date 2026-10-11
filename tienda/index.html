@@ -31,7 +31,7 @@ button.d{background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;box-shado
 table{width:100%;border-collapse:collapse;font-size:.85rem}td,th{border-bottom:1px solid rgba(22,51,90,.8);padding:8px 6px;text-align:left;vertical-align:top}th{color:var(--mut);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.4px}tr:hover td{background:rgba(0,212,255,.04)}.wrap{overflow-x:auto;border-radius:12px}
 dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border:1px solid rgba(0,212,255,.3);border-radius:20px;max-width:460px;width:92%;box-shadow:0 30px 80px -20px rgba(0,212,255,.35);padding:20px}dialog::backdrop{background:rgba(2,6,14,.72);backdrop-filter:blur(4px)}
 .hero{position:relative;overflow:hidden;border-radius:24px;padding:34px 22px;margin-bottom:18px;border:1px solid rgba(0,212,255,.22);background:radial-gradient(600px 260px at 15% 0%,rgba(0,245,160,.22),transparent 65%),radial-gradient(600px 300px at 100% 100%,rgba(37,99,255,.35),transparent 65%),linear-gradient(180deg,#081a33,#050e1d)}
-.hero h2{margin:0 0 8px;font-size:clamp(1.6rem,5.5vw,2.6rem);line-height:1.1;font-weight:800}.hero h2 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h2{margin:0 0 8px;font-size:clamp(1.6rem,5.5vw,2.6rem);line-height:1.1;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.hero h2 span{background:inherit;-webkit-background-clip:inherit;background-clip:inherit;color:inherit}
 .hero p{margin:0 0 16px;color:var(--mut);max-width:560px}.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.chips span{font-size:.76rem;padding:6px 11px;border-radius:99px;border:1px solid rgba(0,245,160,.25);background:rgba(0,245,160,.07);color:#baffe4}.search{max-width:460px}
 .ban{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin-bottom:16px;scrollbar-width:none}.ban::-webkit-scrollbar{display:none}
 .ban a,.ban div{flex:0 0 100%;scroll-snap-align:start;border-radius:20px;min-height:170px;padding:22px;background:linear-gradient(135deg,#0a3b4a,#12307a) center/cover;color:#fff;text-decoration:none;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid rgba(0,212,255,.25)}.ban h3{margin:0 0 4px;font-size:1.3rem}.ban p{margin:0;opacity:.92}
@@ -124,15 +124,49 @@ async function loadPublic(){
 }
 async function onSession(session){
   if(session?.provider_token) sessionStorage.setItem('gtk',session.provider_token);
-  S.user = session?.user||null; S.me=null; S.isAdmin=false;
-  if(S.user){
-    const [m,a] = await Promise.all([sb.from('customers').select('*').eq('id',S.user.id).maybeSingle(), sb.from('admins').select('email').eq('email',S.user.email||'').maybeSingle()]);
-    S.me = m.data; S.isAdmin = !!a.data;
-    sb.from('login_log').insert({customer_id:S.user.id,email:S.user.email,user_agent:navigator.userAgent}).then(()=>{});
+  const prevUser = S.user;
+  const isSameUser = prevUser && session?.user && prevUser.id === session.user.id;
+  S.user = session?.user||null;
+  if(!S.user){
+    S.me = null; S.isAdmin = false;
+  } else {
+    if(!isSameUser) S.isAdmin = false;
+    const email = (S.user.email||'').toLowerCase();
+    const isGoogle = S.user.app_metadata?.provider === 'google' || (S.user.identities||[]).some(x=>x.provider==='google');
+    const isKnown = email === 'emprendimientogregoryizquierdo@gmail.com' || (S.settings.negocio?.correo && email === String(S.settings.negocio.correo).toLowerCase());
+    try {
+      const [m, a, rpc] = await Promise.all([
+        sb.from('customers').select('*').eq('id',S.user.id).maybeSingle(),
+        sb.from('admins').select('email').ilike('email', email).maybeSingle().catch(()=>({data:null})),
+        sb.rpc('is_admin').catch(()=>({data:null}))
+      ]);
+      S.me = m?.data || S.me;
+      S.isAdmin = Boolean(rpc?.data === true || a?.data || (isKnown && isGoogle));
+      sb.from('login_log').insert({customer_id:S.user.id,email:S.user.email,user_agent:navigator.userAgent}).then(()=>{});
+    } catch(err) {
+      if(isKnown && isGoogle) S.isAdmin = true;
+    }
   }
   $('#bLogin').classList.toggle('hide',!!S.user); $('#bOut').classList.toggle('hide',!S.user);
   $('#bPortal').classList.toggle('hide',!S.user); $('#bAdmin').classList.toggle('hide',!S.isAdmin); $('#bSnd').classList.toggle('hide',!S.isAdmin); updSnd(); badge(); checkVenc();
 }
+document.addEventListener('visibilitychange', async () => {
+  if(!document.hidden && S.user){
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if(session){
+        const exp = session.expires_at || 0;
+        const now = Math.floor(Date.now() / 1000);
+        if(exp && (exp - now) < 300) {
+          const ref = await sb.auth.refreshSession();
+          if(ref?.data?.session) await onSession(ref.data.session);
+        } else {
+          await onSession(session);
+        }
+      }
+    } catch(e){}
+  }
+});
 $('#cur').onchange = e => { S.cur=e.target.value; if(S.view==='home') renderGrid(); };
 $('#bHome').onclick = home; $('#bPortal').onclick = portal; $('#bAdmin').onclick = () => admin('finanzas');
 $('#bOut').onclick = async()=>{ await sb.auth.signOut(); sessionStorage.removeItem('gtk'); home(); };
@@ -161,7 +195,7 @@ function home(){
   document.body.classList.remove('is-admin');
   S.view='home'; const tel=(S.settings.negocio?.telefono||'').replace(/\D/g,'');
   app.innerHTML = `${S.banners.length?`<div class="ban">${S.banners.map(b=>{const t=`<h3>${esc(b.titulo)}</h3><p>${esc(b.texto)}</p>`,st=b.imagen_url?` style="background-image:linear-gradient(#0008,#000a),url('${esc(b.imagen_url)}')"`:'';return /^https?:\/\//.test(b.enlace||'')?`<a href="${esc(b.enlace)}" target="_blank" rel="noopener noreferrer"${st}>${t}</a>`:`<div${st}>${t}</div>`;}).join('')}</div>`:''}
-  <section class="hero"><h2>Streaming y cuentas digitales <span>al mejor precio</span></h2>
+  <section class="hero"><h2>Streaming y cuentas digitales al mejor precio</h2>
    <p>Pantallas, cuentas completas y servicios con garantía. Tu pedido se entrega cuando verificamos tu pago.</p>
    <div class="chips"><span>⚡ Entrega rápida</span><span>🛡 Garantía incluida</span><span>💬 Soporte por WhatsApp</span></div>
    <input id="q" class="search" type="search" placeholder="Buscar servicio…" value="${esc(S.q||'')}" aria-label="Buscar servicio" autocomplete="off"></section>
@@ -331,11 +365,11 @@ function renderAdminSidebar(curTab, allTabs){
 }
 
 function setupAdminEvents(){
-  app.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{
+  app.querySelectorAll('[data-k]').forEach(b=>b.onclick=async()=>{
     const sb=$('#adminSidebar'), bd=$('#adminBackdrop');
     if(sb) sb.classList.remove('open');
     if(bd) bd.classList.remove('open');
-    admin(b.dataset.k);
+    await admin(b.dataset.k);
   });
   const tBtn = $('#adminToggle'), sb = $('#adminSidebar'), bd = $('#adminBackdrop'), cBtn = $('#adminCloseSidebar');
   const close = () => { if(sb) sb.classList.remove('open'); if(bd) bd.classList.remove('open'); };
@@ -347,8 +381,36 @@ function setupAdminEvents(){
   if(activeBtn){ try{ activeBtn.scrollIntoView({ block:'nearest' }); }catch(e){} }
 }
 
+async function ensureAdminSession(){
+  if(S.isAdmin) return true;
+  try {
+    let { data: { session } } = await sb.auth.getSession();
+    if(!session?.user){
+      const ref = await sb.auth.refreshSession();
+      if(ref?.data?.session) session = ref.data.session;
+    } else {
+      const exp = session.expires_at || 0;
+      const now = Math.floor(Date.now() / 1000);
+      if(exp && (exp - now) < 180){
+        const ref = await sb.auth.refreshSession();
+        if(ref?.data?.session) session = ref.data.session;
+      }
+    }
+    if(!session?.user) return false;
+    await onSession(session);
+    return !!S.isAdmin;
+  } catch(e){
+    console.warn('ensureAdminSession error:', e);
+    return !!S.isAdmin;
+  }
+}
+
 async function admin(t){
-  if(!S.isAdmin) return toast('Acceso solo para el administrador'); document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
+  if(!S.isAdmin){
+    const ok = await ensureAdminSession();
+    if(!ok) return toast('Acceso solo para el administrador');
+  }
+  document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
   const tabs=[...Object.keys(TABLES),...Object.keys(EXTRA)];
   const tabInfo=getTabInfo(t), sideHtml=renderAdminSidebar(t,tabs);
   const mobBar=`<div class="admin-mobile-bar"><button class="admin-mobile-toggle" id="adminToggle" type="button"><span>☰ Menú: <strong>${tabInfo.icon} ${esc(tabInfo.label)}</strong></span><span class="mut" style="font-size:.74rem">Abrir ▾</span></button></div>`;
