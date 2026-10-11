@@ -83,18 +83,43 @@ body.is-admin main{max-width:1440px;width:100%}
   .admin-backdrop.open{display:block}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Modal Login Estilo Gema Poligonal Futurista */
+.facet-dialog{border:0;background:transparent;padding:0;overflow:visible;max-width:440px;width:94%;box-shadow:none}
+.facet-dialog::backdrop{background:rgba(2,6,15,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.facet-card{position:relative;margin:24px auto;padding:48px 36px 36px;color:#fff;display:flex;flex-direction:column;align-items:center;background:linear-gradient(160deg,#0a1526 0%,#030711 55%,#050f1d 100%);filter:drop-shadow(0 20px 45px rgba(0,0,0,.9)) drop-shadow(0 0 24px rgba(0,212,255,.28));clip-path:polygon(32% 0%,68% 0%,100% 24%,100% 76%,68% 100%,32% 100%,0% 76%,0% 24%)}
+.facet-card::before{content:"";position:absolute;inset:1px;background:linear-gradient(135deg,rgba(0,245,160,.08) 0%,rgba(0,212,255,.05) 50%,rgba(5,13,26,.95) 100%);clip-path:polygon(32% 0%,68% 0%,100% 24%,100% 76%,68% 100%,32% 100%,0% 76%,0% 24%);pointer-events:none;z-index:1}
+.facet-shine{position:absolute;top:0;left:0;width:55%;height:100%;background:linear-gradient(120deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,.03) 45%,transparent 65%);clip-path:polygon(0 0,60% 0,0 80%);pointer-events:none;z-index:2}
+.facet-glow-top{position:absolute;top:10%;left:50%;transform:translateX(-50%);width:70%;height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,.8),transparent);box-shadow:0 0 12px #00d4ff;pointer-events:none}
+.facet-glow-corner{position:absolute;bottom:12%;left:8%;width:60px;height:60px;background:radial-gradient(circle,rgba(0,212,255,.45) 0%,transparent 70%);filter:blur(6px);pointer-events:none}
+.facet-content{position:relative;z-index:3;width:100%;display:flex;flex-direction:column;align-items:center}
+.facet-title{font-family:Sora,sans-serif;font-size:1.85rem;font-weight:300;letter-spacing:9px;text-indent:9px;color:#ecf6ff;text-transform:uppercase;margin:0 0 4px;text-align:center;text-shadow:0 0 16px rgba(0,212,255,.5)}
+.facet-sub{font-size:.76rem;letter-spacing:2px;color:rgba(142,168,200,.8);text-transform:uppercase;margin:0 0 20px;text-align:center}
+.facet-input-wrap{width:100%;margin-bottom:12px;position:relative}
+.facet-input{width:100%;box-sizing:border-box;background:#e7edf5!important;color:#0b192e!important;border:none!important;border-radius:24px!important;padding:12px 20px!important;font-size:.85rem!important;font-weight:600!important;letter-spacing:1.5px!important;text-align:center;box-shadow:inset 0 2px 4px rgba(0,0,0,.18),0 0 0 1px rgba(255,255,255,.4);transition:all .2s ease}
+.facet-input::placeholder{color:#768b9f;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;font-size:.78rem}
+.facet-input:focus{outline:none;background:#ffffff!important;box-shadow:0 0 0 3px rgba(0,212,255,.55),0 0 18px rgba(0,212,255,.45)!important}
+.facet-btn{width:auto;min-width:140px;margin-top:10px;padding:9px 28px;border-radius:24px;border:1px solid rgba(0,212,255,.6);background:linear-gradient(180deg,rgba(10,35,66,.85) 0%,rgba(3,15,32,.95) 100%);color:#00d4ff;font-size:.82rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;box-shadow:0 0 14px rgba(0,212,255,.3),inset 0 0 8px rgba(0,212,255,.2);cursor:pointer;transition:all .2s ease}
+.facet-btn:hover{background:linear-gradient(180deg,#00d4ff 0%,#0095ff 100%);color:#03121c;box-shadow:0 0 24px rgba(0,212,255,.8);transform:scale(1.03)}
+.facet-alt-btn{margin-top:14px;background:rgba(255,255,255,.05);color:#ecf6ff;border:1px solid rgba(0,212,255,.2);border-radius:20px;padding:8px 16px;font-size:.78rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;cursor:pointer;transition:all .2s ease;box-shadow:none}
+.facet-alt-btn:hover{background:rgba(0,212,255,.14);border-color:rgba(0,212,255,.5);transform:translateY(-1px)}
+.facet-links{margin-top:16px;display:flex;gap:12px;font-size:.75rem;color:var(--mut)}
+.facet-links a{color:#00d4ff;text-decoration:none;cursor:pointer;font-weight:600}
+.facet-links a:hover{text-decoration:underline}
+.facet-close{position:absolute;top:14px;right:22px;background:transparent;border:none;color:var(--mut);font-size:1.3rem;cursor:pointer;box-shadow:none;padding:4px 8px;z-index:10;transition:color .2s}
+.facet-close:hover{color:#fff;background:transparent;box-shadow:none;transform:scale(1.1)}
 </style></head><body>
 <header><div class="brand"><div class="logo">GI</div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
 <div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
-<button class="g" id="bHome">Tienda</button><button class="g" id="bInstall">Instalar app</button><button class="g hide" id="bSnd">🔔 Sonido</button><button class="g hide" id="bPortal">Mi portal</button><button class="g hide" id="bAdmin">Admin</button><button id="bLogin">Ingresar</button><button class="g hide" id="bOut">Salir</button></div></header>
+<button class="g" id="bHome">Tienda</button><button class="g" id="bInstall">Instalar app</button><button class="g hide" id="bSnd">🔔 Sonido</button><button class="g hide" id="bPortal">Mi portal</button><button class="g" id="bAdmin">Admin</button><button class="g" id="bRegister">Registrarse</button><button id="bLogin">Ingresar</button><button class="g hide" id="bOut">Salir</button></div></header>
 <main id="app"></main>
 
 <dialog id="dlg"><div id="dlgBody"></div><div class="row" style="margin-top:12px"><button class="g" onclick="dlg.close()">Cerrar</button></div></dialog>
+<dialog id="facetDlg" class="facet-dialog"></dialog>
 
 <script src="/config.js"></script>
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg');
+const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg');
 const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}};
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -147,8 +172,13 @@ async function onSession(session){
       if(isKnown && isGoogle) S.isAdmin = true;
     }
   }
-  $('#bLogin').classList.toggle('hide',!!S.user); $('#bOut').classList.toggle('hide',!S.user);
-  $('#bPortal').classList.toggle('hide',!S.user); $('#bAdmin').classList.toggle('hide',!S.isAdmin); $('#bSnd').classList.toggle('hide',!S.isAdmin); updSnd(); badge(); checkVenc();
+  $('#bLogin').classList.toggle('hide',!!S.user);
+  $('#bRegister').classList.toggle('hide',!!S.user);
+  $('#bOut').classList.toggle('hide',!S.user);
+  $('#bPortal').classList.toggle('hide',!S.user);
+  // El boton Admin esta visible si es admin o si no hay sesion iniciada (para que el admin pueda autenticarse mediante Opcion B)
+  $('#bAdmin').classList.toggle('hide',Boolean(S.user && !S.isAdmin));
+  $('#bSnd').classList.toggle('hide',!S.isAdmin); updSnd(); badge(); checkVenc();
 }
 document.addEventListener('visibilitychange', async () => {
   if(!document.hidden && S.user){
@@ -168,9 +198,12 @@ document.addEventListener('visibilitychange', async () => {
   }
 });
 $('#cur').onchange = e => { S.cur=e.target.value; if(S.view==='home') renderGrid(); };
-$('#bHome').onclick = home; $('#bPortal').onclick = portal; $('#bAdmin').onclick = () => admin('finanzas');
+$('#bHome').onclick = home;
+$('#bPortal').onclick = portal;
+$('#bAdmin').onclick = () => { if(S.isAdmin) admin('finanzas'); else adminLoginDlg(); };
 $('#bOut').onclick = async()=>{ await sb.auth.signOut(); sessionStorage.removeItem('gtk'); home(); };
-$('#bLogin').onclick = loginDlg;
+$('#bLogin').onclick = () => loginDlg('login');
+$('#bRegister').onclick = () => loginDlg('register');
 
 // ---------- TIENDA ----------
 const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Servicio'};
@@ -220,22 +253,108 @@ async function buyDlg(id){
     const {error}=await sb.rpc('create_order',{p_product:id,p_metodo:full?null:($('#pm').value||null),p_ref:$('#ref').value,p_zeny:z}); if(error) return toast(error.message.includes('Agotado')?'Este servicio se agotó. Elige otro.':error.message);
     await loadPublic(); toast(`Pedido enviado. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} minutos mientras revisamos y conciliamos tu pago. Recibirás las credenciales cuando sea confirmado.`); portal(); };
 }
-// ---------- AUTH ----------
-function loginDlg(){
-  $('#dlgBody').innerHTML = `<h3>Ingresar / Registrarse</h3>
-  <button id="gg" style="width:100%">Continuar con Google</button><p class="mut">o con correo / teléfono</p>
-  <input id="id" placeholder="Correo o teléfono (+58…)" autocomplete="username"><input id="pw" type="password" placeholder="Contraseña (mín. 8)" autocomplete="current-password" style="margin-top:8px">
-  <input id="nm" placeholder="Nombre (solo al registrarte)" style="margin-top:8px">
-  <div class="row" style="margin-top:8px"><button id="in">Entrar</button><button class="g" id="up">Crear cuenta</button></div>`;
-  const cred=()=>{const v=$('#id').value.trim();return v.includes('@')?{email:v,password:$('#pw').value}:{phone:v,password:$('#pw').value};};
-  $('#gg').onclick=()=>sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/'}});
-  $('#in').onclick=async()=>{const {error}=await sb.auth.signInWithPassword(cred());error?toast(error.message):(dlg.close(),home());};
-  $('#up').onclick=async()=>{const {error}=await sb.auth.signUp({...cred(),options:{data:{nombre:$('#nm').value}}});error?toast(error.message):toast('Cuenta creada. Revisa tu correo si se pide confirmación.');};
-  dlg.showModal();
+// ---------- AUTH (ESTILO GEMA FACETADA FUTURISTA) ----------
+function renderFacetShell({title, subtitle, contentHtml, linksHtml=''}){
+  return `
+  <div class="facet-card">
+    <button class="facet-close" id="facetCloseBtn" type="button" aria-label="Cerrar">✕</button>
+    <div class="facet-shine"></div>
+    <div class="facet-glow-top"></div>
+    <div class="facet-glow-corner"></div>
+    <div class="facet-content">
+      <h2 class="facet-title">${esc(title)}</h2>
+      ${subtitle?`<div class="facet-sub">${esc(subtitle)}</div>`:''}
+      ${contentHtml}
+      ${linksHtml?`<div class="facet-links">${linksHtml}</div>`:''}
+    </div>
+  </div>`;
 }
+
+function loginDlg(mode = 'login'){
+  const isReg = mode === 'register';
+  const title = isReg ? 'REGISTER' : 'LOGIN';
+  const subtitle = isReg ? 'Crear cuenta cliente' : 'Acceso clientes';
+  const actionLabel = isReg ? 'REGISTRARME' : 'SIGN IN';
+
+  const contentHtml = `
+    ${isReg ? `
+    <div class="facet-input-wrap">
+      <input id="facetNm" class="facet-input" placeholder="FULL NAME" autocomplete="name" required>
+    </div>` : ''}
+    <div class="facet-input-wrap">
+      <input id="facetId" class="facet-input" placeholder="USER / EMAIL / PHONE" autocomplete="username" required>
+    </div>
+    <div class="facet-input-wrap">
+      <input id="facetPw" class="facet-input" type="password" placeholder="PASSWORD" autocomplete="${isReg ? 'new-password' : 'current-password'}" required>
+    </div>
+    <button id="facetAction" class="facet-btn" type="button">${actionLabel}</button>
+    <button id="facetGoogle" class="facet-alt-btn" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.25 21.37 7.31 24 12 24Z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.97 0 12s.46 3.83 1.26 5.42l4.02-3.15Z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.63 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98Z"/></svg>
+      Continuar con Google
+    </button>
+  `;
+
+  const linksHtml = isReg
+    ? `<span>¿Ya tienes cuenta? <a id="facetToggleMode">Inicia sesión</a></span>`
+    : `<span>¿Nuevo cliente? <a id="facetToggleMode">Crear cuenta</a></span>`;
+
+  facetDlg.innerHTML = renderFacetShell({title, subtitle, contentHtml, linksHtml});
+  $('#facetCloseBtn').onclick = () => facetDlg.close();
+  $('#facetToggleMode').onclick = () => loginDlg(isReg ? 'login' : 'register');
+
+  const cred = () => {
+    const v = ($('#facetId')?.value || '').trim();
+    const pw = $('#facetPw')?.value || '';
+    return v.includes('@') ? {email: v, password: pw} : {phone: v, password: pw};
+  };
+
+  $('#facetGoogle').onclick = () => sb.auth.signInWithOAuth({provider:'google', options:{redirectTo: location.origin + '/'}});
+
+  $('#facetAction').onclick = async () => {
+    const c = cred();
+    if(!c.email && !c.phone) return toast('Ingresa tu correo o teléfono');
+    if(!c.password) return toast('Ingresa tu contraseña');
+
+    if(isReg){
+      const nombre = ($('#facetNm')?.value || '').trim();
+      const {error} = await sb.auth.signUp({...c, options:{data:{nombre}}});
+      if(error) return toast(error.message);
+      facetDlg.close();
+      toast('Cuenta creada exitosamente. Revisa tu correo si requiere confirmación.');
+    } else {
+      const {error} = await sb.auth.signInWithPassword(c);
+      if(error) return toast(error.message);
+      facetDlg.close();
+      home();
+    }
+  };
+
+  if(!facetDlg.open) facetDlg.showModal();
+}
+
+function adminLoginDlg(){
+  const title = 'ADMIN';
+  const subtitle = 'Acceso de Administrador';
+  const contentHtml = `
+    <p class="mut" style="text-align:center;font-size:.82rem;margin:0 0 16px;line-height:1.4">
+      El acceso al panel administrativo está reservado para el correo oficial mediante Google:
+      <br><b style="color:#00d4ff">emprendimientogregoryizquierdo@gmail.com</b>
+    </p>
+    <button id="facetAdminGoogle" class="facet-btn" style="min-width:210px;padding:12px 24px" type="button">
+      ACCEDER CON GOOGLE
+    </button>
+  `;
+
+  facetDlg.innerHTML = renderFacetShell({title, subtitle, contentHtml});
+  $('#facetCloseBtn').onclick = () => facetDlg.close();
+  $('#facetAdminGoogle').onclick = () => sb.auth.signInWithOAuth({provider:'google', options:{redirectTo: location.origin + '/'}});
+
+  if(!facetDlg.open) facetDlg.showModal();
+}
+
 // ---------- PORTAL CLIENTE ----------
 async function portal(){
-  if(!S.user) return loginDlg(); document.body.classList.remove('is-admin'); S.view='portal';
+  if(!S.user) return loginDlg('login'); document.body.classList.remove('is-admin'); S.view='portal';
   const [o,i,l,inc,cr] = await Promise.all([
     sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
     sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false}),
