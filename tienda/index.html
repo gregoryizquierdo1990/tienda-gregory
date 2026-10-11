@@ -591,13 +591,21 @@ function loginDlg(mode = 'login'){
   const contentHtml = `
     ${isReg ? `
     <div class="facet-input-wrap">
-      <input id="facetNm" class="facet-input" placeholder="FULL NAME" autocomplete="name" required>
-    </div>` : ''}
-    <div class="facet-input-wrap">
-      <input id="facetId" class="facet-input" placeholder="USER / EMAIL / PHONE" autocomplete="username" required>
+      <input id="facetNm" class="facet-input" placeholder="FULL NAME / NOMBRE COMPLETO" autocomplete="name" required>
     </div>
     <div class="facet-input-wrap">
-      <input id="facetPw" class="facet-input" type="password" placeholder="PASSWORD" autocomplete="${isReg ? 'new-password' : 'current-password'}" required>
+      <input id="facetId" class="facet-input" type="email" placeholder="EMAIL / CORREO ELECTRÓNICO" autocomplete="email" required>
+    </div>
+    <div class="facet-input-wrap">
+      <input id="facetTel" class="facet-input" type="tel" placeholder="TELÉFONO / WHATSAPP (+58…)" autocomplete="tel">
+    </div>
+    ` : `
+    <div class="facet-input-wrap">
+      <input id="facetId" class="facet-input" placeholder="EMAIL / CORREO ELECTRÓNICO" autocomplete="username" required>
+    </div>
+    `}
+    <div class="facet-input-wrap">
+      <input id="facetPw" class="facet-input" type="password" placeholder="PASSWORD / CONTRASEÑA" autocomplete="${isReg ? 'new-password' : 'current-password'}" required>
     </div>
     <button id="facetAction" class="facet-btn" type="button">${actionLabel}</button>
     <button id="facetGoogle" class="facet-alt-btn" type="button">
@@ -614,27 +622,51 @@ function loginDlg(mode = 'login'){
   $('#facetCloseBtn').onclick = () => facetDlg.close();
   $('#facetToggleMode').onclick = () => loginDlg(isReg ? 'login' : 'register');
 
-  const cred = () => {
-    const v = ($('#facetId')?.value || '').trim();
-    const pw = $('#facetPw')?.value || '';
-    return v.includes('@') ? {email: v, password: pw} : {phone: v, password: pw};
-  };
-
   $('#facetGoogle').onclick = () => sb.auth.signInWithOAuth({provider:'google', options:{redirectTo: location.origin + '/'}});
 
   $('#facetAction').onclick = async () => {
-    const c = cred();
-    if(!c.email && !c.phone) return toast('Ingresa tu correo o teléfono');
-    if(!c.password) return toast('Ingresa tu contraseña');
+    const emailVal = ($('#facetId')?.value || '').trim();
+    const pwVal = $('#facetPw')?.value || '';
+
+    if(!emailVal) return toast('Ingresa tu correo electrónico');
+    if(!emailVal.includes('@')) return toast('Debes ingresar un correo electrónico válido (ej: tu@gmail.com).');
+    if(!pwVal || pwVal.length < 6) return toast('La contraseña debe tener al menos 6 caracteres');
 
     if(isReg){
-      const nombre = ($('#facetNm')?.value || '').trim();
-      const {error} = await sb.auth.signUp({...c, options:{data:{nombre}}});
-      if(error) return toast(error.message);
+      const nombreVal = ($('#facetNm')?.value || '').trim();
+      const telVal = ($('#facetTel')?.value || '').trim();
+      if(!nombreVal) return toast('Por favor ingresa tu nombre completo');
+
+      const {data, error} = await sb.auth.signUp({
+        email: emailVal,
+        password: pwVal,
+        options: {
+          data: {
+            nombre: nombreVal,
+            telefono: telVal
+          }
+        }
+      });
+
+      if(error){
+        if(error.message.includes('Phone signups are disabled')){
+          return toast('El registro se realiza con correo electrónico o con Google.');
+        }
+        return toast(error.message);
+      }
+
+      // Si tenemos sesion inmediata y telefono, guardarlo en customers
+      if(data?.user?.id && telVal){
+        await sb.from('customers').update({telefono: telVal, nombre: nombreVal}).eq('id', data.user.id).catch(()=>{});
+      }
+
       facetDlg.close();
-      toast('Cuenta creada exitosamente. Revisa tu correo si requiere confirmación.');
+      toast('Cuenta creada exitosamente. Revisa tu correo si requiere confirmación o inicia sesión.');
     } else {
-      const {error} = await sb.auth.signInWithPassword(c);
+      const {error} = await sb.auth.signInWithPassword({
+        email: emailVal,
+        password: pwVal
+      });
       if(error) return toast(error.message);
       facetDlg.close();
       home();
