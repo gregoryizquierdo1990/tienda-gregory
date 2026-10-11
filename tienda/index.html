@@ -166,18 +166,20 @@ body.is-admin main{max-width:1440px;width:100%}
 .checkout-method-arrow{font-size:.9rem;color:#94a3b8;font-weight:800}
 .checkout-method-card.active .checkout-method-arrow{color:#0f172a}
 
-/* Datos de Pago e Instrucciones */
-.checkout-bank-details{background:#f1f5f9;border:1px solid #cbd5e1;border-radius:18px;padding:14px;margin-bottom:16px}
-.checkout-bank-details h4{margin:0 0 10px;font-size:.86rem;color:#0f172a;font-weight:800;display:flex;align-items:center;gap:6px}
-.checkout-bank-list{display:flex;flex-direction:column;gap:8px}
-.checkout-bank-card{display:flex;align-items:center;justify-content:space-between;background:#ffffff;padding:10px 14px;border-radius:12px;border:1.5px solid #cbd5e1;box-shadow:0 2px 6px rgba(0,0,0,.04);transition:border-color .15s}
-.checkout-bank-card:hover{border-color:#2563eb}
-.checkout-bank-info{display:flex;flex-direction:column;gap:2px}
-.checkout-bank-label{font-size:.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
-.checkout-bank-val{font-size:.95rem;font-weight:800;color:#0f172a;letter-spacing:.5px;font-family:monospace,sans-serif}
-.checkout-copy-btn{background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:6px 12px;border-radius:8px;font-size:.75rem;font-weight:700;display:flex;align-items:center;gap:4px;cursor:pointer;box-shadow:none;transition:all .15s}
-.checkout-copy-btn:hover{background:#0284c7;color:#ffffff;box-shadow:none;transform:none}
-.checkout-copy-btn.copied{background:#16a34a;color:#ffffff;border-color:#16a34a}
+/* Datos de Pago e Instrucciones (Estilo exacto Screenshot) */
+.checkout-bank-details{background:transparent;border:none;padding:0;margin:14px 0 16px}
+.checkout-bank-title{margin:0 0 10px;font-size:1.15rem;color:#0f172a;font-weight:800;letter-spacing:-.2px}
+.checkout-bank-alert{background:#fef9c3;border:1px solid #fef08a;border-radius:12px;padding:9px 12px;display:flex;align-items:center;gap:8px;font-size:.76rem;color:#854d0e;font-weight:600;margin-bottom:14px}
+.checkout-bank-list{display:flex;flex-direction:column;gap:10px}
+.checkout-bank-card{display:flex;align-items:center;justify-content:space-between;background:#f8fafc;padding:12px 16px;border-radius:16px;border:1px solid #e2e8f0;transition:all .15s ease}
+.checkout-bank-card:hover{background:#f1f5f9;border-color:#cbd5e1}
+.checkout-bank-info{display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.checkout-bank-label{font-size:.75rem;font-weight:600;color:#64748b}
+.checkout-bank-val{font-size:.96rem;font-weight:700;color:#0f172a;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.checkout-copy-btn{background:transparent;color:#475569;border:none;padding:6px;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;cursor:pointer;box-shadow:none;transition:all .15s ease;flex-shrink:0}
+.checkout-copy-btn:hover{background:#e2e8f0;color:#0f172a;transform:none}
+.checkout-copy-btn.copied{background:#dcfce7;color:#16a34a}
+.checkout-copy-btn svg{width:20px;height:20px;stroke-width:1.8}
 
 /* Inputs para Referencia y Envío */
 .checkout-input-group{margin-bottom:14px}
@@ -381,12 +383,15 @@ async function buyDlg(id){
       `;
     }).join('');
 
-    // Datos bancarios divididos en cajones individuales con boton copiar
+    // Datos bancarios divididos en cajones individuales con estilo exacto de la captura
     let bankDetailsHtml = '';
     if(!isFullZeny && selectedMethod && selectedMethod.datos && Object.keys(selectedMethod.datos).length > 0){
       bankDetailsHtml = `
         <div class="checkout-bank-details">
-          <h4>📋 Datos de pago para transferir</h4>
+          <h3 class="checkout-bank-title">Transfiere a esta cuenta</h3>
+          <div class="checkout-bank-alert">
+            <span>ℹ️</span> Asegúrate de copiar los datos correctamente.
+          </div>
           <div class="checkout-bank-list">
             ${Object.entries(selectedMethod.datos).map(([k, v], idx) => `
               <div class="checkout-bank-card">
@@ -394,15 +399,15 @@ async function buyDlg(id){
                   <span class="checkout-bank-label">${esc(k)}</span>
                   <span class="checkout-bank-val" id="bankVal-${idx}">${esc(v)}</span>
                 </div>
-                <button class="checkout-copy-btn" type="button" data-copy="${esc(v)}" data-target="bankVal-${idx}">
-                  <span>📋</span> Copiar
+                <button class="checkout-copy-btn" type="button" data-copy="${esc(v)}" data-target="bankVal-${idx}" title="Copiar ${esc(k)}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
                 </button>
               </div>
             `).join('')}
           </div>
-          <p class="mut" style="font-size:.74rem;margin:10px 0 0;color:#64748b">
-            💡 Toca el botón <b>Copiar</b> en cada cajón para pegarlo directamente en tu app bancaria sin errores.
-          </p>
         </div>
       `;
     }
@@ -507,7 +512,7 @@ async function buyDlg(id){
           }
           const origHtml = btn.innerHTML;
           btn.classList.add('copied');
-          btn.innerHTML = '<span>✓</span> Copiado';
+          btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
           setTimeout(() => {
             btn.classList.remove('copied');
             btn.innerHTML = origHtml;
@@ -591,13 +596,21 @@ function loginDlg(mode = 'login'){
   const contentHtml = `
     ${isReg ? `
     <div class="facet-input-wrap">
-      <input id="facetNm" class="facet-input" placeholder="FULL NAME" autocomplete="name" required>
-    </div>` : ''}
-    <div class="facet-input-wrap">
-      <input id="facetId" class="facet-input" placeholder="USER / EMAIL / PHONE" autocomplete="username" required>
+      <input id="facetNm" class="facet-input" placeholder="FULL NAME / NOMBRE COMPLETO" autocomplete="name" required>
     </div>
     <div class="facet-input-wrap">
-      <input id="facetPw" class="facet-input" type="password" placeholder="PASSWORD" autocomplete="${isReg ? 'new-password' : 'current-password'}" required>
+      <input id="facetId" class="facet-input" type="email" placeholder="EMAIL / CORREO ELECTRÓNICO" autocomplete="email" required>
+    </div>
+    <div class="facet-input-wrap">
+      <input id="facetTel" class="facet-input" type="tel" placeholder="TELÉFONO / WHATSAPP (+58…)" autocomplete="tel">
+    </div>
+    ` : `
+    <div class="facet-input-wrap">
+      <input id="facetId" class="facet-input" placeholder="EMAIL / CORREO ELECTRÓNICO" autocomplete="username" required>
+    </div>
+    `}
+    <div class="facet-input-wrap">
+      <input id="facetPw" class="facet-input" type="password" placeholder="PASSWORD / CONTRASEÑA" autocomplete="${isReg ? 'new-password' : 'current-password'}" required>
     </div>
     <button id="facetAction" class="facet-btn" type="button">${actionLabel}</button>
     <button id="facetGoogle" class="facet-alt-btn" type="button">
@@ -614,27 +627,51 @@ function loginDlg(mode = 'login'){
   $('#facetCloseBtn').onclick = () => facetDlg.close();
   $('#facetToggleMode').onclick = () => loginDlg(isReg ? 'login' : 'register');
 
-  const cred = () => {
-    const v = ($('#facetId')?.value || '').trim();
-    const pw = $('#facetPw')?.value || '';
-    return v.includes('@') ? {email: v, password: pw} : {phone: v, password: pw};
-  };
-
   $('#facetGoogle').onclick = () => sb.auth.signInWithOAuth({provider:'google', options:{redirectTo: location.origin + '/'}});
 
   $('#facetAction').onclick = async () => {
-    const c = cred();
-    if(!c.email && !c.phone) return toast('Ingresa tu correo o teléfono');
-    if(!c.password) return toast('Ingresa tu contraseña');
+    const emailVal = ($('#facetId')?.value || '').trim();
+    const pwVal = $('#facetPw')?.value || '';
+
+    if(!emailVal) return toast('Ingresa tu correo electrónico');
+    if(!emailVal.includes('@')) return toast('Debes ingresar un correo electrónico válido (ej: tu@gmail.com).');
+    if(!pwVal || pwVal.length < 6) return toast('La contraseña debe tener al menos 6 caracteres');
 
     if(isReg){
-      const nombre = ($('#facetNm')?.value || '').trim();
-      const {error} = await sb.auth.signUp({...c, options:{data:{nombre}}});
-      if(error) return toast(error.message);
+      const nombreVal = ($('#facetNm')?.value || '').trim();
+      const telVal = ($('#facetTel')?.value || '').trim();
+      if(!nombreVal) return toast('Por favor ingresa tu nombre completo');
+
+      const {data, error} = await sb.auth.signUp({
+        email: emailVal,
+        password: pwVal,
+        options: {
+          data: {
+            nombre: nombreVal,
+            telefono: telVal
+          }
+        }
+      });
+
+      if(error){
+        if(error.message.includes('Phone signups are disabled')){
+          return toast('El registro se realiza con correo electrónico o con Google.');
+        }
+        return toast(error.message);
+      }
+
+      // Si tenemos sesion inmediata y telefono, guardarlo en customers
+      if(data?.user?.id && telVal){
+        await sb.from('customers').update({telefono: telVal, nombre: nombreVal}).eq('id', data.user.id).catch(()=>{});
+      }
+
       facetDlg.close();
-      toast('Cuenta creada exitosamente. Revisa tu correo si requiere confirmación.');
+      toast('Cuenta creada exitosamente. Revisa tu correo si requiere confirmación o inicia sesión.');
     } else {
-      const {error} = await sb.auth.signInWithPassword(c);
+      const {error} = await sb.auth.signInWithPassword({
+        email: emailVal,
+        password: pwVal
+      });
       if(error) return toast(error.message);
       facetDlg.close();
       home();

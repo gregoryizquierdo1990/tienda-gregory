@@ -41,7 +41,7 @@ create table if not exists customers (
   zeny_balance numeric(14,2) not null default 0 check (zeny_balance >= 0), gcontact_id text, creado timestamptz default now());
 create or replace function handle_new_user() returns trigger language plpgsql security definer set search_path = public as $$
 begin insert into customers(id,nombre,email,telefono)
-  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'nombre'), new.email, new.phone) on conflict do nothing;
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'nombre'), new.email, coalesce(new.phone, new.raw_user_meta_data->>'telefono')) on conflict do nothing;
   return new; end $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute function handle_new_user();
