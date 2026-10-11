@@ -67,6 +67,201 @@ const EXTRA = {
     $('#n3').onclick = e => run(e.target, async () => { const r = await api('/api/notify-test', {}); return `Prueba enviada. Telegram: ${r.telegram ? 'sí' : 'no'} · Push: ${r.push} dispositivo(s).` + (r.errores?.length ? '\n' + r.errores.join(' | ') : ''); });
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await sb.from('push_subscriptions').delete().eq('id', b.dataset.del); EXTRA.notificaciones(box); });
   },
+  async vencimientos(box) {
+    if (!box._calState) {
+      const now = new Date();
+      box._calState = { year: now.getFullYear(), month: now.getMonth(), selectedDate: now.toISOString().slice(0, 10) };
+    }
+    const state = box._calState;
+    const pad = n => String(n).padStart(2, '0');
+    const startMonth = `${state.year}-${pad(state.month + 1)}-01`;
+    const lastDayOfMonth = new Date(state.year, state.month + 1, 0).getDate();
+    const endMonth = `${state.year}-${pad(state.month + 1)}-${pad(lastDayOfMonth)}`;
+
+    box.innerHTML = '<p class="mut">Cargando calendario de vencimientos…</p>';
+
+    // Consultamos pedidos entregados/activos y cuentas madre activas con fecha de vencimiento
+    const [{ data: orders, error: errOrd }, { data: mothers, error: errMoth }] = await Promise.all([
+      sb.from('orders')
+        .select('id,customer_id,product_id,inicia,vence,estado,customers(nombre,email,telefono),products(nombre)')
+        .not('vence', 'is', null)
+        .gte('vence', `${state.year}-${pad(state.month + 1)}-01`)
+        .lte('vence', `${state.year}-${pad(state.month + 1)}-${pad(lastDayOfMonth)}`),
+      sb.from('mother_accounts')
+        .select('id,plataforma,correo,vence,activa,proveedor')
+        .not('vence', 'is', null)
+        .gte('vence', `${state.year}-${pad(state.month + 1)}-01`)
+        .lte('vence', `${state.year}-${pad(state.month + 1)}-${pad(lastDayOfMonth)}`)
+    ]);
+
+    if (errOrd || errMoth) {
+      return box.innerHTML = `<p class="mut">Error al cargar datos: ${esc((errOrd || errMoth).message)}</p>`;
+    }
+
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+    // Mapear eventos por fecha (YYYY-MM-DD)
+    const eventsByDate = {};
+    (orders || []).forEach(o => {
+      const d = o.vence;
+      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [] };
+      eventsByDate[d].orders.push(o);
+    });
+    (mothers || []).forEach(m => {
+      const d = m.vence;
+      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [] };
+      eventsByDate[d].mothers.push(m);
+    });
+
+    const totalOrdersMonth = (orders || []).length;
+    const totalMothersMonth = (mothers || []).length;
+    const todayEvents = eventsByDate[todayStr] || { orders: [], mothers: [] };
+    const todayTotal = todayEvents.orders.length + todayEvents.mothers.length;
+
+    // Calculo de celdas de calendario (semana empieza en Lunes = 1, Domingo = 0)
+    const firstDayIndex = (new Date(state.year, state.month, 1).getDay() + 6) % 7; // Lunes = 0, Dom = 6
+    const prevMonthDays = new Date(state.year, state.month, 0).getDate();
+
+    const daysHtml = [];
+    const weekHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => `<div class="cal-day-header">${d}</div>`).join('');
+
+    // Dias del mes previo
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const dNum = prevMonthDays - i;
+      daysHtml.push(`<div class="cal-day other-month"><div class="cal-day-num">${dNum}</div></div>`);
+    }
+
+    // Dias del mes actual
+    for (let d = 1; d <= lastDayOfMonth; d++) {
+      const dStr = `${state.year}-${pad(state.month + 1)}-${pad(d)}`;
+      const ev = eventsByDate[dStr];
+      const isToday = dStr === todayStr;
+      const isSel = dStr === state.selectedDate;
+      const numOrd = ev?.orders?.length || 0;
+      const numMoth = ev?.mothers?.length || 0;
+
+      let badgesHtml = '';
+      if (numOrd > 0) badgesHtml += `<span class="cal-tag tag-order">👤 ${numOrd} servicio${numOrd > 1 ? 's' : ''}</span>`;
+      if (numMoth > 0) badgesHtml += `<span class="cal-tag tag-mother">🔑 ${numMoth} cuenta${numMoth > 1 ? 's' : ''}</span>`;
+
+      daysHtml.push(`
+        <div class="cal-day ${isToday ? 'today' : ''} ${isSel ? 'selected' : ''}" data-day="${dStr}">
+          <div class="cal-day-num">
+            <span>${d}</span>
+            ${isToday ? '<span style="font-size:.65rem;color:var(--a)">HOY</span>' : ''}
+          </div>
+          <div class="cal-badges">${badgesHtml}</div>
+        </div>
+      `);
+    }
+
+    // Completar cuadrícula restante para múltiplos de 7
+    const remainingDays = (7 - ((firstDayIndex + lastDayOfMonth) % 7)) % 7;
+    for (let r = 1; r <= remainingDays; r++) {
+      daysHtml.push(`<div class="cal-day other-month"><div class="cal-day-num">${r}</div></div>`);
+    }
+
+    // Detalle del día seleccionado
+    const selDate = state.selectedDate || todayStr;
+    const selEvents = eventsByDate[selDate] || { orders: [], mothers: [] };
+    const selTotal = selEvents.orders.length + selEvents.mothers.length;
+
+    let detailHtml = `
+      <div class="cal-detail">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <h4 style="margin:0;font-size:1.05rem">Vencimientos para el <b>${selDate}</b> ${selDate === todayStr ? '· (Hoy)' : ''}</h4>
+          <span class="mut" style="font-size:.8rem">${selTotal} vencimiento${selTotal === 1 ? '' : 's'} en total</span>
+        </div>
+    `;
+
+    if (selTotal === 0) {
+      detailHtml += '<p class="mut" style="margin:0">No hay servicios ni cuentas madre programados para vencer en esta fecha.</p>';
+    } else {
+      if (selEvents.orders.length > 0) {
+        detailHtml += `
+          <h5 style="margin:8px 0 6px;color:var(--c)">Servicios de Clientes (${selEvents.orders.length})</h5>
+          <div class="wrap" style="margin-bottom:12px">
+            <table>
+              <tr><th>Pedido</th><th>Cliente</th><th>Servicio</th><th>Contacto</th><th>Estado</th></tr>
+              ${selEvents.orders.map(o => `
+                <tr>
+                  <td><b>#${esc(String(o.id).slice(0, 8))}</b></td>
+                  <td>${esc(o.customers?.nombre || o.customers?.email || 'Cliente')}</td>
+                  <td><b>${esc(o.products?.nombre || '—')}</b></td>
+                  <td>${esc(o.customers?.telefono || o.customers?.email || '—')}</td>
+                  <td><span class="pill ${o.estado === 'entregado' ? '' : 'off'}">${esc(o.estado)}</span></td>
+                </tr>
+              `).join('')}
+            </table>
+          </div>
+        `;
+      }
+      if (selEvents.mothers.length > 0) {
+        detailHtml += `
+          <h5 style="margin:8px 0 6px;color:#ffb703">Cuentas Madre (${selEvents.mothers.length})</h5>
+          <div class="wrap">
+            <table>
+              <tr><th>Plataforma</th><th>Correo Madre</th><th>Proveedor</th><th>Estado</th></tr>
+              ${selEvents.mothers.map(m => `
+                <tr>
+                  <td><b>${esc(m.plataforma)}</b></td>
+                  <td>${esc(m.correo)}</td>
+                  <td>${esc(m.proveedor || '—')}</td>
+                  <td><span class="pill ${m.activa ? '' : 'off'}">${m.activa ? 'Activa' : 'Inactiva'}</span></td>
+                </tr>
+              `).join('')}
+            </table>
+          </div>
+        `;
+      }
+    }
+    detailHtml += '</div>';
+
+    // Ensamblar interfaz completa del calendario
+    box.innerHTML = `
+      <div class="cal-head">
+        <div class="cal-nav">
+          <button class="g" id="calPrev" type="button" style="padding:6px 12px">◀</button>
+          <h3>${monthNames[state.month]} ${state.year}</h3>
+          <button class="g" id="calNext" type="button" style="padding:6px 12px">▶</button>
+          <button class="g" id="calToday" type="button" style="padding:6px 14px;font-size:.78rem">Hoy</button>
+        </div>
+        <div class="cal-stats">
+          <span class="cal-stat-pill pill-today">⏰ Hoy vencen: ${todayTotal}</span>
+          <span class="cal-stat-pill pill-order">👤 ${totalOrdersMonth} clientes este mes</span>
+          <span class="cal-stat-pill pill-mother">🔑 ${totalMothersMonth} cuentas madre</span>
+        </div>
+      </div>
+      <div class="cal-grid">
+        ${weekHeaders}
+        ${daysHtml.join('')}
+      </div>
+      ${detailHtml}
+    `;
+
+    // Asignar eventos de navegación y selección
+    $('#calPrev').onclick = () => {
+      if (state.month === 0) { state.month = 11; state.year--; } else { state.month--; }
+      EXTRA.vencimientos(box);
+    };
+    $('#calNext').onclick = () => {
+      if (state.month === 11) { state.month = 0; state.year++; } else { state.month++; }
+      EXTRA.vencimientos(box);
+    };
+    $('#calToday').onclick = () => {
+      const n = new Date();
+      state.year = n.getFullYear(); state.month = n.getMonth(); state.selectedDate = todayStr;
+      EXTRA.vencimientos(box);
+    };
+
+    box.querySelectorAll('[data-day]').forEach(cell => {
+      cell.onclick = () => {
+        state.selectedDate = cell.dataset.day;
+        EXTRA.vencimientos(box);
+      };
+    });
+  },
   async finanzas(box) {
     const { data, error } = await sb.rpc('finanzas', { p_meses: 12 });
     if (error) return box.innerHTML = '<p>' + esc(error.message) + '</p>';
