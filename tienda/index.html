@@ -67,8 +67,14 @@ dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border
 .t-cuenta_completa .tag{background:linear-gradient(135deg,#00d4ff,#2563ff);color:#fff}.t-servicio .tag{background:linear-gradient(135deg,#00f5a0,#00d4ff)}
 .meta{display:flex;gap:12px;font-size:.78rem;color:var(--mut)}.buy{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-top:8px}.sub{font-size:.74rem;color:var(--mut)}.cta{padding:10px 18px}.empty{padding:40px 10px;text-align:center;grid-column:1/-1}
 .sk{border-radius:20px;min-height:280px;background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(0,212,255,.10) 50%,rgba(255,255,255,.04) 70%);background-size:200% 100%;animation:sh 1.4s infinite linear;border:1px solid var(--line)}@keyframes sh{to{background-position:-200% 0}}
-.wa{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:6;border-radius:99px;text-decoration:none;padding:12px 18px;font-weight:800;color:#03121c;background:linear-gradient(135deg,#00f5a0,#00d4ff);box-shadow:0 10px 30px -6px rgba(0,245,160,.7)}
-@media(max-width:560px){header{padding:8px 12px}.hero{padding:26px 16px;border-radius:20px}main{padding:14px 12px 90px}}
+.float-acts{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:6;display:flex;align-items:center;gap:10px}
+.wa,.tg{border-radius:99px;text-decoration:none;padding:11px 16px;font-weight:800;font-size:.85rem;display:inline-flex;align-items:center;gap:7px;box-shadow:0 10px 30px -6px rgba(0,0,0,.6);transition:transform .18s ease,box-shadow .2s ease}
+.wa{color:#03121c;background:linear-gradient(135deg,#00f5a0,#00d4ff);box-shadow:0 10px 30px -6px rgba(0,245,160,.7)}
+.wa:hover{transform:translateY(-2px);box-shadow:0 14px 34px -6px rgba(0,245,160,.9)}
+.tg{color:#ffffff;background:linear-gradient(135deg,#229ed9,#0088cc);border:1px solid rgba(255,255,255,.2);box-shadow:0 10px 30px -6px rgba(34,158,217,.7)}
+.tg:hover{transform:translateY(-2px);box-shadow:0 14px 34px -6px rgba(34,158,217,.9)}
+.wa svg,.tg svg{width:18px;height:18px;display:block}
+@media(max-width:560px){header{padding:8px 12px}.hero{padding:26px 16px;border-radius:20px}main{padding:14px 12px 90px}.float-acts{right:10px;bottom:calc(10px + env(safe-area-inset-bottom));gap:8px}.wa,.tg{padding:9px 13px;font-size:.78rem}}
 body.is-admin main{max-width:1440px;width:100%}
 .admin-wrapper{display:flex;flex-direction:column;gap:12px;width:100%}
 .admin-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start}
@@ -214,6 +220,31 @@ body.is-admin main{max-width:1440px;width:100%}
 .checkout-submit-btn{width:100%;background:var(--grad);color:#03121c;border:0;border-radius:14px;padding:13px;font-size:.95rem;font-weight:800;letter-spacing:.5px;box-shadow:0 6px 22px -6px rgba(0,212,255,.6);cursor:pointer;transition:transform .15s,filter .15s,box-shadow .2s}
 .checkout-submit-btn:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 10px 28px -6px rgba(0,245,160,.6)}
 .checkout-submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* BNPL / Pago en Cuotas Cashea-style */
+.paymode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:rgba(7,19,38,.9);padding:4px;border-radius:14px;border:1px solid var(--line);margin-bottom:14px}
+.paymode-tab{padding:8px 12px;border-radius:10px;border:0;background:transparent;color:var(--mut);font-size:.82rem;font-weight:700;cursor:pointer;box-shadow:none;transition:all .18s ease;display:flex;align-items:center;justify-content:center;gap:6px}
+.paymode-tab.active{background:var(--grad);color:#03121c;box-shadow:0 4px 14px rgba(0,212,255,.35)}
+.bnpl-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;font-size:.7rem;font-weight:800;background:rgba(0,245,160,.16);color:var(--a);border:1px solid rgba(0,245,160,.3)}
+.bnpl-schedule{background:rgba(9,22,42,.85);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:12px 0 16px}
+.bnpl-schedule-title{font-size:.78rem;font-weight:800;color:var(--c);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;justify-content:space-between}
+.bnpl-schedule-list{display:flex;flex-direction:column;gap:8px}
+.bnpl-schedule-item{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(13,32,60,.7);border-radius:12px;border:1px solid rgba(22,51,90,.7);font-size:.84rem}
+.bnpl-schedule-item.today{border-color:var(--a);background:linear-gradient(135deg,rgba(0,245,160,.12),rgba(0,212,255,.08))}
+.bnpl-schedule-item .item-title{font-weight:700;color:var(--tx)}
+.bnpl-schedule-item .item-date{font-size:.72rem;color:var(--mut);display:block}
+.bnpl-schedule-item .item-price{font-weight:800;color:var(--c);font-family:monospace,sans-serif}
+.bnpl-credit-card{background:linear-gradient(135deg,#0d274c 0%,#05152a 50%,#092140 100%);border:1.5px solid rgba(0,212,255,.35);border-radius:20px;padding:18px 20px;box-shadow:0 12px 35px rgba(0,0,0,.5),0 0 24px rgba(0,212,255,.15);position:relative;overflow:hidden;margin-bottom:18px}
+.bnpl-credit-card::before{content:"";position:absolute;top:-40%;right:-20%;width:200px;height:200px;background:radial-gradient(circle,rgba(0,245,160,.2) 0%,transparent 70%);pointer-events:none}
+.bnpl-credit-card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.bnpl-credit-card-tier{font-size:.72rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff}
+.bnpl-credit-card-body .limit-label{font-size:.74rem;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.bnpl-credit-card-body .limit-val{font-size:1.8rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;margin:2px 0 4px}
+.bnpl-inst-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:.72rem;font-weight:700}
+.bnpl-inst-pill.pendiente{background:rgba(245,158,11,.16);color:#f59e0b;border:1px solid rgba(245,158,11,.4)}
+.bnpl-inst-pill.en_revision{background:rgba(0,212,255,.16);color:#00d4ff;border:1px solid rgba(0,212,255,.4)}
+.bnpl-inst-pill.pagada{background:rgba(0,245,160,.16);color:#00f5a0;border:1px solid rgba(0,245,160,.4)}
+.bnpl-inst-pill.vencida{background:rgba(255,77,109,.16);color:#ff4d6d;border:1px solid rgba(255,77,109,.4)}
 </style></head><body>
 <header><div class="brand"><div class="logo"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo"></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
 <div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
@@ -338,7 +369,10 @@ function renderTabs(){
 }
 function home(){
   document.body.classList.remove('is-admin');
-  S.view='home'; const tel=(S.settings.negocio?.telefono||'').replace(/\D/g,'');
+  S.view='home';
+  const tel = (S.settings.negocio?.telefono||'').replace(/\D/g,'');
+  const waMsg = encodeURIComponent('Hola! deseo contartarme con ustedes para solicitar informacion');
+  const tgBot = (S.settings.bot?.username || S.settings.negocio?.telegram || '').replace(/^@/,'');
   app.innerHTML = `
   <section class="banner-promo-card">
     <div class="banner-promo-glow"></div>
@@ -347,8 +381,7 @@ function home(){
       <div class="banner-promo-img-box">
         <img class="banner-promo-img" src="/banner-tarjeta.jpg" alt="Tarjeta Emprendimiento Gregory Izquierdo" loading="eager">
       </div>
-      <h2 class="banner-promo-title">Tarjeta Exclusiva Gregory Izquierdo</h2>
-      <p class="banner-promo-sub">Pronto llegará...</p>
+      <h2 class="banner-promo-title">Tarjeta Exclusiva</h2>
     </div>
   </section>
   ${S.banners.length?`<div class="ban">${S.banners.map(b=>{const t=`<h3>${esc(b.titulo)}</h3><p>${esc(b.texto)}</p>`,st=b.imagen_url?` style="background-image:linear-gradient(#0008,#000a),url('${esc(b.imagen_url)}')"`:'';return /^https?:\/\//.test(b.enlace||'')?`<a href="${esc(b.enlace)}" target="_blank" rel="noopener noreferrer"${st}>${t}</a>`:`<div${st}>${t}</div>`;}).join('')}</div>`:''}
@@ -369,7 +402,17 @@ function home(){
     <input id="q" class="search" type="search" placeholder="Buscar servicio…" value="${esc(S.q||'')}" aria-label="Buscar servicio" autocomplete="off">
   </section>
   <div class="tabs" id="tabs"></div><div class="pgrid" id="grid"></div>
-  <footer class="mut" style="margin:34px 0">Soporte: ${esc(S.settings.negocio?.telefono||'')} · ${esc(S.settings.negocio?.correo||'')}</footer>${tel?`<a class="wa" href="https://wa.me/${tel}" target="_blank" rel="noopener noreferrer">WhatsApp</a>`:''}`;
+  <footer class="mut" style="margin:34px 0">Soporte: ${esc(S.settings.negocio?.telefono||'')} · ${esc(S.settings.negocio?.correo||'')}</footer>
+  <div class="float-acts">
+    ${tel?`<a class="wa" href="https://wa.me/${tel}?text=${waMsg}" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      <span>WhatsApp</span>
+    </a>`:''}
+    ${tgBot?`<a class="tg" href="https://t.me/${esc(tgBot)}" target="_blank" rel="noopener noreferrer" aria-label="Telegram Bot">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.37.75-.56 2.94-1.28 4.91-2.12 5.9-2.54 2.81-1.17 3.39-1.38 3.77-1.38.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .37z"/></svg>
+      <span>Telegram</span>
+    </a>`:''}
+  </div>`;
   $('#q').oninput = e=>{S.q=e.target.value;renderGrid();};
   renderTabs(); renderGrid();
 }
@@ -410,8 +453,20 @@ async function buyDlg(id){
   const availZeny = Math.max(0, Number(S.me?.zeny_balance || 0) + (h || []).reduce((a, x) => a + Number(x.monto), 0));
   const maxZeny = Math.min(availZeny, Number(p.precio_usd));
   let currentStep = 'method'; // 'method' (Paso 1) o 'details' (Paso 2)
+  let payPlan = 'contado'; // 'contado' o 'cuotas'
   let selectedMethodId = (pmList && pmList.length > 0) ? pmList[0].id : null;
   let appliedZeny = 0;
+
+  // Calculos BNPL (Inicial 50% hoy, Cuota 2 a los 15 días)
+  const totalOriginal = Number(p.precio_usd);
+  const isBnplEligible = totalOriginal >= 5; // Aplica para montos desde $5 en adelante
+  const cuotaInicialUsd = Math.round((totalOriginal * 0.5) * 100) / 100;
+  const cuotaDosUsd = Math.round((totalOriginal - cuotaInicialUsd) * 100) / 100;
+
+  const dateNow = new Date();
+  const d1Str = dateNow.toISOString().slice(0, 10);
+  const d2 = new Date(dateNow.getTime() + 15 * 86400000);
+  const d2Str = d2.toISOString().slice(0, 10);
 
   // Parsea datos estructurados: si viene como objeto los usa; si el administrador guardó todo en un solo texto o nombre lo divide en cajones limpios
   const parseMethodFields = (method) => {
@@ -425,21 +480,16 @@ async function buyDlg(id){
       }
     }
 
-    // Si los datos vinieron en un solo bloque o el texto está agrupado en el nombre (como BNC 0191 0424... V-189...)
     if(fields.length <= 1){
       const combinedText = [fields[0]?.value || '', method.nombre || '', method.tipo || ''].join(' ');
       const parsed = [];
-      
-      // Banco
       const bankMatch = combinedText.match(/(?:banco|bnc|banesco|mercantil|venezuela|provincial|bod|bancaribe|exterior|activo)\s*(?:\d{4})?/i);
       if(bankMatch) parsed.push({ label: 'Banco', value: bankMatch[0].trim() });
       else if(method.nombre && !/04\d{2}/.test(method.nombre)) parsed.push({ label: 'Método', value: method.nombre });
 
-      // Teléfono / Celular
       const phoneMatch = combinedText.match(/(?:04\d{2}[\s.-]?\d{7}|4\d{2}[\s.-]?\d{7}|\+58[\s.-]?\d{10})/);
       if(phoneMatch) parsed.push({ label: 'Celular / Teléfono', value: phoneMatch[0].replace(/[\s.-]/g, '') });
 
-      // Documento / RIF / Cédula
       const docMatch = combinedText.match(/([VvJjEeGg][\s.-]?\d{6,9}|\b\d{7,8}\b)/);
       if(docMatch) parsed.push({ label: 'RIF / Cédula', value: docMatch[0].toUpperCase().replace(/[\s.-]/g, '') });
 
@@ -448,7 +498,6 @@ async function buyDlg(id){
       }
     }
 
-    // Si aún no tiene campos, mostrar un cajón por defecto con el dato principal
     if(fields.length === 0){
       fields.push({ label: 'Datos de la cuenta', value: method.nombre });
     }
@@ -457,8 +506,8 @@ async function buyDlg(id){
   };
 
   const renderCheckout = () => {
-    const totalUsd = Number(p.precio_usd);
-    const restUsd = Math.max(0, totalUsd - appliedZeny);
+    const totalToPayToday = payPlan === 'cuotas' ? cuotaInicialUsd : totalOriginal;
+    const restUsd = Math.max(0, totalToPayToday - appliedZeny);
     const restBs = restUsd * (S.rate || 0);
     const isFullZeny = restUsd <= 0;
     const selectedMethod = (pmList || []).find(m => m.id === selectedMethodId) || (pmList || [])[0];
@@ -468,7 +517,6 @@ async function buyDlg(id){
       const methodsHtml = (pmList || []).map(m => {
         const isSel = m.id === selectedMethodId;
         const icon = getPaymentIcon(m.nombre);
-        // Mostrar nombre limpio (ej. "Pago Móvil", "Transferencia", etc.)
         let displayTitle = m.nombre;
         if(/pago\s*m[oó]vil/i.test(m.nombre) || /pago\s*m[oó]vil/i.test(m.tipo || '')) displayTitle = 'Pago Móvil';
         else if(/transferencia/i.test(m.nombre)) displayTitle = 'Transferencia Bancaria';
@@ -499,6 +547,19 @@ async function buyDlg(id){
           </div>
 
           <div class="checkout-body">
+            <!-- Selector de Modalidad: De Contado vs En Cuotas (BNPL) -->
+            ${isBnplEligible ? `
+              <div class="paymode-tabs">
+                <button class="paymode-tab ${payPlan === 'contado' ? 'active' : ''}" id="pmPlanContado" type="button">
+                  <span>💵 Pago Total</span>
+                </button>
+                <button class="paymode-tab ${payPlan === 'cuotas' ? 'active' : ''}" id="pmPlanCuotas" type="button">
+                  <span>📅 En 2 Cuotas</span>
+                  <span class="bnpl-badge" style="font-size:.65rem">Inicial $${cuotaInicialUsd}</span>
+                </button>
+              </div>
+            ` : ''}
+
             <!-- Resumen de compra -->
             <div class="checkout-summary-box">
               <div class="checkout-summary-row">
@@ -506,9 +567,35 @@ async function buyDlg(id){
                 <b>${esc(p.nombre)}</b>
               </div>
               <div class="checkout-summary-row">
-                <span>Garantía / Duración</span>
-                <span>${p.duracion_dias} días (${p.garantia_dias || 0} días garantía)</span>
+                <span>Modalidad</span>
+                <span style="font-weight:700;color:${payPlan === 'cuotas' ? 'var(--a)' : 'var(--tx)'}">
+                  ${payPlan === 'cuotas' ? '✨ Financiamiento en 2 Cuotas' : 'Contado (Pago único)'}
+                </span>
               </div>
+              ${payPlan === 'cuotas' ? `
+                <div class="bnpl-schedule">
+                  <div class="bnpl-schedule-title">
+                    <span>Cronograma de Cuotas</span>
+                    <span>Total: $${totalOriginal.toFixed(2)}</span>
+                  </div>
+                  <div class="bnpl-schedule-list">
+                    <div class="bnpl-schedule-item today">
+                      <div>
+                        <span class="item-title">1. Inicial (Hoy)</span>
+                        <span class="item-date">${d1Str} · Activa tu servicio</span>
+                      </div>
+                      <span class="item-price">$${cuotaInicialUsd.toFixed(2)} USD</span>
+                    </div>
+                    <div class="bnpl-schedule-item">
+                      <div>
+                        <span class="item-title">2. Segunda Cuota</span>
+                        <span class="item-date">Vence en 15 días (${d2Str})</span>
+                      </div>
+                      <span class="item-price">$${cuotaDosUsd.toFixed(2)} USD</span>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
               ${maxZeny > 0 ? `
                 <div style="margin:10px 0 6px;padding:8px 10px;background:rgba(7,19,38,.85);border:1px solid var(--line);border-radius:12px">
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -516,14 +603,16 @@ async function buyDlg(id){
                     <span style="font-size:.74rem;color:var(--c)">Disponibles: ${availZeny.toFixed(2)} ZP</span>
                   </div>
                   <div style="display:flex;align-items:center;gap:8px">
-                    <input id="coZenyInput" type="number" min="0" max="${maxZeny}" step="0.01" value="${appliedZeny}" style="background:rgba(12,28,52,.9);padding:6px 10px;font-size:.85rem;border-radius:8px">
+                    <input id="coZenyInput" type="number" min="0" max="${Math.min(maxZeny, totalToPayToday)}" step="0.01" value="${appliedZeny}" style="background:rgba(12,28,52,.9);padding:6px 10px;font-size:.85rem;border-radius:8px">
                     <button class="g" id="coMaxZeny" type="button" style="padding:6px 10px;font-size:.75rem">Usar todo</button>
                   </div>
                 </div>
               ` : ''}
               <div class="checkout-summary-total">
                 <div>
-                  <span style="font-size:.76rem;color:var(--mut);display:block">Total a transferir:</span>
+                  <span style="font-size:.76rem;color:var(--mut);display:block">
+                    ${payPlan === 'cuotas' ? 'Monto a pagar hoy (Inicial):' : 'Total a transferir:'}
+                  </span>
                   <span class="price-usd">$${restUsd.toFixed(2)} USD</span>
                 </div>
                 ${S.rate ? `<span class="price-bs">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
@@ -547,7 +636,7 @@ async function buyDlg(id){
                 </p>
               </div>
               <button id="coSubmitZenyBtn" class="checkout-submit-btn" style="margin-top:14px" type="button">
-                Confirmar Pedido con Zeny
+                Confirmar ${payPlan === 'cuotas' ? 'Inicial en Cuotas' : 'Pedido'} con Zeny
               </button>
             `}
           </div>
@@ -556,10 +645,15 @@ async function buyDlg(id){
 
       $('#coCloseBtn').onclick = () => checkoutDlg.close();
 
+      const btnPlanContado = $('#pmPlanContado');
+      if(btnPlanContado) btnPlanContado.onclick = () => { payPlan = 'contado'; appliedZeny = 0; renderCheckout(); };
+      const btnPlanCuotas = $('#pmPlanCuotas');
+      if(btnPlanCuotas) btnPlanCuotas.onclick = () => { payPlan = 'cuotas'; appliedZeny = 0; renderCheckout(); };
+
       checkoutDlg.querySelectorAll('[data-pm-choose]').forEach(el => {
         el.onclick = () => {
           selectedMethodId = el.dataset.pmChoose;
-          currentStep = 'details'; // Pasa a la siguiente ventana con los cajones
+          currentStep = 'details';
           renderCheckout();
         };
       });
@@ -567,14 +661,14 @@ async function buyDlg(id){
       const zyInput = $('#coZenyInput');
       if(zyInput){
         zyInput.oninput = () => {
-          appliedZeny = Math.min(Math.max(0, Number(zyInput.value) || 0), maxZeny);
+          appliedZeny = Math.min(Math.max(0, Number(zyInput.value) || 0), Math.min(maxZeny, totalToPayToday));
           renderCheckout();
         };
       }
       const maxZyBtn = $('#coMaxZeny');
       if(maxZyBtn){
         maxZyBtn.onclick = () => {
-          appliedZeny = maxZeny;
+          appliedZeny = Math.min(maxZeny, totalToPayToday);
           renderCheckout();
         };
       }
@@ -583,19 +677,29 @@ async function buyDlg(id){
       if(zenySubmit){
         zenySubmit.onclick = async () => {
           zenySubmit.disabled = true;
-          const {error} = await sb.rpc('create_order', {
+          const refText = payPlan === 'cuotas' ? `Inicial Cuota 1 (Zeny)` : 'Pago completo Zeny';
+          const {data: ordId, error} = await sb.rpc('create_order', {
             p_product: id,
             p_metodo: null,
-            p_ref: 'Pago completo Zeny',
+            p_ref: refText,
             p_zeny: appliedZeny
           });
           if(error){
             zenySubmit.disabled = false;
             return toast(error.message);
           }
+
+          if(payPlan === 'cuotas' && ordId){
+            // Registrar las 2 cuotas en installments
+            await sb.from('installments').insert([
+              { order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: 2, monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', referencia: 'Zeny inicial' },
+              { order_id: ordId, customer_id: S.user.id, numero_cuota: 2, total_cuotas: 2, monto_usd: cuotaDosUsd, fecha_vencimiento: d2Str, estado: 'pendiente' }
+            ]).catch(()=>{});
+          }
+
           checkoutDlg.close();
           await loadPublic();
-          toast('Pedido enviado con Zeny.');
+          toast(payPlan === 'cuotas' ? 'Inicial enviada. Tus cuotas quedaron agendadas en tu portal.' : 'Pedido enviado con Zeny.');
           portal();
         };
       }
@@ -620,11 +724,18 @@ async function buyDlg(id){
           <div class="checkout-summary-box" style="margin-bottom:14px;padding:12px 14px">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div>
-                <span style="font-size:.72rem;color:#64748b;display:block">Monto a transferir:</span>
+                <span style="font-size:.72rem;color:#64748b;display:block">
+                  ${payPlan === 'cuotas' ? 'Monto Cuota Inicial a transferir:' : 'Monto a transferir:'}
+                </span>
                 <span class="price-usd" style="font-size:1.35rem">$${restUsd.toFixed(2)} USD</span>
               </div>
               ${S.rate ? `<span class="price-bs" style="font-size:.92rem;font-weight:800;color:#0284c7">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
             </div>
+            ${payPlan === 'cuotas' ? `
+              <div style="margin-top:6px;font-size:.74rem;color:var(--a);font-weight:700">
+                ✨ Cuota 1 de 2. La cuota 2 ($${cuotaDosUsd.toFixed(2)}) vencerá el ${d2Str}.
+              </div>
+            ` : ''}
           </div>
 
           <!-- Cajones estructurados (Imagen 2) -->
@@ -659,7 +770,7 @@ async function buyDlg(id){
           </div>
 
           <button id="coSubmitBtn" class="checkout-submit-btn" type="button">
-            Enviar Pedido para Conciliación
+            ${payPlan === 'cuotas' ? 'Enviar Pago de Cuota Inicial' : 'Enviar Pedido para Conciliación'}
           </button>
           <p class="mut" style="text-align:center;font-size:.72rem;margin:10px 0 0">
             🛡 Las credenciales se entregarán en tu portal tan pronto el administrador verifique tu pago.
@@ -712,10 +823,12 @@ async function buyDlg(id){
         return toast('Por favor ingresa la referencia de tu pago.');
       }
 
-      const {error} = await sb.rpc('create_order', {
+      const orderRef = payPlan === 'cuotas' ? `[Cuotas 1/2] ${refVal}` : refVal;
+
+      const {data: ordId, error} = await sb.rpc('create_order', {
         p_product: id,
         p_metodo: selectedMethodId,
-        p_ref: refVal,
+        p_ref: orderRef,
         p_zeny: appliedZeny
       });
 
@@ -724,9 +837,17 @@ async function buyDlg(id){
         return toast(error.message.includes('Agotado') ? 'Este servicio se agotó. Elige otro.' : error.message);
       }
 
+      if(payPlan === 'cuotas' && ordId){
+        // Crear las cuotas correspondientes en la tabla installments
+        await sb.from('installments').insert([
+          { order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: 2, monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', metodo_id: selectedMethodId, referencia: refVal },
+          { order_id: ordId, customer_id: S.user.id, numero_cuota: 2, total_cuotas: 2, monto_usd: cuotaDosUsd, fecha_vencimiento: d2Str, estado: 'pendiente' }
+        ]).catch(()=>{});
+      }
+
       checkoutDlg.close();
       await loadPublic();
-      toast(`Pedido enviado con éxito. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} minutos mientras revisamos y conciliamos tu pago.`);
+      toast(payPlan === 'cuotas' ? `Pago de inicial enviado. Tu cuota 2 ($${cuotaDosUsd.toFixed(2)}) quedó registrada para el ${d2Str}.` : `Pedido enviado con éxito. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} minutos.`);
       portal();
     };
   };
@@ -850,8 +971,7 @@ function adminLoginDlg(){
   const subtitle = 'Acceso de Administrador';
   const contentHtml = `
     <p class="mut" style="text-align:center;font-size:.82rem;margin:0 0 16px;line-height:1.4">
-      El acceso al panel administrativo está reservado para el correo oficial mediante Google:
-      <br><b style="color:#00d4ff">emprendimientogregoryizquierdo@gmail.com</b>
+      El acceso al panel administrativo está reservado para el correo oficial mediante Google...
     </p>
     <button id="facetAdminGoogle" class="facet-btn" style="min-width:210px;padding:12px 24px" type="button">
       ACCEDER CON GOOGLE
@@ -868,24 +988,153 @@ function adminLoginDlg(){
 // ---------- PORTAL CLIENTE ----------
 async function portal(){
   if(!S.user) return loginDlg('login'); document.body.classList.remove('is-admin'); S.view='portal';
-  const [o,i,l,inc,cr] = await Promise.all([
+  const [o,i,l,inc,cr,inst] = await Promise.all([
     sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
     sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false}),
     sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
     sb.from('incidents').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
-    sb.rpc('my_credentials')]);
+    sb.rpc('my_credentials'),
+    sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true})
+  ]);
+
+  const instData = inst.data || [];
+  const creditLimit = Number(S.me?.limite_credito || 30.00);
+  const creditTier = S.me?.nivel_credito || 'Bronce';
+  const usedCredit = instData.filter(x => x.estado !== 'pagada').reduce((a, x) => a + Number(x.monto_usd), 0);
+  const availableCredit = Math.max(0, creditLimit - usedCredit);
+
   const next = (o.data||[]).filter(x=>x.estado==='entregado'||x.estado==='pagado').map(x=>x.proximo_pago).filter(Boolean).sort()[0];
   const hold=(l.data||[]).filter(x=>x.tipo==='compra'&&x.estado==='pendiente').reduce((a,x)=>a-Number(x.monto),0);
   const T=(h,rows)=>`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+
   app.innerHTML = `<h2>Hola, ${esc(S.me?.nombre||S.user.email||'cliente')}</h2>
-  <div class="grid"><div class="card"><div class="mut">Saldo Zeny</div><div class="price">${Number(S.me?.zeny_balance||0).toFixed(2)} ZP</div><div class="mut">1 ZenyPoint = 1 USD${hold?` · ${hold.toFixed(2)} en revisión`:''}</div><button id="rec" style="margin-top:8px">Recargar</button></div>
-  <div class="card"><div class="mut">Próximo pago</div><div class="price">${esc(next||'—')}</div></div></div>
-  <h3>Mis accesos</h3>${(cr.data||[]).length?T(['Servicio','Correo','Clave','Perfil','PIN','Vence'],(cr.data||[]).map(x=>[x.servicio,x.correo,x.clave,x.perfil,x.pin,x.vence])):'<p class="mut">Aquí verás tus accesos cuando tu pedido sea entregado.</p>'}
-  <h3>Mis compras y vencimientos</h3>${T(['Servicio','Estado','Inicia','Vence','Total'],(o.data||[]).map(x=>[x.products?.nombre,x.estado==='pendiente'?'En revisión (conciliación manual)':x.estado,x.inicia,x.vence,'$'+x.total_usd]))}
+
+  <!-- Tarjeta BNPL Cupo / Línea de Crédito -->
+  <div class="bnpl-credit-card">
+    <div class="bnpl-credit-card-head">
+      <div>
+        <span class="mut" style="font-size:.74rem;letter-spacing:1px;text-transform:uppercase">Línea de Financiamiento Gregory</span>
+        <h3 style="margin:2px 0 0;font-size:1.15rem;color:#ecf6ff">Crédito Disponible</h3>
+      </div>
+      <span class="bnpl-credit-card-tier">Nivel ${esc(creditTier)}</span>
+    </div>
+    <div class="bnpl-credit-card-body">
+      <div class="limit-val">$${availableCredit.toFixed(2)} USD</div>
+      <div class="mut" style="font-size:.78rem">
+        Límite total: $${creditLimit.toFixed(2)} USD · Comprometido en cuotas: $${usedCredit.toFixed(2)} USD
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="mut">Saldo Zeny</div>
+      <div class="price">${Number(S.me?.zeny_balance||0).toFixed(2)} ZP</div>
+      <div class="mut">1 ZenyPoint = 1 USD${hold?` · ${hold.toFixed(2)} en revisión`:''}</div>
+      <button id="rec" style="margin-top:8px">Recargar</button>
+    </div>
+    <div class="card">
+      <div class="mut">Próximo vencimiento</div>
+      <div class="price">${esc(next||'—')}</div>
+    </div>
+  </div>
+
+  <!-- Sección Mis Cuotas (BNPL) -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:28px 0 10px">
+    <h3 style="margin:0">📅 Mis Cuotas Pendientes</h3>
+    <span class="mut" style="font-size:.8rem">${instData.filter(x=>x.estado!=='pagada').length} por pagar</span>
+  </div>
+  ${instData.length ? `
+    <div class="wrap">
+      <table>
+        <tr><th>Servicio</th><th>Cuota</th><th>Monto</th><th>Vencimiento</th><th>Estado</th><th>Acción</th></tr>
+        ${instData.map(c => {
+          const prodName = c.orders?.products?.nombre || 'Servicio';
+          const isVencida = c.estado !== 'pagada' && c.fecha_vencimiento < new Date().toISOString().slice(0, 10);
+          const stClass = isVencida ? 'vencida' : c.estado;
+          const stLabel = isVencida ? 'Vencida' : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente'));
+
+          return `
+            <tr>
+              <td><b>${esc(prodName)}</b></td>
+              <td>#${c.numero_cuota} de ${c.total_cuotas}</td>
+              <td><b style="color:var(--c)">$${Number(c.monto_usd).toFixed(2)} USD</b></td>
+              <td>${esc(c.fecha_vencimiento)}</td>
+              <td><span class="bnpl-inst-pill ${stClass}">${stLabel}</span></td>
+              <td>
+                ${c.estado === 'pendiente' || isVencida ? `
+                  <button class="g" data-pay-inst="${c.id}" data-m="${c.monto_usd}" data-prod="${esc(prodName)}" data-c="${c.numero_cuota}" style="padding:6px 12px;font-size:.78rem">
+                    Pagar cuota
+                  </button>
+                ` : (c.estado === 'en_revision' ? '<span class="mut" style="font-size:.75rem">En verificación</span>' : '<span class="mut" style="font-size:.75rem">✓ Al día</span>')}
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </table>
+    </div>
+  ` : '<p class="mut">No tienes cuotas activas actualmente. Puedes financiar tus compras en 2 partes al comprar.</p>'}
+
+  <h3 style="margin-top:28px">Mis accesos</h3>${(cr.data||[]).length?T(['Servicio','Correo','Clave','Perfil','PIN','Vence'],(cr.data||[]).map(x=>[x.servicio,x.correo,x.clave,x.perfil,x.pin,x.vence])):'<p class="mut">Aquí verás tus accesos cuando tu pedido sea entregado.</p>'}
+  <h3>Mis compras y pedidos</h3>${T(['Servicio','Estado','Inicia','Vence','Total'],(o.data||[]).map(x=>[x.products?.nombre,x.estado==='pendiente'?'En revisión (conciliación manual)':x.estado,x.inicia,x.vence,'$'+x.total_usd]))}
   ${(o.data||[]).filter(x=>x.estado==='pendiente').map(x=>`<button class="g" data-cancel="${x.id}" style="margin:6px 6px 0 0">Cancelar pedido: ${esc(x.products?.nombre)}</button>`).join('')}
   <h3>Facturas</h3>${T(['N°','Fecha','USD','Bs','Tasa'],(i.data||[]).map(x=>[String(x.numero).padStart(6,'0'),x.emitida?.slice(0,10),x.total_usd,x.total_bs,x.tasa_bs]))}
   <h3>Movimientos Zeny</h3>${T(['Fecha','Tipo','Monto','Estado'],(l.data||[]).map(x=>[x.created_at.slice(0,10),x.tipo,x.monto,x.estado]))}
   <h3>Incidencias</h3>${T(['Asunto','Estado'],(inc.data||[]).map(x=>[x.asunto,x.estado]))}<button class="g" id="ni" style="margin-top:8px">Reportar incidencia</button>`;
+
+  app.querySelectorAll('[data-pay-inst]').forEach(b => {
+    b.onclick = async () => {
+      const instId = b.dataset.payInst;
+      const amountUsd = Number(b.dataset.m);
+      const prodName = b.dataset.prod;
+      const numCuota = b.dataset.c;
+      const amountBs = amountUsd * (S.rate || 0);
+
+      const { data: pms } = await sb.from('payment_methods').select('*').eq('activo', true).order('orden');
+      const pmOptions = (pms || []).map(m => `<option value="${m.id}">${esc(m.nombre)}</option>`).join('');
+
+      $('#dlgBody').innerHTML = `
+        <h3>Pagar Cuota #${numCuota} · ${esc(prodName)}</h3>
+        <p class="mut" style="font-size:.85rem;margin:4px 0 12px">
+          Monto: <b style="color:var(--c)">$${amountUsd.toFixed(2)} USD</b>
+          ${S.rate ? `(≈ Bs. ${amountBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})})` : ''}
+        </p>
+        <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Método donde transferiste:</label>
+        <select id="instPmSelect" style="margin-bottom:10px">${pmOptions}</select>
+        <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Referencia bancaria:</label>
+        <input id="instRefInput" placeholder="Ej: 8 dígitos del comprobante" required>
+        <button id="instSubmitBtn" style="margin-top:14px;width:100%">Enviar Pago de Cuota</button>
+      `;
+      dlg.showModal();
+
+      $('#instSubmitBtn').onclick = async () => {
+        const btn = $('#instSubmitBtn');
+        btn.disabled = true;
+        const refVal = $('#instRefInput')?.value?.trim();
+        const pmVal = $('#instPmSelect')?.value || null;
+        if(!refVal){
+          btn.disabled = false;
+          return toast('Por favor ingresa la referencia bancaria.');
+        }
+
+        const { error } = await sb.rpc('pay_installment', {
+          p_installment_id: instId,
+          p_metodo_id: pmVal,
+          p_referencia: refVal
+        });
+
+        if(error){
+          btn.disabled = false;
+          return toast(error.message);
+        }
+
+        dlg.close();
+        toast('Pago de cuota enviado para verificación.');
+        portal();
+      };
+    };
+  });
+
   app.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('cancel_my_order',{p_order:b.dataset.cancel});error?toast(error.message):(await loadPublic(),portal());});
   $('#rec').onclick=()=>{ $('#dlgBody').innerHTML='<h3>Recargar Zeny</h3><input id="m" type="number" min="1" placeholder="Monto en USD"><input id="r" placeholder="Referencia del pago" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Solicitar recarga</button>'; dlg.showModal();
     $('#ok').onclick=async()=>{const {error}=await sb.from('zeny_ledger').insert({customer_id:S.user.id,tipo:'recarga',monto:+$('#m').value,referencia:$('#r').value,estado:'pendiente'});error?toast(error.message):(dlg.close(),portal());};};
@@ -896,6 +1145,7 @@ async function portal(){
 // ---------- PANEL ADMIN (CRUD generico, protegido por RLS) ----------
 const TABLES = {
  orders:['customer_id','product_id','total_usd','zeny_aplicado','referencia','estado','conciliado_por','inicia','vence','proximo_pago'],
+ installments:['order_id','customer_id','numero_cuota','total_cuotas','monto_usd','fecha_vencimiento','estado','referencia','pagada_at'],
  zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
  products:['nombre','descripcion','tipo','precio_usd','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
  banners:['titulo','texto','imagen_url','enlace','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
@@ -906,12 +1156,12 @@ const TABLES = {
  bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
  exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','notas'], purchases:['fecha','proveedor','plataforma','mother_id','monto_usd','notas'],
  refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
-const SEL={orders:'*,customers(nombre,email),products(nombre)',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
-const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email']};
-const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta']};
+const SEL={orders:'*,customers(nombre,email),products(nombre)',installments:'*,customers(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
+const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
+const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta']};
 const BOOL=['activo','activa','enabled'], READONLY={customers:['zeny_balance']};
 const NOADD=['refunds','transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -922,6 +1172,8 @@ const ADMIN_MENU = [
     items: [
       { id: 'finanzas', label: 'Finanzas', icon: '📊' },
       { id: 'orders', label: 'Pedidos', icon: '🛒', badgeKey: 'orders' },
+      { id: 'cuotas', label: 'Cobranza Cuotas', icon: '💳' },
+      { id: 'vencimientos', label: 'Vencimientos', icon: '📅' },
       { id: 'zeny_ledger', label: 'Billetera Zeny', icon: '💰', badgeKey: 'zeny_ledger' },
       { id: 'incidents', label: 'Incidencias', icon: '⚠️', badgeKey: 'incidents' }
     ]

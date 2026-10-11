@@ -322,6 +322,104 @@ const EXTRA = {
     $('#cn').onclick = e => run(e.target, async () => { const r = await api('/api/telegram-setup', { token: $('#tk').value.trim() }); $('#tk').value = ''; EXTRA.telegram(box); return 'Conectado: @' + r.bot; });
   },
 
+  async cuotas(box) {
+    const { data: instList, error } = await sb.from('installments')
+      .select('*, customers(nombre,email,telefono), orders(referencia, products(nombre))')
+      .order('fecha_vencimiento', { ascending: true });
+
+    if (error) {
+      box.innerHTML = `<p class="mut">Error al cargar cuotas: ${esc(error.message)}</p>`;
+      return;
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const list = instList || [];
+    const pendTotal = list.filter(c => c.estado !== 'pagada').reduce((a, c) => a + Number(c.monto_usd), 0);
+    const revCount = list.filter(c => c.estado === 'en_revision').length;
+
+    box.innerHTML = `
+      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(13,39,76,.85),rgba(7,20,40,.9))">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <h3 style="margin:0 0 4px;font-size:1.15rem">💳 Control y Cobranza de Cuotas (BNPL)</h3>
+            <p class="mut" style="margin:0;font-size:.82rem">Gestiona los pagos en cuotas, aprueba abonos y envía recordatorios automáticos por WhatsApp.</p>
+          </div>
+          <div style="display:flex;gap:12px;text-align:right">
+            <div>
+              <span class="mut" style="font-size:.72rem;display:block">Por cobrar:</span>
+              <b style="font-size:1.2rem;color:var(--c)">$${pendTotal.toFixed(2)} USD</b>
+            </div>
+            ${revCount ? `
+              <div>
+                <span class="mut" style="font-size:.72rem;display:block">En revisión:</span>
+                <span class="pill" style="font-size:.8rem">${revCount} por validar</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="wrap">
+        <table>
+          <tr>
+            <th>Cuota</th>
+            <th>Cliente</th>
+            <th>Servicio</th>
+            <th>Monto</th>
+            <th>Vencimiento</th>
+            <th>Estado</th>
+            <th>Referencia</th>
+            <th>Acciones</th>
+          </tr>
+          ${list.map(c => {
+            const isVencida = c.estado !== 'pagada' && c.fecha_vencimiento < todayStr;
+            const statusClass = isVencida ? 'vencida' : c.estado;
+            const statusLabel = isVencida ? 'Vencida' : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente'));
+            const tel = (c.customers?.telefono || '').replace(/\D/g, '');
+            const nom = c.customers?.nombre || c.customers?.email || 'Cliente';
+            const prod = c.orders?.products?.nombre || 'Servicio';
+            const waMsg = encodeURIComponent(`Hola ${nom}! Te saludamos de Emprendimiento Gregory Izquierdo. Te recordamos tu cuota #${c.numero_cuota} de ${prod} por $${Number(c.monto_usd).toFixed(2)} USD (vence el ${c.fecha_vencimiento}). Puedes reportar tu pago móvil o transferencia desde tu portal.`);
+
+            return `
+              <tr>
+                <td><b>#${c.numero_cuota} de ${c.total_cuotas}</b></td>
+                <td>
+                  <b>${esc(nom)}</b>
+                  <span class="mut" style="display:block;font-size:.72rem">${esc(c.customers?.email || '')}</span>
+                </td>
+                <td>${esc(prod)}</td>
+                <td><b style="color:var(--c)">$${Number(c.monto_usd).toFixed(2)}</b></td>
+                <td><span style="color:${isVencida ? '#ff4d6d' : 'inherit'}">${esc(c.fecha_vencimiento)}</span></td>
+                <td><span class="bnpl-inst-pill ${statusClass}">${statusLabel}</span></td>
+                <td><code>${esc(c.referencia || '—')}</code></td>
+                <td class="row">
+                  ${c.estado !== 'pagada' ? `
+                    <button data-ok-inst="${c.id}" style="padding:6px 10px;font-size:.75rem">Aprobar</button>
+                  ` : '<span class="mut" style="font-size:.75rem">✓ Pagada</span>'}
+                  ${tel && c.estado !== 'pagada' ? `
+                    <a class="g" href="https://wa.me/${tel}?text=${waMsg}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;padding:6px 10px;font-size:.75rem;display:inline-flex;align-items:center;gap:4px">
+                      💬 Recordar WA
+                    </a>
+                  ` : ''}
+                </td>
+              </tr>
+            `;
+          }).join('') || '<tr><td colspan="8" class="mut empty">Aún no hay compras con cuotas registradas.</td></tr>'}
+        </table>
+      </div>
+    `;
+
+    box.querySelectorAll('[data-ok-inst]').forEach(btn => {
+      btn.onclick = () => run(btn, async () => {
+        const id = btn.dataset.okInst;
+        const { error } = await sb.rpc('approve_installment', { p_installment_id: id });
+        if (error) throw error;
+        EXTRA.cuotas(box);
+        return 'Cuota aprobada con éxito.';
+      });
+    });
+  },
+
   async gemini(box) {
     box.innerHTML = `<textarea id="gp" rows="5" placeholder="Pídele a Gemini: redactar promociones, mensajes de cobro, respuestas para clientes…"></textarea><div class="row" style="margin:8px 0"><button id="gg2">Preguntar</button></div><pre id="go" style="white-space:pre-wrap" class="card"></pre>`;
     $('#gg2').onclick = e => run(e.target, async () => { const r = await api('/api/gemini', { prompt: $('#gp').value }); $('#go').textContent = r.text; return 'Listo'; });
