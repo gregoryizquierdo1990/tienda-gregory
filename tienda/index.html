@@ -11,7 +11,9 @@
 *{box-sizing:border-box}html{scroll-behavior:smooth}
 body{margin:0;font-family:Sora,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--tx);background:var(--bg);background-image:radial-gradient(1200px 600px at 8% -10%,rgba(0,245,160,.16),transparent 60%),radial-gradient(900px 520px at 100% 0%,rgba(37,99,255,.28),transparent 60%);background-attachment:fixed;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);-webkit-font-smoothing:antialiased}
 header{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(3,8,18,.72);backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);border-bottom:1px solid rgba(0,212,255,.14)}
-.brand{display:flex;align-items:center;gap:10px}.logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-weight:800;color:#03121c;background:var(--grad);box-shadow:0 0 22px rgba(0,245,160,.45)}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:#ffffff;box-shadow:0 0 16px rgba(0,245,160,.4),0 0 6px rgba(255,255,255,.9);border:1.5px solid rgba(0,212,255,.5);flex-shrink:0;padding:2px}
+.logo img{width:100%;height:100%;object-fit:contain;border-radius:50%;display:block}
 h1{font-size:1rem;margin:0;font-weight:800}.rate{font-size:.74rem;color:var(--mut)}
 main{max-width:1160px;margin:auto;padding:18px 16px 90px}
 button,input,select,textarea{font:inherit;color:var(--tx)}
@@ -30,9 +32,19 @@ button.d{background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;box-shado
 .tabs{display:flex;gap:8px;overflow-x:auto;margin:14px 0;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs button{white-space:nowrap}
 table{width:100%;border-collapse:collapse;font-size:.85rem}td,th{border-bottom:1px solid rgba(22,51,90,.8);padding:8px 6px;text-align:left;vertical-align:top}th{color:var(--mut);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.4px}tr:hover td{background:rgba(0,212,255,.04)}.wrap{overflow-x:auto;border-radius:12px}
 dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border:1px solid rgba(0,212,255,.3);border-radius:20px;max-width:460px;width:92%;box-shadow:0 30px 80px -20px rgba(0,212,255,.35);padding:20px}dialog::backdrop{background:rgba(2,6,14,.72);backdrop-filter:blur(4px)}
-.hero{position:relative;overflow:hidden;border-radius:24px;padding:34px 22px;margin-bottom:18px;border:1px solid rgba(0,212,255,.22);background:radial-gradient(600px 260px at 15% 0%,rgba(0,245,160,.22),transparent 65%),radial-gradient(600px 300px at 100% 100%,rgba(37,99,255,.35),transparent 65%),linear-gradient(180deg,#081a33,#050e1d)}
-.hero h2{margin:0 0 8px;font-size:clamp(1.6rem,5.5vw,2.6rem);line-height:1.1;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.hero h2 span{background:inherit;-webkit-background-clip:inherit;background-clip:inherit;color:inherit}
-.hero p{margin:0 0 16px;color:var(--mut);max-width:560px}.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.chips span{font-size:.76rem;padding:6px 11px;border-radius:99px;border:1px solid rgba(0,245,160,.25);background:rgba(0,245,160,.07);color:#baffe4}.search{max-width:460px}
+.hero{position:relative;overflow:hidden;border-radius:24px;padding:36px 24px;margin-bottom:20px;border:1px solid rgba(0,212,255,.25);background:radial-gradient(700px 320px at 50% 0%,rgba(0,245,160,.2),transparent 70%),radial-gradient(800px 360px at 50% 100%,rgba(37,99,255,.32),transparent 70%),linear-gradient(180deg,#081a33,#050e1d);display:flex;flex-direction:column;align-items:center;text-align:center}
+.hero h2{margin:0 0 10px;font-size:clamp(1.6rem,5vw,2.5rem);line-height:1.18;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;max-width:820px}
+.hero p{margin:0 0 18px;color:var(--mut);max-width:680px;font-size:1rem;line-height:1.4}
+.hero-rate-box{background:linear-gradient(135deg,rgba(10,26,50,.92) 0%,rgba(5,15,30,.96) 100%);border:1.5px solid rgba(0,212,255,.45);border-radius:18px;padding:12px 24px;margin:4px auto 20px;box-shadow:0 8px 30px rgba(0,0,0,.5),0 0 24px rgba(0,212,255,.2);display:inline-flex;align-items:center;gap:10px;transition:transform .2s ease,box-shadow .2s ease}
+.hero-rate-box:hover{transform:scale(1.02);box-shadow:0 12px 36px rgba(0,0,0,.6),0 0 32px rgba(0,245,160,.3);border-color:var(--a)}
+.hero-rate-icon{font-size:1.35rem;line-height:1}
+.hero-rate-text{font-size:1.05rem;font-weight:800;letter-spacing:.3px;color:var(--tx)}
+.hero-rate-text b{color:var(--c);font-weight:800}
+.hero-rate-text span.rate-date{color:var(--mut);font-weight:600;font-size:.85rem;margin-left:4px}
+.chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:20px}
+.chips span{font-size:.82rem;font-weight:700;padding:7px 15px;border-radius:99px;border:1px solid rgba(0,245,160,.35);background:rgba(0,245,160,.08);color:#baffe4;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.search{max-width:520px;width:100%;margin:0 auto;text-align:center;font-size:.95rem;padding:13px 18px;border-radius:16px;background:rgba(7,19,38,.92);border:1.5px solid rgba(0,212,255,.25);box-shadow:0 4px 18px rgba(0,0,0,.35)}
+.search:focus{text-align:left;border-color:var(--c);box-shadow:0 0 0 3px rgba(0,212,255,.25),0 0 20px rgba(0,212,255,.3)}
 .ban{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin-bottom:16px;scrollbar-width:none}.ban::-webkit-scrollbar{display:none}
 .ban a,.ban div{flex:0 0 100%;scroll-snap-align:start;border-radius:20px;min-height:170px;padding:22px;background:linear-gradient(135deg,#0a3b4a,#12307a) center/cover;color:#fff;text-decoration:none;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid rgba(0,212,255,.25)}.ban h3{margin:0 0 4px;font-size:1.3rem}.ban p{margin:0;opacity:.92}
 
@@ -63,7 +75,8 @@ body.is-admin main{max-width:1440px;width:100%}
 .admin-sidebar{position:sticky;top:68px;max-height:calc(100vh - 84px);display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(10,22,40,.96),rgba(5,13,26,.98));border:1px solid var(--line);border-radius:var(--r);box-shadow:0 16px 40px -12px rgba(0,0,0,.7),0 0 0 1px rgba(0,212,255,.08);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);overflow:hidden;z-index:10}
 .admin-sidebar-head{padding:14px 14px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(22,51,90,.8);background:rgba(3,8,18,.4)}
 .admin-sidebar-brand{display:flex;align-items:center;gap:10px}
-.admin-sb-icon{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-weight:800;font-size:.9rem;color:#03121c;background:var(--grad);box-shadow:0 0 14px rgba(0,245,160,.35);flex-shrink:0}
+.admin-sb-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#ffffff;box-shadow:0 0 12px rgba(0,245,160,.4);border:1px solid rgba(0,212,255,.4);flex-shrink:0;overflow:hidden;padding:1px}
+.admin-sb-icon img{width:100%;height:100%;object-fit:contain;border-radius:50%;display:block}
 .admin-sb-title{font-weight:800;font-size:.92rem;color:var(--tx);line-height:1.15}
 .admin-sb-sub{font-size:.68rem;color:var(--mut)}
 .admin-sidebar-close{display:none;padding:4px 8px;font-size:.85rem}
@@ -202,7 +215,7 @@ body.is-admin main{max-width:1440px;width:100%}
 .checkout-submit-btn:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 10px 28px -6px rgba(0,245,160,.6)}
 .checkout-submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 </style></head><body>
-<header><div class="brand"><div class="logo">GI</div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
+<header><div class="brand"><div class="logo"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo"></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
 <div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
 <button class="g" id="bHome">Tienda</button><button class="g" id="bInstall">Instalar app</button><button class="g hide" id="bSnd">🔔 Sonido</button><button class="g hide" id="bPortal">Mi portal</button><button class="g" id="bAdmin">Admin</button><button class="g" id="bRegister">Registrarse</button><button id="bLogin">Ingresar</button><button class="g hide" id="bOut">Salir</button></div></header>
 <main id="app"></main>
@@ -238,8 +251,12 @@ async function loadPublic(){
     sb.rpc('stock')]);
   S.banners = bn.data||[]; S.stock = Object.fromEntries((st.data||[]).map(x=>[x.product_id,Number(x.disponibles)]));
   S.rate = Number(r.data?.[0]?.bs_por_usd||0); S.products = p.data||[];
+  S.rateDate = r.data?.[0]?.fecha || '';
   S.settings = Object.fromEntries((s.data||[]).map(x=>[x.key,x.value]));
-  $('#rate').textContent = S.rate ? `Tasa oficial BCV: ${S.rate.toLocaleString('es-VE')} Bs/USD · ${r.data[0].fecha}` : 'Tasa BCV no disponible';
+  const rateStr = S.rate ? `Tasa oficial BCV: ${S.rate.toLocaleString('es-VE')} Bs/USD · ${S.rateDate}` : 'Tasa BCV no disponible';
+  $('#rate').textContent = rateStr;
+  const hText = $('#heroRateText');
+  if(hText) hText.innerHTML = S.rate ? `Tasa oficial BCV: <b>${S.rate.toLocaleString('es-VE')} Bs/USD</b> <span class="rate-date">· ${esc(S.rateDate)}</span>` : 'Tasa oficial BCV no disponible';
   if(S.settings.negocio) $('#biz').textContent = S.settings.negocio.nombre;
 }
 async function onSession(session){
@@ -335,10 +352,22 @@ function home(){
     </div>
   </section>
   ${S.banners.length?`<div class="ban">${S.banners.map(b=>{const t=`<h3>${esc(b.titulo)}</h3><p>${esc(b.texto)}</p>`,st=b.imagen_url?` style="background-image:linear-gradient(#0008,#000a),url('${esc(b.imagen_url)}')"`:'';return /^https?:\/\//.test(b.enlace||'')?`<a href="${esc(b.enlace)}" target="_blank" rel="noopener noreferrer"${st}>${t}</a>`:`<div${st}>${t}</div>`;}).join('')}</div>`:''}
-  <section class="hero"><h2>Streaming y cuentas digitales al mejor precio</h2>
-   <p>Pantallas, cuentas completas y servicios con garantía. Tu pedido se entrega cuando verificamos tu pago.</p>
-   <div class="chips"><span>⚡ Entrega rápida</span><span>🛡 Garantía incluida</span><span>💬 Soporte por WhatsApp</span></div>
-   <input id="q" class="search" type="search" placeholder="Buscar servicio…" value="${esc(S.q||'')}" aria-label="Buscar servicio" autocomplete="off"></section>
+  <section class="hero">
+    <h2>Perfiles, Cuentas Completas y Aplicaciones en un solo lugar</h2>
+    <p>Pantallas, cuentas completas y servicios con Garantía y Soporte</p>
+    <div class="hero-rate-box" id="heroRateBox">
+      <span class="hero-rate-icon">💵</span>
+      <div class="hero-rate-text" id="heroRateText">
+        ${S.rate ? `Tasa oficial BCV: <b>${S.rate.toLocaleString('es-VE')} Bs/USD</b> <span class="rate-date">· ${esc(S.rateDate||'')}</span>` : 'Tasa oficial BCV no disponible'}
+      </div>
+    </div>
+    <div class="chips">
+      <span>⚡ Entrega rápida</span>
+      <span>🛡 Garantía incluida</span>
+      <span>💬 Soporte por WhatsApp</span>
+    </div>
+    <input id="q" class="search" type="search" placeholder="Buscar servicio…" value="${esc(S.q||'')}" aria-label="Buscar servicio" autocomplete="off">
+  </section>
   <div class="tabs" id="tabs"></div><div class="pgrid" id="grid"></div>
   <footer class="mut" style="margin:34px 0">Soporte: ${esc(S.settings.negocio?.telefono||'')} · ${esc(S.settings.negocio?.correo||'')}</footer>${tel?`<a class="wa" href="https://wa.me/${tel}" target="_blank" rel="noopener noreferrer">WhatsApp</a>`:''}`;
   $('#q').oninput = e=>{S.q=e.target.value;renderGrid();};
@@ -481,20 +510,20 @@ async function buyDlg(id){
                 <span>${p.duracion_dias} días (${p.garantia_dias || 0} días garantía)</span>
               </div>
               ${maxZeny > 0 ? `
-                <div style="margin:10px 0 6px;padding:8px 10px;background:#ffffff;border:1px solid #cbd5e1;border-radius:12px">
+                <div style="margin:10px 0 6px;padding:8px 10px;background:rgba(7,19,38,.85);border:1px solid var(--line);border-radius:12px">
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                    <span style="font-size:.78rem;font-weight:700;color:#0f172a">💰 Billetera Zeny</span>
-                    <span style="font-size:.74rem;color:#0284c7">Disponibles: ${availZeny.toFixed(2)} ZP</span>
+                    <span style="font-size:.78rem;font-weight:700;color:var(--tx)">💰 Billetera Zeny</span>
+                    <span style="font-size:.74rem;color:var(--c)">Disponibles: ${availZeny.toFixed(2)} ZP</span>
                   </div>
                   <div style="display:flex;align-items:center;gap:8px">
-                    <input id="coZenyInput" type="number" min="0" max="${maxZeny}" step="0.01" value="${appliedZeny}" style="background:#f8fafc;padding:6px 10px;font-size:.85rem;border-radius:8px">
+                    <input id="coZenyInput" type="number" min="0" max="${maxZeny}" step="0.01" value="${appliedZeny}" style="background:rgba(12,28,52,.9);padding:6px 10px;font-size:.85rem;border-radius:8px">
                     <button class="g" id="coMaxZeny" type="button" style="padding:6px 10px;font-size:.75rem">Usar todo</button>
                   </div>
                 </div>
               ` : ''}
               <div class="checkout-summary-total">
                 <div>
-                  <span style="font-size:.76rem;color:#64748b;display:block">Total a transferir:</span>
+                  <span style="font-size:.76rem;color:var(--mut);display:block">Total a transferir:</span>
                   <span class="price-usd">$${restUsd.toFixed(2)} USD</span>
                 </div>
                 ${S.rate ? `<span class="price-bs">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
@@ -505,15 +534,15 @@ async function buyDlg(id){
             ${!isFullZeny ? `
               <div class="checkout-methods-title">
                 <span>¿Cómo vas a pagar?</span>
-                <span style="font-size:.75rem;color:#64748b;font-weight:500">Selecciona tu método</span>
+                <span style="font-size:.75rem;color:var(--mut);font-weight:500">Selecciona tu método</span>
               </div>
               <div class="checkout-methods-grid">
                 ${methodsHtml || '<p class="mut">No hay métodos activos en este momento.</p>'}
               </div>
             ` : `
-              <div class="checkout-bank-details" style="background:#f0fdf4;border-color:#bbf7d0;padding:12px;border-radius:14px">
-                <h4 style="color:#166534;margin:0 0 6px">✅ Pago cubierto totalmente con Zeny</h4>
-                <p class="mut" style="color:#14532d;font-size:.8rem;margin:0">
+              <div class="checkout-bank-details" style="background:rgba(0,245,160,.1);border:1px solid rgba(0,245,160,.3);padding:12px;border-radius:14px">
+                <h4 style="color:var(--a);margin:0 0 6px">✅ Pago cubierto totalmente con Zeny</h4>
+                <p class="mut" style="color:#baffe4;font-size:.8rem;margin:0">
                   Se aplicarán <b>$${appliedZeny.toFixed(2)} ZenyPoints</b>. No requieres transferir por banco.
                 </p>
               </div>
@@ -959,7 +988,7 @@ function renderAdminSidebar(curTab, allTabs){
   const extra = allTabs.filter(k => !known.has(k));
   const groups = [...ADMIN_MENU];
   if(extra.length) groups.push({ group: 'Otras tablas', items: extra.map(k => ({ id: k, label: k, icon: '📄' })) });
-  return `<div class="admin-backdrop" id="adminBackdrop"></div><aside class="admin-sidebar" id="adminSidebar"><div class="admin-sidebar-head"><div class="admin-sidebar-brand"><div class="admin-sb-icon">GI</div><div><div class="admin-sb-title">Panel Admin</div><div class="admin-sb-sub">Emprendimiento Gregory</div></div></div><button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button></div><nav class="admin-nav-scroll">${groups.map(g=>`<div class="admin-sb-group">${esc(g.group)}</div>${g.items.map(it=>{
+  return `<div class="admin-backdrop" id="adminBackdrop"></div><aside class="admin-sidebar" id="adminSidebar"><div class="admin-sidebar-head"><div class="admin-sidebar-brand"><div class="admin-sb-icon"><img src="/logo-badge.png" alt="Logo"></div><div><div class="admin-sb-title">Panel Admin</div><div class="admin-sb-sub">Emprendimiento Gregory</div></div></div><button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button></div><nav class="admin-nav-scroll">${groups.map(g=>`<div class="admin-sb-group">${esc(g.group)}</div>${g.items.map(it=>{
     const act = it.id===curTab ? ' active' : '';
     const bCount = (it.badgeKey && S.badges) ? (S.badges[it.badgeKey]||0) : 0;
     const bCls = it.id==='incidents' ? 'admin-sb-badge warn' : 'admin-sb-badge';
