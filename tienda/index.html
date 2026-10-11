@@ -147,13 +147,14 @@ body.is-admin main{max-width:1440px;width:100%}
 .checkout-modal::backdrop{background:rgba(2,6,15,.75);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .checkout-card{background:#ffffff;color:#0f172a;border-radius:28px 28px 20px 20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);position:relative;animation:slideUp .25s ease-out}
 @keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
-.checkout-header{background:linear-gradient(135deg,#ffe600 0%,#ffd000 100%);color:#0f172a;padding:20px 22px 18px;position:relative}
-.checkout-drag-bar{width:42px;height:4px;background:rgba(0,0,0,.25);border-radius:99px;margin:0 auto 12px}
-.checkout-header h3{margin:0;font-size:1.3rem;font-weight:800;color:#0f172a}
-.checkout-header p{margin:4px 0 0;font-size:.82rem;color:rgba(15,23,42,.85);font-weight:500}
-.checkout-close{position:absolute;top:16px;right:18px;background:rgba(0,0,0,.08);border:0;color:#0f172a;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-weight:800;font-size:1.1rem;box-shadow:none;transition:background .15s}
-.checkout-close:hover{background:rgba(0,0,0,.18);transform:none}
-.checkout-body{padding:20px 22px 24px;max-height:76vh;overflow-y:auto}
+.checkout-top-bar{background:#ffe600;padding:14px 18px 8px;display:flex;align-items:center;justify-content:space-between;position:relative}
+.checkout-back-btn{background:transparent;border:none;color:#0f172a;font-size:1.3rem;cursor:pointer;padding:4px 8px;font-weight:800;box-shadow:none;display:flex;align-items:center}
+.checkout-back-btn:hover{background:transparent;transform:translateX(-2px);box-shadow:none}
+.checkout-progress-bar{flex:1;max-width:140px;height:4px;background:rgba(0,0,0,.2);border-radius:99px;margin:0 12px;overflow:hidden}
+.checkout-progress-fill{height:100%;background:#0f172a;border-radius:99px;transition:width .25s ease}
+.checkout-close-btn{background:transparent;border:none;color:#0f172a;font-size:1.3rem;cursor:pointer;padding:4px 8px;font-weight:800;box-shadow:none}
+.checkout-close-btn:hover{background:transparent;transform:none;box-shadow:none}
+.checkout-body{padding:18px 20px 24px;max-height:78vh;overflow-y:auto}
 
 /* Resumen del Pedido */
 .checkout-summary-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:14px 16px;margin-bottom:18px}
@@ -179,14 +180,14 @@ body.is-admin main{max-width:1440px;width:100%}
 
 /* Datos de Pago e Instrucciones (Estilo exacto Screenshot) */
 .checkout-bank-details{background:transparent;border:none;padding:0;margin:14px 0 16px}
-.checkout-bank-title{margin:0 0 10px;font-size:1.15rem;color:#0f172a;font-weight:800;letter-spacing:-.2px}
-.checkout-bank-alert{background:#fef9c3;border:1px solid #fef08a;border-radius:12px;padding:9px 12px;display:flex;align-items:center;gap:8px;font-size:.76rem;color:#854d0e;font-weight:600;margin-bottom:14px}
+.checkout-bank-title{margin:0 0 10px;font-size:1.18rem;color:#0f172a;font-weight:800;letter-spacing:-.2px}
+.checkout-bank-alert{background:#fef9c3;border:1px solid #fef08a;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:.78rem;color:#854d0e;font-weight:600;margin-bottom:14px}
 .checkout-bank-list{display:flex;flex-direction:column;gap:10px}
 .checkout-bank-card{display:flex;align-items:center;justify-content:space-between;background:#f8fafc;padding:12px 16px;border-radius:16px;border:1px solid #e2e8f0;transition:all .15s ease}
 .checkout-bank-card:hover{background:#f1f5f9;border-color:#cbd5e1}
 .checkout-bank-info{display:flex;flex-direction:column;gap:3px;overflow:hidden}
 .checkout-bank-label{font-size:.75rem;font-weight:600;color:#64748b}
-.checkout-bank-val{font-size:.96rem;font-weight:700;color:#0f172a;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.checkout-bank-val{font-size:.98rem;font-weight:700;color:#0f172a;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .checkout-copy-btn{background:transparent;color:#475569;border:none;padding:6px;width:34px;height:34px;border-radius:8px;display:grid;place-items:center;cursor:pointer;box-shadow:none;transition:all .15s ease;flex-shrink:0}
 .checkout-copy-btn:hover{background:#e2e8f0;color:#0f172a;transform:none}
 .checkout-copy-btn.copied{background:#dcfce7;color:#16a34a}
@@ -379,128 +380,257 @@ async function buyDlg(id){
 
   const availZeny = Math.max(0, Number(S.me?.zeny_balance || 0) + (h || []).reduce((a, x) => a + Number(x.monto), 0));
   const maxZeny = Math.min(availZeny, Number(p.precio_usd));
+  let currentStep = 'method'; // 'method' (Paso 1) o 'details' (Paso 2)
   let selectedMethodId = (pmList && pmList.length > 0) ? pmList[0].id : null;
   let appliedZeny = 0;
+
+  // Parsea datos estructurados: si viene como objeto los usa; si el administrador guardó todo en un solo texto o nombre lo divide en cajones limpios
+  const parseMethodFields = (method) => {
+    if(!method) return [];
+    const rawData = method.datos || {};
+    let fields = [];
+
+    if(typeof rawData === 'object' && Object.keys(rawData).length > 0){
+      for(const [k, v] of Object.entries(rawData)){
+        if(v != null && String(v).trim()) fields.push({ label: k, value: String(v).trim() });
+      }
+    }
+
+    // Si los datos vinieron en un solo bloque o el texto está agrupado en el nombre (como BNC 0191 0424... V-189...)
+    if(fields.length <= 1){
+      const combinedText = [fields[0]?.value || '', method.nombre || '', method.tipo || ''].join(' ');
+      const parsed = [];
+      
+      // Banco
+      const bankMatch = combinedText.match(/(?:banco|bnc|banesco|mercantil|venezuela|provincial|bod|bancaribe|exterior|activo)\s*(?:\d{4})?/i);
+      if(bankMatch) parsed.push({ label: 'Banco', value: bankMatch[0].trim() });
+      else if(method.nombre && !/04\d{2}/.test(method.nombre)) parsed.push({ label: 'Método', value: method.nombre });
+
+      // Teléfono / Celular
+      const phoneMatch = combinedText.match(/(?:04\d{2}[\s.-]?\d{7}|4\d{2}[\s.-]?\d{7}|\+58[\s.-]?\d{10})/);
+      if(phoneMatch) parsed.push({ label: 'Celular / Teléfono', value: phoneMatch[0].replace(/[\s.-]/g, '') });
+
+      // Documento / RIF / Cédula
+      const docMatch = combinedText.match(/([VvJjEeGg][\s.-]?\d{6,9}|\b\d{7,8}\b)/);
+      if(docMatch) parsed.push({ label: 'RIF / Cédula', value: docMatch[0].toUpperCase().replace(/[\s.-]/g, '') });
+
+      if(parsed.length >= 2){
+        fields = parsed;
+      }
+    }
+
+    // Si aún no tiene campos, mostrar un cajón por defecto con el dato principal
+    if(fields.length === 0){
+      fields.push({ label: 'Datos de la cuenta', value: method.nombre });
+    }
+
+    return fields;
+  };
 
   const renderCheckout = () => {
     const totalUsd = Number(p.precio_usd);
     const restUsd = Math.max(0, totalUsd - appliedZeny);
     const restBs = restUsd * (S.rate || 0);
     const isFullZeny = restUsd <= 0;
-    const selectedMethod = (pmList || []).find(m => m.id === selectedMethodId);
+    const selectedMethod = (pmList || []).find(m => m.id === selectedMethodId) || (pmList || [])[0];
 
-    const methodsHtml = (pmList || []).map(m => {
-      const isSel = m.id === selectedMethodId;
-      const icon = getPaymentIcon(m.nombre);
-      return `
-        <div class="checkout-method-card ${isSel ? 'active' : ''}" data-pm="${m.id}">
-          <div class="checkout-method-left">
-            <div class="checkout-method-icon">${icon}</div>
-            <div>
-              <div class="checkout-method-name">${esc(m.nombre)}</div>
-              <div class="checkout-method-type">${esc(m.tipo || 'Método oficial')}</div>
-            </div>
-          </div>
-          <div class="checkout-method-arrow">›</div>
-        </div>
-      `;
-    }).join('');
+    // PASO 1: SELECCIÓN DEL MÉTODO DE PAGO
+    if(currentStep === 'method'){
+      const methodsHtml = (pmList || []).map(m => {
+        const isSel = m.id === selectedMethodId;
+        const icon = getPaymentIcon(m.nombre);
+        // Mostrar nombre limpio (ej. "Pago Móvil", "Transferencia", etc.)
+        let displayTitle = m.nombre;
+        if(/pago\s*m[oó]vil/i.test(m.nombre) || /pago\s*m[oó]vil/i.test(m.tipo || '')) displayTitle = 'Pago Móvil';
+        else if(/transferencia/i.test(m.nombre)) displayTitle = 'Transferencia Bancaria';
+        else if(/binance/i.test(m.nombre)) displayTitle = 'Binance USDT';
+        else if(/zinli/i.test(m.nombre)) displayTitle = 'Zinli';
+        else if(/zelle/i.test(m.nombre)) displayTitle = 'Zelle';
 
-    // Datos bancarios divididos en cajones individuales con estilo exacto de la captura
-    let bankDetailsHtml = '';
-    if(!isFullZeny && selectedMethod && selectedMethod.datos && Object.keys(selectedMethod.datos).length > 0){
-      bankDetailsHtml = `
-        <div class="checkout-bank-details">
-          <h3 class="checkout-bank-title">Transfiere a esta cuenta</h3>
-          <div class="checkout-bank-alert">
-            <span>ℹ️</span> Asegúrate de copiar los datos correctamente.
-          </div>
-          <div class="checkout-bank-list">
-            ${Object.entries(selectedMethod.datos).map(([k, v], idx) => `
-              <div class="checkout-bank-card">
-                <div class="checkout-bank-info">
-                  <span class="checkout-bank-label">${esc(k)}</span>
-                  <span class="checkout-bank-val" id="bankVal-${idx}">${esc(v)}</span>
-                </div>
-                <button class="checkout-copy-btn" type="button" data-copy="${esc(v)}" data-target="bankVal-${idx}" title="Copiar ${esc(k)}">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </button>
+        return `
+          <div class="checkout-method-card ${isSel ? 'active' : ''}" data-pm-choose="${m.id}">
+            <div class="checkout-method-left">
+              <div class="checkout-method-icon">${icon}</div>
+              <div>
+                <div class="checkout-method-name">${esc(displayTitle)}</div>
+                <div class="checkout-method-type">Toca para ver los datos bancarios</div>
               </div>
-            `).join('')}
+            </div>
+            <div class="checkout-method-arrow" style="font-size:1.2rem;font-weight:800">›</div>
+          </div>
+        `;
+      }).join('');
+
+      checkoutDlg.innerHTML = `
+        <div class="checkout-card">
+          <div class="checkout-top-bar">
+            <div style="width:28px"></div>
+            <div class="checkout-progress-bar"><div class="checkout-progress-fill" style="width:50%"></div></div>
+            <button class="checkout-close-btn" id="coCloseBtn" type="button">✕</button>
+          </div>
+
+          <div class="checkout-body">
+            <!-- Resumen de compra -->
+            <div class="checkout-summary-box">
+              <div class="checkout-summary-row">
+                <span>Producto</span>
+                <b>${esc(p.nombre)}</b>
+              </div>
+              <div class="checkout-summary-row">
+                <span>Garantía / Duración</span>
+                <span>${p.duracion_dias} días (${p.garantia_dias || 0} días garantía)</span>
+              </div>
+              ${maxZeny > 0 ? `
+                <div style="margin:10px 0 6px;padding:8px 10px;background:#ffffff;border:1px solid #cbd5e1;border-radius:12px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                    <span style="font-size:.78rem;font-weight:700;color:#0f172a">💰 Billetera Zeny</span>
+                    <span style="font-size:.74rem;color:#0284c7">Disponibles: ${availZeny.toFixed(2)} ZP</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <input id="coZenyInput" type="number" min="0" max="${maxZeny}" step="0.01" value="${appliedZeny}" style="background:#f8fafc;padding:6px 10px;font-size:.85rem;border-radius:8px">
+                    <button class="g" id="coMaxZeny" type="button" style="padding:6px 10px;font-size:.75rem">Usar todo</button>
+                  </div>
+                </div>
+              ` : ''}
+              <div class="checkout-summary-total">
+                <div>
+                  <span style="font-size:.76rem;color:#64748b;display:block">Total a transferir:</span>
+                  <span class="price-usd">$${restUsd.toFixed(2)} USD</span>
+                </div>
+                ${S.rate ? `<span class="price-bs">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
+              </div>
+            </div>
+
+            <!-- Metodos de pago -->
+            ${!isFullZeny ? `
+              <div class="checkout-methods-title">
+                <span>¿Cómo vas a pagar?</span>
+                <span style="font-size:.75rem;color:#64748b;font-weight:500">Selecciona tu método</span>
+              </div>
+              <div class="checkout-methods-grid">
+                ${methodsHtml || '<p class="mut">No hay métodos activos en este momento.</p>'}
+              </div>
+            ` : `
+              <div class="checkout-bank-details" style="background:#f0fdf4;border-color:#bbf7d0;padding:12px;border-radius:14px">
+                <h4 style="color:#166534;margin:0 0 6px">✅ Pago cubierto totalmente con Zeny</h4>
+                <p class="mut" style="color:#14532d;font-size:.8rem;margin:0">
+                  Se aplicarán <b>$${appliedZeny.toFixed(2)} ZenyPoints</b>. No requieres transferir por banco.
+                </p>
+              </div>
+              <button id="coSubmitZenyBtn" class="checkout-submit-btn" style="margin-top:14px" type="button">
+                Confirmar Pedido con Zeny
+              </button>
+            `}
           </div>
         </div>
       `;
+
+      $('#coCloseBtn').onclick = () => checkoutDlg.close();
+
+      checkoutDlg.querySelectorAll('[data-pm-choose]').forEach(el => {
+        el.onclick = () => {
+          selectedMethodId = el.dataset.pmChoose;
+          currentStep = 'details'; // Pasa a la siguiente ventana con los cajones
+          renderCheckout();
+        };
+      });
+
+      const zyInput = $('#coZenyInput');
+      if(zyInput){
+        zyInput.oninput = () => {
+          appliedZeny = Math.min(Math.max(0, Number(zyInput.value) || 0), maxZeny);
+          renderCheckout();
+        };
+      }
+      const maxZyBtn = $('#coMaxZeny');
+      if(maxZyBtn){
+        maxZyBtn.onclick = () => {
+          appliedZeny = maxZeny;
+          renderCheckout();
+        };
+      }
+
+      const zenySubmit = $('#coSubmitZenyBtn');
+      if(zenySubmit){
+        zenySubmit.onclick = async () => {
+          zenySubmit.disabled = true;
+          const {error} = await sb.rpc('create_order', {
+            p_product: id,
+            p_metodo: null,
+            p_ref: 'Pago completo Zeny',
+            p_zeny: appliedZeny
+          });
+          if(error){
+            zenySubmit.disabled = false;
+            return toast(error.message);
+          }
+          checkoutDlg.close();
+          await loadPublic();
+          toast('Pedido enviado con Zeny.');
+          portal();
+        };
+      }
+      return;
     }
+
+    // PASO 2: VENTANA CON LOS CAJONES ESTRUCTURADOS (ESTILO EXACTO IMAGEN 2)
+    const fields = parseMethodFields(selectedMethod);
+    let displayMethodName = selectedMethod?.nombre || 'Pago Móvil';
+    if(/pago\s*m[oó]vil/i.test(displayMethodName)) displayMethodName = 'Pago Móvil';
 
     checkoutDlg.innerHTML = `
       <div class="checkout-card">
-        <div class="checkout-header">
-          <div class="checkout-drag-bar"></div>
-          <button class="checkout-close" id="coCloseBtn" type="button">✕</button>
-          <h3>Confirma tu pago</h3>
-          <p>Selecciona tu forma de pago para finalizar tu pedido</p>
+        <div class="checkout-top-bar">
+          <button class="checkout-back-btn" id="coBackBtn" type="button" title="Volver a métodos">‹</button>
+          <div class="checkout-progress-bar"><div class="checkout-progress-fill" style="width:100%"></div></div>
+          <button class="checkout-close-btn" id="coCloseBtn" type="button">✕</button>
         </div>
 
         <div class="checkout-body">
-          <!-- Resumen de compra -->
-          <div class="checkout-summary-box">
-            <div class="checkout-summary-row">
-              <span>Producto</span>
-              <b>${esc(p.nombre)}</b>
-            </div>
-            <div class="checkout-summary-row">
-              <span>Garantía / Duración</span>
-              <span>${p.duracion_dias} días (${p.garantia_dias || 0} días garantía)</span>
-            </div>
-            ${maxZeny > 0 ? `
-              <div style="margin:10px 0 6px;padding:8px 10px;background:#ffffff;border:1px solid #cbd5e1;border-radius:12px">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                  <span style="font-size:.78rem;font-weight:700;color:#0f172a">💰 Billetera Zeny</span>
-                  <span style="font-size:.74rem;color:#0284c7">Disponibles: ${availZeny.toFixed(2)} ZP</span>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <input id="coZenyInput" type="number" min="0" max="${maxZeny}" step="0.01" value="${appliedZeny}" style="background:#f8fafc;padding:6px 10px;font-size:.85rem;border-radius:8px">
-                  <button class="g" id="coMaxZeny" type="button" style="padding:6px 10px;font-size:.75rem">Usar todo</button>
-                </div>
-              </div>
-            ` : ''}
-            <div class="checkout-summary-total">
+          <!-- Monto compacto superior -->
+          <div class="checkout-summary-box" style="margin-bottom:14px;padding:12px 14px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
               <div>
-                <span style="font-size:.76rem;color:#64748b;display:block">Total a transferir:</span>
-                <span class="price-usd">$${restUsd.toFixed(2)} USD</span>
+                <span style="font-size:.72rem;color:#64748b;display:block">Monto a transferir:</span>
+                <span class="price-usd" style="font-size:1.35rem">$${restUsd.toFixed(2)} USD</span>
               </div>
-              ${S.rate ? `<span class="price-bs">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
+              ${S.rate ? `<span class="price-bs" style="font-size:.92rem;font-weight:800;color:#0284c7">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
             </div>
           </div>
 
-          <!-- Metodos de pago -->
-          ${!isFullZeny ? `
-            <div class="checkout-methods-title">
-              <span>¿Cómo vas a pagar?</span>
-              <span style="font-size:.75rem;color:#64748b;font-weight:500">Selecciona una opción</span>
+          <!-- Cajones estructurados (Imagen 2) -->
+          <div class="checkout-bank-details">
+            <h3 class="checkout-bank-title">Transfiere a esta cuenta</h3>
+            <div class="checkout-bank-alert">
+              <span>ℹ️</span> Asegúrate de copiar los datos correctamente.
             </div>
-            <div class="checkout-methods-grid">
-              ${methodsHtml || '<p class="mut">No hay métodos activos en este momento.</p>'}
+
+            <div class="checkout-bank-list">
+              ${fields.map((f, idx) => `
+                <div class="checkout-bank-card">
+                  <div class="checkout-bank-info">
+                    <span class="checkout-bank-label">${esc(f.label)}</span>
+                    <span class="checkout-bank-val" id="bankVal-${idx}">${esc(f.value)}</span>
+                  </div>
+                  <button class="checkout-copy-btn" type="button" data-copy="${esc(f.value)}" data-target="bankVal-${idx}" title="Copiar ${esc(f.label)}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                </div>
+              `).join('')}
             </div>
-            ${bankDetailsHtml}
-            <div class="checkout-input-group">
-              <label for="coRefInput">Referencia o comprobante del pago</label>
-              <input id="coRefInput" class="checkout-input" placeholder="Ej: 8 dígitos de referencia / comprobante" required>
-            </div>
-          ` : `
-            <div class="checkout-bank-details" style="background:#f0fdf4;border-color:#bbf7d0">
-              <h4 style="color:#166534">✅ Pago cubierto totalmente con Zeny</h4>
-              <p class="mut" style="color:#14532d;font-size:.8rem;margin:4px 0 0">
-                Se aplicarán <b>$${appliedZeny.toFixed(2)} ZenyPoints</b>. Tu pedido será retenido y pasará de inmediato a revisión y entrega por el administrador.
-              </p>
-            </div>
-          `}
+          </div>
+
+          <!-- Input de referencia -->
+          <div class="checkout-input-group" style="margin-top:14px">
+            <label for="coRefInput">Referencia o comprobante del pago</label>
+            <input id="coRefInput" class="checkout-input" placeholder="Ej: 8 dígitos de referencia / comprobante" required>
+          </div>
 
           <button id="coSubmitBtn" class="checkout-submit-btn" type="button">
-            ${isFullZeny ? 'Confirmar y Enviar Pedido con Zeny' : 'Enviar Pedido para Conciliación'}
+            Enviar Pedido para Conciliación
           </button>
           <p class="mut" style="text-align:center;font-size:.72rem;margin:10px 0 0">
             🛡 Las credenciales se entregarán en tu portal tan pronto el administrador verifique tu pago.
@@ -509,14 +639,12 @@ async function buyDlg(id){
       </div>
     `;
 
-    $('#coCloseBtn').onclick = () => checkoutDlg.close();
+    $('#coBackBtn').onclick = () => {
+      currentStep = 'method';
+      renderCheckout();
+    };
 
-    checkoutDlg.querySelectorAll('[data-pm]').forEach(el => {
-      el.onclick = () => {
-        selectedMethodId = el.dataset.pm;
-        renderCheckout();
-      };
-    });
+    $('#coCloseBtn').onclick = () => checkoutDlg.close();
 
     checkoutDlg.querySelectorAll('[data-copy]').forEach(btn => {
       btn.onclick = async e => {
@@ -546,34 +674,18 @@ async function buyDlg(id){
       };
     });
 
-    const zyInput = $('#coZenyInput');
-    if(zyInput){
-      zyInput.oninput = () => {
-        const val = Math.min(Math.max(0, Number(zyInput.value) || 0), maxZeny);
-        appliedZeny = val;
-        renderCheckout();
-      };
-    }
-    const maxZyBtn = $('#coMaxZeny');
-    if(maxZyBtn){
-      maxZyBtn.onclick = () => {
-        appliedZeny = maxZeny;
-        renderCheckout();
-      };
-    }
-
     $('#coSubmitBtn').onclick = async () => {
       const btn = $('#coSubmitBtn');
       btn.disabled = true;
       const refVal = $('#coRefInput')?.value?.trim() || '';
-      if(!isFullZeny && !refVal){
+      if(!refVal){
         btn.disabled = false;
         return toast('Por favor ingresa la referencia de tu pago.');
       }
 
       const {error} = await sb.rpc('create_order', {
         p_product: id,
-        p_metodo: isFullZeny ? null : (selectedMethodId || null),
+        p_metodo: selectedMethodId,
         p_ref: refVal,
         p_zeny: appliedZeny
       });
