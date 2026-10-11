@@ -107,6 +107,81 @@ body.is-admin main{max-width:1440px;width:100%}
 .facet-links a:hover{text-decoration:underline}
 .facet-close{position:absolute;top:14px;right:22px;background:transparent;border:none;color:var(--mut);font-size:1.3rem;cursor:pointer;box-shadow:none;padding:4px 8px;z-index:10;transition:color .2s}
 .facet-close:hover{color:#fff;background:transparent;box-shadow:none;transform:scale(1.1)}
+
+/* Calendario Estilo Hoja de Calculo Google Sheets / Cuadricula Vertical */
+.cal-sheet-container{background:#ffffff;color:#1e293b;border-radius:12px;padding:18px;box-shadow:0 12px 36px rgba(0,0,0,.45);overflow:hidden;border:1px solid #cbd5e1}
+.cal-sheet-header{border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px}
+.cal-sheet-title{font-size:.82rem;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.cal-sheet-month{font-size:1.6rem;font-weight:800;color:#0f172a;margin:0;line-height:1}
+.cal-sheet-tools{display:flex;align-items:center;gap:8px}
+.cal-sheet-btn{background:#f1f5f9;color:#0f172a;border:1px solid #cbd5e1;padding:6px 14px;border-radius:6px;font-weight:700;font-size:.82rem;cursor:pointer;box-shadow:none;transition:background .15s}
+.cal-sheet-btn:hover{background:#e2e8f0;box-shadow:none;transform:none}
+.cal-sheet-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid #0f172a;background:#cbd5e1;gap:1px}
+.cal-sheet-th{background:#0f2537;color:#ffffff;text-align:center;font-size:.76rem;font-weight:800;letter-spacing:.6px;padding:8px 4px;text-transform:uppercase}
+.cal-sheet-cell{background:#ffffff;min-height:96px;padding:6px;display:flex;flex-direction:column;position:relative;cursor:pointer;transition:background .15s}
+.cal-sheet-cell:hover{background:#f8fafc}
+.cal-sheet-cell.disabled{background:#cbd5e1;color:#64748b;cursor:default}
+.cal-sheet-cell.is-today{background:#f0fdf4}
+.cal-sheet-cell.is-selected{background:#eff6ff;outline:2px solid #2563eb;z-index:2}
+.cal-sheet-num{font-size:.85rem;font-weight:700;color:#0f172a;line-height:1;margin-bottom:4px}
+.cal-sheet-cell.is-today .cal-sheet-num{color:#16a34a;font-weight:800}
+.cal-sheet-items{display:flex;flex-direction:column;gap:3px;overflow:hidden;width:100%}
+.cal-item-pill{font-size:.65rem;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.cal-item-pill.order{background:#e0f2fe;color:#0369a1;border-left:3px solid #0284c7}
+.cal-item-pill.mother{background:#fef3c7;color:#b45309;border-left:3px solid #f59e0b}
+.cal-sheet-notes{background:#f1f5f9;border-top:1px solid #0f172a;padding:10px 12px;margin-top:1px;font-size:.75rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:1px}
+
+/* Panel de Pago / Checkout Adaptado (Estilo Mobile Bottom-Sheet & Tarjetas Métodos) */
+.checkout-modal{border:0;background:transparent;padding:0;width:100%;max-width:480px;box-shadow:none;overflow:visible}
+.checkout-modal::backdrop{background:rgba(2,6,15,.75);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.checkout-card{background:#ffffff;color:#0f172a;border-radius:28px 28px 20px 20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);position:relative;animation:slideUp .25s ease-out}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.checkout-header{background:linear-gradient(135deg,#ffe600 0%,#ffd000 100%);color:#0f172a;padding:20px 22px 18px;position:relative}
+.checkout-drag-bar{width:42px;height:4px;background:rgba(0,0,0,.25);border-radius:99px;margin:0 auto 12px}
+.checkout-header h3{margin:0;font-size:1.3rem;font-weight:800;color:#0f172a}
+.checkout-header p{margin:4px 0 0;font-size:.82rem;color:rgba(15,23,42,.85);font-weight:500}
+.checkout-close{position:absolute;top:16px;right:18px;background:rgba(0,0,0,.08);border:0;color:#0f172a;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-weight:800;font-size:1.1rem;box-shadow:none;transition:background .15s}
+.checkout-close:hover{background:rgba(0,0,0,.18);transform:none}
+.checkout-body{padding:20px 22px 24px;max-height:76vh;overflow-y:auto}
+
+/* Resumen del Pedido */
+.checkout-summary-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:14px 16px;margin-bottom:18px}
+.checkout-summary-row{display:flex;justify-content:space-between;align-items:center;font-size:.84rem;margin-bottom:6px;color:#475569}
+.checkout-summary-row b{color:#0f172a;font-size:.95rem}
+.checkout-summary-total{border-top:1px dashed #cbd5e1;padding-top:8px;margin-top:8px;display:flex;justify-content:space-between;align-items:baseline}
+.checkout-summary-total .price-usd{font-size:1.45rem;font-weight:800;color:#0f172a}
+.checkout-summary-total .price-bs{font-size:.85rem;color:#0284c7;font-weight:700}
+
+/* Lista de Métodos de Pago (Pills / Cards) */
+.checkout-methods-title{font-size:.95rem;font-weight:800;color:#0f172a;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+.checkout-methods-grid{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.checkout-method-card{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#ffffff;border:1.5px solid #e2e8f0;border-radius:20px;cursor:pointer;transition:all .18s ease;user-select:none}
+.checkout-method-card:hover{border-color:#ffd000;background:#fffdf0;transform:translateX(3px)}
+.checkout-method-card.active{border-color:#ffd000;background:#fffde6;box-shadow:0 4px 14px rgba(255,208,0,.35)}
+.checkout-method-left{display:flex;align-items:center;gap:12px}
+.checkout-method-icon{width:36px;height:36px;border-radius:10px;background:#f1f5f9;display:grid;place-items:center;font-size:1.25rem;flex-shrink:0}
+.checkout-method-card.active .checkout-method-icon{background:#ffe600}
+.checkout-method-name{font-size:.92rem;font-weight:700;color:#0f172a}
+.checkout-method-type{font-size:.72rem;color:#64748b;font-weight:500}
+.checkout-method-arrow{font-size:.9rem;color:#94a3b8;font-weight:800}
+.checkout-method-card.active .checkout-method-arrow{color:#0f172a}
+
+/* Datos de Pago e Instrucciones */
+.checkout-bank-details{background:#eff6ff;border:1px solid #bfdbfe;border-radius:16px;padding:14px;margin-bottom:16px}
+.checkout-bank-details h4{margin:0 0 8px;font-size:.84rem;color:#1e40af;font-weight:700;display:flex;align-items:center;gap:6px}
+.checkout-bank-list{display:flex;flex-direction:column;gap:5px;font-size:.82rem;color:#1e3a8a}
+.checkout-bank-item{display:flex;justify-content:space-between;align-items:center;background:#ffffff;padding:6px 10px;border-radius:8px;border:1px solid #dbeafe}
+.checkout-bank-item span.lbl{color:#64748b;font-size:.74rem}
+.checkout-bank-item b{user-select:all}
+
+/* Inputs para Referencia y Envío */
+.checkout-input-group{margin-bottom:14px}
+.checkout-input-group label{display:block;font-size:.78rem;font-weight:700;color:#334155;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.checkout-input{background:#f8fafc!important;border:1.5px solid #cbd5e1!important;border-radius:12px!important;padding:12px 14px!important;color:#0f172a!important;font-size:.92rem!important;font-weight:600!important}
+.checkout-input:focus{border-color:#ffd000!important;background:#ffffff!important;box-shadow:0 0 0 3px rgba(255,208,0,.35)!important}
+.checkout-submit-btn{width:100%;background:linear-gradient(135deg,#ffe600 0%,#ffd000 100%);color:#0f172a;border:0;border-radius:16px;padding:14px;font-size:.95rem;font-weight:800;letter-spacing:.5px;box-shadow:0 6px 20px rgba(255,208,0,.45);cursor:pointer;transition:transform .15s,filter .15s}
+.checkout-submit-btn:hover{filter:brightness(1.04);transform:translateY(-1px);box-shadow:0 8px 24px rgba(255,208,0,.55)}
+.checkout-submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 </style></head><body>
 <header><div class="brand"><div class="logo">GI</div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
 <div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
@@ -115,11 +190,12 @@ body.is-admin main{max-width:1440px;width:100%}
 
 <dialog id="dlg"><div id="dlgBody"></div><div class="row" style="margin-top:12px"><button class="g" onclick="dlg.close()">Cerrar</button></div></dialog>
 <dialog id="facetDlg" class="facet-dialog"></dialog>
+<dialog id="checkoutDlg" class="checkout-modal"></dialog>
 
 <script src="/config.js"></script>
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg');
+const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg');
 const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}};
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -237,21 +313,219 @@ function home(){
   $('#q').oninput = e=>{S.q=e.target.value;renderGrid();};
   renderTabs(); renderGrid();
 }
+
+const PAYMENT_ICONS = {
+  'pago movil': '📱',
+  'pago móvil': '📱',
+  'transferencia': '🏦',
+  'depósito': '🏧',
+  'deposito': '🏧',
+  'binance': '🟡',
+  'binance usdt': '🟡',
+  'zinli': '🟣',
+  'zelle': '💜',
+  'efectivo': '💵',
+  'punto de venta': '💳',
+  'biopago': '☝️'
+};
+
+function getPaymentIcon(name=''){
+  const n = name.toLowerCase().trim();
+  for(const [k, icon] of Object.entries(PAYMENT_ICONS)){
+    if(n.includes(k)) return icon;
+  }
+  return '💳';
+}
+
 async function buyDlg(id){
-  if(!S.user) return loginDlg(); const p = S.products.find(x=>x.id===id);
-  const [{data:pm},{data:h}] = await Promise.all([sb.from('payment_methods').select('*').eq('activo',true).order('orden'), sb.from('zeny_ledger').select('monto').eq('tipo','compra').eq('estado','pendiente')]);
-  const avail = Math.max(0, Number(S.me?.zeny_balance||0) + (h||[]).reduce((a,x)=>a+Number(x.monto),0)), maxZ = Math.min(avail, Number(p.precio_usd));
-  $('#dlgBody').innerHTML = `<h3>${esc(p.nombre)}</h3><p>Total: <b>$${p.precio_usd}</b> ≈ Bs. ${(p.precio_usd*S.rate).toFixed(2)}</p>
-  <p class="mut">Tu pedido pasa a revisión y conciliación manual. Las credenciales se entregan únicamente cuando el pago sea confirmado.</p>
-  ${maxZ>0?`<label class="mut">ZenyPoints a aplicar (disponibles: ${avail.toFixed(2)})</label><input id="zy" type="number" min="0" max="${maxZ}" step="0.01" value="0">`:''}
-  <p id="rest" class="mut"></p><div id="payBox"><select id="pm">${(pm||[]).map(m=>`<option value="${m.id}">${esc(m.nombre)}</option>`).join('')}</select>
-  <div class="mut" id="pmd"></div></div><input id="ref" placeholder="Referencia del pago" style="margin-top:8px"><button id="send" style="margin-top:8px;width:100%">Enviar pedido</button>`;
-  const show=()=>{const m=(pm||[]).find(x=>x.id===$('#pm').value);$('#pmd').textContent=m?Object.entries(m.datos||{}).map(([k,v])=>k+': '+v).join(' · '):'';};
-  const rest=()=>{const z=Math.min(+($('#zy')?.value||0),maxZ), r=Math.max(0,p.precio_usd-z);$('#rest').textContent=`Resto a pagar: $${r.toFixed(2)} ≈ Bs. ${(r*S.rate).toFixed(2)}`;$('#payBox').classList.toggle('hide',r<=0);};
-  $('#pm').onchange=show; if($('#zy')) $('#zy').oninput=rest; show(); rest(); dlg.showModal();
-  $('#send').onclick = async()=>{ const z=Math.min(+($('#zy')?.value||0),maxZ), full=z>=p.precio_usd;
-    const {error}=await sb.rpc('create_order',{p_product:id,p_metodo:full?null:($('#pm').value||null),p_ref:$('#ref').value,p_zeny:z}); if(error) return toast(error.message.includes('Agotado')?'Este servicio se agotó. Elige otro.':error.message);
-    await loadPublic(); toast(`Pedido enviado. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} minutos mientras revisamos y conciliamos tu pago. Recibirás las credenciales cuando sea confirmado.`); portal(); };
+  if(!S.user) return loginDlg('login');
+  const p = S.products.find(x => x.id === id);
+  if(!p) return toast('Producto no encontrado');
+
+  const [{data: pmList}, {data: h}] = await Promise.all([
+    sb.from('payment_methods').select('*').eq('activo', true).order('orden'),
+    sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente')
+  ]);
+
+  const availZeny = Math.max(0, Number(S.me?.zeny_balance || 0) + (h || []).reduce((a, x) => a + Number(x.monto), 0));
+  const maxZeny = Math.min(availZeny, Number(p.precio_usd));
+  let selectedMethodId = (pmList && pmList.length > 0) ? pmList[0].id : null;
+  let appliedZeny = 0;
+
+  const renderCheckout = () => {
+    const totalUsd = Number(p.precio_usd);
+    const restUsd = Math.max(0, totalUsd - appliedZeny);
+    const restBs = restUsd * (S.rate || 0);
+    const isFullZeny = restUsd <= 0;
+    const selectedMethod = (pmList || []).find(m => m.id === selectedMethodId);
+
+    const methodsHtml = (pmList || []).map(m => {
+      const isSel = m.id === selectedMethodId;
+      const icon = getPaymentIcon(m.nombre);
+      return `
+        <div class="checkout-method-card ${isSel ? 'active' : ''}" data-pm="${m.id}">
+          <div class="checkout-method-left">
+            <div class="checkout-method-icon">${icon}</div>
+            <div>
+              <div class="checkout-method-name">${esc(m.nombre)}</div>
+              <div class="checkout-method-type">${esc(m.tipo || 'Método oficial')}</div>
+            </div>
+          </div>
+          <div class="checkout-method-arrow">›</div>
+        </div>
+      `;
+    }).join('');
+
+    // Datos bancarios
+    let bankDetailsHtml = '';
+    if(!isFullZeny && selectedMethod && selectedMethod.datos && Object.keys(selectedMethod.datos).length > 0){
+      bankDetailsHtml = `
+        <div class="checkout-bank-details">
+          <h4>ℹ️ Datos para realizar tu pago</h4>
+          <div class="checkout-bank-list">
+            ${Object.entries(selectedMethod.datos).map(([k, v]) => `
+              <div class="checkout-bank-item">
+                <span class="lbl">${esc(k)}</span>
+                <b>${esc(v)}</b>
+              </div>
+            `).join('')}
+          </div>
+          <p class="mut" style="font-size:.74rem;margin:8px 0 0">
+            Asegúrate de copiar exactamente los datos indicados para conciliar tu pago rápidamente.
+          </p>
+        </div>
+      `;
+    }
+
+    checkoutDlg.innerHTML = `
+      <div class="checkout-card">
+        <div class="checkout-header">
+          <div class="checkout-drag-bar"></div>
+          <button class="checkout-close" id="coCloseBtn" type="button">✕</button>
+          <h3>Confirma tu pago</h3>
+          <p>Selecciona tu forma de pago para finalizar tu pedido</p>
+        </div>
+
+        <div class="checkout-body">
+          <!-- Resumen de compra -->
+          <div class="checkout-summary-box">
+            <div class="checkout-summary-row">
+              <span>Producto</span>
+              <b>${esc(p.nombre)}</b>
+            </div>
+            <div class="checkout-summary-row">
+              <span>Garantía / Duración</span>
+              <span>${p.duracion_dias} días (${p.garantia_dias || 0} días garantía)</span>
+            </div>
+            ${maxZeny > 0 ? `
+              <div style="margin:10px 0 6px;padding:8px 10px;background:#ffffff;border:1px solid #cbd5e1;border-radius:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                  <span style="font-size:.78rem;font-weight:700;color:#0f172a">💰 Billetera Zeny</span>
+                  <span style="font-size:.74rem;color:#0284c7">Disponibles: ${availZeny.toFixed(2)} ZP</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <input id="coZenyInput" type="number" min="0" max="${maxZeny}" step="0.01" value="${appliedZeny}" style="background:#f8fafc;padding:6px 10px;font-size:.85rem;border-radius:8px">
+                  <button class="g" id="coMaxZeny" type="button" style="padding:6px 10px;font-size:.75rem">Usar todo</button>
+                </div>
+              </div>
+            ` : ''}
+            <div class="checkout-summary-total">
+              <div>
+                <span style="font-size:.76rem;color:#64748b;display:block">Total a transferir:</span>
+                <span class="price-usd">$${restUsd.toFixed(2)} USD</span>
+              </div>
+              ${S.rate ? `<span class="price-bs">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
+            </div>
+          </div>
+
+          <!-- Metodos de pago -->
+          ${!isFullZeny ? `
+            <div class="checkout-methods-title">
+              <span>¿Cómo vas a pagar?</span>
+              <span style="font-size:.75rem;color:#64748b;font-weight:500">Selecciona una opción</span>
+            </div>
+            <div class="checkout-methods-grid">
+              ${methodsHtml || '<p class="mut">No hay métodos activos en este momento.</p>'}
+            </div>
+            ${bankDetailsHtml}
+            <div class="checkout-input-group">
+              <label for="coRefInput">Referencia o comprobante del pago</label>
+              <input id="coRefInput" class="checkout-input" placeholder="Ej: 8 dígitos de referencia / comprobante" required>
+            </div>
+          ` : `
+            <div class="checkout-bank-details" style="background:#f0fdf4;border-color:#bbf7d0">
+              <h4 style="color:#166534">✅ Pago cubierto totalmente con Zeny</h4>
+              <p class="mut" style="color:#14532d;font-size:.8rem;margin:4px 0 0">
+                Se aplicarán <b>$${appliedZeny.toFixed(2)} ZenyPoints</b>. Tu pedido será retenido y pasará de inmediato a revisión y entrega por el administrador.
+              </p>
+            </div>
+          `}
+
+          <button id="coSubmitBtn" class="checkout-submit-btn" type="button">
+            ${isFullZeny ? 'Confirmar y Enviar Pedido con Zeny' : 'Enviar Pedido para Conciliación'}
+          </button>
+          <p class="mut" style="text-align:center;font-size:.72rem;margin:10px 0 0">
+            🛡 Las credenciales se entregarán en tu portal tan pronto el administrador verifique tu pago.
+          </p>
+        </div>
+      </div>
+    `;
+
+    $('#coCloseBtn').onclick = () => checkoutDlg.close();
+
+    checkoutDlg.querySelectorAll('[data-pm]').forEach(el => {
+      el.onclick = () => {
+        selectedMethodId = el.dataset.pm;
+        renderCheckout();
+      };
+    });
+
+    const zyInput = $('#coZenyInput');
+    if(zyInput){
+      zyInput.oninput = () => {
+        const val = Math.min(Math.max(0, Number(zyInput.value) || 0), maxZeny);
+        appliedZeny = val;
+        renderCheckout();
+      };
+    }
+    const maxZyBtn = $('#coMaxZeny');
+    if(maxZyBtn){
+      maxZyBtn.onclick = () => {
+        appliedZeny = maxZeny;
+        renderCheckout();
+      };
+    }
+
+    $('#coSubmitBtn').onclick = async () => {
+      const btn = $('#coSubmitBtn');
+      btn.disabled = true;
+      const refVal = $('#coRefInput')?.value?.trim() || '';
+      if(!isFullZeny && !refVal){
+        btn.disabled = false;
+        return toast('Por favor ingresa la referencia de tu pago.');
+      }
+
+      const {error} = await sb.rpc('create_order', {
+        p_product: id,
+        p_metodo: isFullZeny ? null : (selectedMethodId || null),
+        p_ref: refVal,
+        p_zeny: appliedZeny
+      });
+
+      if(error){
+        btn.disabled = false;
+        return toast(error.message.includes('Agotado') ? 'Este servicio se agotó. Elige otro.' : error.message);
+      }
+
+      checkoutDlg.close();
+      await loadPublic();
+      toast(`Pedido enviado con éxito. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} minutos mientras revisamos y conciliamos tu pago.`);
+      portal();
+    };
+  };
+
+  renderCheckout();
+  if(!checkoutDlg.open) checkoutDlg.showModal();
 }
 // ---------- AUTH (ESTILO GEMA FACETADA FUTURISTA) ----------
 function renderFacetShell({title, subtitle, contentHtml, linksHtml=''}){

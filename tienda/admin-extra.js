@@ -119,17 +119,17 @@ const EXTRA = {
     const todayEvents = eventsByDate[todayStr] || { orders: [], mothers: [] };
     const todayTotal = todayEvents.orders.length + todayEvents.mothers.length;
 
-    // Calculo de celdas de calendario (semana empieza en Lunes = 1, Domingo = 0)
-    const firstDayIndex = (new Date(state.year, state.month, 1).getDay() + 6) % 7; // Lunes = 0, Dom = 6
+    // Calculo de celdas de calendario estilo Hoja de Calculo Google Sheets (Empieza en DOMINGO como la plantilla)
+    const firstDayIndex = new Date(state.year, state.month, 1).getDay(); // Domingo = 0, Lunes = 1, etc.
     const prevMonthDays = new Date(state.year, state.month, 0).getDate();
 
     const daysHtml = [];
-    const weekHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => `<div class="cal-day-header">${d}</div>`).join('');
+    const weekHeaders = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'].map(d => `<div class="cal-sheet-th">${d}</div>`).join('');
 
-    // Dias del mes previo
+    // Celdas del mes anterior (sombreadas en gris azulado como en la plantilla)
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dNum = prevMonthDays - i;
-      daysHtml.push(`<div class="cal-day other-month"><div class="cal-day-num">${dNum}</div></div>`);
+      daysHtml.push(`<div class="cal-sheet-cell disabled"><span class="cal-sheet-num">${dNum}</span></div>`);
     }
 
     // Dias del mes actual
@@ -141,25 +141,22 @@ const EXTRA = {
       const numOrd = ev?.orders?.length || 0;
       const numMoth = ev?.mothers?.length || 0;
 
-      let badgesHtml = '';
-      if (numOrd > 0) badgesHtml += `<span class="cal-tag tag-order">👤 ${numOrd} servicio${numOrd > 1 ? 's' : ''}</span>`;
-      if (numMoth > 0) badgesHtml += `<span class="cal-tag tag-mother">🔑 ${numMoth} cuenta${numMoth > 1 ? 's' : ''}</span>`;
+      let itemsHtml = '';
+      if (numOrd > 0) itemsHtml += `<div class="cal-item-pill order" title="${numOrd} clientes">👤 ${numOrd} servicio${numOrd > 1 ? 's' : ''}</div>`;
+      if (numMoth > 0) itemsHtml += `<div class="cal-item-pill mother" title="${numMoth} cuentas madre">🔑 ${numMoth} cuenta${numMoth > 1 ? 's' : ''}</div>`;
 
       daysHtml.push(`
-        <div class="cal-day ${isToday ? 'today' : ''} ${isSel ? 'selected' : ''}" data-day="${dStr}">
-          <div class="cal-day-num">
-            <span>${d}</span>
-            ${isToday ? '<span style="font-size:.65rem;color:var(--a)">HOY</span>' : ''}
-          </div>
-          <div class="cal-badges">${badgesHtml}</div>
+        <div class="cal-sheet-cell ${isToday ? 'is-today' : ''} ${isSel ? 'is-selected' : ''}" data-day="${dStr}">
+          <span class="cal-sheet-num">${d}</span>
+          <div class="cal-sheet-items">${itemsHtml}</div>
         </div>
       `);
     }
 
-    // Completar cuadrícula restante para múltiplos de 7
+    // Completar cuadrícula restante para múltiplos de 7 (sombreadas en gris azulado)
     const remainingDays = (7 - ((firstDayIndex + lastDayOfMonth) % 7)) % 7;
     for (let r = 1; r <= remainingDays; r++) {
-      daysHtml.push(`<div class="cal-day other-month"><div class="cal-day-num">${r}</div></div>`);
+      daysHtml.push(`<div class="cal-sheet-cell disabled"><span class="cal-sheet-num">${r}</span></div>`);
     }
 
     // Detalle del día seleccionado
@@ -218,24 +215,29 @@ const EXTRA = {
     }
     detailHtml += '</div>';
 
-    // Ensamblar interfaz completa del calendario
+    // Ensamblar interfaz completa del calendario estilo Hoja de Cálculo
     box.innerHTML = `
-      <div class="cal-head">
-        <div class="cal-nav">
-          <button class="g" id="calPrev" type="button" style="padding:6px 12px">◀</button>
-          <h3>${monthNames[state.month]} ${state.year}</h3>
-          <button class="g" id="calNext" type="button" style="padding:6px 12px">▶</button>
-          <button class="g" id="calToday" type="button" style="padding:6px 14px;font-size:.78rem">Hoy</button>
+      <div class="cal-sheet-container">
+        <div class="cal-sheet-header">
+          <div>
+            <div class="cal-sheet-title">Control de Vencimientos · Gregory Izquierdo</div>
+            <h2 class="cal-sheet-month">${monthNames[state.month]} de ${state.year}</h2>
+          </div>
+          <div class="cal-sheet-tools">
+            <button class="cal-sheet-btn" id="calPrev" type="button">◀ Anterior</button>
+            <button class="cal-sheet-btn" id="calToday" type="button">Hoy</button>
+            <button class="cal-sheet-btn" id="calNext" type="button">Siguiente ▶</button>
+          </div>
         </div>
-        <div class="cal-stats">
-          <span class="cal-stat-pill pill-today">⏰ Hoy vencen: ${todayTotal}</span>
-          <span class="cal-stat-pill pill-order">👤 ${totalOrdersMonth} clientes este mes</span>
-          <span class="cal-stat-pill pill-mother">🔑 ${totalMothersMonth} cuentas madre</span>
+
+        <div class="cal-sheet-grid">
+          ${weekHeaders}
+          ${daysHtml.join('')}
         </div>
-      </div>
-      <div class="cal-grid">
-        ${weekHeaders}
-        ${daysHtml.join('')}
+
+        <div class="cal-sheet-notes">
+          NOTAS / RESUMEN: Hoy vencen ${todayTotal} · Total mes: ${totalOrdersMonth} servicios clientes y ${totalMothersMonth} cuentas madre.
+        </div>
       </div>
       ${detailHtml}
     `;
