@@ -35,6 +35,17 @@ dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border
 .hero p{margin:0 0 16px;color:var(--mut);max-width:560px}.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.chips span{font-size:.76rem;padding:6px 11px;border-radius:99px;border:1px solid rgba(0,245,160,.25);background:rgba(0,245,160,.07);color:#baffe4}.search{max-width:460px}
 .ban{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin-bottom:16px;scrollbar-width:none}.ban::-webkit-scrollbar{display:none}
 .ban a,.ban div{flex:0 0 100%;scroll-snap-align:start;border-radius:20px;min-height:170px;padding:22px;background:linear-gradient(135deg,#0a3b4a,#12307a) center/cover;color:#fff;text-decoration:none;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid rgba(0,212,255,.25)}.ban h3{margin:0 0 4px;font-size:1.3rem}.ban p{margin:0;opacity:.92}
+
+/* Banner Destacado Superior Tarjeta */
+.banner-promo-card{position:relative;overflow:hidden;border-radius:24px;margin-bottom:20px;border:1.5px solid rgba(0,212,255,.35);background:radial-gradient(ellipse at top,#0c2340 0%,#030914 70%);box-shadow:0 16px 45px -10px rgba(0,0,0,.7),0 0 30px -5px rgba(0,212,255,.25)}
+.banner-promo-wrap{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px 24px;text-align:center}
+.banner-promo-img-box{position:relative;max-width:440px;width:100%;margin:0 auto 16px;border-radius:18px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.85),0 0 20px rgba(0,245,160,.2);display:flex;justify-content:center;align-items:center;background:#050d1a}
+.banner-promo-img{width:100%;height:auto;max-height:260px;object-fit:contain;object-position:center;display:block;transition:transform .3s ease}
+.banner-promo-card:hover .banner-promo-img{transform:scale(1.02)}
+.banner-promo-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;background:linear-gradient(135deg,rgba(0,245,160,.2),rgba(0,212,255,.2));color:#00f5a0;border:1px solid rgba(0,245,160,.4);margin-bottom:8px}
+.banner-promo-title{font-size:clamp(1.2rem,3.5vw,1.6rem);font-weight:800;margin:0 0 4px;background:linear-gradient(135deg,#ffffff 0%,#ecf6ff 60%,#00d4ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.3px}
+.banner-promo-sub{margin:0;font-size:.92rem;font-weight:600;color:#00d4ff;letter-spacing:1px;text-shadow:0 0 12px rgba(0,212,255,.4)}
+.banner-promo-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:70%;background:radial-gradient(circle,rgba(0,212,255,.18) 0%,transparent 70%);filter:blur(30px);pointer-events:none}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
 .pc{position:relative;display:flex;flex-direction:column;border-radius:20px;overflow:hidden;background:linear-gradient(180deg,rgba(13,29,54,.9),rgba(7,16,30,.95));border:1px solid var(--line);transition:transform .2s,border-color .2s,box-shadow .25s}
 .pc:hover{transform:translateY(-4px);border-color:rgba(0,245,160,.55);box-shadow:0 18px 50px -18px rgba(0,245,160,.45)}
@@ -310,7 +321,19 @@ function renderTabs(){
 function home(){
   document.body.classList.remove('is-admin');
   S.view='home'; const tel=(S.settings.negocio?.telefono||'').replace(/\D/g,'');
-  app.innerHTML = `${S.banners.length?`<div class="ban">${S.banners.map(b=>{const t=`<h3>${esc(b.titulo)}</h3><p>${esc(b.texto)}</p>`,st=b.imagen_url?` style="background-image:linear-gradient(#0008,#000a),url('${esc(b.imagen_url)}')"`:'';return /^https?:\/\//.test(b.enlace||'')?`<a href="${esc(b.enlace)}" target="_blank" rel="noopener noreferrer"${st}>${t}</a>`:`<div${st}>${t}</div>`;}).join('')}</div>`:''}
+  app.innerHTML = `
+  <section class="banner-promo-card">
+    <div class="banner-promo-glow"></div>
+    <div class="banner-promo-wrap">
+      <span class="banner-promo-pill">✨ Próximo lanzamiento</span>
+      <div class="banner-promo-img-box">
+        <img class="banner-promo-img" src="/banner-tarjeta.jpg" alt="Tarjeta Emprendimiento Gregory Izquierdo" loading="eager">
+      </div>
+      <h2 class="banner-promo-title">Tarjeta Exclusiva Gregory Izquierdo</h2>
+      <p class="banner-promo-sub">Pronto llegará...</p>
+    </div>
+  </section>
+  ${S.banners.length?`<div class="ban">${S.banners.map(b=>{const t=`<h3>${esc(b.titulo)}</h3><p>${esc(b.texto)}</p>`,st=b.imagen_url?` style="background-image:linear-gradient(#0008,#000a),url('${esc(b.imagen_url)}')"`:'';return /^https?:\/\//.test(b.enlace||'')?`<a href="${esc(b.enlace)}" target="_blank" rel="noopener noreferrer"${st}>${t}</a>`:`<div${st}>${t}</div>`;}).join('')}</div>`:''}
   <section class="hero"><h2>Streaming y cuentas digitales al mejor precio</h2>
    <p>Pantallas, cuentas completas y servicios con garantía. Tu pedido se entrega cuando verificamos tu pago.</p>
    <div class="chips"><span>⚡ Entrega rápida</span><span>🛡 Garantía incluida</span><span>💬 Soporte por WhatsApp</span></div>
