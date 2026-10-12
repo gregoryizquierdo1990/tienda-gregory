@@ -1339,42 +1339,47 @@ function adminLoginDlg(){
 
 // ---------- PORTAL CLIENTE ----------
 async function portal(){
-  if(!S.user) return loginDlg('login'); document.body.classList.remove('is-admin'); S.view='portal';
-  const [o,i,l,inc,cr,inst,zcard] = await Promise.all([
-    sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
-    sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false}),
-    sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
-    sb.from('incidents').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
-    sb.rpc('my_credentials'),
-    sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true}).catch(()=>({data:[]})),
-    sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle().catch(()=>({data:null}))
-  ]);
+  if(!S.user) return loginDlg('login');
+  document.body.classList.remove('is-admin');
+  S.view='portal';
+  app.innerHTML = '<div style="text-align:center;padding:40px 10px"><div class="sk" style="max-width:440px;margin:auto;min-height:200px"></div><p class="mut" style="margin-top:14px">Cargando tu portal…</p></div>';
 
-  const cardData = zcard?.data || null;
-  const userCode = S.me?.codigo_identificacion || (S.me?.es_revendedor ? 'RVD:1001' : 'CLT:001');
-  const isReseller = S.me?.es_revendedor === true;
+  try {
+    const [o,i,l,inc,cr,inst,zcard] = await Promise.all([
+      sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false}).catch(()=>({data:[]})),
+      sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false}).catch(()=>({data:[]})),
+      sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}).catch(()=>({data:[]})),
+      sb.from('incidents').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}).catch(()=>({data:[]})),
+      sb.rpc('my_credentials').catch(()=>({data:[]})),
+      sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true}).catch(()=>({data:[]})),
+      sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle().catch(()=>({data:null}))
+    ]);
 
-  const instData = inst.data || [];
-  const creditLimit = Number(S.me?.limite_credito || 30.00);
-  const creditTier = S.me?.nivel_credito || 'Bronce';
-  const usedCredit = instData.filter(x => x.estado !== 'pagada').reduce((a, x) => a + Number(x.monto_usd), 0);
-  const availableCredit = Math.max(0, creditLimit - usedCredit);
+    const cardData = zcard?.data || null;
+    const userCode = S.me?.codigo_identificacion || (S.me?.es_revendedor ? 'RVD:1001' : 'CLT:001');
+    const isReseller = S.me?.es_revendedor === true;
 
-  const next = (o.data||[]).filter(x=>x.estado==='entregado'||x.estado==='pagado').map(x=>x.proximo_pago).filter(Boolean).sort()[0];
-  const hold=(l.data||[]).filter(x=>x.tipo==='compra'&&x.estado==='pendiente').reduce((a,x)=>a-Number(x.monto),0);
-  const T=(h,rows)=>`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+    const instData = inst?.data || [];
+    const creditLimit = Number(S.me?.limite_credito || 30.00);
+    const creditTier = S.me?.nivel_credito || 'Bronce';
+    const usedCredit = instData.filter(x => x.estado !== 'pagada').reduce((a, x) => a + Number(x.monto_usd || 0), 0);
+    const availableCredit = Math.max(0, creditLimit - usedCredit);
 
-  app.innerHTML = `
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-    <div>
-      <h2 style="margin:0">Hola, ${esc(S.me?.nombre||S.user.email||'cliente')}</h2>
-      <div style="margin-top:4px">
-        <span class="pill" style="font-size:.78rem;letter-spacing:1px;background:${isReseller?'rgba(255,183,3,.18)':'rgba(0,245,160,.16)'};color:${isReseller?'#ffb703':'var(--a)'};border:1px solid ${isReseller?'rgba(255,183,3,.4)':'rgba(0,245,160,.3)'}">
-          ID: <b>${esc(userCode)}</b> · ${isReseller?'Revendedor Mayorista VIP':'Cliente Final'}
-        </span>
+    const next = (o?.data||[]).filter(x=>x.estado==='entregado'||x.estado==='pagado').map(x=>x.proximo_pago).filter(Boolean).sort()[0];
+    const hold=(l?.data||[]).filter(x=>x.tipo==='compra'&&x.estado==='pendiente').reduce((a,x)=>a-Number(x.monto || 0),0);
+    const T=(h,rows)=>`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+
+    app.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div>
+        <h2 style="margin:0">Hola, ${esc(S.me?.nombre||S.user.email||'cliente')}</h2>
+        <div style="margin-top:4px">
+          <span class="pill" style="font-size:.78rem;letter-spacing:1px;background:${isReseller?'rgba(255,183,3,.18)':'rgba(0,245,160,.16)'};color:${isReseller?'#ffb703':'var(--a)'};border:1px solid ${isReseller?'rgba(255,183,3,.4)':'rgba(0,245,160,.3)'}">
+            ID: <b>${esc(userCode)}</b> · ${isReseller?'Revendedor Mayorista VIP':'Cliente Final'}
+          </span>
+        </div>
       </div>
     </div>
-  </div>
 
   <!-- TARJETA DE CRÉDITO DIGITAL ZENY (3D FLIP) -->
   ${cardData ? `
@@ -1701,6 +1706,16 @@ async function portal(){
   $('#ni').onclick=()=>{ $('#dlgBody').innerHTML='<h3>Incidencia</h3><input id="a" placeholder="Asunto"><textarea id="d" placeholder="Detalle" style="margin-top:8px"></textarea><input id="f" type="file" accept="image/*" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Enviar</button>'; dlg.showModal();
     $('#ok').onclick=async()=>{let url=null;const f=$('#f').files[0];if(f){const path=`${S.user.id}/${Date.now()}-${f.name}`;const u=await sb.storage.from('capturas').upload(path,f);if(!u.error)url=path;}
       const {error}=await sb.from('incidents').insert({customer_id:S.user.id,asunto:$('#a').value,detalle:$('#d').value,captura_url:url});error?toast(error.message):(dlg.close(),portal());};};
+  } catch(portalErr) {
+    console.error('Error al cargar portal:', portalErr);
+    app.innerHTML = `
+      <div style="text-align:center;padding:40px 16px">
+        <h3>Portal de Cliente</h3>
+        <p class="mut">${esc(portalErr.message)}</p>
+        <button onclick="portal()">Reintentar</button>
+      </div>
+    `;
+  }
 }
 // ---------- PANEL ADMIN (CRUD generico, protegido por RLS) ----------
 const TABLES = {
