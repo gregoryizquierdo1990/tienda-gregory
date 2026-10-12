@@ -14,8 +14,11 @@ header{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px;alig
 .brand{display:flex;align-items:center;gap:12px}
 .logo{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:#ffffff;box-shadow:0 0 16px rgba(0,245,160,.4),0 0 6px rgba(255,255,255,.9);border:1.5px solid rgba(0,212,255,.5);flex-shrink:0;padding:2px}
 .logo img{width:100%;height:100%;object-fit:contain;border-radius:50%;display:block}
+.watermark-bg{position:fixed;top:50%;left:50%;transform:translate3d(-50%,-50%,0);width:min(86vw,560px);max-width:560px;aspect-ratio:1;pointer-events:none;user-select:none;z-index:0;display:flex;align-items:center;justify-content:center;opacity:.065;filter:drop-shadow(0 0 50px rgba(0,212,255,.25));transition:opacity .3s ease;will-change:transform}
+.watermark-bg img{width:100%;height:100%;object-fit:contain;display:block}
+body.is-admin .watermark-bg{display:none}
 h1{font-size:1rem;margin:0;font-weight:800}.rate{font-size:.74rem;color:var(--mut)}
-main{max-width:1160px;margin:auto;padding:18px 16px 90px}
+main{max-width:1160px;margin:auto;padding:18px 16px 90px;position:relative;z-index:1}
 button,input,select,textarea{font:inherit;color:var(--tx)}
 input,select,textarea{width:100%;background:rgba(7,19,38,.9);border:1px solid var(--line);border-radius:12px;padding:11px 13px;transition:border-color .2s,box-shadow .2s}
 input:focus,select:focus,textarea:focus{outline:0;border-color:var(--c);box-shadow:0 0 0 3px rgba(0,212,255,.18)}
@@ -280,6 +283,28 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 .clean-copy-btn{background:rgba(255,183,3,.15);border:1px solid rgba(255,183,3,.4);color:#ffb703;border-radius:8px;padding:5px 9px;font-size:.72rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:none;transition:all .15s}
 .clean-copy-btn:hover{background:rgba(255,183,3,.25);color:#fff;transform:scale(1.02)}
 
+/* Plantillas de Mensajes Multicanal */
+.chan-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.chan-badge.whatsapp{background:rgba(37,211,102,.16);color:#25d366;border:1px solid rgba(37,211,102,.35)}
+.chan-badge.telegram{background:rgba(0,136,204,.16);color:#0088cc;border:1px solid rgba(0,136,204,.35)}
+.chan-badge.email{background:rgba(245,158,11,.16);color:#f59e0b;border:1px solid rgba(245,158,11,.35)}
+.tpl-tag-chip{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.28);color:var(--c);padding:3px 8px;border-radius:7px;font-size:.72rem;font-family:monospace;cursor:pointer;display:inline-flex;align-items:center;transition:all .15s;user-select:none}
+.tpl-tag-chip:hover{background:rgba(0,245,160,.2);border-color:var(--a);color:var(--a);transform:translateY(-1px)}
+.chat-preview-bubble{background:#0b141a;border:1px solid #1f2c34;border-radius:14px;padding:14px 16px;color:#e9edef;font-family:system-ui,-apple-system,sans-serif;font-size:.86rem;line-height:1.45;white-space:pre-wrap;box-shadow:0 4px 14px rgba(0,0,0,.4);position:relative}
+.chat-preview-bubble::after{content:"✓✓";position:absolute;bottom:6px;right:12px;font-size:.7rem;color:#53bdeb;letter-spacing:1px}
+
+/* Niveles de Usuarios & Beneficios */
+.level-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:16px 0}
+.level-card{background:linear-gradient(180deg,rgba(13,27,50,.85),rgba(6,16,32,.95));border:1.5px solid var(--line);border-radius:20px;padding:20px 18px;display:flex;flex-direction:column;justify-content:space-between;transition:all .2s ease;position:relative;overflow:hidden}
+.level-card:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.6)}
+.level-card-top{position:absolute;top:0;left:0;right:0;height:4px}
+.level-benefit-list{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.level-benefit-item{display:flex;align-items:flex-start;gap:10px;font-size:.82rem;line-height:1.4}
+.level-benefit-icon{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.06);display:grid;place-items:center;font-size:.9rem;flex-shrink:0}
+.level-comp-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.82rem}
+.level-comp-table th{background:rgba(12,28,52,.9);padding:10px 8px;border:1px solid var(--line);text-align:left;font-size:.76rem;text-transform:uppercase}
+.level-comp-table td{padding:10px 8px;border:1px solid var(--line);vertical-align:middle}
+
 /* Factura Digital / Recibo Imprimible */
 .invoice-dialog{max-width:680px;width:95%;background:#ffffff;color:#0f172a;border:1px solid #cbd5e1;border-radius:18px;padding:24px;box-shadow:0 25px 60px -15px rgba(0,0,0,.6);font-family:Sora,system-ui,sans-serif}
 .invoice-dialog::backdrop{background:rgba(2,6,14,.85);backdrop-filter:blur(6px)}
@@ -306,6 +331,7 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
   .invoice-acts{display:none!important}
 }
 </style></head><body>
+<div class="watermark-bg" id="watermarkBg" aria-hidden="true"><img src="/logo.png" alt="" id="watermarkImg"></div>
 <header><div class="brand"><div class="logo"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo"></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
 <div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
 <button class="g" id="bHome">Tienda</button><button class="g" id="bInstall">Instalar app</button><button class="g hide" id="bSnd">🔔 Sonido</button><button class="g hide" id="bPortal">Mi portal</button><button class="g" id="bAdmin">Admin</button><button class="g" id="bRegister">Registrarse</button><button id="bLogin">Ingresar</button><button class="g hide" id="bOut">Salir</button></div></header>
@@ -324,6 +350,151 @@ const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const toast = m => { $('#dlgBody').innerHTML = '<p>'+esc(m)+'</p>'; if(!dlg.open) dlg.showModal(); };
+
+const DEFAULT_MESSAGE_TEMPLATES = {
+  entrega_servicio: {
+    id: 'entrega_servicio',
+    canal: 'whatsapp',
+    titulo: 'Entrega de Credenciales del Pedido',
+    descripcion: 'Enviado al cliente cuando su pedido es conciliado y se entregan las credenciales de acceso.',
+    tags: ['cliente', 'producto', 'correo', 'clave', 'perfil', 'pin', 'vence', 'garantia', 'codigo_id', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 🎉 Gracias por tu compra en {negocio}.\nAquí tienes los datos de acceso para tu servicio:\n\n📌 Servicio: {producto}\n📧 Correo: {correo}\n🔑 Clave: {clave}\n👤 Perfil: {perfil}\n🔒 PIN: {pin}\n⏳ Vence el: {vence}\n🛡️ Garantía: {garantia} días\n\n⚠️ Instrucciones:\n• No modificar correo ni perfil asignado.\n• Ante dudas indícanos tu ID {codigo_id}.\n¡Que disfrutes tu servicio! ⭐'
+  },
+  cobro_cuota: {
+    id: 'cobro_cuota',
+    canal: 'whatsapp',
+    titulo: 'Cobro de Cuota Pendiente (BNPL)',
+    descripcion: 'Recordatorio enviado al cliente con los detalles de su cuota financiada por pagar.',
+    tags: ['cliente', 'producto', 'cuota', 'total_cuotas', 'monto_usd', 'monto_bs', 'tasa_bcv', 'fecha_vencimiento', 'negocio'],
+    cuerpo: 'Hola {cliente}, un cordial saludo de {negocio} 👋\nTe recordamos que tienes una cuota pendiente de tu servicio financiado:\n\n📦 Servicio: {producto}\n💳 Cuota: #{cuota} de {total_cuotas}\n💵 Monto en USD: ${monto_usd} USD\n🇻🇪 Monto en Bs: Bs. {monto_bs} (Tasa BCV {tasa_bcv})\n📅 Fecha de vencimiento: {fecha_vencimiento}\n\nPor favor envíanos el comprobante una vez realizada la transferencia. ¡Muchas gracias por tu puntualidad!'
+  },
+  entrega_credito: {
+    id: 'entrega_credito',
+    canal: 'whatsapp',
+    titulo: 'Activación de Servicio a Crédito',
+    descripcion: 'Notificación cuando se entrega o renueva un servicio a crédito con fecha límite de pago.',
+    tags: ['cliente', 'producto', 'monto_usd', 'fecha_vence_credito', 'dias_credito', 'negocio'],
+    cuerpo: 'Hola {cliente}! Te saludamos de {negocio} ✨\nTu servicio de {producto} ha sido activado/renovado a CRÉDITO por 30 días de disfrute.\n\n💵 Monto pendiente: ${monto_usd} USD\n📅 Fecha límite para el pago: {fecha_vence_credito} ({dias_credito} días)\n💳 Recuerda que puedes pagar con Pago Móvil o con tu Tarjeta Digital Zeny.\n\n¡Muchas gracias por tu preferencia y confianza continua! ⭐'
+  },
+  aviso_vencimiento: {
+    id: 'aviso_vencimiento',
+    canal: 'whatsapp',
+    titulo: 'Aviso Previo de Vencimiento de Suscripción',
+    descripcion: 'Mensaje preventivo antes del vencimiento para ofrecer la renovación inmediata.',
+    tags: ['cliente', 'producto', 'fecha_vence', 'monto_usd', 'portal_url', 'negocio'],
+    cuerpo: 'Hola {cliente}! ⏰ Tu servicio de {producto} está próximo a vencer el {fecha_vence}.\n\nPara mantener tu perfil activo y no perder tus pantallas guardadas, puedes renovar directamente desde tu portal con saldo Zeny o confirmarnos por acá:\n💵 Monto de renovación: ${monto_usd} USD\n🌐 Tu Portal de Cliente: {portal_url}\n\n¿Deseas renovar para este próximo período? Quedamos a tu orden.'
+  },
+  bienvenida_tarjeta: {
+    id: 'bienvenida_tarjeta',
+    canal: 'whatsapp',
+    titulo: 'Bienvenida y Tarjeta Zeny Emitida',
+    descripcion: 'Enviado tras el registro para entregar el ID único, tarjeta digital y código de activación.',
+    tags: ['cliente', 'codigo_id', 'numero_tarjeta', 'codigo_activacion', 'portal_url', 'negocio'],
+    cuerpo: '¡Bienvenido a {negocio}, {cliente}! 🌟\nTu cuenta ha sido creada exitosamente en nuestra plataforma.\n\n🆔 Tu Identificador oficial: {codigo_id}\n💳 Tarjeta Digital Zeny: {numero_tarjeta}\n🔐 Código de Activación: {codigo_activacion}\n🌐 Portal Web: {portal_url}\n\nTu Tarjeta Zeny te permite comprar al instante sin esperas bancarias. ¡Estamos listos para atenderte!'
+  },
+  recibo_factura: {
+    id: 'recibo_factura',
+    canal: 'whatsapp',
+    titulo: 'Envío de Factura Digital / Recibo',
+    descripcion: 'Comprobante formal de pago con datos fiscales, tasa BCV y desglose de items.',
+    tags: ['cliente', 'numero_factura', 'fecha', 'total_usd', 'total_bs', 'tasa_bcv', 'negocio', 'rif'],
+    cuerpo: 'Hola {cliente}! Adjuntamos tu comprobante digital de compra en {negocio} 📄:\n\n🧾 Documento: {numero_factura}\n📅 Fecha: {fecha}\n💵 Total: ${total_usd} USD (Bs. {total_bs})\n🏢 RIF Emisor: {rif}\n\nPuedes descargar o imprimir tu factura oficial directamente desde tu portal. ¡Gracias por confiar en nosotros!'
+  },
+  datos_limpios_revendedor: {
+    id: 'datos_limpios_revendedor',
+    canal: 'whatsapp',
+    titulo: 'Formato Reenvío de Revendedor a Cliente Final',
+    descripcion: 'Estructura limpia sin marcas que el revendedor copia para entregar a sus propios clientes.',
+    tags: ['servicio', 'correo', 'clave', 'perfil', 'pin', 'vence'],
+    cuerpo: '*{servicio}*\nCorreo: {correo}\nClave: {clave}\nPerfil: {perfil}\nPIN: {pin}\nVence: {vence}\n\n⚠️ Cuida tus accesos y disfruta tu servicio. Garantía activa durante todo el período.'
+  },
+  notificacion_telegram_bot: {
+    id: 'notificacion_telegram_bot',
+    canal: 'telegram',
+    titulo: 'Aviso del Bot de Telegram al Cliente',
+    descripcion: 'Mensaje formateado enviado por el bot de Telegram ante pedidos o recargas.',
+    tags: ['cliente', 'servicio', 'monto_usd', 'estado', 'negocio'],
+    cuerpo: '🤖 *Notificación de {negocio}*\n\nHola {cliente}, tu solicitud para *{servicio}* se encuentra en estado: *{estado}*.\nMonto: ${monto_usd} USD.\n\nAccede a tu portal para ver tus accesos actualizados.'
+  }
+};
+
+const DEFAULT_NIVELES_BENEFICIOS = {
+  cliente: {
+    id: 'cliente',
+    nombre: 'Cliente Final Oficial',
+    subtitulo: 'Usuarios y familias que adquieren servicios de entretenimiento y streaming para consumo personal.',
+    prefijo_codigo: 'CLT',
+    color: '#00d4ff',
+    badge_icon: '👤',
+    descuento_porcentaje: 'Precios Detal Oficiales',
+    requisito_acceso: 'Registro gratuito inmediato en la tienda',
+    beneficios: [
+      { icono: '💳', titulo: 'Tarjeta Digital Zeny Oficial', descripcion: 'Tarjeta personalizada vinculada a tu saldo para compras instantáneas.', destacado: true },
+      { icono: '🛡️', titulo: 'Garantía Total por 30 Días', descripcion: 'Soporte y reactivación inmediata ante cualquier reporte en tus perfiles.', destacado: true },
+      { icono: '📅', titulo: 'Financiamiento en 2 Cuotas (BNPL)', descripcion: 'Paga tus servicios en dos partes (50% hoy y 50% a los 15 días).', destacado: true },
+      { icono: '🧾', titulo: 'Facturación Digital Oficial', descripcion: 'Recibos oficiales emitidos en USD y Bolívares con tasa BCV legal.', destacado: false },
+      { icono: '🔔', titulo: 'Recordatorios Automatizados', descripcion: 'Avisos oportunos a tu WhatsApp antes del vencimiento de tus servicios.', destacado: false }
+    ]
+  },
+  revendedor: {
+    id: 'revendedor',
+    nombre: 'Revendedor Mayorista VIP',
+    subtitulo: 'Emprendedores y distribuidores comerciales que compran al por mayor para revender a sus propios clientes.',
+    prefijo_codigo: 'RVD',
+    color: '#ffb703',
+    badge_icon: '⭐',
+    descuento_porcentaje: '15% a 25% Descuento Mayorista',
+    requisito_acceso: 'Volumen mínimo de 5 compras mensuales o recarga de saldo comercial',
+    beneficios: [
+      { icono: '🏷️', titulo: 'Tarifas Mayoristas Automáticas', descripcion: 'Descuento directo del 15% al 25% en todo el catálogo de pantallas.', destacado: true },
+      { icono: '📋', titulo: 'Reenvío Limpio de Accesos', descripcion: 'Botón de 1 clic para copiar credenciales sin marcas para tus compradores.', destacado: true },
+      { icono: '🆔', titulo: 'Identificador VIP RVD:1001+', descripcion: 'Código prioritario en el sistema para aprobación express de compras.', destacado: true },
+      { icono: '💳', titulo: 'Línea de Crédito Comercial', descripcion: 'Entrega de pantallas a crédito para que no detengas tus ventas.', destacado: true },
+      { icono: '⚡', titulo: 'Canal de Soporte Directo', descripcion: 'Atención preferencial por WhatsApp para solución de incidencias y traslados.', destacado: false }
+    ]
+  },
+  franquiciado: {
+    id: 'franquiciado',
+    nombre: 'Franquicia Digital Asociada (SaaS)',
+    subtitulo: 'Socios comerciales que operan su propia tienda web con marca propia sobre nuestra infraestructura.',
+    prefijo_codigo: 'FRQ',
+    color: '#a855f7',
+    badge_icon: '🏢',
+    descuento_porcentaje: '40% a 60% Margen de Ganancia Neto',
+    requisito_acceso: 'Contrato de franquicia y canon mensual de mantenimiento tecnológico',
+    beneficios: [
+      { icono: '🌐', titulo: 'Tienda Web con Subdominio Propio', descripcion: 'Tu propio sitio web operativo 24/7 en tufranquicia.gregoryizquierdo.xyz listo para vender.', destacado: true },
+      { icono: '🎨', titulo: 'Identidad de Marca 100% Personalizada', descripcion: 'Tu propio logo, colores de marca y teléfonos de contacto independientes.', destacado: true },
+      { icono: '💼', titulo: 'Panel de Administración Privado', descripcion: 'Control total de tus propios clientes, pedidos e incidencias.', destacado: true },
+      { icono: '🔑', titulo: 'Inventario Centralizado Automatizado', descripcion: 'Vende directamente del stock global sin comprar cuentas por adelantado.', destacado: true },
+      { icono: '🛠️', titulo: 'Soporte y Mantenimiento Tecnológico', descripcion: 'Servidores, certificados SSL y seguridad mantenidos por la central.', destacado: false }
+    ]
+  }
+};
+
+function getMessageTemplates() {
+  return S.settings?.plantillas_mensajes || DEFAULT_MESSAGE_TEMPLATES;
+}
+
+function formatMessageTemplate(key, data = {}) {
+  const tpls = getMessageTemplates();
+  let text = tpls[key]?.cuerpo || DEFAULT_MESSAGE_TEMPLATES[key]?.cuerpo || '';
+  const merged = {
+    negocio: S.franchise?.nombre_comercial || S.settings?.negocio?.nombre || 'Emprendimiento Gregory Izquierdo',
+    telefono_negocio: S.settings?.negocio?.telefono || '+584241983648',
+    rif: S.settings?.negocio?.rif || 'J-50639379-4',
+    portal_url: location.origin,
+    ...data
+  };
+  for(const [k, v] of Object.entries(merged)){
+    text = text.split(`{${k}}`).join(String(v ?? ''));
+  }
+  return text;
+}
+
+function getNivelesConfig() {
+  return S.settings?.niveles_beneficios || DEFAULT_NIVELES_BENEFICIOS;
+}
 
 function openInvoiceModal(invData){
   const numStr = `FACT-${String(invData.numero || '1').padStart(6, '0')}`;
@@ -459,19 +630,17 @@ function openInvoiceModal(invData){
   $('#btnInvPrint').onclick = () => window.print();
 
   $('#btnInvWa').onclick = () => {
-    const waText = encodeURIComponent(
-      `🧾 *COMPROBANTE DIGITAL - ${emisorNombre}*\n` +
-      `*RIF:* ${emisorRif}\n` +
-      `*Comprobante:* ${numStr}\n` +
-      `*Fecha:* ${fechaStr}\n` +
-      `*Cliente:* ${clienteNombre}\n` +
-      `*Concepto:* ${items[0]?.concepto || 'Servicio Digital'}\n` +
-      (ahorroUsd > 0 ? `*Descuento Mayorista:* -$${ahorroUsd.toFixed(2)} USD\n` : '') +
-      `*Monto USD:* $${totalUsd.toFixed(2)} USD\n` +
-      `*Monto Bs:* Bs. ${totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (Tasa: ${tasaBcv.toLocaleString('es-VE')} Bs/USD)\n` +
-      `*Método:* ${metodoPago}\n\n` +
-      `_Gracias por tu preferencia._`
-    );
+    const rawWa = formatMessageTemplate('recibo_factura', {
+      cliente: clienteNombre,
+      numero_factura: numStr,
+      fecha: fechaStr,
+      total_usd: totalUsd.toFixed(2),
+      total_bs: totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+      tasa_bcv: tasaBcv.toLocaleString('es-VE'),
+      negocio: emisorNombre,
+      rif: emisorRif
+    });
+    const waText = encodeURIComponent(rawWa);
     const destTel = (invData.cliente_telefono || '').replace(/\D/g, '');
     const url = destTel ? `https://wa.me/${destTel}?text=${waText}` : `https://wa.me/?text=${waText}`;
     window.open(url, '_blank');
@@ -542,6 +711,8 @@ async function loadPublic(){
         if(fq.logo_url){
           const logoImg = document.querySelector('.logo img');
           if(logoImg) logoImg.src = fq.logo_url;
+          const wmImg = document.querySelector('#watermarkImg');
+          if(wmImg) wmImg.src = fq.logo_url;
         }
         if(fq.color_primario){
           document.documentElement.style.setProperty('--c', fq.color_primario);
@@ -1369,6 +1540,10 @@ async function portal(){
     const cardData = zcard?.data || null;
     const userCode = S.me?.codigo_identificacion || (S.me?.es_revendedor ? 'RVD:1001' : 'CLT:001');
     const isReseller = S.me?.es_revendedor === true;
+    const isFranchise = !!S.franchise || S.me?.es_franquicia === true;
+    const nivelesCfg = getNivelesConfig();
+    const curLevelKey = isFranchise ? 'franquiciado' : (isReseller ? 'revendedor' : 'cliente');
+    const curLevel = nivelesCfg[curLevelKey] || DEFAULT_NIVELES_BENEFICIOS[curLevelKey] || DEFAULT_NIVELES_BENEFICIOS.cliente;
 
     const instData = inst?.data || [];
     const creditLimit = Number(S.me?.limite_credito || 30.00);
@@ -1381,13 +1556,16 @@ async function portal(){
     const T=(h,rows)=>`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
 
     app.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
       <div>
         <h2 style="margin:0">Hola, ${esc(S.me?.nombre||S.user.email||'cliente')}</h2>
-        <div style="margin-top:4px">
-          <span class="pill" style="font-size:.78rem;letter-spacing:1px;background:${isReseller?'rgba(255,183,3,.18)':'rgba(0,245,160,.16)'};color:${isReseller?'#ffb703':'var(--a)'};border:1px solid ${isReseller?'rgba(255,183,3,.4)':'rgba(0,245,160,.3)'}">
-            ID: <b>${esc(userCode)}</b> · ${isReseller?'Revendedor Mayorista VIP':'Cliente Final'}
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="pill" style="font-size:.78rem;letter-spacing:.8px;background:${curLevel.color}22;color:${curLevel.color};border:1px solid ${curLevel.color}66">
+            ID: <b>${esc(userCode)}</b> · ${curLevel.badge_icon || '👤'} ${esc(curLevel.nombre)}
           </span>
+          <button id="btnVerBeneficios" class="g" style="font-size:.76rem;padding:4px 10px;border-radius:99px;border:1px solid ${curLevel.color}55;color:${curLevel.color};display:inline-flex;align-items:center;gap:5px;cursor:pointer">
+            🎖️ Ver mis beneficios & Comparativa
+          </button>
         </div>
       </div>
     </div>
@@ -1522,7 +1700,14 @@ async function portal(){
       <table>
         <tr><th>Servicio</th><th>Correo</th><th>Clave</th><th>Perfil</th><th>PIN</th><th>Vence</th><th>Reenviar</th></tr>
         ${(cr.data||[]).map(x => {
-          const rawText = `*${x.servicio}*\nCorreo: ${x.correo}\nClave: ${x.clave}${x.perfil ? `\nPerfil: ${x.perfil}` : ''}${x.pin ? `\nPIN: ${x.pin}` : ''}\nVence: ${x.vence}`;
+          const rawText = formatMessageTemplate('datos_limpios_revendedor', {
+            servicio: x.servicio,
+            correo: x.correo,
+            clave: x.clave,
+            perfil: x.perfil || 'Perfil 1',
+            pin: x.pin || 'Sin PIN',
+            vence: x.vence || '30 días'
+          });
           return `
             <tr>
               <td><b>${esc(x.servicio)}</b></td>
@@ -1573,6 +1758,95 @@ async function portal(){
   const zStage = $('#zenyCardStage');
   if(zStage){
     zStage.onclick = () => zStage.classList.toggle('flipped');
+  }
+
+  // Ver Beneficios & Ascenso Modal
+  const bVer = $('#btnVerBeneficios');
+  if(bVer){
+    bVer.onclick = () => {
+      const bizTel = (S.settings?.negocio?.telefono || '+584241983648').replace(/\D/g, '');
+      const reqMsgReseller = encodeURIComponent(`¡Hola! Soy ${S.me?.nombre||'Cliente'} (ID: ${userCode}). Quisiera solicitar el ascenso de mi cuenta a Revendedor Mayorista VIP para acceder a los precios con descuento comercial.`);
+      const reqMsgFranchise = encodeURIComponent(`¡Hola! Soy ${S.me?.nombre||'Cliente'} (ID: ${userCode}). Me interesa la Franquicia Digital SaaS para tener mi propia tienda web con subdominio propio.`);
+
+      $('#dlgBody').innerHTML = `
+        <div style="text-align:center;margin-bottom:14px">
+          <span style="font-size:2.2rem">${curLevel.badge_icon || '🎖️'}</span>
+          <h3 style="margin:4px 0">${esc(curLevel.nombre)}</h3>
+          <p class="mut" style="font-size:.82rem;margin:0">${esc(curLevel.subtitulo || '')}</p>
+        </div>
+
+        <div style="background:linear-gradient(135deg,rgba(10,25,48,.8),rgba(6,16,32,.95));border:1.5px solid ${curLevel.color}66;border-radius:14px;padding:14px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span style="font-size:.76rem;font-weight:800;text-transform:uppercase;color:${curLevel.color}">Tus Beneficios Activos</span>
+            <span class="pill" style="font-size:.7rem;background:${curLevel.color}22;color:${curLevel.color};border:1px solid ${curLevel.color}55">${esc(curLevel.descuento_porcentaje || 'Activo')}</span>
+          </div>
+          <div class="level-benefit-list">
+            ${(curLevel.beneficios || []).map(b => `
+              <div class="level-benefit-item">
+                <span class="level-benefit-icon">${b.icono || '✓'}</span>
+                <div>
+                  <b style="color:var(--tx)">${esc(b.titulo)}</b>
+                  <div class="mut" style="font-size:.76rem">${esc(b.descripcion)}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <details style="background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:16px">
+          <summary style="cursor:pointer;font-weight:700;font-size:.84rem;color:var(--c)">
+            📊 Ver tabla comparativa de todos los niveles
+          </summary>
+          <div style="overflow-x:auto;margin-top:10px">
+            <table class="level-comp-table">
+              <thead>
+                <tr>
+                  <th>Nivel</th>
+                  <th>ID Prefijo</th>
+                  <th>Descuento / Margen</th>
+                  <th>Requisito</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${Object.values(nivelesCfg).map(lvl => `
+                  <tr style="${lvl.id === curLevelKey ? 'background:rgba(0,212,255,.08);font-weight:700' : ''}">
+                    <td><span style="color:${lvl.color}">${lvl.badge_icon || '•'} ${esc(lvl.nombre)}</span> ${lvl.id === curLevelKey ? '<span class="pill" style="font-size:.62rem;margin-left:4px">Actual</span>' : ''}</td>
+                    <td><code>${esc(lvl.prefijo_codigo)}:XXXX</code></td>
+                    <td>${esc(lvl.descuento_porcentaje)}</td>
+                    <td class="mut" style="font-size:.74rem">${esc(lvl.requisito_acceso)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <div style="background:rgba(255,183,3,.08);border:1px solid rgba(255,183,3,.25);border-radius:14px;padding:14px;text-align:center">
+          ${curLevelKey === 'cliente' ? `
+            <div style="font-size:.9rem;font-weight:800;color:#ffb703;margin-bottom:4px">🚀 ¿Deseas comprar a precios mayoristas y revender?</div>
+            <p class="mut" style="font-size:.78rem;margin:0 0 10px">
+              Al ascender a <b>Revendedor Mayorista VIP</b> obtienes de 15% a 25% de descuento, botón de reenvío limpio de credenciales y aprobación prioritaria de pedidos.
+            </p>
+            <a href="https://wa.me/${bizTel}?text=${reqMsgReseller}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
+              <button style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;padding:9px 16px;border:none;border-radius:10px;font-size:.82rem;cursor:pointer">
+                💬 Solicitar Ascenso a Revendedor por WhatsApp
+              </button>
+            </a>
+          ` : `
+            <div style="font-size:.9rem;font-weight:800;color:#a855f7;margin-bottom:4px">🏢 ¿Deseas tu propia tienda web de streaming (SaaS)?</div>
+            <p class="mut" style="font-size:.78rem;margin:0 0 10px">
+              Conviértete en <b>Franquiciado Digital</b>: tu propio subdominio, tu propia marca, catálogo automatizado y margen de ganancia de hasta 60%.
+            </p>
+            <a href="https://wa.me/${bizTel}?text=${reqMsgFranchise}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
+              <button style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-weight:800;padding:9px 16px;border:none;border-radius:10px;font-size:.82rem;cursor:pointer">
+                💬 Consultar Plan Franquicia por WhatsApp
+              </button>
+            </a>
+          `}
+        </div>
+      `;
+      dlg.showModal();
+    };
   }
 
   // Activar Tarjeta Zeny
@@ -1784,6 +2058,7 @@ const ADMIN_MENU = [
     group: 'Clientes & Logs',
     items: [
       { id: 'customers', label: 'Clientes', icon: '👥' },
+      { id: 'niveles', label: 'Niveles & Beneficios', icon: '🎖️' },
       { id: 'login_log', label: 'Log accesos', icon: '📋' }
     ]
   },
@@ -1792,6 +2067,7 @@ const ADMIN_MENU = [
     items: [
       { id: 'telegram', label: 'Bot Telegram', icon: '🤖' },
       { id: 'bot_commands', label: 'Respuestas Bot', icon: '⚡' },
+      { id: 'plantillas', label: 'Plantillas Mensajes', icon: '💬' },
       { id: 'gemini', label: 'Gemini AI', icon: '✨' },
       { id: 'notificaciones', label: 'Notificaciones', icon: '🔔' }
     ]
@@ -1901,7 +2177,14 @@ async function admin(t){
       referencia: `[CRÉDITO] Vence ${fVence} ($${tot} USD)`
     }).eq('id', b.dataset.cred).catch(()=>{});
     if(tel){
-      const waMsg = encodeURIComponent(`Hola ${nom}! Te saludamos de Emprendimiento Gregory Izquierdo. Tu servicio de ${prod} ha sido activado/renovado a CRÉDITO por 30 días. Monto pendiente: $${tot} USD. Fecha límite para el pago: ${fVence}. ¡Muchas gracias por tu preferencia!`);
+      const rawMsg = formatMessageTemplate('entrega_credito', {
+        cliente: nom,
+        producto: prod,
+        monto_usd: tot,
+        fecha_vence_credito: fVence,
+        dias_credito: dias
+      });
+      const waMsg = encodeURIComponent(rawMsg);
       window.open(`https://wa.me/${tel}?text=${waMsg}`, '_blank');
     }
     toast(`Servicio entregado a CRÉDITO a ${nom}. Plazo: ${dias} días (hasta ${fVence}).`);

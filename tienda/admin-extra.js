@@ -293,7 +293,14 @@ const EXTRA = {
         }
 
         if(tel){
-          const waMsg = encodeURIComponent(`Hola ${nom}! Te saludamos de Emprendimiento Gregory Izquierdo. Tu suscripción de ${prod} ha sido RENOVADA a CRÉDITO por 30 días más (vence el ${nextVence}). Monto pendiente: $${oData.total_usd} USD. Fecha límite para el pago: ${fVenceCred}. ¡Muchas gracias por tu preferencia!`);
+          const rawMsg = formatMessageTemplate('entrega_credito', {
+            cliente: nom,
+            producto: prod,
+            monto_usd: oData.total_usd,
+            fecha_vence_credito: fVenceCred,
+            dias_credito: dias
+          });
+          const waMsg = encodeURIComponent(rawMsg);
           window.open(`https://wa.me/${tel}?text=${waMsg}`, '_blank');
         }
 
@@ -484,8 +491,17 @@ grant execute on function approve_installment(uuid) to authenticated;`;
             const statusLabel = isVencida ? 'Vencida' : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente'));
             const tel = (c.customers?.telefono || '').replace(/\D/g, '');
             const nom = c.customers?.nombre || c.customers?.email || 'Cliente';
-            const prod = c.orders?.products?.nombre || 'Servicio';
-            const waMsg = encodeURIComponent(`Hola ${nom}! Te saludamos de Emprendimiento Gregory Izquierdo. Te recordamos tu cuota #${c.numero_cuota} de ${prod} por $${Number(c.monto_usd).toFixed(2)} USD (vence el ${c.fecha_vencimiento}). Puedes reportar tu pago móvil o transferencia desde tu portal.`);
+            const rawMsg = formatMessageTemplate('cobro_cuota', {
+              cliente: nom,
+              producto: prod,
+              cuota: c.numero_cuota,
+              total_cuotas: c.total_cuotas,
+              monto_usd: Number(c.monto_usd).toFixed(2),
+              monto_bs: (Number(c.monto_usd) * (S.rate || 0)).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+              tasa_bcv: (S.rate || 0).toLocaleString('es-VE'),
+              fecha_vencimiento: c.fecha_vencimiento
+            });
+            const waMsg = encodeURIComponent(rawMsg);
 
             return `
               <tr>
@@ -1336,6 +1352,709 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         return `Importado: ${nm} cuentas madre y ${np} perfiles.`;
       });
     };
+  },
+
+  async plantillas(box) {
+    box.innerHTML = '<div style="padding:40px 10px;text-align:center"><div class="sk" style="max-width:300px;margin:auto"></div><p class="mut" style="margin-top:10px">Cargando plantillas de mensajes…</p></div>';
+
+    let tpls = S.settings?.plantillas_mensajes;
+    if(!tpls){
+      const { data } = await sb.from('settings').select('value').eq('key', 'plantillas_mensajes').maybeSingle();
+      if(data?.value && typeof data.value === 'object'){
+        tpls = data.value;
+      } else {
+        tpls = JSON.parse(JSON.stringify(DEFAULT_MESSAGE_TEMPLATES));
+      }
+      S.settings = S.settings || {};
+      S.settings.plantillas_mensajes = tpls;
+    }
+
+    let activeChannelFilter = 'todos';
+
+    const getSampleData = () => ({
+      cliente: 'Carlos Pérez',
+      codigo_id: 'CLT:0042',
+      producto: 'Netflix 4K Ultra HD',
+      servicio: 'Netflix 4K Ultra HD',
+      correo: 'netflix.vip@ejemplo.com',
+      clave: 'Stream2026*',
+      perfil: 'Perfil 1 (Carlos)',
+      pin: '4920',
+      vence: '12/11/2026',
+      fecha_vence: '12/11/2026',
+      fecha_vencimiento: '12/11/2026',
+      fecha_vence_credito: '19/10/2026',
+      dias_credito: '7',
+      cuota: '1',
+      total_cuotas: '2',
+      monto_usd: '15.00',
+      monto_bs: '600.00',
+      tasa_bcv: '40.00',
+      garantia: '30',
+      numero_tarjeta: '**** **** **** 8842',
+      codigo_activacion: '782',
+      numero_factura: 'FACT-000128',
+      fecha: '12/10/2026',
+      total_usd: '15.00',
+      total_bs: '600.00',
+      negocio: S.franchise?.nombre_comercial || S.settings?.negocio?.nombre || 'Emprendimiento Gregory Izquierdo',
+      telefono_negocio: S.settings?.negocio?.telefono || '+584241983648',
+      rif: S.settings?.negocio?.rif || 'J-50639379-4',
+      portal_url: location.origin,
+      estado: 'Activo'
+    });
+
+    const formatSample = (raw) => {
+      const sample = getSampleData();
+      let text = raw || '';
+      for(const [k, v] of Object.entries(sample)){
+        text = text.split(`{${k}}`).join(String(v));
+      }
+      return text;
+    };
+
+    const render = () => {
+      const allEntries = Object.entries(tpls);
+      const filtered = activeChannelFilter === 'todos' 
+        ? allEntries 
+        : allEntries.filter(([_, t]) => (t.canal || 'whatsapp') === activeChannelFilter);
+
+      const countWa = allEntries.filter(([_, t]) => (t.canal || 'whatsapp') === 'whatsapp').length;
+      const countTg = allEntries.filter(([_, t]) => t.canal === 'telegram').length;
+      const countEm = allEntries.filter(([_, t]) => t.canal === 'email').length;
+
+      box.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+          <div>
+            <h3 style="margin:0;display:flex;align-items:center;gap:8px">💬 Plantillas de Mensajes Multicanal</h3>
+            <p class="mut" style="font-size:.82rem;margin:4px 0 0">
+              Personaliza el texto de los mensajes que se envían por WhatsApp, Telegram y correos. Inserta variables dinámicas como <code>{cliente}</code>, <code>{monto_usd}</code>, etc.
+            </p>
+          </div>
+          <div class="row">
+            <button id="btnResetTpls" class="g" style="font-size:.76rem;padding:6px 12px">🔄 Restaurar por Defecto</button>
+            <button id="btnNewTpl" style="font-size:.76rem;padding:6px 14px">+ Nueva Plantilla</button>
+          </div>
+        </div>
+
+        <!-- Filtros por canal -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center">
+          <button class="g chan-filter-btn ${activeChannelFilter==='todos'?'active':''}" data-chan="todos" style="padding:6px 14px;font-size:.78rem;border-radius:99px;font-weight:700">
+            🌐 Todos (${allEntries.length})
+          </button>
+          <button class="g chan-filter-btn ${activeChannelFilter==='whatsapp'?'active':''}" data-chan="whatsapp" style="padding:6px 14px;font-size:.78rem;border-radius:99px;font-weight:700;color:#25d366;border-color:rgba(37,211,102,.4)">
+            📱 WhatsApp (${countWa})
+          </button>
+          <button class="g chan-filter-btn ${activeChannelFilter==='telegram'?'active':''}" data-chan="telegram" style="padding:6px 14px;font-size:.78rem;border-radius:99px;font-weight:700;color:#0088cc;border-color:rgba(0,136,204,.4)">
+            🤖 Telegram (${countTg})
+          </button>
+          <button class="g chan-filter-btn ${activeChannelFilter==='email'?'active':''}" data-chan="email" style="padding:6px 14px;font-size:.78rem;border-radius:99px;font-weight:700;color:#f59e0b;border-color:rgba(245,158,11,.4)">
+            📧 Email / Otros (${countEm})
+          </button>
+        </div>
+
+        <!-- Lista de plantillas en cuadrícula -->
+        <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px">
+          ${filtered.map(([key, tpl]) => {
+            const ch = tpl.canal || 'whatsapp';
+            const chBadge = ch === 'whatsapp'
+              ? '<span class="chan-badge whatsapp">📱 WhatsApp</span>'
+              : (ch === 'telegram' ? '<span class="chan-badge telegram">🤖 Telegram</span>' : '<span class="chan-badge email">📧 Email / Web</span>');
+
+            const previewText = tpl.cuerpo.length > 140 ? tpl.cuerpo.slice(0, 140) + '…' : tpl.cuerpo;
+
+            return `
+              <div class="card" style="display:flex;flex-direction:column;justify-content:space-between;padding:18px;border-radius:16px;background:rgba(9,19,34,.7);border:1px solid rgba(255,255,255,.08)">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
+                    <b style="font-size:.92rem;color:var(--tx)">${esc(tpl.titulo || key)}</b>
+                    ${chBadge}
+                  </div>
+                  <p class="mut" style="font-size:.76rem;margin:0 0 12px;line-height:1.4">${esc(tpl.descripcion || '')}</p>
+                  
+                  <div style="background:#070d14;border:1px solid #1a2838;border-radius:10px;padding:10px 12px;font-size:.78rem;color:#cbd5e1;font-family:monospace;white-space:pre-wrap;line-height:1.4;margin-bottom:12px;max-height:100px;overflow:hidden;position:relative">
+                    ${esc(previewText)}
+                  </div>
+
+                  <div style="margin-bottom:14px">
+                    <span style="font-size:.7rem;color:var(--mut);text-transform:uppercase;font-weight:700;display:block;margin-bottom:6px">Variables disponibles:</span>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px">
+                      ${(tpl.tags || []).map(tag => `<span class="tpl-tag-chip" style="cursor:default">{${esc(tag)}}</span>`).join('')}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row" style="margin-top:auto;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
+                  <button class="g" data-preview-tpl="${esc(key)}" style="padding:6px 12px;font-size:.76rem;flex:1">👁️ Vista Previa</button>
+                  <button data-edit-tpl="${esc(key)}" style="padding:6px 14px;font-size:.76rem;flex:1">✏️ Editar</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      // Eventos de filtros
+      box.querySelectorAll('.chan-filter-btn').forEach(btn => {
+        btn.onclick = () => {
+          activeChannelFilter = btn.dataset.chan;
+          render();
+        };
+      });
+
+      // Restaurar por defecto
+      const bReset = box.querySelector('#btnResetTpls');
+      if(bReset){
+        bReset.onclick = () => run(bReset, async () => {
+          if(!confirm('¿Estás seguro de restaurar todas las plantillas a los textos por defecto? Se perderán las modificaciones personalizadas.')) return;
+          tpls = JSON.parse(JSON.stringify(DEFAULT_MESSAGE_TEMPLATES));
+          const { error } = await sb.from('settings').upsert({
+            key: 'plantillas_mensajes',
+            value: tpls,
+            updated_at: new Date().toISOString()
+          });
+          if(error) throw error;
+          S.settings.plantillas_mensajes = tpls;
+          render();
+          return 'Plantillas restauradas a los valores por defecto.';
+        });
+      }
+
+      // Crear nueva plantilla
+      const bNew = box.querySelector('#btnNewTpl');
+      if(bNew){
+        bNew.onclick = () => openEditTplModal(null);
+      }
+
+      // Vista previa modal
+      box.querySelectorAll('[data-preview-tpl]').forEach(btn => {
+        btn.onclick = () => {
+          const k = btn.dataset.previewTpl;
+          const tpl = tpls[k];
+          if(!tpl) return;
+          openPreviewTplModal(tpl);
+        };
+      });
+
+      // Editar plantilla modal
+      box.querySelectorAll('[data-edit-tpl]').forEach(btn => {
+        btn.onclick = () => {
+          const k = btn.dataset.editTpl;
+          openEditTplModal(k);
+        };
+      });
+    };
+
+    const openPreviewTplModal = (tpl) => {
+      const formatted = formatSample(tpl.cuerpo || '');
+      const ch = tpl.canal || 'whatsapp';
+
+      $('#dlgBody').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">${esc(tpl.titulo)}</h3>
+          <span class="chan-badge ${ch}">${ch.toUpperCase()}</span>
+        </div>
+        <p class="mut" style="font-size:.8rem;margin:0 0 12px">${esc(tpl.descripcion)}</p>
+
+        <label class="mut" style="font-size:.74rem;text-transform:uppercase;font-weight:700;display:block;margin-bottom:6px">
+          Vista previa renderizada en vivo (Burbuja ${ch === 'whatsapp' ? 'WhatsApp' : 'Telegram'}):
+        </label>
+        <div class="chat-preview-bubble" style="${ch==='telegram'?'background:#17212b;border-color:#242f3d':''}">
+          ${esc(formatted)}
+        </div>
+
+        <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+          <button id="btnCopyPreview" class="g" style="flex:1;padding:8px 14px;font-size:.8rem">📋 Copiar Texto Renderizado</button>
+        </div>
+      `;
+      dlg.showModal();
+
+      const btnCp = $('#btnCopyPreview');
+      if(btnCp){
+        btnCp.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(formatted);
+            btnCp.innerHTML = '✅ Copiado al portapapeles';
+            setTimeout(() => btnCp.innerHTML = '📋 Copiar Texto Renderizado', 2000);
+          } catch(e) {
+            toast('Copia manual: ' + formatted);
+          }
+        };
+      }
+    };
+
+    const openEditTplModal = (key) => {
+      const isNew = !key;
+      const tpl = !isNew ? (tpls[key] || {}) : {
+        id: 'nueva_plantilla_' + Date.now(),
+        canal: 'whatsapp',
+        titulo: 'Nueva Plantilla',
+        descripcion: 'Descripción del mensaje',
+        tags: ['cliente', 'producto', 'monto_usd', 'portal_url', 'negocio'],
+        cuerpo: 'Hola {cliente}! Te informamos sobre tu servicio de {producto}.\nMonto: ${monto_usd} USD.\nSaludos de {negocio}.'
+      };
+
+      const availableTags = Array.from(new Set([
+        ...(tpl.tags || []),
+        'cliente', 'codigo_id', 'producto', 'servicio', 'correo', 'clave', 'perfil', 'pin',
+        'vence', 'fecha_vence', 'fecha_vencimiento', 'fecha_vence_credito', 'dias_credito',
+        'cuota', 'total_cuotas', 'monto_usd', 'monto_bs', 'tasa_bcv', 'numero_factura',
+        'numero_tarjeta', 'codigo_activacion', 'garantia', 'portal_url', 'negocio', 'rif'
+      ]));
+
+      $('#dlgBody').innerHTML = `
+        <h3>${isNew ? '✨ Crear Nueva Plantilla' : '✏️ Editar Plantilla: ' + esc(tpl.titulo)}</h3>
+        <p class="mut" style="font-size:.8rem;margin:0 0 12px">Edita el formato del mensaje y haz clic en las etiquetas para insertarlas directamente en el cursor.</p>
+
+        <div style="display:grid;grid-template-columns:1fr 140px;gap:10px;margin-bottom:10px">
+          <div>
+            <label class="mut" style="font-size:.74rem">Título de la plantilla:</label>
+            <input id="edTplTitle" value="${esc(tpl.titulo || '')}" style="margin-top:2px" required>
+          </div>
+          <div>
+            <label class="mut" style="font-size:.74rem">Canal:</label>
+            <select id="edTplChannel" style="margin-top:2px">
+              <option value="whatsapp" ${tpl.canal==='whatsapp'?'selected':''}>WhatsApp</option>
+              <option value="telegram" ${tpl.canal==='telegram'?'selected':''}>Telegram</option>
+              <option value="email" ${tpl.canal==='email'?'selected':''}>Email / Web</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px">
+          <label class="mut" style="font-size:.74rem">Descripción de uso / disparador:</label>
+          <input id="edTplDesc" value="${esc(tpl.descripcion || '')}" style="margin-top:2px">
+        </div>
+
+        <div style="margin-bottom:8px">
+          <label class="mut" style="font-size:.74rem;display:flex;justify-content:space-between">
+            <span>Tags dinámicos (toca uno para insertarlo):</span>
+            <span style="color:var(--c)">{variable}</span>
+          </label>
+          <div id="edTplTagsBox" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;max-height:85px;overflow-y:auto;background:rgba(0,0,0,.25);padding:6px;border-radius:8px">
+            ${availableTags.map(t => `<button type="button" class="tpl-tag-chip" data-insert-tag="${esc(t)}">+{${esc(t)}}</button>`).join('')}
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label class="mut" style="font-size:.74rem">Cuerpo del mensaje:</label>
+          <textarea id="edTplBody" rows="8" style="font-family:monospace;font-size:.84rem;line-height:1.45;margin-top:4px;resize:vertical">${esc(tpl.cuerpo || '')}</textarea>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label class="mut" style="font-size:.74rem;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px">Vista previa en tiempo real:</label>
+          <div id="edTplPreview" class="chat-preview-bubble" style="max-height:140px;overflow-y:auto">
+            ${esc(formatSample(tpl.cuerpo || ''))}
+          </div>
+        </div>
+
+        <div class="row" style="justify-content:flex-end;gap:10px">
+          ${!isNew && !DEFAULT_MESSAGE_TEMPLATES[key] ? `<button id="btnDeleteTpl" class="d" style="padding:8px 14px;font-size:.8rem;margin-right:auto">Borrar Plantilla</button>` : ''}
+          <button id="btnSaveTpl" style="padding:8px 18px;font-size:.82rem;font-weight:700">💾 Guardar Cambios</button>
+        </div>
+      `;
+      dlg.showModal();
+
+      const ta = $('#edTplBody');
+      const prevBox = $('#edTplPreview');
+
+      ta.oninput = () => {
+        prevBox.textContent = formatSample(ta.value);
+      };
+
+      $('#edTplTagsBox').querySelectorAll('[data-insert-tag]').forEach(btnTag => {
+        btnTag.onclick = () => {
+          const tag = `{${btnTag.dataset.insertTag}}`;
+          const start = ta.selectionStart || ta.value.length;
+          const end = ta.selectionEnd || ta.value.length;
+          const val = ta.value;
+          ta.value = val.substring(0, start) + tag + val.substring(end);
+          ta.selectionStart = ta.selectionEnd = start + tag.length;
+          ta.focus();
+          prevBox.textContent = formatSample(ta.value);
+        };
+      });
+
+      $('#btnSaveTpl').onclick = () => run($('#btnSaveTpl'), async () => {
+        const titleVal = $('#edTplTitle')?.value?.trim();
+        const bodyVal = $('#edTplBody')?.value?.trim();
+        const descVal = $('#edTplDesc')?.value?.trim();
+        const chanVal = $('#edTplChannel')?.value;
+
+        if(!titleVal) throw new Error('El título es requerido.');
+        if(!bodyVal) throw new Error('El cuerpo del mensaje no puede estar vacío.');
+
+        const finalKey = key || titleVal.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        
+        const matches = bodyVal.match(/\{([a-zA-Z0-9_]+)\}/g) || [];
+        const usedTags = Array.from(new Set(matches.map(m => m.slice(1, -1))));
+
+        tpls[finalKey] = {
+          id: finalKey,
+          canal: chanVal,
+          titulo: titleVal,
+          descripcion: descVal,
+          tags: usedTags.length ? usedTags : (tpl.tags || []),
+          cuerpo: bodyVal
+        };
+
+        const { error } = await sb.from('settings').upsert({
+          key: 'plantillas_mensajes',
+          value: tpls,
+          updated_at: new Date().toISOString()
+        });
+        if(error) throw error;
+
+        S.settings.plantillas_mensajes = tpls;
+        dlg.close();
+        render();
+        return 'Plantilla guardada exitosamente.';
+      });
+
+      const bDel = $('#btnDeleteTpl');
+      if(bDel){
+        bDel.onclick = () => run(bDel, async () => {
+          if(!confirm(`¿Eliminar la plantilla "${tpl.titulo}"?`)) return;
+          delete tpls[key];
+          const { error } = await sb.from('settings').upsert({
+            key: 'plantillas_mensajes',
+            value: tpls,
+            updated_at: new Date().toISOString()
+          });
+          if(error) throw error;
+          S.settings.plantillas_mensajes = tpls;
+          dlg.close();
+          render();
+          return 'Plantilla eliminada.';
+        });
+      }
+    };
+
+    render();
+  },
+
+  async niveles(box) {
+    box.innerHTML = '<div style="padding:40px 10px;text-align:center"><div class="sk" style="max-width:300px;margin:auto"></div><p class="mut" style="margin-top:10px">Cargando niveles y beneficios…</p></div>';
+
+    let niveles = S.settings?.niveles_beneficios;
+    if(!niveles){
+      const { data } = await sb.from('settings').select('value').eq('key', 'niveles_beneficios').maybeSingle();
+      if(data?.value && typeof data.value === 'object'){
+        niveles = data.value;
+      } else {
+        niveles = JSON.parse(JSON.stringify(DEFAULT_NIVELES_BENEFICIOS));
+      }
+      S.settings = S.settings || {};
+      S.settings.niveles_beneficios = niveles;
+    }
+
+    const render = () => {
+      const keys = ['cliente', 'revendedor', 'franquiciado'];
+
+      box.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+          <div>
+            <h3 style="margin:0;display:flex;align-items:center;gap:8px">🎖️ Configuración de Niveles & Beneficios</h3>
+            <p class="mut" style="font-size:.82rem;margin:4px 0 0">
+              Personaliza el nombre de cada nivel de usuario, su código de identificación, margen/descuento comercial y los beneficios tangibles visibles en el portal del cliente.
+            </p>
+          </div>
+          <div class="row">
+            <button id="btnResetNiveles" class="g" style="font-size:.76rem;padding:6px 12px">🔄 Restaurar Niveles</button>
+            <button id="btnCompModal" class="g" style="font-size:.76rem;padding:6px 14px">📊 Comparativa Completa</button>
+          </div>
+        </div>
+
+        <div class="level-grid">
+          ${keys.map(k => {
+            const lvl = niveles[k] || DEFAULT_NIVELES_BENEFICIOS[k];
+            if(!lvl) return '';
+            const color = lvl.color || '#00d4ff';
+            const benefits = lvl.beneficios || [];
+
+            return `
+              <div class="level-card" style="border-color:${color}44">
+                <div class="level-card-top" style="background:${color}"></div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+                    <span style="font-size:1.8rem">${lvl.badge_icon || '👤'}</span>
+                    <span class="pill" style="font-size:.72rem;background:${color}22;color:${color};border:1px solid ${color}55;font-weight:800">
+                      ID: <b>${esc(lvl.prefijo_codigo || 'CLT')}:XXXX</b>
+                    </span>
+                  </div>
+
+                  <h3 style="margin:0 0 4px;font-size:1.15rem;color:var(--tx)">${esc(lvl.nombre)}</h3>
+                  <p class="mut" style="font-size:.78rem;margin:0 0 12px;line-height:1.4">${esc(lvl.subtitulo || '')}</p>
+
+                  <div style="background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px;margin-bottom:14px;display:flex;flex-direction:column;gap:6px;font-size:.76rem">
+                    <div style="display:flex;justify-content:space-between">
+                      <span class="mut">Margen / Descuento:</span>
+                      <b style="color:${color}">${esc(lvl.descuento_porcentaje)}</b>
+                    </div>
+                    <div style="display:flex;justify-content:space-between">
+                      <span class="mut">Requisito de acceso:</span>
+                      <span style="color:#cbd5e1;text-align:right">${esc(lvl.requisito_acceso)}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style="font-size:.72rem;color:var(--mut);text-transform:uppercase;font-weight:700;display:block;margin-bottom:8px">
+                      Beneficios Activos (${benefits.length}):
+                    </span>
+                    <div class="level-benefit-list">
+                      ${benefits.map(b => `
+                        <div class="level-benefit-item">
+                          <span class="level-benefit-icon" style="color:${color}">${b.icono || '✓'}</span>
+                          <div>
+                            <div style="font-weight:700;color:var(--tx)">${esc(b.titulo)}</div>
+                            <div class="mut" style="font-size:.74rem">${esc(b.descripcion)}</div>
+                          </div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                </div>
+
+                <div style="margin-top:18px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">
+                  <button data-edit-level="${esc(k)}" style="width:100%;padding:8px 12px;font-size:.8rem;font-weight:700;background:linear-gradient(135deg,${color}33,${color}55);color:#fff;border:1px solid ${color}88">
+                    ✏️ Configurar Nivel & Beneficios
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      const bComp = box.querySelector('#btnCompModal');
+      if(bComp){
+        bComp.onclick = () => openComparisonModal();
+      }
+
+      const bRes = box.querySelector('#btnResetNiveles');
+      if(bRes){
+        bRes.onclick = () => run(bRes, async () => {
+          if(!confirm('¿Restaurar la configuración de los 3 niveles a los valores predeterminados?')) return;
+          niveles = JSON.parse(JSON.stringify(DEFAULT_NIVELES_BENEFICIOS));
+          const { error } = await sb.from('settings').upsert({
+            key: 'niveles_beneficios',
+            value: niveles,
+            updated_at: new Date().toISOString()
+          });
+          if(error) throw error;
+          S.settings.niveles_beneficios = niveles;
+          render();
+          return 'Niveles restaurados correctamente.';
+        });
+      }
+
+      box.querySelectorAll('[data-edit-level]').forEach(btn => {
+        btn.onclick = () => {
+          const k = btn.dataset.editLevel;
+          openEditLevelModal(k);
+        };
+      });
+    };
+
+    const openComparisonModal = () => {
+      const keys = ['cliente', 'revendedor', 'franquiciado'];
+      $('#dlgBody').innerHTML = `
+        <h3>📊 Comparativa Oficial de Niveles</h3>
+        <p class="mut" style="font-size:.82rem;margin:0 0 14px">Resumen comparativo que orienta a los usuarios hacia el crecimiento y la adquisición de servicios mayoristas.</p>
+
+        <div style="overflow-x:auto">
+          <table class="level-comp-table">
+            <thead>
+              <tr>
+                <th>Característica</th>
+                ${keys.map(k => {
+                  const lvl = niveles[k];
+                  return `<th style="color:${lvl.color}">${lvl.badge_icon || '•'} ${esc(lvl.nombre)}</th>`;
+                }).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Prefijo de Código</b></td>
+                ${keys.map(k => `<td><code>${esc(niveles[k].prefijo_codigo)}:XXXX</code></td>`).join('')}
+              </tr>
+              <tr>
+                <td><b>Margen / Tarifas</b></td>
+                ${keys.map(k => `<td style="color:${niveles[k].color};font-weight:700">${esc(niveles[k].descuento_porcentaje)}</td>`).join('')}
+              </tr>
+              <tr>
+                <td><b>Requisito de Entrada</b></td>
+                ${keys.map(k => `<td class="mut">${esc(niveles[k].requisito_acceso)}</td>`).join('')}
+              </tr>
+              <tr>
+                <td><b>Tarjeta Zeny Digital</b></td>
+                <td>✓ Sí, vinculada a billetera</td>
+                <td>✓ Sí + crédito disponible</td>
+                <td>✓ Facturación corporativa</td>
+              </tr>
+              <tr>
+                <td><b>Reenvío Limpio Credenciales</b></td>
+                <td class="mut">—</td>
+                <td>✓ Sí (Botón 1 clic)</td>
+                <td>✓ Sí (Automatizado)</td>
+              </tr>
+              <tr>
+                <td><b>Tienda Web Propia SaaS</b></td>
+                <td class="mut">—</td>
+                <td class="mut">—</td>
+                <td style="color:#a855f7;font-weight:700">✓ Sí (Subdominio y marca)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+      dlg.showModal();
+    };
+
+    const openEditLevelModal = (key) => {
+      const lvl = JSON.parse(JSON.stringify(niveles[key] || DEFAULT_NIVELES_BENEFICIOS[key]));
+      lvl.beneficios = lvl.beneficios || [];
+
+      const renderLevelForm = () => {
+        $('#dlgBody').innerHTML = `
+          <h3>✏️ Editar Nivel: ${esc(lvl.nombre)}</h3>
+          <p class="mut" style="font-size:.8rem;margin:0 0 12px">Configura la identidad del nivel y administra los beneficios que ven los usuarios.</p>
+
+          <div style="display:grid;grid-template-columns:1fr 100px 90px;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="mut" style="font-size:.74rem">Nombre oficial del nivel:</label>
+              <input id="edLvlName" value="${esc(lvl.nombre)}" style="margin-top:2px" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.74rem">Prefijo ID:</label>
+              <input id="edLvlPrefix" value="${esc(lvl.prefijo_codigo)}" maxlength="6" style="margin-top:2px;font-family:monospace;text-transform:uppercase" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.74rem">Icono / Emoji:</label>
+              <input id="edLvlIcon" value="${esc(lvl.badge_icon || '👤')}" style="margin-top:2px;text-align:center" required>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 120px;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="mut" style="font-size:.74rem">Subtítulo explicativo:</label>
+              <input id="edLvlSub" value="${esc(lvl.subtitulo || '')}" style="margin-top:2px">
+            </div>
+            <div>
+              <label class="mut" style="font-size:.74rem">Color distintivo:</label>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+                <input id="edLvlColorPicker" type="color" value="${esc(lvl.color || '#00d4ff')}" style="width:36px;height:34px;padding:2px;cursor:pointer;border-radius:6px;border:none">
+                <input id="edLvlColor" value="${esc(lvl.color || '#00d4ff')}" style="font-family:monospace;font-size:.8rem">
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label class="mut" style="font-size:.74rem">Margen de Ganancia / Descuento:</label>
+              <input id="edLvlDiscount" value="${esc(lvl.descuento_porcentaje || '')}" style="margin-top:2px" placeholder="Ej: 15% a 25% Descuento">
+            </div>
+            <div>
+              <label class="mut" style="font-size:.74rem">Requisito de acceso:</label>
+              <input id="edLvlReq" value="${esc(lvl.requisito_acceso || '')}" style="margin-top:2px" placeholder="Ej: Registro gratuito">
+            </div>
+          </div>
+
+          <div style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-size:.8rem;font-weight:700;color:var(--tx)">Beneficios adjuntos (${lvl.beneficios.length}):</span>
+              <button type="button" id="btnAddBenefit" class="g" style="font-size:.74rem;padding:4px 10px">+ Agregar Beneficio</button>
+            </div>
+
+            <div id="benefitsListContainer" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;background:rgba(0,0,0,.2);padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.06)">
+              ${lvl.beneficios.map((b, idx) => `
+                <div style="display:grid;grid-template-columns:40px 1fr 1fr 34px;gap:6px;align-items:center;background:rgba(12,24,42,.6);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.05)">
+                  <input data-b-idx="${idx}" data-b-field="icono" value="${esc(b.icono || '✓')}" style="text-align:center;padding:4px" title="Icono / Emoji">
+                  <input data-b-idx="${idx}" data-b-field="titulo" value="${esc(b.titulo || '')}" placeholder="Título del beneficio" style="padding:4px 8px;font-size:.8rem;font-weight:700">
+                  <input data-b-idx="${idx}" data-b-field="descripcion" value="${esc(b.descripcion || '')}" placeholder="Breve descripción" style="padding:4px 8px;font-size:.78rem">
+                  <button type="button" class="d" data-remove-b="${idx}" style="padding:4px;height:32px;display:grid;place-items:center;font-size:.76rem" title="Eliminar beneficio">✕</button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="row" style="justify-content:flex-end;gap:10px">
+            <button id="btnSaveLevel" style="padding:8px 20px;font-size:.82rem;font-weight:700">💾 Guardar Cambios del Nivel</button>
+          </div>
+        `;
+
+        const cp = $('#edLvlColorPicker'), ct = $('#edLvlColor');
+        if(cp && ct){
+          cp.oninput = () => ct.value = cp.value;
+          ct.oninput = () => { if(/^#[0-9A-Fa-f]{6}$/.test(ct.value)) cp.value = ct.value; };
+        }
+
+        $('#btnAddBenefit').onclick = () => {
+          saveCurrentFormState();
+          lvl.beneficios.push({ icono: '⭐', titulo: 'Nuevo Beneficio', descripcion: 'Descripción del beneficio otorgado.', destacado: false });
+          renderLevelForm();
+        };
+
+        $('#benefitsListContainer').querySelectorAll('[data-remove-b]').forEach(btn => {
+          btn.onclick = () => {
+            saveCurrentFormState();
+            const idx = Number(btn.dataset.removeB);
+            lvl.beneficios.splice(idx, 1);
+            renderLevelForm();
+          };
+        });
+
+        $('#btnSaveLevel').onclick = () => run($('#btnSaveLevel'), async () => {
+          saveCurrentFormState();
+          niveles[key] = {
+            id: key,
+            nombre: lvl.nombre,
+            subtitulo: lvl.subtitulo,
+            prefijo_codigo: lvl.prefijo_codigo.toUpperCase(),
+            color: lvl.color,
+            badge_icon: lvl.badge_icon,
+            descuento_porcentaje: lvl.descuento_porcentaje,
+            requisito_acceso: lvl.requisito_acceso,
+            beneficios: lvl.beneficios
+          };
+
+          const { error } = await sb.from('settings').upsert({
+            key: 'niveles_beneficios',
+            value: niveles,
+            updated_at: new Date().toISOString()
+          });
+          if(error) throw error;
+
+          S.settings.niveles_beneficios = niveles;
+          dlg.close();
+          render();
+          return `Nivel "${lvl.nombre}" guardado con éxito.`;
+        });
+      };
+
+      const saveCurrentFormState = () => {
+        lvl.nombre = $('#edLvlName')?.value?.trim() || lvl.nombre;
+        lvl.prefijo_codigo = $('#edLvlPrefix')?.value?.trim().toUpperCase() || lvl.prefijo_codigo;
+        lvl.badge_icon = $('#edLvlIcon')?.value?.trim() || lvl.badge_icon;
+        lvl.subtitulo = $('#edLvlSub')?.value?.trim() || lvl.subtitulo;
+        lvl.color = $('#edLvlColor')?.value?.trim() || lvl.color;
+        lvl.descuento_porcentaje = $('#edLvlDiscount')?.value?.trim() || lvl.descuento_porcentaje;
+        lvl.requisito_acceso = $('#edLvlReq')?.value?.trim() || lvl.requisito_acceso;
+
+        $('#benefitsListContainer')?.querySelectorAll('input[data-b-idx]').forEach(inp => {
+          const idx = Number(inp.dataset.bIdx);
+          const fld = inp.dataset.bField;
+          if(lvl.beneficios[idx]){
+            lvl.beneficios[idx][fld] = inp.value;
+          }
+        });
+      };
+
+      renderLevelForm();
+      dlg.showModal();
+    };
+
+    render();
   }
 };
 
