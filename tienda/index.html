@@ -247,19 +247,31 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 .bnpl-inst-pill.pagada{background:rgba(0,245,160,.16);color:#00f5a0;border:1px solid rgba(0,245,160,.4)}
 .bnpl-inst-pill.vencida{background:rgba(255,77,109,.16);color:#ff4d6d;border:1px solid rgba(255,77,109,.4)}
 
-/* Tarjeta de Crédito Digital Zeny (TDC) 3D Flip */
-.zeny-card-stage{perspective:1200px;max-width:440px;width:100%;margin:16px auto 22px;cursor:pointer;user-select:none}
-.zeny-card-inner{position:relative;width:100%;aspect-ratio:1.586;transition:transform .75s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d;border-radius:22px;box-shadow:0 18px 45px -10px rgba(0,0,0,.95),0 0 25px rgba(212,175,55,.18)}
+/* Tarjeta de Crédito Digital Zeny (TDC) en su Recuadro Centrado Real */
+.zeny-card-container{background:radial-gradient(ellipse at 50% 20%,rgba(20,32,54,.85) 0%,rgba(6,12,22,.96) 100%);border:1.5px solid rgba(212,175,55,.3);border-radius:24px;padding:24px 20px 22px;margin:16px auto 24px;max-width:520px;box-shadow:0 16px 40px -10px rgba(0,0,0,.9),0 0 30px rgba(0,212,255,.08);display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;overflow:hidden}
+.zeny-card-container::before{content:"";position:absolute;top:-40%;left:50%;transform:translateX(-50%);width:320px;height:240px;background:radial-gradient(circle,rgba(212,175,55,.14) 0%,transparent 70%);pointer-events:none}
+.zeny-card-container-head{display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.07)}
+.zeny-card-container-title{font-size:.85rem;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fde047;display:flex;align-items:center;gap:6px}
+.zeny-card-container-badge{font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:99px;background:rgba(212,175,55,.15);color:#fde047;border:1px solid rgba(212,175,55,.35)}
+.zeny-card-stage{perspective:1200px;max-width:420px;width:100%;margin:0 auto;cursor:pointer;user-select:none;display:flex;justify-content:center}
+.zeny-card-inner{position:relative;width:100%;aspect-ratio:1.586;transition:transform .75s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d;border-radius:20px;box-shadow:0 20px 45px -8px rgba(0,0,0,.95),0 0 25px rgba(212,175,55,.25)}
 .zeny-card-stage.flipped .zeny-card-inner{transform:rotateY(180deg)}
-.zeny-card-face{position:absolute;inset:0;width:100%;height:100%;border-radius:22px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background-size:100% 100%;background-repeat:no-repeat;background-position:center;border:1.5px solid rgba(212,175,55,.55);box-shadow:inset 0 0 12px rgba(0,0,0,.8)}
+.zeny-card-face{position:absolute;inset:0;width:100%;height:100%;border-radius:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background-size:100% 100%;background-repeat:no-repeat;background-position:center;border:1.5px solid rgba(212,175,55,.6);box-shadow:inset 0 0 14px rgba(0,0,0,.85)}
 .zeny-card-front{background-color:#0d0e12;background-image:url('/tarjeta-zeny-frente.jpg');position:relative}
 .zeny-card-back{transform:rotateY(180deg);background-color:#0b0d11;background-image:url('/tarjeta-zeny-reverso.jpg');display:flex;flex-direction:column;justify-content:space-between;padding:16px 0 14px}
 .zeny-card-front-holder-box{position:absolute;left:8.8%;bottom:8.2%;right:36%;text-align:left;overflow:hidden}
-.zeny-card-holder-name{font-family:'Sora',system-ui,sans-serif;font-size:clamp(.8rem,3.2vw,1.08rem);font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#f0cf7e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 3px #000,0 -1px 1px #fff5c0,0 0 1px #d4af37}
+.zeny-card-holder-name{font-family:'Sora',system-ui,sans-serif;font-size:clamp(.8rem,3.2vw,1.05rem);font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#f0cf7e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 3px #000,0 -1px 1px #fff5c0,0 0 1px #d4af37}
 .zeny-card-magstrip{width:100%;height:44px;background:#050506;border-top:1px solid #1e293b;border-bottom:1px solid #1e293b;margin-top:6px}
 .zeny-card-back-body{padding:0 22px;display:flex;flex-direction:column;gap:10px}
 .zeny-card-cvv-box{display:flex;align-items:center;background:#ffffff;height:34px;border-radius:6px;padding:0 12px;justify-content:flex-end;border:1px solid #cbd5e1}
 .zeny-card-cvv-text{font-family:monospace;font-weight:900;font-size:1.1rem;color:#0f172a;letter-spacing:3px}
+.zeny-card-balance-box{width:100%;margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center}
+.zeny-card-balance-label{font-size:.76rem;color:var(--mut);text-transform:uppercase;letter-spacing:.8px;display:block}
+.zeny-card-balance-val{font-size:1.55rem;font-weight:800;color:#00f5a0;letter-spacing:-.2px;line-height:1.2}
+.zeny-card-balance-eq{font-size:.78rem;color:var(--c);font-weight:600}
+.zeny-card-actions{display:flex;gap:8px;margin-top:12px;width:100%}
+.zeny-card-btn-rec{flex:1;background:var(--grad);color:#03121c;border:none;border-radius:12px;padding:10px 14px;font-size:.85rem;font-weight:800;cursor:pointer;transition:transform .15s}
+.zeny-card-btn-act{width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:12px;padding:11px;font-size:.85rem;font-weight:800;cursor:pointer;margin-top:12px;box-shadow:0 4px 14px rgba(245,158,11,.35)}
 
 /* Modalidad Revendedor VIP / Precios Mayoristas */
 .reseller-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;font-size:.72rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;background:linear-gradient(135deg,rgba(255,183,3,.2),rgba(251,133,0,.25));color:#ffb703;border:1px solid rgba(255,183,3,.45)}
@@ -1380,84 +1392,93 @@ async function portal(){
       </div>
     </div>
 
-  <!-- TARJETA DE CRÉDITO DIGITAL ZENY (3D FLIP) -->
+  <!-- TARJETA DIGITAL ZENY VINCULADA AL SALDO DE LA BILLETERA (CENTRO REAL) -->
   ${cardData ? `
-    <div style="text-align:center;margin-bottom:8px">
-      <span class="mut" style="font-size:.76rem;text-transform:uppercase;letter-spacing:1px">
-        💳 Tu Tarjeta de Crédito Digital Zeny (Toca para girar anverso / reverso)
-      </span>
-    </div>
-    <div class="zeny-card-stage" id="zenyCardStage" title="Toca para girar la tarjeta">
-      <div class="zeny-card-inner">
-        <!-- ANVERSO (Front - Modelo Oficial con Nombre Real del Cliente) -->
-        <div class="zeny-card-face zeny-card-front">
-          <div class="zeny-card-front-holder-box">
-            <div class="zeny-card-holder-name">${esc(cardData.nombre_titular || S.me?.nombre || 'CLIENTE VIP')}</div>
-          </div>
+    <div class="zeny-card-container">
+      <div class="zeny-card-container-head">
+        <div class="zeny-card-container-title">
+          <span>💳 Tarjeta Digital Zeny</span>
         </div>
+        <span class="zeny-card-container-badge">
+          ${cardData.estado==='activa'?'🟢 Activa para Compras':'🟡 Por Activar'}
+        </span>
+      </div>
 
-        <!-- REVERSO (Back) -->
-        <div class="zeny-card-face zeny-card-back">
-          <div class="zeny-card-magstrip"></div>
-          <div class="zeny-card-back-body">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:0 2px">
-              <span style="font-size:.66rem;color:#94a3b8;font-weight:700">PANEL DE FIRMA</span>
-              <span style="font-size:.66rem;color:#fde047;font-weight:800;letter-spacing:.5px">CÓDIGO DE ACTIVACIÓN / CVV</span>
-            </div>
-            <div class="zeny-card-cvv-box">
-              <span class="zeny-card-cvv-text">${esc(cardData.codigo_activacion || '—')}</span>
-            </div>
-            <div style="font-size:.68rem;color:#94a3b8;line-height:1.4;text-align:center;margin-top:2px">
-              Tarjeta digital exclusiva emitida por <b>Emprendimiento Gregory Izquierdo</b> J-50639379-4.<br>
-              Válida para compras y saldo ZenyPoints en la red oficial.
+      <div class="zeny-card-stage" id="zenyCardStage" title="Toca la tarjeta para ver anverso o reverso">
+        <div class="zeny-card-inner">
+          <!-- ANVERSO (Front - Modelo Oficial con Nombre Real del Cliente) -->
+          <div class="zeny-card-face zeny-card-front">
+            <div class="zeny-card-front-holder-box">
+              <div class="zeny-card-holder-name">${esc(cardData.nombre_titular || S.me?.nombre || 'CLIENTE VIP')}</div>
             </div>
           </div>
-          <div style="text-align:center">
-            <span class="pill ${cardData.estado==='activa'?'':'off'}" style="font-size:.72rem">
-              Estado: ${cardData.estado==='activa'?'🟢 Activa para Compras':'🟡 Por Activar'}
-            </span>
+
+          <!-- REVERSO (Back) -->
+          <div class="zeny-card-face zeny-card-back">
+            <div class="zeny-card-magstrip"></div>
+            <div class="zeny-card-back-body">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:0 2px">
+                <span style="font-size:.66rem;color:#94a3b8;font-weight:700">PANEL DE FIRMA</span>
+                <span style="font-size:.66rem;color:#fde047;font-weight:800;letter-spacing:.5px">CÓDIGO DE ACTIVACIÓN / CVV</span>
+              </div>
+              <div class="zeny-card-cvv-box">
+                <span class="zeny-card-cvv-text">${esc(cardData.codigo_activacion || '—')}</span>
+              </div>
+              <div style="font-size:.68rem;color:#94a3b8;line-height:1.4;text-align:center;margin-top:2px">
+                Tarjeta digital emitida por <b>Emprendimiento Gregory Izquierdo</b> J-50639379-4.<br>
+                Vinculada directamente al saldo de tu billetera para compras en la tienda.
+              </div>
+            </div>
+            <div style="text-align:center">
+              <span class="pill ${cardData.estado==='activa'?'':'off'}" style="font-size:.72rem">
+                ${cardData.estado==='activa'?'🟢 Vinculada y Activa':'🟡 Requiere Activación'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    ${cardData.estado !== 'activa' ? `
-      <div style="max-width:440px;margin:0 auto 18px;text-align:center">
-        <button id="btnActCard" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff">
-          ⚡ Activar mi Tarjeta Zeny con mi Código
+
+      <div style="font-size:.72rem;color:var(--mut);margin-top:10px">
+        ↻ Toca la tarjeta para girarla y consultar el código de activación / reverso
+      </div>
+
+      <!-- Saldo Vinculado a la Tarjeta -->
+      <div class="zeny-card-balance-box">
+        <div style="text-align:left">
+          <span class="zeny-card-balance-label">Saldo Disponible en tu Tarjeta</span>
+          <div class="zeny-card-balance-val">${Number(S.me?.zeny_balance||0).toFixed(2)} ZP</div>
+          <span class="zeny-card-balance-eq">1 ZP = $1.00 USD${hold?` · ${hold.toFixed(2)} en revisión`:''}</span>
+        </div>
+        <div style="text-align:right">
+          <span class="zeny-card-balance-label">Próximo vencimiento</span>
+          <div style="font-size:1.05rem;font-weight:700;color:var(--tx);margin-top:4px">${esc(next||'—')}</div>
+        </div>
+      </div>
+
+      <div class="zeny-card-actions">
+        <button class="zeny-card-btn-rec" id="rec">➕ Recargar Saldo Zeny</button>
+      </div>
+
+      ${cardData.estado !== 'activa' ? `
+        <button class="zeny-card-btn-act" id="btnActCard">
+          ⚡ Activar mi Tarjeta con mi Código
         </button>
-      </div>
-    ` : ''}
-  ` : ''}
-
-  <!-- Tarjeta BNPL Cupo / Línea de Crédito -->
-  <div class="bnpl-credit-card">
-    <div class="bnpl-credit-card-head">
-      <div>
-        <span class="mut" style="font-size:.74rem;letter-spacing:1px;text-transform:uppercase">Línea de Financiamiento Gregory</span>
-        <h3 style="margin:2px 0 0;font-size:1.15rem;color:#ecf6ff">Crédito Disponible</h3>
-      </div>
-      <span class="bnpl-credit-card-tier">Nivel ${esc(creditTier)}</span>
+      ` : ''}
     </div>
-    <div class="bnpl-credit-card-body">
-      <div class="limit-val">$${availableCredit.toFixed(2)} USD</div>
-      <div class="mut" style="font-size:.78rem">
-        Límite total: $${creditLimit.toFixed(2)} USD · Comprometido en cuotas: $${usedCredit.toFixed(2)} USD
+  ` : `
+    <div class="grid" style="margin-top:14px">
+      <div class="card">
+        <div class="mut">Saldo Billetera Zeny</div>
+        <div class="price">${Number(S.me?.zeny_balance||0).toFixed(2)} ZP</div>
+        <div class="mut">1 ZenyPoint = 1 USD${hold?` · ${hold.toFixed(2)} en revisión`:''}</div>
+        <button id="rec" style="margin-top:8px">Recargar Saldo</button>
+      </div>
+      <div class="card">
+        <div class="mut">Próximo vencimiento</div>
+        <div class="price">${esc(next||'—')}</div>
       </div>
     </div>
-  </div>
-
-  <div class="grid">
-    <div class="card">
-      <div class="mut">Saldo Zeny</div>
-      <div class="price">${Number(S.me?.zeny_balance||0).toFixed(2)} ZP</div>
-      <div class="mut">1 ZenyPoint = 1 USD${hold?` · ${hold.toFixed(2)} en revisión`:''}</div>
-      <button id="rec" style="margin-top:8px">Recargar</button>
-    </div>
-    <div class="card">
-      <div class="mut">Próximo vencimiento</div>
-      <div class="price">${esc(next||'—')}</div>
-    </div>
-  </div>
+  `}
 
   <!-- Sección Mis Cuotas (BNPL) -->
   <div style="display:flex;justify-content:space-between;align-items:center;margin:28px 0 10px">
