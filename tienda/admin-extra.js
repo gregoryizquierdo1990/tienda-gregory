@@ -527,6 +527,326 @@ grant execute on function approve_installment(uuid) to authenticated;`;
     });
   },
 
+  async franquicias(box) {
+    const { data: franqList, error } = await sb.from('franchises').select('*').order('created_at', { ascending: false });
+
+    if (error && (error.message?.includes('schema cache') || error.code === '42P01')) {
+      box.innerHTML = `
+        <div class="card" style="border:1.5px solid rgba(0,212,255,.4);background:linear-gradient(135deg,rgba(10,26,50,.95),rgba(5,15,30,.98))">
+          <h3 style="margin:0 0 8px;color:var(--c)">⚡ Activación de Red de Franquicias en Supabase</h3>
+          <p class="mut" style="margin:0 0 14px;font-size:.88rem;line-height:1.5">
+            Para habilitar el módulo de franquicias y contratos, solo debes pegar y ejecutar el script SQL de migración en tu <b>SQL Editor</b> de Supabase.
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button id="btnCopyFranqSql" type="button" style="padding:10px 18px">📋 Copiar SQL de Franquicias</button>
+            <a href="https://supabase.com/dashboard/project/tevjiqnnnjnakftrjgud/sql/new" target="_blank" rel="noopener noreferrer" class="g" style="text-decoration:none;display:inline-flex;align-items:center;padding:10px 18px;border-radius:12px;font-weight:700">
+              ↗ Ir a SQL Editor en Supabase
+            </a>
+          </div>
+        </div>
+      `;
+      $('#btnCopyFranqSql').onclick = async () => {
+        const sql = `-- Migracion 10: Modulo Completo de Franquicias SaaS (Multi-tenant y Contratos)
+create table if not exists franchises (
+  id uuid primary key default gen_random_uuid(),
+  subdominio text not null unique,
+  nombre_comercial text not null,
+  titular_nombre text not null,
+  titular_cedula_rif text,
+  titular_telefono text not null,
+  titular_correo text not null,
+  titular_ciudad text,
+  logo_url text,
+  color_primario text not null default '#00d4ff',
+  canon_mensual_usd numeric(10,2) not null default 25.00,
+  estado text not null default 'activo' check (estado in ('activo','suspendido_mora','suspendido_fraude','en_revision')),
+  fecha_inicio date not null default current_date,
+  fecha_vencimiento_canon date not null default (current_date + interval '30 days'),
+  modulos_activos jsonb not null default '{"bot_telegram":false,"cuotas_bnpl":false,"vencimientos":true,"gemini":false}',
+  contrato_texto text,
+  contrato_aceptado boolean not null default true,
+  contrato_aceptado_at timestamptz not null default now(),
+  notas_internas text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_franchises_subdomain on franchises(subdominio);
+create index if not exists idx_franchises_estado on franchises(estado);
+
+alter table franchises enable row level security;
+drop policy if exists franchises_admin on franchises;
+create policy franchises_admin on franchises for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists franchises_public_select on franchises;
+create policy franchises_public_select on franchises for select to anon using (true);`;
+        await navigator.clipboard.writeText(sql);
+        toast('¡SQL copiado al portapapeles! Pégalo y ejecútalo en Supabase.');
+      };
+      return;
+    }
+
+    const list = franqList || [];
+    const baseDomain = location.hostname.includes('.') ? location.hostname.replace(/^[^.]+\./, '') : 'gregoryizquierdo.xyz';
+
+    box.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:1.2rem">🏢 Red de Franquicias Digitales (SaaS)</h3>
+          <p class="mut" style="margin:0;font-size:.82rem">Administra subdominios, contratos legales, canones mensuales y configuración técnica de tus franquiciados.</p>
+        </div>
+        <div class="row">
+          <button id="btnNewFranq">+ Nueva Franquicia</button>
+          <button class="g" id="btnFranqGuide">📖 Guía de Operación</button>
+        </div>
+      </div>
+
+      <!-- Resumen Métrico -->
+      <div class="grid" style="margin-bottom:18px">
+        <div class="card">
+          <div class="mut">Franquicias Activas</div>
+          <div class="price">${list.filter(f => f.estado === 'activo').length}</div>
+        </div>
+        <div class="card">
+          <div class="mut">Canon Mensual Proyectado</div>
+          <div class="price" style="color:var(--a)">$${list.filter(f => f.estado === 'activo').reduce((a, b) => a + Number(b.canon_mensual_usd || 0), 0).toFixed(2)} USD</div>
+        </div>
+        <div class="card">
+          <div class="mut">Dominio Base Red</div>
+          <div style="font-size:1.05rem;font-weight:700;color:var(--c);margin-top:6px">*.${esc(baseDomain)}</div>
+        </div>
+      </div>
+
+      <!-- Tabla de Franquicias -->
+      <div class="wrap">
+        <table>
+          <tr>
+            <th>Franquicia / URL</th>
+            <th>Titular / Contacto</th>
+            <th>Canon Mensual</th>
+            <th>Vencimiento</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+          ${list.map(f => {
+            const franqUrl = `https://${f.subdominio}.${baseDomain}`;
+            const stLabel = f.estado === 'activo' ? '🟢 Activo' : (f.estado === 'suspendido_fraude' ? '🚨 Suspendido Fraude' : (f.estado === 'suspendido_mora' ? '🟡 Suspendido Mora' : 'En revisión'));
+            return `
+              <tr>
+                <td>
+                  <b>${esc(f.nombre_comercial)}</b>
+                  <div style="margin-top:3px">
+                    <a href="${franqUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--c);font-size:.8rem;text-decoration:none;font-weight:600">
+                      🔗 ${esc(f.subdominio)}.${esc(baseDomain)}
+                    </a>
+                  </div>
+                </td>
+                <td>
+                  <b>${esc(f.titular_nombre)}</b>
+                  <span class="mut" style="display:block;font-size:.73rem">${esc(f.titular_telefono)} · ${esc(f.titular_correo)}</span>
+                </td>
+                <td><b>$${Number(f.canon_mensual_usd).toFixed(2)} USD/mes</b></td>
+                <td>${esc(f.fecha_vencimiento_canon)}</td>
+                <td><span class="pill ${f.estado === 'activo' ? '' : 'off'}">${stLabel}</span></td>
+                <td class="row">
+                  <button class="g" data-fq-view="${f.id}" title="Ver expediente, contrato y detalles comerciales">📄 Expediente</button>
+                  <button class="g" data-fq-reset="${f.id}" data-email="${esc(f.titular_correo)}" title="Restaurar clave de acceso del franquiciado">🔑 Reset Clave</button>
+                  ${f.estado === 'activo' ? `
+                    <button class="d" data-fq-kill="${f.id}" data-sub="${esc(f.subdominio)}" title="Kill-Switch: suspender inmediatamente">🚨 Suspender</button>
+                  ` : `
+                    <button data-fq-reactivate="${f.id}">✅ Reactivar</button>
+                  `}
+                </td>
+              </tr>
+            `;
+          }).join('') || '<tr><td colspan="6" class="mut empty">No hay franquicias registradas aún. Pulsa "+ Nueva Franquicia" para asentar la primera.</td></tr>'}
+        </table>
+      </div>
+    `;
+
+    // Guía interactiva
+    $('#btnFranqGuide').onclick = () => {
+      $('#dlgBody').innerHTML = `
+        <h3>📖 Guía de Operación y Puesta en Marcha de Franquicias</h3>
+        <div style="font-size:.85rem;line-height:1.6;color:var(--tx);max-height:65vh;overflow-y:auto;padding-right:6px">
+          <p><b>1. Configuración de Subdominio DNS:</b><br>
+          En tu proveedor de dominio (Cloudflare, Namecheap o Vercel), asegúrate de tener un registro CNAME wildcard: <code>*</code> apuntando a tu despliegue (ej. <code>cname.vercel-dns.com</code>). Así cualquier subdominio nuevo funcionará automáticamente sin tocar código.</p>
+
+          <p><b>2. Cómo configura el Franquiciado su Logo y Métodos de Pago:</b><br>
+          Al iniciar sesión en su panel con su correo, tendrá acceso a <b>Ajustes ➔ Métodos de Pago</b> para agregar sus números de Pago Móvil y cuentas bancarias donde cobrará directo sus ganancias, y en <b>Ajustes ➔ Negocio</b> colocará su Logo y teléfonos de soporte.</p>
+
+          <p><b>3. Cobro del Canon Mensual:</b><br>
+          El canon mensual ($25 USD o el acordado) se renueva cada 30 días. Si no cancela a tiempo, puedes pulsar <b>Suspender Mora</b> hasta que reporte su comprobante.</p>
+
+          <p><b>4. Kill-Switch de Seguridad:</b><br>
+          Si detectas anomalías o reportes de estafa contra un franquiciado, usa el botón <b>🚨 Suspender Fraude</b> para desconectar su subdominio al instante y proteger la reputación de tu red.</p>
+        </div>
+      `;
+      dlg.showModal();
+    };
+
+    // Modal Crear Nueva Franquicia
+    $('#btnNewFranq').onclick = () => {
+      $('#dlgBody').innerHTML = `
+        <h3>🏢 Asentar Nueva Franquicia y Contrato</h3>
+        <p class="mut" style="font-size:.8rem;margin:0 0 12px">Completa los datos comerciales. La URL se generará automáticamente en tiempo real.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;max-height:65vh;overflow-y:auto;padding-right:4px">
+          <label class="mut" style="font-size:.76rem">Nombre Comercial de la Franquicia:</label>
+          <input id="fqName" placeholder="Ej: Streaming Cool" required>
+
+          <label class="mut" style="font-size:.76rem">Subdominio deseado (sin espacios ni símbolos):</label>
+          <input id="fqSub" placeholder="Ej: streamingcool" required>
+
+          <!-- Previsualizador de URL guía en tiempo real -->
+          <div style="background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.3);border-radius:12px;padding:10px 14px">
+            <span class="mut" style="font-size:.72rem;display:block">URL Guía asignada a la franquicia:</span>
+            <b id="fqUrlPreview" style="color:var(--c);font-size:.92rem;word-break:break-all">https://streamingcool.${baseDomain}</b>
+          </div>
+
+          <label class="mut" style="font-size:.76rem">Nombre del Propietario / Titular:</label>
+          <input id="fqOwner" placeholder="Ej: Carlos Rodríguez" required>
+
+          <label class="mut" style="font-size:.76rem">Cédula / RIF:</label>
+          <input id="fqDoc" placeholder="Ej: V-19876543">
+
+          <label class="mut" style="font-size:.76rem">Teléfono / WhatsApp:</label>
+          <input id="fqTel" placeholder="Ej: +58 412 1234567" required>
+
+          <label class="mut" style="font-size:.76rem">Correo electrónico oficial (para acceso al panel):</label>
+          <input id="fqEmail" type="email" placeholder="Ej: contacto@streamingcool.com" required>
+
+          <label class="mut" style="font-size:.76rem">Ciudad / Estado:</label>
+          <input id="fqCity" placeholder="Ej: Valencia, Carabobo">
+
+          <label class="mut" style="font-size:.76rem">Canon Mensual Acordado (USD):</label>
+          <input id="fqCanon" type="number" value="25" min="0" step="1" required>
+
+          <label class="mut" style="font-size:.76rem">Notas internas / Acuerdos especiales:</label>
+          <textarea id="fqNotes" rows="2" placeholder="Ej: Incluye módulo de Telegram bonificado el primer mes..."></textarea>
+        </div>
+        <button id="btnSaveFranq" style="margin-top:14px;width:100%">Crear Franquicia y Generar Contrato</button>
+      `;
+
+      $('#fqSub').oninput = e => {
+        const cleanSub = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        e.target.value = cleanSub;
+        $('#fqUrlPreview').textContent = `https://${cleanSub || 'subdominio'}.${baseDomain}`;
+      };
+
+      $('#btnSaveFranq').onclick = async () => {
+        const btn = $('#btnSaveFranq');
+        btn.disabled = true;
+        const sub = $('#fqSub').value.trim().toLowerCase();
+        const name = $('#fqName').value.trim();
+        const owner = $('#fqOwner').value.trim();
+        const email = $('#fqEmail').value.trim();
+        const tel = $('#fqTel').value.trim();
+        const canon = Number($('#fqCanon').value || 25);
+
+        if (!sub || !name || !owner || !email || !tel) {
+          btn.disabled = false;
+          return toast('Por favor completa todos los campos requeridos.');
+        }
+
+        const contractText = `CONTRATO DE LICENCIA DE SOFTWARE Y FRANQUICIA DIGITAL MARCA BLANCA
+
+Entre EMPRENDIMIENTO GREGORY IZQUIERDO (en adelante "El Proveedor Tecnológico") y ${owner}, titular de ${name} (en adelante "El Franquiciado").
+
+1. OBJETO: El Proveedor otorga una licencia de uso de la plataforma web en el subdominio https://${sub}.${baseDomain}.
+2. AUTONOMÍA Y DESLINDE DE RESPONSABILIDAD: El Franquiciado opera de manera comercialmente independiente. Todos los cobros, métodos de pago, garantías y atención al cliente son de su exclusiva responsabilidad. El Proveedor no asume responsabilidad solidaria ante clientes finales de la Franquicia.
+3. CANON MENSUAL: El Franquiciado se compromete a cancelar un canon mensual de $${canon} USD cada 30 días continuos.
+4. KILL-SWITCH Y TOLERANCIA CERO AL FRAUDE: El Proveedor se reserva el derecho de suspender de inmediato el subdominio y acceso ante cualquier denuncia fundamentada de fraude o estafa.
+Fecha de asentamiento: ${new Date().toISOString().slice(0, 10)}.`;
+
+        const { error: insErr } = await sb.from('franchises').insert({
+          subdominio: sub,
+          nombre_comercial: name,
+          titular_nombre: owner,
+          titular_cedula_rif: $('#fqDoc').value.trim(),
+          titular_telefono: tel,
+          titular_correo: email,
+          titular_ciudad: $('#fqCity').value.trim(),
+          canon_mensual_usd: canon,
+          notas_internas: $('#fqNotes').value.trim(),
+          contrato_texto: contractText,
+          estado: 'activo'
+        });
+
+        if (insErr) {
+          btn.disabled = false;
+          return toast(insErr.message.includes('unique') ? 'Ese subdominio ya está en uso. Elige otro.' : insErr.message);
+        }
+
+        dlg.close();
+        toast(`¡Franquicia ${name} creada exitosamente!`);
+        EXTRA.franquicias(box);
+      };
+
+      dlg.showModal();
+    };
+
+    // Expediente y Contrato
+    box.querySelectorAll('[data-fq-view]').forEach(btn => {
+      btn.onclick = () => {
+        const f = list.find(x => x.id === btn.dataset.fqView);
+        if (!f) return;
+        const franqUrl = `https://${f.subdominio}.${baseDomain}`;
+        $('#dlgBody').innerHTML = `
+          <h3>Expediente: ${esc(f.nombre_comercial)}</h3>
+          <div style="font-size:.85rem;line-height:1.5;max-height:65vh;overflow-y:auto;padding-right:6px">
+            <div style="background:rgba(7,19,38,.9);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px">
+              <b>URL de la Tienda:</b> <a href="${franqUrl}" target="_blank" style="color:var(--c)">${franqUrl}</a><br>
+              <b>Titular:</b> ${esc(f.titular_nombre)} (${esc(f.titular_cedula_rif || 'Sin documento')})<br>
+              <b>Contacto:</b> ${esc(f.titular_telefono)} · ${esc(f.titular_correo)}<br>
+              <b>Ciudad:</b> ${esc(f.titular_ciudad || 'No especificada')}<br>
+              <b>Canon:</b> $${Number(f.canon_mensual_usd).toFixed(2)} USD/mes · Vence: <b>${esc(f.fecha_vencimiento_canon)}</b><br>
+              <b>Estado:</b> <span class="pill ${f.estado === 'activo' ? '' : 'off'}">${esc(f.estado)}</span>
+            </div>
+
+            <h4 style="margin:10px 0 6px;color:var(--a)">📜 Contrato Legal de Franquicia</h4>
+            <pre style="background:rgba(3,8,18,.9);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:.76rem;white-space:pre-wrap;color:#b3e9ff;font-family:monospace">${esc(f.contrato_texto || 'Sin contrato redactado')}</pre>
+
+            <button id="btnCopyContract" style="width:100%;margin-top:10px">📋 Copiar Contrato para Enviar al Franquiciado</button>
+          </div>
+        `;
+        $('#btnCopyContract').onclick = async () => {
+          await navigator.clipboard.writeText(f.contrato_texto || '');
+          toast('Contrato copiado al portapapeles.');
+        };
+        dlg.showModal();
+      };
+    });
+
+    // Reset Clave de acceso
+    box.querySelectorAll('[data-fq-reset]').forEach(btn => {
+      btn.onclick = async () => {
+        const email = btn.dataset.email;
+        if (!confirm(`¿Enviar correo de restablecimiento de contraseña a ${email}?`)) return;
+        const { error: resetErr } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/' });
+        if (resetErr) return toast(resetErr.message);
+        toast(`Correo de recuperación enviado con éxito a ${email}.`);
+      };
+    });
+
+    // Kill-Switch (Suspender por Fraude)
+    box.querySelectorAll('[data-fq-kill]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.dataset.fqKill, sub = btn.dataset.sub;
+        if (!confirm(`🚨 ¿ACTIVAR KILL-SWITCH PARA ${sub}?\n\nLa tienda quedará inaccesible de inmediato y se bloqueará el acceso del propietario.`)) return;
+        await sb.from('franchises').update({ estado: 'suspendido_fraude' }).eq('id', id);
+        toast(`Franquicia ${sub} suspendida preventivamente.`);
+        EXTRA.franquicias(box);
+      };
+    });
+
+    // Reactivar
+    box.querySelectorAll('[data-fq-reactivate]').forEach(btn => {
+      btn.onclick = async () => {
+        await sb.from('franchises').update({ estado: 'activo' }).eq('id', btn.dataset.fqReactivate);
+        toast('Franquicia reactivada exitosamente.');
+        EXTRA.franquicias(box);
+      };
+    });
+  },
+
   async gemini(box) {
     box.innerHTML = `<textarea id="gp" rows="5" placeholder="Pídele a Gemini: redactar promociones, mensajes de cobro, respuestas para clientes…"></textarea><div class="row" style="margin:8px 0"><button id="gg2">Preguntar</button></div><pre id="go" style="white-space:pre-wrap" class="card"></pre>`;
     $('#gg2').onclick = e => run(e.target, async () => { const r = await api('/api/gemini', { prompt: $('#gp').value }); $('#go').textContent = r.text; return 'Listo'; });

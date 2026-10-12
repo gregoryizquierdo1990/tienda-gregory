@@ -266,21 +266,81 @@ body.is-admin main{max-width:1440px;width:100%}
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg');
-const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}};
+const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}, franchise:null};
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const toast = m => { $('#dlgBody').innerHTML = '<p>'+esc(m)+'</p>'; if(!dlg.open) dlg.showModal(); };
+
+function detectSubdomain(){
+  const host = window.location.hostname.toLowerCase();
+  const parts = host.split('.');
+  // Ignora localhost, 127.0.0.1, y hosts sin subdominio o www
+  if(parts.length <= 2 || host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) return null;
+  const sub = parts[0];
+  if(['www', 'tienda', 'app', 'panel', 'admin'].includes(sub)) return null;
+  return sub;
+}
 
 async function init(){
   app.innerHTML=skeleton();
   const {data:{session}} = await sb.auth.getSession(); await onSession(session);
   sb.auth.onAuthStateChange((_e,s)=>onSession(s));
-  await loadPublic(); home();
+  await loadPublic();
+  if(!S.isSuspended) home();
   // Realtime: cualquier cambio en catalogo/tasa se refleja en vivo
   sb.channel('pub').on('postgres_changes',{event:'*',schema:'public',table:'products'},()=>loadPublic().then(()=>S.view==='home'&&home()))
     .on('postgres_changes',{event:'*',schema:'public',table:'exchange_rates'},loadPublic).on('postgres_changes',{event:'*',schema:'public',table:'banners'},()=>loadPublic().then(()=>S.view==='home'&&home())).subscribe();
 }
 async function loadPublic(){
+  // 1. Deteccion de subdominio de Franquicia
+  const sub = detectSubdomain();
+  if(sub){
+    try {
+      const { data: fq } = await sb.from('franchises').select('*').eq('subdominio', sub).maybeSingle();
+      if(fq){
+        S.franchise = fq;
+        // Kill-Switch Preventivo / Suspensión por Mora o Fraude
+        if(fq.estado === 'suspendido_fraude' || fq.estado === 'suspendido_mora'){
+          S.isSuspended = true;
+          const isFraud = fq.estado === 'suspendido_fraude';
+          document.body.innerHTML = `
+            <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#030812;color:#ecf6ff;font-family:Sora,sans-serif;text-align:center">
+              <div style="max-width:520px;background:rgba(13,29,54,.95);border:1.5px solid ${isFraud?'#ff4d6d':'#ffb703'};border-radius:24px;padding:36px 24px;box-shadow:0 20px 60px rgba(0,0,0,.8)">
+                <div style="font-size:3.5rem;margin-bottom:12px">${isFraud?'🚨':'⚠️'}</div>
+                <h2 style="margin:0 0 10px;color:${isFraud?'#ff7b93':'#ffb703'}">${isFraud?'Portal Suspendido':'Servicio Temporalmente Suspendido'}</h2>
+                <p style="color:#8ea8c8;font-size:.95rem;line-height:1.5;margin-bottom:20px">
+                  ${isFraud
+                    ? 'Este portal web ha sido suspendido preventivamente por el Proveedor Tecnológico debido a investigaciones de seguridad y cumplimiento normativo.'
+                    : 'Este portal se encuentra momentáneamente inactivo por mantenimiento comercial.'}
+                </p>
+                <div style="background:rgba(3,8,18,.8);border:1px solid #16335a;border-radius:12px;padding:12px;font-size:.82rem;color:#8ea8c8;margin-bottom:20px">
+                  Dominio auditado: <b>${esc(window.location.hostname)}</b><br>
+                  Entidad registrada: ${esc(fq.nombre_comercial)}
+                </div>
+                <a href="https://gregoryizquierdo.xyz" style="display:inline-block;padding:10px 20px;border-radius:12px;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#03121c;text-decoration:none;font-weight:700">Ir a Portal Principal</a>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        // Aplicar personalización de marca de la Franquicia
+        if(fq.nombre_comercial){
+          document.title = `${fq.nombre_comercial} · Servicios Digitales`;
+          const biz = $('#biz');
+          if(biz) biz.textContent = fq.nombre_comercial;
+        }
+        if(fq.logo_url){
+          const logoImg = document.querySelector('.logo img');
+          if(logoImg) logoImg.src = fq.logo_url;
+        }
+        if(fq.color_primario){
+          document.documentElement.style.setProperty('--c', fq.color_primario);
+        }
+      }
+    } catch(err){}
+  }
+
   const [r,p,s,bn,st] = await Promise.all([
     sb.from('exchange_rates').select('*').order('fecha',{ascending:false}).limit(1),
     sb.from('products').select('*').eq('activo',true).order('orden'),
@@ -295,7 +355,7 @@ async function loadPublic(){
   $('#rate').textContent = rateStr;
   const hText = $('#heroRateText');
   if(hText) hText.innerHTML = S.rate ? `Tasa oficial BCV: <b>${S.rate.toLocaleString('es-VE')} Bs/USD</b> <span class="rate-date">· ${esc(S.rateDate)}</span>` : 'Tasa oficial BCV no disponible';
-  if(S.settings.negocio) $('#biz').textContent = S.settings.negocio.nombre;
+  if(!S.franchise && S.settings.negocio) $('#biz').textContent = S.settings.negocio.nombre;
 }
 async function onSession(session){
   if(session?.provider_token) sessionStorage.setItem('gtk',session.provider_token);
@@ -433,7 +493,17 @@ function home(){
     <input id="q" class="search" type="search" placeholder="Buscar servicio…" value="${esc(S.q||'')}" aria-label="Buscar servicio" autocomplete="off">
   </section>
   <div class="tabs" id="tabs"></div><div class="pgrid" id="grid"></div>
-  <footer class="mut" style="margin:34px 0">Soporte: ${esc(S.settings.negocio?.telefono||'')} · ${esc(S.settings.negocio?.correo||'')}</footer>
+  <footer class="mut" style="margin:34px 0 20px;text-align:center;line-height:1.6">
+    ${S.franchise ? `
+      <div>Atención al Cliente: <b>${esc(S.franchise.titular_nombre)}</b> · Tel: ${esc(S.franchise.titular_telefono)} · ${esc(S.franchise.titular_correo)}</div>
+      <div style="margin-top:10px;padding:12px;background:rgba(7,19,38,.8);border:1px solid rgba(0,212,255,.15);border-radius:12px;font-size:.76rem;max-width:760px;margin-left:auto;margin-right:auto">
+        ⚖️ <b>Aviso Legal y Deslinde de Responsabilidad:</b> Este portal web (<em>${esc(S.franchise.subdominio)}.gregoryizquierdo.xyz</em>) es una franquicia operada de manera comercial y legalmente independiente por <b>${esc(S.franchise.titular_nombre)}</b>. El Proveedor Tecnológico Gregory Izquierdo SaaS suministra únicamente la plataforma y software, no percibiendo directamente los pagos ni asumiendo garantías comerciales individuales de esta franquicia.
+        <div style="margin-top:6px">¿Incidencias o reporte de irregularidad? <a href="mailto:emprendimientogregoryizquierdo@gmail.com?subject=Reporte%20Franquicia%20${esc(S.franchise.subdominio)}" style="color:var(--c);text-decoration:underline">Reportar a Central</a></div>
+      </div>
+    ` : `
+      <div>Soporte: ${esc(S.settings.negocio?.telefono||'')} · ${esc(S.settings.negocio?.correo||'')}</div>
+    `}
+  </footer>
   <div class="float-acts">
     ${tel?`<a class="wa" href="https://wa.me/${tel}?text=${waMsg}" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -1253,6 +1323,8 @@ const ADMIN_MENU = [
       { id: 'finanzas', label: 'Finanzas', icon: '📊' },
       { id: 'orders', label: 'Pedidos', icon: '🛒', badgeKey: 'orders' },
       { id: 'cuotas', label: 'Cobranza Cuotas', icon: '💳' },
+      { id: 'franquicias', label: 'Red de Franquicias', icon: '🏢' },
+      { id: 'installments', label: 'Cuotas por Cobrar', icon: '💳' },
       { id: 'vencimientos', label: 'Vencimientos', icon: '📅' },
       { id: 'zeny_ledger', label: 'Billetera Zeny', icon: '💰', badgeKey: 'zeny_ledger' },
       { id: 'incidents', label: 'Incidencias', icon: '⚠️', badgeKey: 'incidents' }
