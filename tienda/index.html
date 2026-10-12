@@ -245,6 +245,13 @@ body.is-admin main{max-width:1440px;width:100%}
 .bnpl-inst-pill.en_revision{background:rgba(0,212,255,.16);color:#00d4ff;border:1px solid rgba(0,212,255,.4)}
 .bnpl-inst-pill.pagada{background:rgba(0,245,160,.16);color:#00f5a0;border:1px solid rgba(0,245,160,.4)}
 .bnpl-inst-pill.vencida{background:rgba(255,77,109,.16);color:#ff4d6d;border:1px solid rgba(255,77,109,.4)}
+
+/* Modalidad Revendedor VIP / Precios Mayoristas */
+.reseller-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;font-size:.72rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;background:linear-gradient(135deg,rgba(255,183,3,.2),rgba(251,133,0,.25));color:#ffb703;border:1px solid rgba(255,183,3,.45)}
+.reseller-price-tag{font-size:.7rem;font-weight:700;color:#ffb703;background:rgba(255,183,3,.12);border:1px solid rgba(255,183,3,.3);padding:2px 6px;border-radius:6px;margin-left:6px}
+.reseller-orig-price{text-decoration:line-through;color:var(--mut);font-size:.82rem;font-weight:600;margin-right:4px}
+.clean-copy-btn{background:rgba(255,183,3,.15);border:1px solid rgba(255,183,3,.4);color:#ffb703;border-radius:8px;padding:5px 9px;font-size:.72rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:none;transition:all .15s}
+.clean-copy-btn:hover{background:rgba(255,183,3,.25);color:#fff;transform:scale(1.02)}
 </style></head><body>
 <header><div class="brand"><div class="logo"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo"></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
 <div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
@@ -352,11 +359,35 @@ $('#bRegister').onclick = () => loginDlg('register');
 const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Servicio'};
 function skeleton(){ return '<div class="hero"><div class="sk" style="min-height:120px;border:0"></div></div><div class="pgrid">'+'<div class="sk"></div>'.repeat(6)+'</div>'; }
 function productCard(p){
-  const out=!(S.stock[p.id]>0||p.tipo==='servicio'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(p.precio_usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
+  const isReseller = S.me?.es_revendedor === true;
+  const originalPrice = Number(p.precio_usd);
+  // Precio mayorista: si el producto tiene precio_revendedor_usd lo usa; sino calcula un 15% de descuento mayorista por defecto
+  const effectivePrice = isReseller
+    ? (p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0 ? Number(p.precio_revendedor_usd) : Math.round((originalPrice * 0.85) * 100) / 100)
+    : originalPrice;
+
+  const out=!(S.stock[p.id]>0||p.tipo==='servicio'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(effectivePrice*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
+  
   return `<article class="pc t-${esc(p.tipo)}">${p.imagen_url?`<img src="${esc(p.imagen_url)}" alt="" loading="lazy" decoding="async">`:`<div class="ph" aria-hidden="true">${esc((p.nombre||'?').slice(0,1).toUpperCase())}</div>`}
-   <div class="pb"><span class="tag">${esc(TL[p.tipo]||p.tipo)}</span><h3>${esc(p.nombre)}</h3><p class="mut">${esc(p.descripcion)}</p>
-   <div class="meta"><span>⏱ ${p.duracion_dias} días</span><span>🛡 Garantía ${p.garantia_dias||0} días</span></div>
-   <div class="buy"><div><div class="price">${money(p.precio_usd)}</div>${bs}</div>${out?'<span class="pill off">Agotado</span>':`<button class="cta" data-buy="${p.id}">Comprar</button>`}</div></div></article>`;
+   <div class="pb">
+     <div style="display:flex;justify-content:space-between;align-items:center">
+       <span class="tag">${esc(TL[p.tipo]||p.tipo)}</span>
+       ${isReseller ? '<span class="reseller-badge">VIP Revendedor</span>' : ''}
+     </div>
+     <h3>${esc(p.nombre)}</h3><p class="mut">${esc(p.descripcion)}</p>
+     <div class="meta"><span>⏱ ${p.duracion_dias} días</span><span>🛡 Garantía ${p.garantia_dias||0} días</span></div>
+     <div class="buy">
+       <div>
+         <div class="price">
+           ${isReseller ? `<span class="reseller-orig-price">$${originalPrice.toFixed(2)}</span>` : ''}
+           ${money(effectivePrice)}
+           ${isReseller ? `<span class="reseller-price-tag">Mayorista</span>` : ''}
+         </div>
+         ${bs}
+       </div>
+       ${out?'<span class="pill off">Agotado</span>':`<button class="cta" data-buy="${p.id}">Comprar</button>`}
+     </div>
+   </div></article>`;
 }
 function renderGrid(){
   const q=(S.q||'').toLowerCase(), list=S.products.filter(p=>(S.tipo?p.tipo===S.tipo:true)&&(p.nombre||'').toLowerCase().includes(q)), g=$('#grid'); if(!g) return;
@@ -457,8 +488,13 @@ async function buyDlg(id){
   let selectedMethodId = (pmList && pmList.length > 0) ? pmList[0].id : null;
   let appliedZeny = 0;
 
-  // Calculos BNPL (Inicial 50% hoy, Cuota 2 a los 15 días)
-  const totalOriginal = Number(p.precio_usd);
+  // Calculos de precio (Minorista o Mayorista si es Revendedor)
+  const isReseller = S.me?.es_revendedor === true;
+  const standardPrice = Number(p.precio_usd);
+  const totalOriginal = isReseller
+    ? (p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0 ? Number(p.precio_revendedor_usd) : Math.round((standardPrice * 0.85) * 100) / 100)
+    : standardPrice;
+
   const isBnplEligible = totalOriginal >= 5; // Aplica para montos desde $5 en adelante
   const cuotaInicialUsd = Math.round((totalOriginal * 0.5) * 100) / 100;
   const cuotaDosUsd = Math.round((totalOriginal - cuotaInicialUsd) * 100) / 100;
@@ -994,7 +1030,7 @@ async function portal(){
     sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
     sb.from('incidents').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
     sb.rpc('my_credentials'),
-    sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true})
+    sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true}).catch(()=>({data:[]}))
   ]);
 
   const instData = inst.data || [];
@@ -1075,7 +1111,32 @@ async function portal(){
     </div>
   ` : '<p class="mut">No tienes cuotas activas actualmente. Puedes financiar tus compras en 2 partes al comprar.</p>'}
 
-  <h3 style="margin-top:28px">Mis accesos</h3>${(cr.data||[]).length?T(['Servicio','Correo','Clave','Perfil','PIN','Vence'],(cr.data||[]).map(x=>[x.servicio,x.correo,x.clave,x.perfil,x.pin,x.vence])):'<p class="mut">Aquí verás tus accesos cuando tu pedido sea entregado.</p>'}
+  <h3 style="margin-top:28px">Mis accesos</h3>
+  ${(cr.data||[]).length ? `
+    <div class="wrap">
+      <table>
+        <tr><th>Servicio</th><th>Correo</th><th>Clave</th><th>Perfil</th><th>PIN</th><th>Vence</th><th>Reenviar</th></tr>
+        ${(cr.data||[]).map(x => {
+          const rawText = `*${x.servicio}*\nCorreo: ${x.correo}\nClave: ${x.clave}${x.perfil ? `\nPerfil: ${x.perfil}` : ''}${x.pin ? `\nPIN: ${x.pin}` : ''}\nVence: ${x.vence}`;
+          return `
+            <tr>
+              <td><b>${esc(x.servicio)}</b></td>
+              <td>${esc(x.correo)}</td>
+              <td><code>${esc(x.clave)}</code></td>
+              <td>${esc(x.perfil || '—')}</td>
+              <td><code>${esc(x.pin || '—')}</code></td>
+              <td>${esc(x.vence || '—')}</td>
+              <td>
+                <button class="clean-copy-btn" data-clean-copy="${esc(rawText)}" title="Copiar datos limpios para reenviar a tu cliente">
+                  📋 Copiar p/ Cliente
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </table>
+    </div>
+  ` : '<p class="mut">Aquí verás tus accesos cuando tu pedido sea entregado.</p>'}
   <h3>Mis compras y pedidos</h3>${T(['Servicio','Estado','Inicia','Vence','Total'],(o.data||[]).map(x=>[x.products?.nombre,x.estado==='pendiente'?'En revisión (conciliación manual)':x.estado,x.inicia,x.vence,'$'+x.total_usd]))}
   ${(o.data||[]).filter(x=>x.estado==='pendiente').map(x=>`<button class="g" data-cancel="${x.id}" style="margin:6px 6px 0 0">Cancelar pedido: ${esc(x.products?.nombre)}</button>`).join('')}
   <h3>Facturas</h3>${T(['N°','Fecha','USD','Bs','Tasa'],(i.data||[]).map(x=>[String(x.numero).padStart(6,'0'),x.emitida?.slice(0,10),x.total_usd,x.total_bs,x.tasa_bs]))}
@@ -1135,6 +1196,25 @@ async function portal(){
     };
   });
 
+  app.querySelectorAll('[data-clean-copy]').forEach(btn => {
+    btn.onclick = async () => {
+      const text = btn.dataset.cleanCopy;
+      try {
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement('textarea'); ta.value = text;
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        }
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ Copiado';
+        setTimeout(() => btn.innerHTML = orig, 1800);
+      } catch(e) {
+        toast('Copia manual: ' + text);
+      }
+    };
+  });
+
   app.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('cancel_my_order',{p_order:b.dataset.cancel});error?toast(error.message):(await loadPublic(),portal());});
   $('#rec').onclick=()=>{ $('#dlgBody').innerHTML='<h3>Recargar Zeny</h3><input id="m" type="number" min="1" placeholder="Monto en USD"><input id="r" placeholder="Referencia del pago" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Solicitar recarga</button>'; dlg.showModal();
     $('#ok').onclick=async()=>{const {error}=await sb.from('zeny_ledger').insert({customer_id:S.user.id,tipo:'recarga',monto:+$('#m').value,referencia:$('#r').value,estado:'pendiente'});error?toast(error.message):(dlg.close(),portal());};};
@@ -1147,21 +1227,21 @@ const TABLES = {
  orders:['customer_id','product_id','total_usd','zeny_aplicado','referencia','estado','conciliado_por','inicia','vence','proximo_pago'],
  installments:['order_id','customer_id','numero_cuota','total_cuotas','monto_usd','fecha_vencimiento','estado','referencia','pagada_at'],
  zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
- products:['nombre','descripcion','tipo','precio_usd','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
+ products:['nombre','descripcion','tipo','precio_usd','precio_revendedor_usd','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
  banners:['titulo','texto','imagen_url','enlace','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
  payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
  profiles_inventory:['mother_id','product_id','nombre_perfil','pin','vendedor','inicia','vence','estado'],
- customers:['nombre','email','telefono','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
+ customers:['nombre','email','telefono','es_revendedor','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
  bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
  exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','notas'], purchases:['fecha','proveedor','plataforma','mother_id','monto_usd','notas'],
  refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
 const SEL={orders:'*,customers(nombre,email),products(nombre)',installments:'*,customers(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta']};
-const BOOL=['activo','activa','enabled'], READONLY={customers:['zeny_balance']};
+const BOOL=['activo','activa','enabled','es_revendedor'], READONLY={customers:['zeny_balance']};
 const NOADD=['refunds','transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -1309,6 +1389,23 @@ async function admin(t){
   setupAdminEvents();
   app.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const {data:v,error:e}=await sb.rpc('reveal_secret',{p:b.dataset.rv});toast(e?e.message:v);});
   app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!confirm(t==='orders'?`¿Verificaste el pago? Total $${b.dataset.tot} (ZenyPoints aplicados: $${b.dataset.z}). Se entregarán las credenciales al cliente.`:'¿Verificaste el pago de esta recarga?'))return;const {error:e}=t==='orders'?await sb.rpc('deliver_order',{p_order:b.dataset.ok}):await sb.from(t).update({estado:'aprobado'}).eq('id',b.dataset.ok);e?toast(e.message):admin(t);});
+  app.querySelectorAll('[data-cred]').forEach(b=>b.onclick=async()=>{
+    const nom = b.dataset.nom, tot = b.dataset.tot, tel = (b.dataset.tel||'').replace(/\D/g,''), prod = b.dataset.prod;
+    const dias = prompt(`¿A cuántos días de crédito entregas a ${nom}?`, '7');
+    if(!dias || isNaN(dias)) return;
+    const fVence = new Date(Date.now() + Number(dias) * 86400000).toISOString().slice(0, 10);
+    const {error: e} = await sb.rpc('deliver_order', {p_order: b.dataset.cred});
+    if(e) return toast(e.message);
+    await sb.from('orders').update({
+      referencia: `[CRÉDITO] Vence ${fVence} ($${tot} USD)`
+    }).eq('id', b.dataset.cred).catch(()=>{});
+    if(tel){
+      const waMsg = encodeURIComponent(`Hola ${nom}! Te saludamos de Emprendimiento Gregory Izquierdo. Tu servicio de ${prod} ha sido activado/renovado a CRÉDITO por 30 días. Monto pendiente: $${tot} USD. Fecha límite para el pago: ${fVence}. ¡Muchas gracias por tu preferencia!`);
+      window.open(`https://wa.me/${tel}?text=${waMsg}`, '_blank');
+    }
+    toast(`Servicio entregado a CRÉDITO a ${nom}. Plazo: ${dias} días (hasta ${fVence}).`);
+    admin(t);
+  });
   app.querySelectorAll('[data-rej]').forEach(b=>b.onclick=async()=>{if(confirm('¿Rechazar pedido y liberar el perfil reservado?')){const {error:e}=await sb.rpc('reject_order',{p_order:b.dataset.rej});e?toast(e.message):admin(t);}});
   app.querySelectorAll('[data-ref]').forEach(b=>b.onclick=()=>refundDlg(b.dataset.ref,b.dataset.tot,()=>admin(t)));
   app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));

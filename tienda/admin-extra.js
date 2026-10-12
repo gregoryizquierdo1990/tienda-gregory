@@ -180,7 +180,7 @@ const EXTRA = {
           <h5 style="margin:8px 0 6px;color:var(--c)">Servicios de Clientes (${selEvents.orders.length})</h5>
           <div class="wrap" style="margin-bottom:12px">
             <table>
-              <tr><th>Pedido</th><th>Cliente</th><th>Servicio</th><th>Contacto</th><th>Estado</th></tr>
+              <tr><th>Pedido</th><th>Cliente</th><th>Servicio</th><th>Contacto</th><th>Estado</th><th>Acciones</th></tr>
               ${selEvents.orders.map(o => `
                 <tr>
                   <td><b>#${esc(String(o.id).slice(0, 8))}</b></td>
@@ -188,6 +188,11 @@ const EXTRA = {
                   <td><b>${esc(o.products?.nombre || '—')}</b></td>
                   <td>${esc(o.customers?.telefono || o.customers?.email || '—')}</td>
                   <td><span class="pill ${o.estado === 'entregado' ? '' : 'off'}">${esc(o.estado)}</span></td>
+                  <td class="row">
+                    <button class="g" data-cal-renov="${o.id}" data-pid="${o.product_id}" data-uid="${o.customer_id}" data-nom="${esc(o.customers?.nombre || o.customers?.email || 'Cliente')}" data-tel="${esc(o.customers?.telefono || '')}" data-prod="${esc(o.products?.nombre || 'Servicio')}" style="padding:5px 9px;font-size:.73rem">
+                      💳 Renovar a Crédito
+                    </button>
+                  </td>
                 </tr>
               `).join('')}
             </table>
@@ -263,6 +268,39 @@ const EXTRA = {
         EXTRA.vencimientos(box);
       };
     });
+
+    box.querySelectorAll('[data-cal-renov]').forEach(btn => {
+      btn.onclick = () => run(btn, async () => {
+        const nom = btn.dataset.nom, prod = btn.dataset.prod, tel = (btn.dataset.tel||'').replace(/\D/g,'');
+        const dias = prompt(`¿A cuántos días de crédito renuevas a ${nom}?`, '7');
+        if(!dias || isNaN(dias)) return 'Renovación cancelada.';
+        const fVenceCred = new Date(Date.now() + Number(dias) * 86400000).toISOString().slice(0, 10);
+        
+        // Renueva la orden existente sumando 30 dias a su vencimiento
+        const { data: oData, error: oErr } = await sb.from('orders').select('*').eq('id', btn.dataset.calRenov).single();
+        if(oErr) throw oErr;
+        const curVence = oData.vence ? new Date(oData.vence) : new Date();
+        const nextVence = new Date(curVence.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+        
+        await sb.from('orders').update({
+          vence: nextVence,
+          proximo_pago: nextVence,
+          referencia: `[RENOVACIÓN CRÉDITO] Cobrar antes de ${fVenceCred} ($${oData.total_usd} USD)`
+        }).eq('id', btn.dataset.calRenov);
+
+        if(oData.profile_id){
+          await sb.from('profiles_inventory').update({ vence: nextVence }).eq('id', oData.profile_id).catch(()=>{});
+        }
+
+        if(tel){
+          const waMsg = encodeURIComponent(`Hola ${nom}! Te saludamos de Emprendimiento Gregory Izquierdo. Tu suscripción de ${prod} ha sido RENOVADA a CRÉDITO por 30 días más (vence el ${nextVence}). Monto pendiente: $${oData.total_usd} USD. Fecha límite para el pago: ${fVenceCred}. ¡Muchas gracias por tu preferencia!`);
+          window.open(`https://wa.me/${tel}?text=${waMsg}`, '_blank');
+        }
+
+        EXTRA.vencimientos(box);
+        return `Suscripción de ${nom} renovada +30 días a crédito (Cobrar antes de ${fVenceCred}).`;
+      });
+    });
   },
   async finanzas(box) {
     const { data, error } = await sb.rpc('finanzas', { p_meses: 12 });
@@ -328,6 +366,75 @@ const EXTRA = {
       .order('fecha_vencimiento', { ascending: true });
 
     if (error) {
+      if (error.message?.includes('schema cache') || error.code === '42P01') {
+        box.innerHTML = `
+          <div class="card" style="border:1.5px solid rgba(0,212,255,.4);background:linear-gradient(135deg,rgba(10,26,50,.95),rgba(5,15,30,.98))">
+            <h3 style="margin:0 0 8px;color:var(--c)">⚡ Activación de Cuotas en Supabase</h3>
+            <p class="mut" style="margin:0 0 14px;font-size:.88rem;line-height:1.5">
+              Para habilitar el módulo de cuotas, solo debes pegar y ejecutar el script SQL de migración en tu <b>SQL Editor</b> de Supabase.
+            </p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button id="btnCopySql" type="button" style="padding:10px 18px">📋 Copiar SQL de Migración</button>
+              <a href="https://supabase.com/dashboard/project/tevjiqnnnjnakftrjgud/sql/new" target="_blank" rel="noopener noreferrer" class="g" style="text-decoration:none;display:inline-flex;align-items:center;padding:10px 18px;border-radius:12px;font-weight:700">
+                ↗ Ir a SQL Editor en Supabase
+              </a>
+            </div>
+          </div>
+        `;
+        $('#btnCopySql').onclick = async () => {
+          const sql = `-- Migracion: Sistema de Financiamiento en Cuotas (BNPL)
+create table if not exists installments (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references orders(id) on delete cascade,
+  customer_id uuid not null references customers(id) on delete cascade,
+  numero_cuota int not null default 1,
+  total_cuotas int not null default 2,
+  monto_usd numeric(10,2) not null check (monto_usd > 0),
+  monto_bs numeric(14,2),
+  tasa_bs numeric(12,4),
+  fecha_vencimiento date not null default current_date,
+  estado text not null default 'pendiente' check (estado in ('pendiente','en_revision','pagada','vencida')),
+  metodo_id uuid references payment_methods(id),
+  referencia text,
+  comprobante_url text,
+  pagada_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table installments enable row level security;
+drop policy if exists installments_user_select on installments;
+create policy installments_user_select on installments for select to authenticated using (customer_id = auth.uid() or is_admin());
+drop policy if exists installments_admin_all on installments;
+create policy installments_admin_all on installments for all to authenticated using (is_admin()) with check (is_admin());
+
+alter table customers add column if not exists limite_credito numeric(10,2) not null default 30.00;
+alter table customers add column if not exists nivel_credito text not null default 'Bronce';
+
+create or replace function pay_installment(p_installment_id uuid, p_metodo_id uuid, p_referencia text)
+returns void language plpgsql security definer set search_path = public as $$
+declare inst installments; r numeric;
+begin
+  if auth.uid() is null then raise exception 'Inicia sesion'; end if;
+  select * into inst from installments where id = p_installment_id for update;
+  if not found then raise exception 'Cuota no encontrada'; end if;
+  if inst.customer_id <> auth.uid() and not is_admin() then raise exception 'No autorizado'; end if;
+  select bs_por_usd into r from exchange_rates order by fecha desc limit 1;
+  update installments set estado = 'en_revision', metodo_id = p_metodo_id, referencia = left(coalesce(p_referencia,''), 120), tasa_bs = r, monto_bs = inst.monto_usd * coalesce(r, 0) where id = p_installment_id;
+end $$;
+grant execute on function pay_installment(uuid, uuid, text) to authenticated;
+
+create or replace function approve_installment(p_installment_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin() then raise exception 'No autorizado'; end if;
+  update installments set estado = 'pagada', pagada_at = coalesce(pagada_at, now()) where id = p_installment_id;
+end $$;
+grant execute on function approve_installment(uuid) to authenticated;`;
+          await navigator.clipboard.writeText(sql);
+          toast('¡SQL copiado al portapapeles! Pégalo y ejecútalo en Supabase.');
+        };
+        return;
+      }
       box.innerHTML = `<p class="mut">Error al cargar cuotas: ${esc(error.message)}</p>`;
       return;
     }
