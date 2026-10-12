@@ -1345,14 +1345,16 @@ async function portal(){
   app.innerHTML = '<div style="text-align:center;padding:40px 10px"><div class="sk" style="max-width:440px;margin:auto;min-height:200px"></div><p class="mut" style="margin-top:14px">Cargando tu portal…</p></div>';
 
   try {
+    const q = async fn => { try { return await fn(); } catch(e) { return { data: null, error: e }; } };
+
     const [o,i,l,inc,cr,inst,zcard] = await Promise.all([
-      sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false}).catch(()=>({data:[]})),
-      sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false}).catch(()=>({data:[]})),
-      sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}).catch(()=>({data:[]})),
-      sb.from('incidents').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}).catch(()=>({data:[]})),
-      sb.rpc('my_credentials').catch(()=>({data:[]})),
-      sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true}).catch(()=>({data:[]})),
-      sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle().catch(()=>({data:null}))
+      q(() => sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
+      q(() => sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false})),
+      q(() => sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
+      q(() => sb.from('incidents').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
+      q(() => sb.rpc('my_credentials')),
+      q(() => sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true})),
+      q(() => sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle())
     ]);
 
     const cardData = zcard?.data || null;
