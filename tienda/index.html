@@ -75,39 +75,40 @@ dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border
 .tg:hover{transform:translateY(-2px);box-shadow:0 14px 34px -6px rgba(34,158,217,.9)}
 .wa svg,.tg svg{width:18px;height:18px;display:block}
 @media(max-width:560px){header{padding:8px 12px}.hero{padding:26px 16px;border-radius:20px}main{padding:14px 12px 90px}.float-acts{right:10px;bottom:calc(10px + env(safe-area-inset-bottom));gap:8px}.wa,.tg{padding:9px 13px;font-size:.78rem}}
-body.is-admin main{max-width:1440px;width:100%}
-.admin-wrapper{display:flex;flex-direction:column;gap:12px;width:100%}
-.admin-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start}
-.admin-sidebar{position:sticky;top:68px;max-height:calc(100vh - 84px);display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(10,22,40,.96),rgba(5,13,26,.98));border:1px solid var(--line);border-radius:var(--r);box-shadow:0 16px 40px -12px rgba(0,0,0,.7),0 0 0 1px rgba(0,212,255,.08);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);overflow:hidden;z-index:10}
-.admin-sidebar-head{padding:14px 14px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(22,51,90,.8);background:rgba(3,8,18,.4)}
+body.is-admin main{max-width:100%!important;width:100%!important;padding:0!important;margin:0!important}
+.admin-wrapper{display:flex;flex-direction:column;width:100%}
+.admin-layout{display:grid;grid-template-columns:270px 1fr;gap:0;align-items:start;min-height:calc(100vh - 66px)}
+.admin-sidebar{position:sticky;top:66px;height:calc(100vh - 66px);max-height:calc(100vh - 66px);display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(7,16,32,.98),rgba(3,8,18,.99));border-right:1px solid var(--line);border-top:0;border-bottom:0;border-left:0;border-radius:0;box-shadow:8px 0 24px -10px rgba(0,0,0,.7);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);overflow:hidden;z-index:10}
+.admin-sidebar-head{padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(22,51,90,.8);background:rgba(3,8,18,.6)}
 .admin-sidebar-brand{display:flex;align-items:center;gap:10px}
 .admin-sb-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#ffffff;box-shadow:0 0 12px rgba(0,245,160,.4);border:1px solid rgba(0,212,255,.4);flex-shrink:0;overflow:hidden;padding:1px}
 .admin-sb-icon img{width:100%;height:100%;object-fit:contain;border-radius:50%;display:block}
 .admin-sb-title{font-weight:800;font-size:.92rem;color:var(--tx);line-height:1.15}
 .admin-sb-sub{font-size:.68rem;color:var(--mut)}
 .admin-sidebar-close{display:none;padding:4px 8px;font-size:.85rem}
-.admin-nav-scroll{overflow-y:auto;padding:10px 8px 16px;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:rgba(0,212,255,.25) transparent}
+.admin-nav-scroll{overflow-y:auto;padding:10px 10px 24px;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:rgba(0,212,255,.25) transparent}
 .admin-nav-scroll::-webkit-scrollbar{width:5px}
 .admin-nav-scroll::-webkit-scrollbar-thumb{background:rgba(0,212,255,.25);border-radius:99px}
 .admin-sb-group{font-size:.68rem;font-weight:800;letter-spacing:.75px;text-transform:uppercase;color:var(--c);opacity:.85;padding:12px 10px 4px}
-.admin-sb-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 10px;border-radius:10px;font-size:.82rem;font-weight:600;text-align:left;background:transparent;color:var(--mut);border:1px solid transparent;box-shadow:none;cursor:pointer;transition:all .16s ease}
+.admin-sb-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 12px;border-radius:10px;font-size:.82rem;font-weight:600;text-align:left;background:transparent;color:var(--mut);border:1px solid transparent;box-shadow:none;cursor:pointer;transition:all .16s ease}
 .admin-sb-btn:hover{background:rgba(0,212,255,.08);color:var(--tx);border-color:rgba(0,212,255,.18);transform:translateX(2px)}
 .admin-sb-btn.active{background:linear-gradient(135deg,rgba(0,245,160,.14) 0%,rgba(0,212,255,.2) 100%);color:#fff;border-color:rgba(0,245,160,.4);border-left:3px solid var(--a);box-shadow:0 4px 16px -2px rgba(0,212,255,.3);font-weight:700;transform:none}
 .admin-sb-btn-main{display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .admin-sb-btn-icon{font-size:.92rem;line-height:1}
 .admin-sb-badge{padding:2px 7px;border-radius:99px;font-size:.68rem;font-weight:800;background:rgba(0,245,160,.16);color:var(--a);border:1px solid rgba(0,245,160,.3);flex-shrink:0}
 .admin-sb-badge.warn{background:rgba(255,77,109,.18);color:#ff7b93;border-color:rgba(255,77,109,.35)}
-.admin-main{display:flex;flex-direction:column;gap:14px;min-width:0}
-.admin-main-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 16px;background:linear-gradient(180deg,rgba(13,29,54,.85),rgba(8,18,34,.85));border:1px solid var(--line);border-radius:var(--r)}
+.admin-main{display:flex;flex-direction:column;gap:14px;min-width:0;padding:18px 24px 60px}
+.admin-main-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 18px;background:linear-gradient(180deg,rgba(13,29,54,.85),rgba(8,18,34,.85));border:1px solid var(--line);border-radius:var(--r)}
 .admin-main-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .admin-main-title h2{margin:0;font-size:1.25rem;font-weight:800}
-.admin-mobile-bar{display:none;margin-bottom:6px}
+.admin-mobile-bar{display:none;margin:10px 14px 4px}
 .admin-mobile-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:11px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(13,29,54,.95),rgba(8,18,34,.95));border:1px solid rgba(0,212,255,.25);color:var(--tx);font-size:.88rem;font-weight:700;box-shadow:0 4px 18px rgba(0,0,0,.4)}
 .admin-backdrop{display:none;position:fixed;inset:0;background:rgba(3,8,18,.75);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:40}
 @media(max-width:880px){
-  .admin-layout{grid-template-columns:1fr}
+  .admin-layout{grid-template-columns:1fr;min-height:auto}
+  .admin-main{padding:12px 14px 70px}
   .admin-mobile-bar{display:block}
-  .admin-sidebar{position:fixed;top:0;left:0;bottom:0;width:280px;max-height:100vh;height:100vh;border-radius:0 20px 20px 0;transform:translateX(-105%);transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:50;box-shadow:0 0 50px rgba(0,0,0,.8)}
+  .admin-sidebar{position:fixed;top:0;left:0;bottom:0;width:280px;max-height:100vh;height:100vh;border-radius:0 20px 20px 0;border-right:1px solid var(--line);transform:translateX(-105%);transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:50;box-shadow:0 0 50px rgba(0,0,0,.8)}
   .admin-sidebar.open{transform:translateX(0)}
   .admin-sidebar-close{display:block}
   .admin-backdrop.open{display:block}
@@ -246,12 +247,55 @@ body.is-admin main{max-width:1440px;width:100%}
 .bnpl-inst-pill.pagada{background:rgba(0,245,160,.16);color:#00f5a0;border:1px solid rgba(0,245,160,.4)}
 .bnpl-inst-pill.vencida{background:rgba(255,77,109,.16);color:#ff4d6d;border:1px solid rgba(255,77,109,.4)}
 
+/* Tarjeta de Crédito Digital Zeny (TDC) 3D Flip */
+.zeny-card-stage{perspective:1000px;max-width:440px;width:100%;margin:14px auto 20px;cursor:pointer}
+.zeny-card-inner{position:relative;width:100%;aspect-ratio:1.586;transition:transform .7s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d;border-radius:20px;box-shadow:0 16px 40px -10px rgba(0,0,0,.9),0 0 30px rgba(0,212,255,.2)}
+.zeny-card-stage.flipped .zeny-card-inner{transform:rotateY(180deg)}
+.zeny-card-face{position:absolute;inset:0;width:100%;height:100%;border-radius:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background-color:#05070c;background-size:cover;background-position:center;border:1.5px solid rgba(212,175,55,.45)}
+.zeny-card-front{display:flex;flex-direction:column;justify-content:space-between;padding:18px 22px;background-image:linear-gradient(135deg,rgba(5,7,12,.88),rgba(15,23,42,.92)),url('/tarjeta-zeny.jpg')}
+.zeny-card-back{transform:rotateY(180deg);display:flex;flex-direction:column;justify-content:space-between;padding:16px 0 14px;background:#080c14;border:1.5px solid rgba(212,175,55,.4)}
+.zeny-card-magstrip{width:100%;height:44px;background:#000000;border-top:1px solid #1e293b;border-bottom:1px solid #1e293b;margin-top:6px}
+.zeny-card-back-body{padding:0 22px;display:flex;flex-direction:column;gap:10px}
+.zeny-card-cvv-box{display:flex;align-items:center;background:#ffffff;height:34px;border-radius:6px;padding:0 10px;justify-content:flex-end}
+.zeny-card-cvv-text{font-family:monospace;font-weight:900;font-size:1.05rem;color:#0f172a;letter-spacing:3px}
+.zeny-card-chip{width:46px;height:36px;border-radius:7px;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);border:1px solid #94a3b8;display:grid;place-items:center;box-shadow:inset 0 0 5px rgba(0,0,0,.3);position:relative}
+.zeny-card-number{font-family:monospace,"Sora",sans-serif;font-size:clamp(1.1rem,4.5vw,1.45rem);letter-spacing:3.5px;color:#fde047;text-shadow:0 2px 4px rgba(0,0,0,.9),0 0 12px rgba(234,179,8,.4);font-weight:800;margin:6px 0}
+.zeny-card-holder{font-size:.85rem;font-weight:800;letter-spacing:2px;color:#ffffff;text-transform:uppercase;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.zeny-card-expiry{font-size:.78rem;font-weight:700;color:#fde047;font-family:monospace}
+.zeny-card-brand-pill{position:absolute;top:16px;right:18px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.6);border:1px solid rgba(234,179,8,.4);border-radius:99px;padding:3px 10px}
+
 /* Modalidad Revendedor VIP / Precios Mayoristas */
 .reseller-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;font-size:.72rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;background:linear-gradient(135deg,rgba(255,183,3,.2),rgba(251,133,0,.25));color:#ffb703;border:1px solid rgba(255,183,3,.45)}
 .reseller-price-tag{font-size:.7rem;font-weight:700;color:#ffb703;background:rgba(255,183,3,.12);border:1px solid rgba(255,183,3,.3);padding:2px 6px;border-radius:6px;margin-left:6px}
 .reseller-orig-price{text-decoration:line-through;color:var(--mut);font-size:.82rem;font-weight:600;margin-right:4px}
 .clean-copy-btn{background:rgba(255,183,3,.15);border:1px solid rgba(255,183,3,.4);color:#ffb703;border-radius:8px;padding:5px 9px;font-size:.72rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:none;transition:all .15s}
 .clean-copy-btn:hover{background:rgba(255,183,3,.25);color:#fff;transform:scale(1.02)}
+
+/* Factura Digital / Recibo Imprimible */
+.invoice-dialog{max-width:680px;width:95%;background:#ffffff;color:#0f172a;border:1px solid #cbd5e1;border-radius:18px;padding:24px;box-shadow:0 25px 60px -15px rgba(0,0,0,.6);font-family:Sora,system-ui,sans-serif}
+.invoice-dialog::backdrop{background:rgba(2,6,14,.85);backdrop-filter:blur(6px)}
+.invoice-paper{background:#ffffff;color:#0f172a;padding:4px}
+.invoice-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e2e8f0;padding-bottom:16px;margin-bottom:16px}
+.invoice-brand-title{font-size:1.15rem;font-weight:800;color:#0f172a;margin:0 0 2px}
+.invoice-brand-sub{font-size:.78rem;color:#475569;line-height:1.4}
+.invoice-logo-box{width:70px;height:70px;border-radius:14px;border:1.5px solid #0284c7;padding:4px;background:#ffffff;display:grid;place-items:center;flex-shrink:0}
+.invoice-logo-box img{width:100%;height:100%;object-fit:contain}
+.invoice-badge-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:.8rem}
+.invoice-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.84rem}
+.invoice-table th{background:#f1f5f9;color:#334155;text-transform:uppercase;font-size:.72rem;letter-spacing:.5px;padding:10px 8px;border-bottom:2px solid #cbd5e1;text-align:left}
+.invoice-table td{padding:10px 8px;border-bottom:1px solid #e2e8f0;color:#1e293b}
+.invoice-totals{margin-left:auto;max-width:300px;font-size:.86rem;margin-top:10px;line-height:1.7}
+.invoice-total-row{display:flex;justify-content:space-between;padding:2px 0}
+.invoice-total-row.grand{font-weight:800;font-size:1.1rem;color:#0284c7;border-top:2px solid #cbd5e1;margin-top:6px;padding-top:6px}
+.invoice-legal-note{font-size:.7rem;color:#64748b;line-height:1.4;margin-top:20px;padding-top:12px;border-top:1px dashed #cbd5e1;text-align:center}
+.invoice-acts{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+
+@media print {
+  body *{visibility:hidden}
+  #invoiceDlg, #invoiceDlg *{visibility:visible}
+  #invoiceDlg{position:fixed;left:0;top:0;width:100%!important;max-width:100%!important;border:none!important;box-shadow:none!important;padding:0!important;margin:0!important;background:#ffffff!important;color:#000000!important}
+  .invoice-acts{display:none!important}
+}
 </style></head><body>
 <header><div class="brand"><div class="logo"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo"></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
 <div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
@@ -261,15 +305,171 @@ body.is-admin main{max-width:1440px;width:100%}
 <dialog id="dlg"><div id="dlgBody"></div><div class="row" style="margin-top:12px"><button class="g" onclick="dlg.close()">Cerrar</button></div></dialog>
 <dialog id="facetDlg" class="facet-dialog"></dialog>
 <dialog id="checkoutDlg" class="checkout-modal"></dialog>
+<dialog id="invoiceDlg" class="invoice-dialog"></dialog>
 
 <script src="/config.js"></script>
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg');
+const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg'), invoiceDlg = $('#invoiceDlg');
 const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}, franchise:null};
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const toast = m => { $('#dlgBody').innerHTML = '<p>'+esc(m)+'</p>'; if(!dlg.open) dlg.showModal(); };
+
+function openInvoiceModal(invData){
+  const numStr = `FACT-${String(invData.numero || '1').padStart(6, '0')}`;
+  const fechaStr = invData.fecha || new Date().toLocaleString('es-VE');
+  const emisorNombre = "Emprendimiento Gregory Izquierdo";
+  const emisorRif = "J-50639379-4";
+  const emisorTel = S.settings.negocio?.telefono || "+58 412 1234567";
+  const tasaBcv = Number(invData.tasa_bs || S.rate || 0);
+
+  const clienteNombre = invData.cliente_nombre || 'Cliente';
+  const clienteDoc = invData.cliente_doc ? ` · Doc: ${invData.cliente_doc}` : '';
+  const clienteExtra = invData.cliente_extra ? `<div style="color:#64748b;font-size:.76rem;margin-top:2px">${esc(invData.cliente_extra)}</div>` : '';
+
+  const tipoDoc = invData.tipo_documento || 'Factura Digital de Venta';
+  const items = invData.items || [
+    { concepto: invData.concepto || 'Servicio Digital', cant: 1, precio_usd: Number(invData.total_usd || 0), total_usd: Number(invData.total_usd || 0) }
+  ];
+
+  const totalUsd = Number(invData.total_usd || items.reduce((a, b) => a + (b.total_usd || 0), 0));
+  const totalBs = invData.total_bs ? Number(invData.total_bs) : (totalUsd * tasaBcv);
+  const ahorroUsd = Number(invData.ahorro_usd || 0);
+  const metodoPago = invData.metodo_pago || 'Pago Digital / Conciliado';
+
+  invoiceDlg.innerHTML = `
+    <div class="invoice-paper" id="invoicePrintArea">
+      <!-- Encabezado con Membrete y Logo en la esquina superior derecha -->
+      <div class="invoice-head">
+        <div>
+          <span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#e0f2fe;color:#0369a1;font-size:.68rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px">
+            ${esc(tipoDoc)}
+          </span>
+          <h2 class="invoice-brand-title">${esc(emisorNombre)}</h2>
+          <div class="invoice-brand-sub">
+            <b>RIF:</b> ${esc(emisorRif)}<br>
+            <b>Soporte / Atención:</b> ${esc(emisorTel)}<br>
+            <b>Portal:</b> gregoryizquierdo.xyz
+          </div>
+        </div>
+        <div class="invoice-logo-box">
+          <img src="/logo-badge.png" alt="Logo">
+        </div>
+      </div>
+
+      <!-- Datos de la Factura y Receptor -->
+      <div class="invoice-badge-box">
+        <div>
+          <span style="color:#64748b;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;display:block">DATOS DEL COMPRADOR / RECEPTOR:</span>
+          <b style="color:#0f172a;font-size:.88rem">${esc(clienteNombre)}</b>${esc(clienteDoc)}
+          ${clienteExtra}
+        </div>
+        <div style="text-align:right">
+          <span style="color:#64748b;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;display:block">COMPROBANTE N°:</span>
+          <b style="color:#0284c7;font-size:1rem;letter-spacing:1px">${esc(numStr)}</b>
+          <div style="color:#475569;font-size:.74rem;margin-top:2px"><b>Fecha:</b> ${esc(fechaStr)}</div>
+        </div>
+      </div>
+
+      <!-- Detalle de Forma de Pago y Tasa Oficial -->
+      <div style="background:#f1f5f9;border-radius:8px;padding:8px 12px;font-size:.76rem;margin-bottom:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div><b>Método de Pago:</b> <span style="color:#0f172a">${esc(metodoPago)}</span></div>
+        <div><b>Tasa Oficial BCV:</b> <span style="color:#0284c7;font-weight:700">${tasaBcv > 0 ? `${tasaBcv.toLocaleString('es-VE')} Bs/USD` : 'N/A'}</span></div>
+      </div>
+
+      <!-- Tabla de Conceptos / Items -->
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th>Descripción / Concepto</th>
+            <th style="text-align:center;width:50px">Cant</th>
+            <th style="text-align:right;width:90px">Precio USD</th>
+            <th style="text-align:right;width:100px">Total USD</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(it => `
+            <tr>
+              <td>
+                <b>${esc(it.concepto)}</b>
+                ${it.detalle ? `<div style="font-size:.74rem;color:#64748b">${esc(it.detalle)}</div>` : ''}
+              </td>
+              <td style="text-align:center">${it.cant || 1}</td>
+              <td style="text-align:right">$${Number(it.precio_usd || 0).toFixed(2)}</td>
+              <td style="text-align:right"><b>$${Number(it.total_usd || 0).toFixed(2)}</b></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <!-- Totales y Ahorro Comercial -->
+      <div class="invoice-totals">
+        ${ahorroUsd > 0 ? `
+          <div class="invoice-total-row" style="color:#16a34a;font-weight:700">
+            <span>Ahorro Revendedor Mayorista:</span>
+            <span>-$${ahorroUsd.toFixed(2)} USD</span>
+          </div>
+        ` : ''}
+        <div class="invoice-total-row">
+          <span>Subtotal:</span>
+          <span>$${totalUsd.toFixed(2)} USD</span>
+        </div>
+        <div class="invoice-total-row">
+          <span>Equivalente oficial Bs:</span>
+          <span>Bs. ${totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+        </div>
+        <div class="invoice-total-row grand">
+          <span>TOTAL PAGADO:</span>
+          <span>$${totalUsd.toFixed(2)} USD</span>
+        </div>
+      </div>
+
+      <!-- Nota Legal -->
+      <div class="invoice-legal-note">
+        Emprendimiento Gregory Izquierdo · Servicios digitales y desarrollo tecnológico.<br>
+        Documento probatorio digital emitido conforme a las condiciones del servicio.
+      </div>
+
+      <!-- Acciones: Imprimir / WhatsApp / Cerrar -->
+      <div class="invoice-acts">
+        <button id="btnInvPrint" type="button" style="flex:1;background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff">
+          🖨️ Imprimir / Descargar PDF
+        </button>
+        <button id="btnInvWa" type="button" style="flex:1;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#03121c">
+          📲 Enviar por WhatsApp
+        </button>
+        <button class="g" id="btnInvClose" type="button" style="color:#334155;border-color:#cbd5e1">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+
+  $('#btnInvClose').onclick = () => invoiceDlg.close();
+  $('#btnInvPrint').onclick = () => window.print();
+
+  $('#btnInvWa').onclick = () => {
+    const waText = encodeURIComponent(
+      `🧾 *COMPROBANTE DIGITAL - ${emisorNombre}*\n` +
+      `*RIF:* ${emisorRif}\n` +
+      `*Comprobante:* ${numStr}\n` +
+      `*Fecha:* ${fechaStr}\n` +
+      `*Cliente:* ${clienteNombre}\n` +
+      `*Concepto:* ${items[0]?.concepto || 'Servicio Digital'}\n` +
+      (ahorroUsd > 0 ? `*Descuento Mayorista:* -$${ahorroUsd.toFixed(2)} USD\n` : '') +
+      `*Monto USD:* $${totalUsd.toFixed(2)} USD\n` +
+      `*Monto Bs:* Bs. ${totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (Tasa: ${tasaBcv.toLocaleString('es-VE')} Bs/USD)\n` +
+      `*Método:* ${metodoPago}\n\n` +
+      `_Gracias por tu preferencia._`
+    );
+    const destTel = (invData.cliente_telefono || '').replace(/\D/g, '');
+    const url = destTel ? `https://wa.me/${destTel}?text=${waText}` : `https://wa.me/?text=${waText}`;
+    window.open(url, '_blank');
+  };
+
+  invoiceDlg.showModal();
+}
 
 function detectSubdomain(){
   const host = window.location.hostname.toLowerCase();
@@ -546,11 +746,13 @@ async function buyDlg(id){
   const p = S.products.find(x => x.id === id);
   if(!p) return toast('Producto no encontrado');
 
-  const [{data: pmList}, {data: h}] = await Promise.all([
+  const [{data: pmList}, {data: h}, {data: userCard}] = await Promise.all([
     sb.from('payment_methods').select('*').eq('activo', true).order('orden'),
-    sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente')
+    sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente'),
+    sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle().catch(()=>({data:null}))
   ]);
 
+  const hasActiveCard = userCard && userCard.estado === 'activa';
   const availZeny = Math.max(0, Number(S.me?.zeny_balance || 0) + (h || []).reduce((a, x) => a + Number(x.monto), 0));
   const maxZeny = Math.min(availZeny, Number(p.precio_usd));
   let currentStep = 'method'; // 'method' (Paso 1) o 'details' (Paso 2)
@@ -714,6 +916,20 @@ async function buyDlg(id){
                   </div>
                 </div>
               ` : ''}
+              ${hasActiveCard && availZeny >= totalToPayToday ? `
+                <div style="margin:12px 0;padding:12px 14px;background:linear-gradient(135deg,rgba(212,175,55,.12),rgba(5,7,12,.9));border:1.5px solid rgba(234,179,8,.45);border-radius:14px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <span style="font-size:.78rem;font-weight:800;color:#fde047;letter-spacing:1px">💳 PAGO CON TARJETA ZENY</span>
+                    <span class="pill" style="font-size:.65rem;background:rgba(234,179,8,.2);color:#fde047">Activa</span>
+                  </div>
+                  <div style="font-size:.82rem;color:#e2e8f0;margin-bottom:10px">
+                    N°: <b>${esc(userCard.numero_tarjeta)}</b> · Titular: <b>${esc(userCard.nombre_titular)}</b>
+                  </div>
+                  <button id="coPayCardDirectBtn" type="button" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:800;padding:10px;border-radius:10px;box-shadow:0 4px 14px rgba(245,158,11,.4)">
+                    ⚡ Pagar $${totalToPayToday.toFixed(2)} USD con mi Tarjeta Zeny
+                  </button>
+                </div>
+              ` : ''}
               <div class="checkout-summary-total">
                 <div>
                   <span style="font-size:.76rem;color:var(--mut);display:block">
@@ -806,6 +1022,36 @@ async function buyDlg(id){
           checkoutDlg.close();
           await loadPublic();
           toast(payPlan === 'cuotas' ? 'Inicial enviada. Tus cuotas quedaron agendadas en tu portal.' : 'Pedido enviado con Zeny.');
+          portal();
+        };
+      }
+
+      const cardDirectBtn = $('#coPayCardDirectBtn');
+      if(cardDirectBtn){
+        cardDirectBtn.onclick = async () => {
+          cardDirectBtn.disabled = true;
+          const refCard = `[TDC Zeny] ${userCard.numero_tarjeta}`;
+          const {data: ordId, error} = await sb.rpc('create_order', {
+            p_product: id,
+            p_metodo: null,
+            p_ref: refCard,
+            p_zeny: totalToPayToday
+          });
+          if(error){
+            cardDirectBtn.disabled = false;
+            return toast(error.message);
+          }
+
+          if(payPlan === 'cuotas' && ordId){
+            await sb.from('installments').insert([
+              { order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: 2, monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', referencia: refCard },
+              { order_id: ordId, customer_id: S.user.id, numero_cuota: 2, total_cuotas: 2, monto_usd: cuotaDosUsd, fecha_vencimiento: d2Str, estado: 'pendiente' }
+            ]).catch(()=>{});
+          }
+
+          checkoutDlg.close();
+          await loadPublic();
+          toast(`¡Pago procesado con éxito con tu Tarjeta Zeny! Descuento aplicado.`);
           portal();
         };
       }
@@ -1094,14 +1340,19 @@ function adminLoginDlg(){
 // ---------- PORTAL CLIENTE ----------
 async function portal(){
   if(!S.user) return loginDlg('login'); document.body.classList.remove('is-admin'); S.view='portal';
-  const [o,i,l,inc,cr,inst] = await Promise.all([
+  const [o,i,l,inc,cr,inst,zcard] = await Promise.all([
     sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
     sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false}),
     sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
     sb.from('incidents').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}),
     sb.rpc('my_credentials'),
-    sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true}).catch(()=>({data:[]}))
+    sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true}).catch(()=>({data:[]})),
+    sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle().catch(()=>({data:null}))
   ]);
+
+  const cardData = zcard?.data || null;
+  const userCode = S.me?.codigo_identificacion || (S.me?.es_revendedor ? 'RVD:1001' : 'CLT:001');
+  const isReseller = S.me?.es_revendedor === true;
 
   const instData = inst.data || [];
   const creditLimit = Number(S.me?.limite_credito || 30.00);
@@ -1113,7 +1364,83 @@ async function portal(){
   const hold=(l.data||[]).filter(x=>x.tipo==='compra'&&x.estado==='pendiente').reduce((a,x)=>a-Number(x.monto),0);
   const T=(h,rows)=>`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
 
-  app.innerHTML = `<h2>Hola, ${esc(S.me?.nombre||S.user.email||'cliente')}</h2>
+  app.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <div>
+      <h2 style="margin:0">Hola, ${esc(S.me?.nombre||S.user.email||'cliente')}</h2>
+      <div style="margin-top:4px">
+        <span class="pill" style="font-size:.78rem;letter-spacing:1px;background:${isReseller?'rgba(255,183,3,.18)':'rgba(0,245,160,.16)'};color:${isReseller?'#ffb703':'var(--a)'};border:1px solid ${isReseller?'rgba(255,183,3,.4)':'rgba(0,245,160,.3)'}">
+          ID: <b>${esc(userCode)}</b> · ${isReseller?'Revendedor Mayorista VIP':'Cliente Final'}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TARJETA DE CRÉDITO DIGITAL ZENY (3D FLIP) -->
+  ${cardData ? `
+    <div style="text-align:center;margin-bottom:8px">
+      <span class="mut" style="font-size:.76rem;text-transform:uppercase;letter-spacing:1px">
+        💳 Tu Tarjeta de Crédito Digital Zeny (Toca para girar anverso / reverso)
+      </span>
+    </div>
+    <div class="zeny-card-stage" id="zenyCardStage" title="Toca para girar la tarjeta">
+      <div class="zeny-card-inner">
+        <!-- ANVERSO (Front) -->
+        <div class="zeny-card-face zeny-card-front">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div class="zeny-card-chip"></div>
+            <div style="text-align:right">
+              <span style="font-size:.65rem;font-weight:800;letter-spacing:1px;color:#fde047;text-transform:uppercase;display:block">ZENY CARD</span>
+              <span style="font-size:.68rem;color:#fff;font-weight:700">credit</span>
+            </div>
+          </div>
+          <div>
+            <div class="zeny-card-number">${esc(cardData.numero_tarjeta)}</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <div>
+                <span style="font-size:.65rem;color:#cbd5e1;letter-spacing:1px;display:block">TITULAR</span>
+                <div class="zeny-card-holder">${esc(cardData.nombre_titular)}</div>
+              </div>
+              <div style="text-align:right">
+                <span style="font-size:.65rem;color:#cbd5e1;letter-spacing:1px;display:block">VENCE</span>
+                <div class="zeny-card-expiry">${esc(cardData.fecha_vencimiento)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- REVERSO (Back) -->
+        <div class="zeny-card-face zeny-card-back">
+          <div class="zeny-card-magstrip"></div>
+          <div class="zeny-card-back-body">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.68rem;color:#94a3b8">BANDA DE FIRMA / CVV</span>
+              <span style="font-size:.68rem;color:#fde047">CÓDIGO DE ACTIVACIÓN</span>
+            </div>
+            <div class="zeny-card-cvv-box">
+              <span class="zeny-card-cvv-text">${esc(cardData.codigo_activacion)}</span>
+            </div>
+            <div style="font-size:.68rem;color:#64748b;line-height:1.3;text-align:center;margin-top:4px">
+              Tarjeta digital emitida por Emprendimiento Gregory Izquierdo J-50639379-4.<br>
+              Válida para compras y canje de ZenyPoints en la red oficial.
+            </div>
+          </div>
+          <div style="text-align:center">
+            <span class="pill ${cardData.estado==='activa'?'':'off'}" style="font-size:.7rem">
+              Estado: ${cardData.estado==='activa'?'🟢 Activa para Compras':'🟡 Por Activar'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    ${cardData.estado !== 'activa' ? `
+      <div style="max-width:440px;margin:0 auto 18px;text-align:center">
+        <button id="btnActCard" style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff">
+          ⚡ Activar mi Tarjeta Zeny con mi Código
+        </button>
+      </div>
+    ` : ''}
+  ` : ''}
 
   <!-- Tarjeta BNPL Cupo / Línea de Crédito -->
   <div class="bnpl-credit-card">
@@ -1209,9 +1536,92 @@ async function portal(){
   ` : '<p class="mut">Aquí verás tus accesos cuando tu pedido sea entregado.</p>'}
   <h3>Mis compras y pedidos</h3>${T(['Servicio','Estado','Inicia','Vence','Total'],(o.data||[]).map(x=>[x.products?.nombre,x.estado==='pendiente'?'En revisión (conciliación manual)':x.estado,x.inicia,x.vence,'$'+x.total_usd]))}
   ${(o.data||[]).filter(x=>x.estado==='pendiente').map(x=>`<button class="g" data-cancel="${x.id}" style="margin:6px 6px 0 0">Cancelar pedido: ${esc(x.products?.nombre)}</button>`).join('')}
-  <h3>Facturas</h3>${T(['N°','Fecha','USD','Bs','Tasa'],(i.data||[]).map(x=>[String(x.numero).padStart(6,'0'),x.emitida?.slice(0,10),x.total_usd,x.total_bs,x.tasa_bs]))}
+  <h3>Facturas</h3>
+  ${(i.data||[]).length ? `
+    <div class="wrap">
+      <table>
+        <tr><th>N° Comprobante</th><th>Fecha</th><th>USD</th><th>Bs</th><th>Tasa BCV</th><th>Acción</th></tr>
+        ${(i.data||[]).map(inv => `
+          <tr>
+            <td><b>FACT-${String(inv.numero).padStart(6,'0')}</b></td>
+            <td>${inv.emitida?.slice(0,10)}</td>
+            <td><b>$${Number(inv.total_usd).toFixed(2)}</b></td>
+            <td>Bs. ${Number(inv.total_bs||0).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td>${Number(inv.tasa_bs||0).toLocaleString('es-VE')} Bs/USD</td>
+            <td>
+              <button class="g" data-view-inv="${inv.id}" style="padding:5px 10px;font-size:.76rem">
+                📄 Ver Factura
+              </button>
+            </td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+  ` : '<p class="mut">No tienes facturas emitidas todavía.</p>'}
   <h3>Movimientos Zeny</h3>${T(['Fecha','Tipo','Monto','Estado'],(l.data||[]).map(x=>[x.created_at.slice(0,10),x.tipo,x.monto,x.estado]))}
   <h3>Incidencias</h3>${T(['Asunto','Estado'],(inc.data||[]).map(x=>[x.asunto,x.estado]))}<button class="g" id="ni" style="margin-top:8px">Reportar incidencia</button>`;
+
+  // Girar Tarjeta Zeny (3D Flip anverso/reverso)
+  const zStage = $('#zenyCardStage');
+  if(zStage){
+    zStage.onclick = () => zStage.classList.toggle('flipped');
+  }
+
+  // Activar Tarjeta Zeny
+  const actBtn = $('#btnActCard');
+  if(actBtn && cardData){
+    actBtn.onclick = () => {
+      $('#dlgBody').innerHTML = `
+        <h3>⚡ Activar Tarjeta de Crédito Digital Zeny</h3>
+        <p class="mut" style="font-size:.82rem;margin:0 0 12px">
+          Ingresa el código secreto de activación que aparece en el <b>reverso</b> de tu tarjeta (toca la tarjeta para voltearla).
+        </p>
+        <label class="mut" style="font-size:.75rem">Número de Tarjeta:</label>
+        <input id="actCardNum" value="${esc(cardData.numero_tarjeta)}" readonly style="background:rgba(3,8,18,.8);margin-bottom:10px">
+        <label class="mut" style="font-size:.75rem">Código de Activación (Reverso):</label>
+        <input id="actCardCode" placeholder="Ej: 849" maxlength="6" style="font-family:monospace;font-size:1.1rem;letter-spacing:2px" required>
+        <button id="actCardSubmit" style="margin-top:14px;width:100%">Confirmar y Activar Tarjeta</button>
+      `;
+      dlg.showModal();
+      $('#actCardSubmit').onclick = async () => {
+        const cVal = $('#actCardCode')?.value?.trim();
+        if(!cVal) return toast('Ingresa el código del reverso.');
+        const { error: actErr } = await sb.rpc('activate_zeny_card', {
+          p_numero: cardData.numero_tarjeta,
+          p_codigo: cVal
+        });
+        if(actErr) return toast(actErr.message);
+        dlg.close();
+        toast('¡Tu Tarjeta Zeny ha sido activada con éxito! Ya puedes usarla para tus compras.');
+        portal();
+      };
+    };
+  }
+
+  // Abrir Modal de Factura para el Cliente
+  app.querySelectorAll('[data-view-inv]').forEach(b => {
+    b.onclick = () => {
+      const invId = b.dataset.viewInv;
+      const inv = (i.data||[]).find(x => x.id === invId);
+      if(!inv) return;
+      openInvoiceModal({
+        numero: inv.numero,
+        fecha: inv.emitida ? new Date(inv.emitida).toLocaleString('es-VE') : new Date().toLocaleString('es-VE'),
+        tipo_documento: 'Factura Digital de Venta',
+        cliente_nombre: S.me?.nombre || S.user.email,
+        cliente_telefono: S.me?.telefono || '',
+        cliente_doc: userCode,
+        cliente_extra: `Identificador: ${userCode} · ${isReseller ? 'Aliado Mayorista' : 'Cliente Oficial'}`,
+        tasa_bs: inv.tasa_bs,
+        total_usd: inv.total_usd,
+        total_bs: inv.total_bs,
+        metodo_pago: 'Conciliación Digital de Pedido',
+        items: [
+          { concepto: 'Suscripción / Pantalla Digital', cant: 1, precio_usd: inv.total_usd, total_usd: inv.total_usd }
+        ]
+      });
+    };
+  });
 
   app.querySelectorAll('[data-pay-inst]').forEach(b => {
     b.onclick = async () => {
@@ -1302,10 +1712,10 @@ const TABLES = {
  payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
  profiles_inventory:['mother_id','product_id','nombre_perfil','pin','vendedor','inicia','vence','estado'],
- customers:['nombre','email','telefono','es_revendedor','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
- bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
- exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','notas'], purchases:['fecha','proveedor','plataforma','mother_id','monto_usd','notas'],
- refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
+  customers:['codigo_identificacion','nombre','email','telefono','es_revendedor','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
+  bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
+  exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','notas'], purchases:['fecha','proveedor','plataforma','mother_id','monto_usd','notas'],
+  refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
 const SEL={orders:'*,customers(nombre,email),products(nombre)',installments:'*,customers(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta']};
@@ -1323,6 +1733,7 @@ const ADMIN_MENU = [
       { id: 'finanzas', label: 'Finanzas', icon: '📊' },
       { id: 'orders', label: 'Pedidos', icon: '🛒', badgeKey: 'orders' },
       { id: 'cuotas', label: 'Cobranza Cuotas', icon: '💳' },
+      { id: 'tarjetas', label: 'Tarjetas Zeny (TDC)', icon: '💳' },
       { id: 'franquicias', label: 'Red de Franquicias', icon: '🏢' },
       { id: 'installments', label: 'Cuotas por Cobrar', icon: '💳' },
       { id: 'vencimientos', label: 'Vencimientos', icon: '📅' },

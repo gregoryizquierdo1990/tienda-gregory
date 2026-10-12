@@ -595,7 +595,8 @@ create policy franchises_public_select on franchises for select to anon using (t
         </div>
         <div class="row">
           <button id="btnNewFranq">+ Nueva Franquicia</button>
-          <button class="g" id="btnFranqGuide">📖 Guía de Operación</button>
+          <button class="g" id="btnFranqManual">📘 Manual para Franquiciado</button>
+          <button class="g" id="btnFranqGuide">📖 Guía de Operación DNS</button>
         </div>
       </div>
 
@@ -647,6 +648,7 @@ create policy franchises_public_select on franchises for select to anon using (t
                 <td>${esc(f.fecha_vencimiento_canon)}</td>
                 <td><span class="pill ${f.estado === 'activo' ? '' : 'off'}">${stLabel}</span></td>
                 <td class="row">
+                  <button class="g" data-fq-invoice="${f.id}" title="Emitir Factura / Recibo de Arrendamiento SaaS">🧾 Factura Canon</button>
                   <button class="g" data-fq-view="${f.id}" title="Ver expediente, contrato y detalles comerciales">📄 Expediente</button>
                   <button class="g" data-fq-reset="${f.id}" data-email="${esc(f.titular_correo)}" title="Restaurar clave de acceso del franquiciado">🔑 Reset Clave</button>
                   ${f.estado === 'activo' ? `
@@ -662,7 +664,60 @@ create policy franchises_public_select on franchises for select to anon using (t
       </div>
     `;
 
-    // Guía interactiva
+    // Manual para Franquiciado (listo para entregar o copiar)
+    $('#btnFranqManual').onclick = () => {
+      const manualMarkdown = `# 📘 GUÍA OFICIAL PARA EL FRANQUICIADO
+Plataforma de Comercio Digital Multi-Tenant
+Infraestructura provista por Gregory Izquierdo SaaS
+
+1. TU DIRECCIÓN WEB:
+Accede a tu tienda a través de tu subdominio asignado (ej: https://tumarca.${baseDomain}).
+
+2. PRIMER ACCESO AL PANEL:
+- Ingresa a tu tienda y pulsa "Admin" o "Ingresar".
+- Accede con el correo oficial registrado en tu contrato.
+- Si no tienes la contraseña, pulsa "¿Olvidaste tu contraseña?" o pide a la central un reset para recibir el enlace de acceso.
+
+3. CONFIGURACIÓN OBLIGATORIA DE TUS MÉTODOS DE PAGO:
+- En tu panel ve a "Métodos de Pago" y pulsa "+ Agregar".
+- Ingresa tus datos de Pago Móvil, Transferencias Bancarias, Binance Pay o Zinli.
+- ¡El 100% del dinero cobrado a tus clientes cae directo en tus cuentas personales! La central no retiene tus ganancias.
+
+4. PERSONALIZACIÓN DE TU TIENDA:
+- En "Ajustes ➔ Negocio", coloca tu número de WhatsApp de soporte, logo y correo.
+- El botón flotante de WhatsApp de tu tienda conectará directo con tu teléfono celular.
+
+5. CÓMO VENDER Y ENTREGAR:
+- Catálogo: Ajusta precios de venta al público en USD o activa promociones.
+- Pedidos: Cuando un cliente reporta un pago, verifica en tu banco y pulsa "Aprobar" para que el sistema le libere el servicio de forma automática.
+- Cuentas y Perfiles: Registra cuentas madre o perfiles para despacho inmediato.
+- Vencimientos: El sistema te avisa quién vence hoy o en 3 días para cobrar la renovación por WhatsApp antes del corte.
+
+6. PAGO DEL CANON MENSUAL:
+- El canon mensual se cancela cada 30 días a la Central para mantener tus servidores y base de datos activa.
+- Envía tu comprobante con 24h de anticipación para evitar interrupciones.
+
+7. POLÍTICA DE SEGURIDAD Y TOLERANCIA CERO AL FRAUDE:
+- Eres responsable directo de la atención y garantías a tus compradores.
+- Cualquier reporte fundamentado de estafa o fraude conllevará la suspensión inmediata de la tienda mediante Kill-Switch.`;
+
+      $('#dlgBody').innerHTML = `
+        <h3>📘 Manual de Operación para el Franquiciado</h3>
+        <p class="mut" style="font-size:.8rem;margin:0 0 10px">Puedes copiar este texto y enviárselo directamente por WhatsApp o correo a tu nuevo franquiciado.</p>
+        <textarea id="txtFranqManual" rows="14" readonly style="font-size:.78rem;font-family:monospace;background:rgba(3,8,18,.9);border:1px solid var(--line);border-radius:10px;padding:10px;color:#c0e0ff;width:100%">${esc(manualMarkdown)}</textarea>
+        <div class="row" style="margin-top:12px">
+          <button id="btnCopyManual" style="flex:1">📋 Copiar Manual Completo</button>
+          <button class="g" onclick="dlg.close()">Cerrar</button>
+        </div>
+      `;
+      $('#btnCopyManual').onclick = async () => {
+        await navigator.clipboard.writeText(manualMarkdown);
+        toast('¡Manual copiado al portapapeles! Listo para enviar.');
+      };
+      dlg.showModal();
+    };
+
+    // Guía interactiva DNS
     $('#btnFranqGuide').onclick = () => {
       $('#dlgBody').innerHTML = `
         <h3>📖 Guía de Operación y Puesta en Marcha de Franquicias</h3>
@@ -815,6 +870,38 @@ Fecha de asentamiento: ${new Date().toISOString().slice(0, 10)}.`;
       };
     });
 
+    // Emitir Factura de Canon de Franquicia
+    box.querySelectorAll('[data-fq-invoice]').forEach(btn => {
+      btn.onclick = () => {
+        const f = list.find(x => x.id === btn.dataset.fqInvoice);
+        if (!f) return;
+        const canonUsd = Number(f.canon_mensual_usd || 25);
+        const canonBs = canonUsd * (S.rate || 0);
+        openInvoiceModal({
+          numero: String(Math.floor(Date.now() / 1000)).slice(-6),
+          fecha: new Date().toLocaleString('es-VE'),
+          tipo_documento: 'Factura de Servicio / Recibo de Arrendamiento Tecnológico SaaS',
+          cliente_nombre: f.titular_nombre,
+          cliente_doc: f.titular_cedula_rif || 'No especificado',
+          cliente_extra: `Franquicia: ${f.nombre_comercial} · Subdominio: ${f.subdominio}.${baseDomain} · Ciudad: ${f.titular_ciudad || 'Venezuela'}`,
+          cliente_telefono: f.titular_telefono,
+          metodo_pago: 'Pago Móvil / Transferencia Bancaria (Primer Pago Registrado)',
+          tasa_bs: S.rate,
+          total_usd: canonUsd,
+          total_bs: canonBs,
+          items: [
+            {
+              concepto: `Canon mensual de infraestructura y licencia SaaS (${f.nombre_comercial})`,
+              detalle: `Subdominio: https://${f.subdominio}.${baseDomain} · Ciclo: 30 días continuos (Vence: ${f.fecha_vencimiento_canon})`,
+              cant: 1,
+              precio_usd: canonUsd,
+              total_usd: canonUsd
+            }
+          ]
+        });
+      };
+    });
+
     // Reset Clave de acceso
     box.querySelectorAll('[data-fq-reset]').forEach(btn => {
       btn.onclick = async () => {
@@ -843,6 +930,384 @@ Fecha de asentamiento: ${new Date().toISOString().slice(0, 10)}.`;
         await sb.from('franchises').update({ estado: 'activo' }).eq('id', btn.dataset.fqReactivate);
         toast('Franquicia reactivada exitosamente.');
         EXTRA.franquicias(box);
+      };
+    });
+  },
+
+  async tarjetas(box) {
+    const [{ data: cards, error: cardErr }, { data: custs, error: custErr }] = await Promise.all([
+      sb.from('zeny_cards').select('*, customers(id,nombre,email,telefono,codigo_identificacion,es_revendedor,zeny_balance)').order('created_at', { ascending: false }),
+      sb.from('customers').select('id,nombre,email,telefono,codigo_identificacion,es_revendedor,zeny_balance').order('creado', { ascending: false })
+    ]);
+
+    if (cardErr && (cardErr.message?.includes('schema cache') || cardErr.code === '42P01')) {
+      box.innerHTML = `
+        <div class="card" style="border:1.5px solid rgba(0,212,255,.4);background:linear-gradient(135deg,rgba(10,26,50,.95),rgba(5,15,30,.98))">
+          <h3 style="margin:0 0 8px;color:var(--c)">⚡ Activación de Tarjetas Zeny y Códigos CLT/RVD</h3>
+          <p class="mut" style="margin:0 0 14px;font-size:.88rem;line-height:1.5">
+            Para habilitar las tarjetas de crédito digitales Zeny y la asignación automática de códigos CLT:001 y RVD:1001, pega y ejecuta el script SQL en Supabase.
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button id="btnCopyTdcSql" type="button" style="padding:10px 18px">📋 Copiar SQL Migración 11</button>
+            <a href="https://supabase.com/dashboard/project/tevjiqnnnjnakftrjgud/sql/new" target="_blank" rel="noopener noreferrer" class="g" style="text-decoration:none;display:inline-flex;align-items:center;padding:10px 18px;border-radius:12px;font-weight:700">
+              ↗ Ir a SQL Editor en Supabase
+            </a>
+          </div>
+        </div>
+      `;
+      $('#btnCopyTdcSql').onclick = async () => {
+        const sql = `-- Migracion 11: Códigos de Identificación Únicos (CLT:001 / RVD:1001) y Tarjetas TDC Zeny
+alter table customers add column if not exists codigo_identificacion text unique;
+
+create or replace function get_next_customer_code(p_es_revendedor boolean)
+returns text language plpgsql security definer set search_path = public as $fn$
+declare prefix text; start_num int; candidate int; code_candidate text; exists_code boolean;
+begin
+  if p_es_revendedor then prefix := 'RVD'; start_num := 1001; else prefix := 'CLT'; start_num := 1; end if;
+  candidate := start_num;
+  loop
+    if p_es_revendedor then code_candidate := prefix || ':' || candidate::text;
+    else code_candidate := prefix || ':' || lpad(candidate::text, 3, '0'); end if;
+    select exists(select 1 from customers where codigo_identificacion = code_candidate) into exists_code;
+    if not exists_code then return code_candidate; end if;
+    candidate := candidate + 1;
+  end loop;
+end;
+$fn$;
+
+create or replace function handle_new_user() returns trigger language plpgsql security definer set search_path = public as $fn$
+declare assigned_code text;
+begin
+  assigned_code := get_next_customer_code(false);
+  insert into customers(id, nombre, email, telefono, codigo_identificacion, es_revendedor)
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'nombre'), new.email, coalesce(new.phone, new.raw_user_meta_data->>'telefono'), assigned_code, false)
+  on conflict (id) do update set codigo_identificacion = coalesce(customers.codigo_identificacion, assigned_code);
+  return new;
+end;
+$fn$;
+
+do $do$ declare r record; new_code text; begin
+  for r in select id, coalesce(es_revendedor, false) as es_revendedor from customers where codigo_identificacion is null order by creado asc loop
+    new_code := get_next_customer_code(r.es_revendedor);
+    update customers set codigo_identificacion = new_code where id = r.id;
+  end loop;
+end;
+$do$;
+
+create or replace function switch_customer_role(p_customer_id uuid, p_make_reseller boolean)
+returns text language plpgsql security definer set search_path = public as $fn$
+declare new_code text;
+begin
+  if not is_admin() then raise exception 'No autorizado'; end if;
+  new_code := get_next_customer_code(p_make_reseller);
+  update customers set es_revendedor = p_make_reseller, codigo_identificacion = new_code where id = p_customer_id;
+  return new_code;
+end;
+$fn$;
+grant execute on function switch_customer_role(uuid, boolean) to authenticated;
+
+create table if not exists zeny_cards (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references customers(id) on delete cascade unique,
+  numero_tarjeta text not null unique,
+  nombre_titular text not null,
+  codigo_activacion text not null,
+  fecha_vencimiento text not null default '12/31',
+  estado text not null default 'activa' check (estado in ('activa', 'por_activar', 'bloqueada', 'vencida')),
+  descuento_porcentaje numeric(5,2) not null default 5.00,
+  activada_at timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table zeny_cards enable row level security;
+drop policy if exists zeny_cards_user_select on zeny_cards;
+create policy zeny_cards_user_select on zeny_cards for select to authenticated using (customer_id = (select auth.uid()) or is_admin());
+drop policy if exists zeny_cards_admin_all on zeny_cards;
+create policy zeny_cards_admin_all on zeny_cards for all to authenticated using (is_admin()) with check (is_admin());
+
+create or replace function activate_zeny_card(p_numero text, p_codigo text)
+returns void language plpgsql security definer set search_path = public as $fn$
+declare card zeny_cards;
+begin
+  if auth.uid() is null then raise exception 'Inicia sesion primero'; end if;
+  select * into card from zeny_cards where customer_id = auth.uid() for update;
+  if not found then raise exception 'No tienes una tarjeta asignada'; end if;
+  if replace(card.numero_tarjeta, ' ', '') <> replace(p_numero, ' ', '') or card.codigo_activacion <> trim(p_codigo) then
+    raise exception 'Número o código de activación incorrecto';
+  end if;
+  update zeny_cards set estado = 'activa', activada_at = coalesce(activada_at, now()) where id = card.id;
+end;
+$fn$;
+grant execute on function activate_zeny_card(text, text) to authenticated;`;
+        await navigator.clipboard.writeText(sql);
+        toast('¡SQL copiado! Pégalo y ejecútalo en Supabase SQL Editor.');
+      };
+      return;
+    }
+
+    const cardList = cards || [];
+    const custList = custs || [];
+
+    box.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:1.2rem">💳 Tarjetas de Crédito Digitales Zeny & Códigos de Usuario</h3>
+          <p class="mut" style="margin:0;font-size:.82rem">Emite tarjetas personalizadas (anverso/reverso), cambia roles Cliente ⇄ Revendedor y gestiona saldos Zeny.</p>
+        </div>
+        <div class="row">
+          <button id="btnEmitCard">+ Emitir Tarjeta para Cliente</button>
+        </div>
+      </div>
+
+      <!-- Resumen de Tarjetas y Usuarios -->
+      <div class="grid" style="margin-bottom:18px">
+        <div class="card">
+          <div class="mut">Tarjetas Emitidas</div>
+          <div class="price">${cardList.length}</div>
+        </div>
+        <div class="card">
+          <div class="mut">Tarjetas Activas</div>
+          <div class="price" style="color:var(--a)">${cardList.filter(c => c.estado === 'activa').length}</div>
+        </div>
+        <div class="card">
+          <div class="mut">Total Clientes / Revendedores</div>
+          <div style="font-size:1.1rem;font-weight:700;color:var(--c);margin-top:6px">
+            👤 ${custList.filter(c => !c.es_revendedor).length} Clientes · 🤝 ${custList.filter(c => c.es_revendedor).length} Revendedores
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de Tarjetas Emitidas -->
+      <h4 style="margin:16px 0 8px">Tarjetas en Circulación</h4>
+      <div class="wrap" style="margin-bottom:24px">
+        <table>
+          <tr>
+            <th>Titular / Código</th>
+            <th>N° de Tarjeta</th>
+            <th>Código Activación</th>
+            <th>Vence</th>
+            <th>Saldo Zeny</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+          ${cardList.map(c => `
+            <tr>
+              <td>
+                <b>${esc(c.nombre_titular)}</b>
+                <span class="mut" style="display:block;font-size:.73rem">
+                  ${esc(c.customers?.codigo_identificacion || 'S/C')} · ${esc(c.customers?.email || '')}
+                </span>
+              </td>
+              <td><code style="color:#fde047;font-weight:700">${esc(c.numero_tarjeta)}</code></td>
+              <td><span style="font-family:monospace;background:#ffffff;color:#0f172a;padding:2px 6px;border-radius:4px;font-weight:800">${esc(c.codigo_activacion)}</span></td>
+              <td>${esc(c.fecha_vencimiento)}</td>
+              <td><b style="color:var(--c)">${Number(c.customers?.zeny_balance || 0).toFixed(2)} ZP</b></td>
+              <td><span class="pill ${c.estado === 'activa' ? '' : 'off'}">${esc(c.estado)}</span></td>
+              <td class="row">
+                <button class="g" data-card-preview="${c.id}">👁️ Ver Tarjeta 3D</button>
+                <button class="d" data-card-del="${c.id}">Quitar</button>
+              </td>
+            </tr>
+          `).join('') || '<tr><td colspan="7" class="mut empty">No hay tarjetas emitidas aún. Pulsa "+ Emitir Tarjeta" para crear la primera.</td></tr>'}
+        </table>
+      </div>
+
+      <!-- Tabla de Clientes con Cambio Rápido de Rol (Cliente <-> Revendedor) -->
+      <h4 style="margin:16px 0 8px">Gestión de Usuarios y Códigos (CLT:001 ⇄ RVD:1001)</h4>
+      <div class="wrap">
+        <table>
+          <tr>
+            <th>Código Único</th>
+            <th>Nombre / Email</th>
+            <th>Teléfono</th>
+            <th>Rol Actual</th>
+            <th>Saldo Zeny</th>
+            <th>Acción de Rol</th>
+          </tr>
+          ${custList.map(u => `
+            <tr>
+              <td><b style="color:var(--c);font-family:monospace">${esc(u.codigo_identificacion || (u.es_revendedor ? 'RVD:1001' : 'CLT:001'))}</b></td>
+              <td>
+                <b>${esc(u.nombre || 'Sin nombre')}</b>
+                <span class="mut" style="display:block;font-size:.73rem">${esc(u.email || '')}</span>
+              </td>
+              <td>${esc(u.telefono || '—')}</td>
+              <td>
+                <span class="pill ${u.es_revendedor ? '' : 'off'}" style="background:${u.es_revendedor ? 'rgba(255,183,3,.15)' : 'rgba(0,245,160,.12)'};color:${u.es_revendedor ? '#ffb703' : 'var(--a)'}">
+                  ${u.es_revendedor ? '🤝 Revendedor' : '👤 Cliente'}
+                </span>
+              </td>
+              <td>${Number(u.zeny_balance || 0).toFixed(2)} ZP</td>
+              <td>
+                <button class="g" data-switch-role="${u.id}" data-to-rev="${!u.es_revendedor}" data-nom="${esc(u.nombre || u.email)}" style="padding:5px 10px;font-size:.76rem">
+                  ${u.es_revendedor ? '⬇️ Pasar a Cliente' : '⬆️ Ascender a Revendedor'}
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>
+    `;
+
+    // Modal para Emitir Tarjeta
+    $('#btnEmitCard').onclick = () => {
+      const options = custList.map(c => `
+        <option value="${c.id}" data-name="${esc(c.nombre || c.email)}">
+          ${esc(c.nombre || c.email)} (${esc(c.codigo_identificacion || 'S/C')}) - ${c.es_revendedor ? 'Revendedor' : 'Cliente'}
+        </option>
+      `).join('');
+
+      const genRand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+      const autoNum = `4${genRand(100, 999)} ${genRand(1000, 9999)} ${genRand(1000, 9999)} ${genRand(1000, 9999)}`;
+      const autoCvv = String(genRand(100, 999));
+
+      $('#dlgBody').innerHTML = `
+        <h3>💳 Emitir Tarjeta de Crédito Digital Zeny</h3>
+        <p class="mut" style="font-size:.82rem;margin:0 0 12px">Personaliza la tarjeta con los datos del cliente. Podrá verla en su portal personal.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;max-height:65vh;overflow-y:auto;padding-right:4px">
+          <label class="mut" style="font-size:.76rem">Selecciona al Cliente:</label>
+          <select id="emitCustSelect">${options}</select>
+
+          <label class="mut" style="font-size:.76rem">Nombre y Apellido Impreso en la Tarjeta:</label>
+          <input id="emitHolderInput" placeholder="Ej: GREGORY IZQUIERDO" value="${esc(custList[0]?.nombre || 'CLIENTE VIP')}" style="text-transform:uppercase" required>
+
+          <label class="mut" style="font-size:.76rem">Número de Tarjeta (16 dígitos):</label>
+          <input id="emitNumInput" value="${autoNum}" style="font-family:monospace;letter-spacing:2px" required>
+
+          <label class="mut" style="font-size:.76rem">Código de Activación (CVV reverso):</label>
+          <input id="emitCvvInput" value="${autoCvv}" maxlength="4" style="font-family:monospace;letter-spacing:2px;max-width:140px" required>
+
+          <label class="mut" style="font-size:.76rem">Fecha de Vencimiento (MM/YY):</label>
+          <input id="emitExpInput" value="12/31" maxlength="5" style="font-family:monospace;max-width:140px" required>
+
+          <label class="mut" style="font-size:.76rem">Estado Inicial:</label>
+          <select id="emitStateSelect">
+            <option value="activa">🟢 Activa para Compras</option>
+            <option value="por_activar">🟡 Por Activar (Cliente debe ingresar su código)</option>
+          </select>
+        </div>
+        <button id="btnSaveCard" style="margin-top:14px;width:100%">Emitir y Asignar Tarjeta</button>
+      `;
+
+      $('#emitCustSelect').onchange = e => {
+        const selOpt = e.target.selectedOptions[0];
+        if (selOpt) $('#emitHolderInput').value = selOpt.dataset.name.toUpperCase();
+      };
+
+      $('#btnSaveCard').onclick = async () => {
+        const btn = $('#btnSaveCard');
+        btn.disabled = true;
+        const custId = $('#emitCustSelect').value;
+        const holder = $('#emitHolderInput').value.trim().toUpperCase();
+        const num = $('#emitNumInput').value.trim();
+        const cvv = $('#emitCvvInput').value.trim();
+        const exp = $('#emitExpInput').value.trim();
+        const state = $('#emitStateSelect').value;
+
+        if (!custId || !holder || !num || !cvv || !exp) {
+          btn.disabled = false;
+          return toast('Por favor completa todos los campos.');
+        }
+
+        const { error: insErr } = await sb.from('zeny_cards').upsert({
+          customer_id: custId,
+          nombre_titular: holder,
+          numero_tarjeta: num,
+          codigo_activacion: cvv,
+          fecha_vencimiento: exp,
+          estado: state
+        }, { onConflict: 'customer_id' });
+
+        if (insErr) {
+          btn.disabled = false;
+          return toast(insErr.message);
+        }
+
+        dlg.close();
+        toast('¡Tarjeta Zeny emitida exitosamente!');
+        EXTRA.tarjetas(box);
+      };
+
+      dlg.showModal();
+    };
+
+    // Previsualizar Tarjeta 3D
+    box.querySelectorAll('[data-card-preview]').forEach(btn => {
+      btn.onclick = () => {
+        const c = cardList.find(x => x.id === btn.dataset.cardPreview);
+        if (!c) return;
+        $('#dlgBody').innerHTML = `
+          <h3>Tarjeta de ${esc(c.nombre_titular)}</h3>
+          <p class="mut" style="font-size:.8rem;text-align:center;margin:0 0 10px">Toca la tarjeta para ver el anverso o reverso con su código de activación.</p>
+          <div class="zeny-card-stage" id="previewStage" style="margin:0 auto">
+            <div class="zeny-card-inner">
+              <div class="zeny-card-face zeny-card-front">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                  <div class="zeny-card-chip"></div>
+                  <span style="font-size:.65rem;font-weight:800;letter-spacing:1px;color:#fde047">ZENY CARD</span>
+                </div>
+                <div>
+                  <div class="zeny-card-number">${esc(c.numero_tarjeta)}</div>
+                  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+                    <div>
+                      <span style="font-size:.65rem;color:#cbd5e1;display:block">TITULAR</span>
+                      <div class="zeny-card-holder">${esc(c.nombre_titular)}</div>
+                    </div>
+                    <div style="text-align:right">
+                      <span style="font-size:.65rem;color:#cbd5e1;display:block">VENCE</span>
+                      <div class="zeny-card-expiry">${esc(c.fecha_vencimiento)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="zeny-card-face zeny-card-back">
+                <div class="zeny-card-magstrip"></div>
+                <div class="zeny-card-back-body">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:.68rem;color:#94a3b8">BANDA / CVV</span>
+                    <span style="font-size:.68rem;color:#fde047">CÓDIGO SECRETO</span>
+                  </div>
+                  <div class="zeny-card-cvv-box">
+                    <span class="zeny-card-cvv-text">${esc(c.codigo_activacion)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        $('#previewStage').onclick = () => $('#previewStage').classList.toggle('flipped');
+        dlg.showModal();
+      };
+    });
+
+    // Eliminar Tarjeta
+    box.querySelectorAll('[data-card-del]').forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('¿Eliminar esta tarjeta?')) return;
+        await sb.from('zeny_cards').delete().eq('id', btn.dataset.cardDel);
+        toast('Tarjeta eliminada.');
+        EXTRA.tarjetas(box);
+      };
+    });
+
+    // Cambiar Rol de Usuario (Cliente ⇄ Revendedor)
+    box.querySelectorAll('[data-switch-role]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = btn.dataset.switchRole;
+        const toRev = btn.dataset.toRev === 'true';
+        const nom = btn.dataset.nom;
+        const msg = toRev 
+          ? `¿Ascender a ${nom} como REVENDEDOR MAYORISTA? Se le asignará un código RVD.`
+          : `¿Pasar a ${nom} como CLIENTE FINAL? Se le asignará un código CLT.`;
+        if (!confirm(msg)) return;
+
+        const { data: newCode, error: swErr } = await sb.rpc('switch_customer_role', {
+          p_customer_id: id,
+          p_make_reseller: toRev
+        });
+
+        if (swErr) return toast(swErr.message);
+        toast(`¡Rol actualizado! Nuevo código asignado: ${newCode}`);
+        EXTRA.tarjetas(box);
       };
     });
   },
