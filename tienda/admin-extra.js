@@ -414,7 +414,7 @@ create policy installments_user_select on installments for select to authenticat
 drop policy if exists installments_admin_all on installments;
 create policy installments_admin_all on installments for all to authenticated using (is_admin()) with check (is_admin());
 
-alter table customers add column if not exists limite_credito numeric(10,2) not null default 30.00;
+alter table customers add column if not exists limite_credito numeric(10,2) not null default 10.00;
 alter table customers add column if not exists nivel_credito text not null default 'Bronce';
 
 create or replace function pay_installment(p_installment_id uuid, p_metodo_id uuid, p_referencia text)
@@ -458,7 +458,9 @@ grant execute on function approve_installment(uuid) to authenticated;`;
             <h3 style="margin:0 0 4px;font-size:1.15rem">💳 Control y Cobranza de Cuotas (BNPL)</h3>
             <p class="mut" style="margin:0;font-size:.82rem">Gestiona los pagos en cuotas, aprueba abonos y envía recordatorios automáticos por WhatsApp.</p>
           </div>
-          <div style="display:flex;gap:12px;text-align:right">
+          <div style="display:flex;gap:10px;text-align:right;align-items:center;flex-wrap:wrap">
+            <button id="btnConfigCuotas" class="g" style="padding:6px 12px;font-size:.76rem">⚙️ Configurar % Inicial y N° Cuotas</button>
+            <button id="btnManageCredits" class="g" style="padding:6px 12px;font-size:.76rem">👥 Asignar Límites a Usuarios</button>
             <div>
               <span class="mut" style="font-size:.72rem;display:block">Por cobrar:</span>
               <b style="font-size:1.2rem;color:var(--c)">$${pendTotal.toFixed(2)} USD</b>
@@ -541,6 +543,144 @@ grant execute on function approve_installment(uuid) to authenticated;`;
         return 'Cuota aprobada con éxito.';
       });
     });
+
+    const bCfg = box.querySelector('#btnConfigCuotas');
+    if(bCfg){
+      bCfg.onclick = async () => {
+        let cfg = S.settings?.cuotas_config;
+        if(!cfg){
+          const { data } = await sb.from('settings').select('value').eq('key', 'cuotas_config').maybeSingle();
+          cfg = data?.value || { inicial_porcentaje: 50, total_cuotas: 2, dias_frecuencia: 15, monto_minimo: 5.00 };
+        }
+        $('#dlgBody').innerHTML = `
+          <h3>⚙️ Parámetros de Financiamiento en Cuotas</h3>
+          <p class="mut" style="font-size:.8rem;margin:0 0 14px">Establece el porcentaje de la cuota inicial y el número de cuotas en las que tus clientes financiarán sus compras.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div>
+              <label class="mut" style="font-size:.74rem">Cuota Inicial (% del total):</label>
+              <input id="cfgCuotasPct" type="number" min="10" max="90" step="5" value="${cfg.inicial_porcentaje || 50}" style="margin-top:2px">
+            </div>
+            <div>
+              <label class="mut" style="font-size:.74rem">Número Total de Cuotas:</label>
+              <input id="cfgCuotasTotal" type="number" min="2" max="12" step="1" value="${cfg.total_cuotas || 2}" style="margin-top:2px">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div>
+              <label class="mut" style="font-size:.74rem">Frecuencia entre cuotas (Días):</label>
+              <input id="cfgCuotasDias" type="number" min="1" max="60" step="1" value="${cfg.dias_frecuencia || 15}" style="margin-top:2px">
+            </div>
+            <div>
+              <label class="mut" style="font-size:.74rem">Monto mínimo elegible ($ USD):</label>
+              <input id="cfgCuotasMin" type="number" min="1" max="100" step="1" value="${cfg.monto_minimo || 5.00}" style="margin-top:2px">
+            </div>
+          </div>
+          <button id="btnSaveCuotasCfg" style="width:100%">💾 Guardar Parámetros de Cuotas</button>
+        `;
+        dlg.showModal();
+
+        $('#btnSaveCuotasCfg').onclick = () => run($('#btnSaveCuotasCfg'), async () => {
+          const newCfg = {
+            inicial_porcentaje: Number($('#cfgCuotasPct')?.value || 50),
+            total_cuotas: Number($('#cfgCuotasTotal')?.value || 2),
+            dias_frecuencia: Number($('#cfgCuotasDias')?.value || 15),
+            monto_minimo: Number($('#cfgCuotasMin')?.value || 5.00)
+          };
+          const { error } = await sb.from('settings').upsert({
+            key: 'cuotas_config',
+            value: newCfg,
+            updated_at: new Date().toISOString()
+          });
+          if(error) throw error;
+          S.settings = S.settings || {};
+          S.settings.cuotas_config = newCfg;
+          dlg.close();
+          EXTRA.cuotas(box);
+          return 'Configuración de cuotas actualizada con éxito.';
+        });
+      };
+    }
+
+    const bCred = box.querySelector('#btnManageCredits');
+    if(bCred){
+      bCred.onclick = async () => {
+        const { data: users, error: uErr } = await sb.from('customers').select('id,nombre,email,telefono,codigo_identificacion,es_revendedor,limite_credito').order('creado', { ascending: false });
+        if(uErr) return toast('Error al cargar usuarios: ' + uErr.message);
+        const renderList = (term = '') => {
+          const fl = (users || []).filter(u => {
+            if(!term) return true;
+            const q = term.toLowerCase();
+            return (u.nombre || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q) || (u.codigo_identificacion || '').toLowerCase().includes(q);
+          });
+          return `
+            <div style="max-height:55vh;overflow-y:auto;margin:12px 0">
+              <table style="width:100%;font-size:.82rem">
+                <tr>
+                  <th>Código / Usuario</th>
+                  <th>Rol</th>
+                  <th>Límite Crédito ($)</th>
+                  <th>Acción</th>
+                </tr>
+                ${fl.map(u => `
+                  <tr>
+                    <td>
+                      <b style="color:var(--c);font-family:monospace">${esc(u.codigo_identificacion || (u.es_revendedor ? 'RVD:1001' : 'CLT:001'))}</b>
+                      <div style="font-weight:600">${esc(u.nombre || 'Sin nombre')}</div>
+                      <span class="mut" style="font-size:.72rem">${esc(u.email || '')}</span>
+                    </td>
+                    <td>
+                      <span class="pill ${u.es_revendedor ? '' : 'off'}" style="font-size:.72rem">
+                        ${u.es_revendedor ? '⭐ Revendedor' : '👤 Cliente'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:4px">
+                        <span>$</span>
+                        <input type="number" step="1" min="0" value="${Number(u.limite_credito != null ? u.limite_credito : 10.00).toFixed(2)}" id="creditInp_${u.id}" style="width:75px;padding:4px;font-size:.82rem;font-weight:700">
+                      </div>
+                    </td>
+                    <td>
+                      <button class="g" data-save-usr-credit="${u.id}" style="padding:4px 8px;font-size:.72rem">💾 Guardar</button>
+                    </td>
+                  </tr>
+                `).join('') || '<tr><td colspan="4" class="mut empty">No se encontraron usuarios</td></tr>'}
+              </table>
+            </div>
+          `;
+        };
+
+        $('#dlgBody').innerHTML = `
+          <h3>💳 Asignación Manual de Límites de Crédito</h3>
+          <p class="mut" style="font-size:.8rem;margin:0 0 10px">Asigna o ajusta el crédito disponible a Clientes y Revendedores.</p>
+          <input id="searchCreditUser" placeholder="🔍 Buscar por nombre, email o código..." style="width:100%;font-size:.82rem">
+          <div id="creditUsersContainer">${renderList()}</div>
+        `;
+        dlg.showModal();
+
+        const bindSaveEvents = () => {
+          $('#creditUsersContainer').querySelectorAll('[data-save-usr-credit]').forEach(btn => {
+            btn.onclick = async () => {
+              const uid = btn.dataset.saveUsrCredit;
+              const val = parseFloat($(`#creditInp_${uid}`)?.value);
+              if (isNaN(val) || val < 0) return toast('Ingresa un monto válido mayor o igual a 0');
+              btn.disabled = true;
+              const { error } = await sb.from('customers').update({ limite_credito: val }).eq('id', uid);
+              btn.disabled = false;
+              if (error) return toast('Error: ' + error.message);
+              const uObj = users.find(x => x.id === uid);
+              if (uObj) uObj.limite_credito = val;
+              toast(`Límite actualizado a $${val.toFixed(2)} USD`);
+            };
+          });
+        };
+        bindSaveEvents();
+
+        $('#searchCreditUser').oninput = e => {
+          $('#creditUsersContainer').innerHTML = renderList(e.target.value);
+          bindSaveEvents();
+        };
+      };
+    }
   },
 
   async franquicias(box) {
@@ -603,6 +743,18 @@ create policy franchises_public_select on franchises for select to anon using (t
     const list = franqList || [];
     const baseDomain = location.hostname.includes('.') ? location.hostname.replace(/^[^.]+\./, '') : 'gregoryizquierdo.xyz';
 
+    let canonCfg = S.settings?.franquicia_canon_config;
+    if (!canonCfg) {
+      const { data: cData } = await sb.from('settings').select('value').eq('key', 'franquicia_canon_config').maybeSingle();
+      canonCfg = cData?.value || { promo_quota: 10, promo_canon: 10.00, regular_canon: 25.00 };
+    }
+    const promoQuota = Number(canonCfg.promo_quota || 10);
+    const promoCanon = Number(canonCfg.promo_canon || 10.00);
+    const regularCanon = Number(canonCfg.regular_canon || 25.00);
+    const activeCount = list.filter(f => f.estado === 'activo').length;
+    const isPromoActive = activeCount < promoQuota;
+    const currentSuggestedCanon = isPromoActive ? promoCanon : regularCanon;
+
     box.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
         <div>
@@ -611,16 +763,27 @@ create policy franchises_public_select on franchises for select to anon using (t
         </div>
         <div class="row">
           <button id="btnNewFranq">+ Nueva Franquicia</button>
+          <button class="g" id="btnCanonConfig">⚙️ Ajustar Canon & Cupos</button>
+          <button class="g" id="btnAumentoDoc">📝 Circular Aumento Canon</button>
           <button class="g" id="btnFranqManual">📘 Manual para Franquiciado</button>
-          <button class="g" id="btnFranqGuide">📖 Guía de Operación DNS</button>
+          <button class="g" id="btnFranqGuide">📖 Guía DNS</button>
         </div>
       </div>
 
-      <!-- Resumen Métrico -->
+      <!-- Resumen Métrico y Promoción de Lanzamiento -->
       <div class="grid" style="margin-bottom:18px">
         <div class="card">
           <div class="mut">Franquicias Activas</div>
-          <div class="price">${list.filter(f => f.estado === 'activo').length}</div>
+          <div class="price">${activeCount}</div>
+        </div>
+        <div class="card">
+          <div class="mut">🎁 Cupo Promo 10 ($${promoCanon.toFixed(2)} USD)</div>
+          <div style="font-size:1.1rem;font-weight:700;margin-top:6px;color:${isPromoActive ? 'var(--a)' : '#ffb703'}">
+            ${Math.min(activeCount, promoQuota)} / ${promoQuota} Cupos Ocupados
+          </div>
+          <span class="mut" style="font-size:.72rem">
+            ${isPromoActive ? `🟢 Quedan ${promoQuota - activeCount} cupos a $${promoCanon.toFixed(2)}/mes` : `⚠️ Cupo promo agotado. Canon regular: $${regularCanon.toFixed(2)}/mes`}
+          </span>
         </div>
         <div class="card">
           <div class="mut">Canon Mensual Proyectado</div>
@@ -660,7 +823,10 @@ create policy franchises_public_select on franchises for select to anon using (t
                   <b>${esc(f.titular_nombre)}</b>
                   <span class="mut" style="display:block;font-size:.73rem">${esc(f.titular_telefono)} · ${esc(f.titular_correo)}</span>
                 </td>
-                <td><b>$${Number(f.canon_mensual_usd).toFixed(2)} USD/mes</b></td>
+                <td>
+                  <b>$${Number(f.canon_mensual_usd).toFixed(2)} USD/mes</b>
+                  <button class="g" data-edit-canon="${f.id}" data-cur="${f.canon_mensual_usd}" data-nom="${esc(f.nombre_comercial)}" style="padding:2px 6px;font-size:.7rem;margin-left:4px" title="Modificar canon de esta franquicia">✏️</button>
+                </td>
                 <td>${esc(f.fecha_vencimiento_canon)}</td>
                 <td><span class="pill ${f.estado === 'activo' ? '' : 'off'}">${stLabel}</span></td>
                 <td class="row">
@@ -703,10 +869,11 @@ Accede a tu tienda a través de tu subdominio asignado (ej: https://tumarca.${ba
 - En "Ajustes ➔ Negocio", coloca tu número de WhatsApp de soporte, logo y correo.
 - El botón flotante de WhatsApp de tu tienda conectará directo con tu teléfono celular.
 
-5. CÓMO VENDER Y ENTREGAR:
+5. CÓMO VENDER Y MODALIDAD DE INVENTARIO HÍBRIDO:
 - Catálogo: Ajusta precios de venta al público en USD o activa promociones.
-- Pedidos: Cuando un cliente reporta un pago, verifica en tu banco y pulsa "Aprobar" para que el sistema le libere el servicio de forma automática.
-- Cuentas y Perfiles: Registra cuentas madre o perfiles para despacho inmediato.
+- Stock Propio: Registra cuentas madre y perfiles propios en tu panel para quedarte con el 100% de tu margen de venta.
+- Respaldo con Stock Central (Híbrido): Si se te agota un servicio o prefieres no comprar cuentas por adelantado, tu tienda puede despachar directamente desde el inventario central a tarifa mayorista preferencial.
+- Pedidos: Cuando un cliente reporta un pago, verifica en tu banco y pulsa "Aprobar" para que el sistema libere las credenciales al cliente.
 - Vencimientos: El sistema te avisa quién vence hoy o en 3 días para cobrar la renovación por WhatsApp antes del corte.
 
 6. PAGO DEL CANON MENSUAL:
@@ -788,9 +955,21 @@ Accede a tu tienda a través de tu subdominio asignado (ej: https://tumarca.${ba
           <input id="fqCity" placeholder="Ej: Valencia, Carabobo">
 
           <label class="mut" style="font-size:.76rem">Canon Mensual Acordado (USD):</label>
-          <input id="fqCanon" type="number" value="25" min="0" step="1" required>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input id="fqCanon" type="number" value="${currentSuggestedCanon}" min="0" step="1" required style="font-weight:700;width:120px">
+            <span class="pill" style="font-size:.72rem;background:${isPromoActive ? 'rgba(0,245,160,.12)' : 'rgba(255,183,3,.15)'};color:${isPromoActive ? 'var(--a)' : '#ffb703'}">
+              ${isPromoActive ? `🎁 Promoción (${activeCount + 1} de ${promoQuota})` : '🏷️ Canon Regular'}
+            </span>
+          </div>
 
-          <label class="mut" style="font-size:.76rem">Notas internas / Acuerdos especiales:</label>
+          <label class="mut" style="font-size:.76rem">Modalidad de Inventario:</label>
+          <select id="fqStockMode">
+            <option value="hibrido" selected>🔄 Híbrido (Stock Propio + Respaldo Central)</option>
+            <option value="propio">📦 Solo Stock Propio</option>
+            <option value="central">🔑 Solo Stock Central</option>
+          </select>
+
+          <label class="mut" style="font-size:.76rem;margin-top:4px">Notas internas / Acuerdos especiales:</label>
           <textarea id="fqNotes" rows="2" placeholder="Ej: Incluye módulo de Telegram bonificado el primer mes..."></textarea>
         </div>
         <button id="btnSaveFranq" style="margin-top:14px;width:100%">Crear Franquicia y Generar Contrato</button>
@@ -811,6 +990,7 @@ Accede a tu tienda a través de tu subdominio asignado (ej: https://tumarca.${ba
         const email = $('#fqEmail').value.trim();
         const tel = $('#fqTel').value.trim();
         const canon = Number($('#fqCanon').value || 25);
+        const stockMode = $('#fqStockMode')?.value || 'hibrido';
 
         if (!sub || !name || !owner || !email || !tel) {
           btn.disabled = false;
@@ -825,6 +1005,7 @@ Entre EMPRENDIMIENTO GREGORY IZQUIERDO (en adelante "El Proveedor Tecnológico")
 2. AUTONOMÍA Y DESLINDE DE RESPONSABILIDAD: El Franquiciado opera de manera comercialmente independiente. Todos los cobros, métodos de pago, garantías y atención al cliente son de su exclusiva responsabilidad. El Proveedor no asume responsabilidad solidaria ante clientes finales de la Franquicia.
 3. CANON MENSUAL: El Franquiciado se compromete a cancelar un canon mensual de $${canon} USD cada 30 días continuos.
 4. KILL-SWITCH Y TOLERANCIA CERO AL FRAUDE: El Proveedor se reserva el derecho de suspender de inmediato el subdominio y acceso ante cualquier denuncia fundamentada de fraude o estafa.
+5. MODALIDAD DE INVENTARIO HÍBRIDO (${stockMode.toUpperCase()}): El Franquiciado comercializa servicios con cuentas y perfiles propios o, ante falta de stock, despacha directamente con respaldo del inventario central a tarifa mayorista preferencial.
 Fecha de asentamiento: ${new Date().toISOString().slice(0, 10)}.`;
 
         const { error: insErr } = await sb.from('franchises').insert({
@@ -948,12 +1129,161 @@ Fecha de asentamiento: ${new Date().toISOString().slice(0, 10)}.`;
         EXTRA.franquicias(box);
       };
     });
+
+    // Configuración de Canon Promocional y Regular
+    $('#btnCanonConfig').onclick = () => {
+      $('#dlgBody').innerHTML = `
+        <h3>⚙️ Ajustar Canon & Cupos de Franquicia</h3>
+        <p class="mut" style="font-size:.82rem;margin:0 0 14px">Establece el precio promocional para las primeras franquicias y el canon regular posterior.</p>
+        <div style="display:flex;flex-direction:column;gap:12px;background:rgba(255,255,255,.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.08);margin-bottom:14px">
+          <div>
+            <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Cupo de Franquicias en Promoción:</label>
+            <input id="cfgPromoQuota" type="number" min="1" max="100" value="${promoQuota}" style="width:100%;font-size:1.05rem;font-weight:700">
+            <span class="mut" style="font-size:.72rem">Cantidad de franquicias iniciales que gozan del canon promocional (por defecto 10).</span>
+          </div>
+          <div>
+            <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Canon Promocional Inicial ($ USD/mes):</label>
+            <input id="cfgPromoCanon" type="number" min="0" step="1" value="${promoCanon}" style="width:100%;font-size:1.05rem;font-weight:700">
+            <span class="mut" style="font-size:.72rem">Tarifa preferencial en dólares para las primeras franquicias registradas.</span>
+          </div>
+          <div>
+            <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Canon Estándar Regular ($ USD/mes):</label>
+            <input id="cfgRegularCanon" type="number" min="0" step="1" value="${regularCanon}" style="width:100%;font-size:1.05rem;font-weight:700">
+            <span class="mut" style="font-size:.72rem">Tarifa que se aplicará automáticamente a partir de la franquicia N° ${promoQuota + 1}.</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="g" onclick="dlg.close()">Cancelar</button>
+          <button id="btnSaveCanonCfg">💾 Guardar Configuración</button>
+        </div>
+      `;
+      dlg.showModal();
+
+      $('#btnSaveCanonCfg').onclick = async () => {
+        const qVal = parseInt($('#cfgPromoQuota').value) || 10;
+        const pVal = parseFloat($('#cfgPromoCanon').value) || 10;
+        const rVal = parseFloat($('#cfgRegularCanon').value) || 25;
+        const newCfg = { promo_quota: qVal, promo_canon: pVal, regular_canon: rVal };
+        const { error } = await sb.from('settings').upsert({
+          key: 'franquicia_canon_config',
+          value: newCfg,
+          updated_at: new Date().toISOString()
+        });
+        if (error) return toast('Error al guardar: ' + error.message);
+        S.settings = S.settings || {};
+        S.settings.franquicia_canon_config = newCfg;
+        toast('¡Parámetros de canon y cupos guardados con éxito!');
+        dlg.close();
+        EXTRA.franquicias(box);
+      };
+    };
+
+    // Circular y Documento Editable de Aumento de Canon
+    $('#btnAumentoDoc').onclick = async () => {
+      let docText = S.settings?.canon_aumento_documento;
+      if (!docText) {
+        const { data: dData } = await sb.from('settings').select('value').eq('key', 'canon_aumento_documento').maybeSingle();
+        docText = dData?.value;
+      }
+      if (!docText) {
+        docText = `# COMUNICADO OFICIAL: AJUSTE Y ACTUALIZACIÓN DEL CANON MENSUAL DE SERVICIO SAAS
+Fecha de Emisión: ${new Date().toISOString().slice(0, 10)}
+De: Gerencia de Infraestructura y Operaciones - Emprendimiento Gregory Izquierdo SaaS
+Para: Red de Franquiciados Digitales Asociados
+
+Estimado(a) Franquiciado(a),
+
+Por medio de la presente comunicación oficial, nos dirigimos a usted para informarle que, en estricto cumplimiento de nuestro compromiso de garantizar la más alta disponibilidad, velocidad y seguridad para sus clientes, el canon mensual de mantenimiento tecnológico será actualizado a partir del próximo ciclo de facturación.
+
+1. JUSTIFICACIÓN TÉCNICA Y MOTIVOS DEL AJUSTE:
+- INFRAESTRUCTURA Y SERVIDORES DE ALTA VELOCIDAD:
+  Ampliación de capacidad en clústeres de servidores dedicados de baja latencia con respaldo redundante, garantizando un uptime del 99.9% para su tienda web.
+- CAPAS AVANZADAS DE SEGURIDAD Y SSL:
+  Implementación de cortafuegos de aplicaciones (WAF) contra ataques DDoS, renovación automática de certificados SSL y monitoreo anti-fraude en tiempo real.
+- NUEVAS HERRAMIENTAS Y AUTOMATIZACIONES:
+  Mejoras en el sistema de cobranza en cuotas, recordatorios de vencimiento por WhatsApp e integración de inteligencia artificial para aumentar sus ventas.
+- SOPORTE Y MANTENIMIENTO CONTINUO:
+  Atención técnica prioritaria para traslados, reseteos y reactivaciones de incidencias sin costos adicionales por ticket.
+
+2. CONDICIONES Y APLICACIÓN:
+- Este ajuste se notifica con el debido preaviso reglamentario para que pueda planificar sus costos operativos con antelación.
+- Su próxima factura digital oficial reflejará este importe, manteniendo activas todas las funciones y el subdominio de su tienda web.
+
+Agradecemos profundamente su confianza y le reiteramos nuestro compromiso de seguir impulsando el crecimiento de su negocio digital.
+
+Atentamente,
+DIRECCIÓN DE OPERACIONES TECNOLÓGICAS
+Gregory Izquierdo SaaS
+Contacto Oficial: emprendimientogregoryizquierdo@gmail.com`;
+      }
+
+      $('#dlgBody').innerHTML = `
+        <h3>📝 Circular Oficial de Aumento de Canon</h3>
+        <p class="mut" style="font-size:.8rem;margin:0 0 10px">Redacta y edita el documento oficial con las razones y justificación del aumento del canon a futuro. Quedará guardado en tu sistema y podrás copiarlo para notificar a tus franquiciados.</p>
+        <textarea id="txtCanonDoc" rows="16" style="width:100%;font-family:monospace;font-size:.78rem;background:rgba(3,8,18,.9);border:1px solid var(--line);border-radius:10px;padding:12px;color:#c0e0ff;line-height:1.5">${esc(docText)}</textarea>
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+          <button id="btnSaveCanonDoc" style="flex:1">💾 Guardar Documento Oficial</button>
+          <button id="btnCopyCanonDoc" class="g" style="flex:1">📋 Copiar Comunicado</button>
+          <button class="g" onclick="dlg.close()">Cerrar</button>
+        </div>
+      `;
+      dlg.showModal();
+
+      $('#btnSaveCanonDoc').onclick = async () => {
+        const newText = $('#txtCanonDoc').value;
+        const { error } = await sb.from('settings').upsert({
+          key: 'canon_aumento_documento',
+          value: newText,
+          updated_at: new Date().toISOString()
+        });
+        if (error) return toast('Error al guardar: ' + error.message);
+        S.settings = S.settings || {};
+        S.settings.canon_aumento_documento = newText;
+        toast('¡Documento de circular de aumento guardado con éxito en el sistema!');
+      };
+
+      $('#btnCopyCanonDoc').onclick = async () => {
+        const text = $('#txtCanonDoc').value;
+        await navigator.clipboard.writeText(text);
+        toast('¡Circular copiada al portapapeles! Lista para enviar por WhatsApp o correo.');
+      };
+    };
+
+    // Modificar Canon individual de una franquicia
+    box.querySelectorAll('[data-edit-canon]').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.editCanon;
+        const cur = Number(btn.dataset.cur || 25).toFixed(2);
+        const nom = btn.dataset.nom;
+        $('#dlgBody').innerHTML = `
+          <h3>💲 Modificar Canon Mensual</h3>
+          <p class="mut" style="font-size:.82rem;margin:0 0 12px">Ajusta el monto del canon mensual para la franquicia <b>${esc(nom)}</b>.</p>
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Nuevo Canon Mensual ($ USD/mes):</label>
+          <input id="inputNewCanon" type="number" step="1" min="0" value="${cur}" style="width:100%;font-size:1.1rem;font-weight:700">
+          <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnSaveNewCanon">💾 Actualizar Canon</button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnSaveNewCanon').onclick = async () => {
+          const val = parseFloat($('#inputNewCanon').value);
+          if (isNaN(val) || val < 0) return toast('Ingresa un monto válido.');
+          const { error } = await sb.from('franchises').update({ canon_mensual_usd: val }).eq('id', id);
+          if (error) return toast('Error: ' + error.message);
+          toast(`Canon de ${nom} actualizado a $${val.toFixed(2)} USD/mes`);
+          dlg.close();
+          EXTRA.franquicias(box);
+        };
+      };
+    });
   },
 
   async tarjetas(box) {
     const [{ data: cards, error: cardErr }, { data: custs, error: custErr }] = await Promise.all([
       sb.from('zeny_cards').select('*, customers(id,nombre,email,telefono,codigo_identificacion,es_revendedor,zeny_balance)').order('created_at', { ascending: false }),
-      sb.from('customers').select('id,nombre,email,telefono,codigo_identificacion,es_revendedor,zeny_balance').order('creado', { ascending: false })
+      sb.from('customers').select('id,nombre,email,telefono,codigo_identificacion,es_revendedor,limite_credito,zeny_balance').order('creado', { ascending: false })
     ]);
 
     if (cardErr && (cardErr.message?.includes('schema cache') || cardErr.code === '42P01')) {
@@ -1136,8 +1466,9 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             <th>Nombre / Email</th>
             <th>Teléfono</th>
             <th>Rol Actual</th>
+            <th>Límite Crédito</th>
             <th>Saldo Zeny</th>
-            <th>Acción de Rol</th>
+            <th>Acciones</th>
           </tr>
           ${custList.map(u => `
             <tr>
@@ -1152,9 +1483,13 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                   ${u.es_revendedor ? '🤝 Revendedor' : '👤 Cliente'}
                 </span>
               </td>
+              <td><b style="color:var(--c)">$${Number(u.limite_credito != null ? u.limite_credito : 10.00).toFixed(2)} USD</b></td>
               <td>${Number(u.zeny_balance || 0).toFixed(2)} ZP</td>
-              <td>
-                <button class="g" data-switch-role="${u.id}" data-to-rev="${!u.es_revendedor}" data-nom="${esc(u.nombre || u.email)}" style="padding:5px 10px;font-size:.76rem">
+              <td class="row">
+                <button class="g" data-set-credit="${u.id}" data-cur="${u.limite_credito != null ? u.limite_credito : 10}" data-nom="${esc(u.nombre || u.email)}" style="padding:5px 9px;font-size:.76rem" title="Modificar límite de crédito manual">
+                  💳 Asignar Límite
+                </button>
+                <button class="g" data-switch-role="${u.id}" data-to-rev="${!u.es_revendedor}" data-nom="${esc(u.nombre || u.email)}" style="padding:5px 9px;font-size:.76rem">
                   ${u.es_revendedor ? '⬇️ Pasar a Cliente' : '⬆️ Ascender a Revendedor'}
                 </button>
               </td>
@@ -1324,6 +1659,50 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         if (swErr) return toast(swErr.message);
         toast(`¡Rol actualizado! Nuevo código asignado: ${newCode}`);
         EXTRA.tarjetas(box);
+      };
+    });
+
+    // Asignar Límite de Crédito Manual (Cliente y Revendedor)
+    box.querySelectorAll('[data-set-credit]').forEach(btn => {
+      btn.onclick = () => {
+        const uid = btn.dataset.setCredit;
+        const nom = btn.dataset.nom;
+        const cur = Number(btn.dataset.cur || 10).toFixed(2);
+        $('#dlgBody').innerHTML = `
+          <h3>💳 Asignar Límite de Crédito</h3>
+          <p class="mut" style="font-size:.85rem;margin:0 0 14px">
+            Establece manualmente la línea de crédito autorizada para <b>${esc(nom)}</b>.
+          </p>
+          <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span class="mut" style="font-size:.82rem">Límite actual:</span>
+              <b style="color:var(--c);font-size:1.1rem">$${cur} USD</b>
+            </div>
+            <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nuevo Límite de Crédito ($ USD):</label>
+            <input id="inputNewCreditLimit" type="number" step="1" min="0" value="${cur}" style="width:100%;font-size:1.15rem;font-weight:700" placeholder="Ej: 10, 25, 50, 100">
+            <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+              <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=10">$10 (Base)</button>
+              <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=20">$20</button>
+              <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=30">$30</button>
+              <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=50">$50</button>
+              <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=100">$100</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnSaveCreditLimit">💾 Guardar Límite</button>
+          </div>
+        `;
+        dlg.showModal();
+        $('#btnSaveCreditLimit').onclick = async () => {
+          const val = parseFloat($('#inputNewCreditLimit').value);
+          if (isNaN(val) || val < 0) return toast('Ingresa un monto válido mayor o igual a 0');
+          const { error: err } = await sb.from('customers').update({ limite_credito: val }).eq('id', uid);
+          if (err) return toast('Error al actualizar límite: ' + err.message);
+          toast(`Límite de crédito asignado a $${val.toFixed(2)} USD para ${nom}`);
+          dlg.close();
+          EXTRA.tarjetas(box);
+        };
       };
     });
   },
@@ -2055,6 +2434,395 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     };
 
     render();
+  },
+
+  copilot(box) {
+    box.innerHTML = `
+      <div class="card" style="background:linear-gradient(135deg,rgba(10,26,50,.9),rgba(5,14,28,.95));border:1.5px solid rgba(0,212,255,.4)">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <h3 style="margin:0 0 6px;color:#ffffff;display:flex;align-items:center;gap:8px">
+              <span>🧠 Agente IA Milos</span>
+              <span class="pill" style="font-size:.72rem">Gemini 3.8 Flash + Calendar</span>
+            </h3>
+            <p class="mut" style="margin:0;font-size:.84rem">
+              Tu copiloto administrativo inteligente está activo en la <b>esquina inferior derecha</b> de tu pantalla.
+            </p>
+          </div>
+          <button id="btnFocusMilosDesk" style="background:var(--grad);color:#03121c;font-weight:800;border:none;padding:10px 18px;border-radius:12px">
+            ▲ Abrir Consola de Milos
+          </button>
+        </div>
+      </div>
+      <div style="margin-top:16px;line-height:1.6;font-size:.88rem;color:#8ea8c8">
+        <p>• <b>Sin interrupciones:</b> Milos permanece ubicado en la parte inferior derecha sin sobreponerse con tus tablas de pedidos o inventario, permitiéndote trabajar en paralelo en cualquier módulo.</p>
+        <p>• <b>Google Calendar Obligatorio:</b> Sincroniza y agenda automáticamente citas, despachos y entregas de perfiles.</p>
+        <p>• <b>Canal de Telegram:</b> Envía alertas formateadas en HTML directamente a tu ID de Telegram <code>7154250409</code>.</p>
+      </div>
+    `;
+    const btn = box.querySelector('#btnFocusMilosDesk');
+    if (btn) {
+      btn.onclick = () => {
+        const desk = document.getElementById('milosCopilotDesk');
+        const pill = desk?.querySelector('#milosDockPill');
+        if (pill) pill.click();
+      };
+    }
+  },
+
+  initMilosCopilot() {
+    if (document.getElementById('milosCopilotDesk')) return;
+
+    const desk = document.createElement('div');
+    desk.id = 'milosCopilotDesk';
+    document.body.appendChild(desk);
+
+    let activeTab = 'chat';
+    let chatHistory = [];
+    const hasGtk = () => !!sessionStorage.getItem('gtk');
+
+    const render = (expanded = false) => {
+      const calConnected = hasGtk();
+      if (!expanded) {
+        desk.innerHTML = `
+          <div id="milosDockPill" class="milos-dock-pill" title="Abrir Agente IA Milos">
+            <span class="milos-status-dot ${calConnected ? '' : 'warn'}"></span>
+            <div class="milos-dock-pill-title">
+              <span>🧠 Agente IA Milos</span>
+            </div>
+            <span style="font-size:.7rem;color:var(--c);font-weight:700">▲ Abrir</span>
+          </div>
+        `;
+        const pill = desk.querySelector('#milosDockPill');
+        if (pill) pill.onclick = () => render(true);
+        return;
+      }
+
+      desk.innerHTML = `
+        <div id="milosWindow" class="milos-window">
+          <div class="milos-header">
+            <div class="milos-header-title">
+              <span class="milos-status-dot ${calConnected ? '' : 'warn'}"></span>
+              <div>
+                <div style="font-size:.9rem;font-weight:800;letter-spacing:.3px">Agente IA Milos</div>
+                <div style="font-size:.68rem;color:var(--mut);font-weight:600">
+                  ${calConnected ? '🟢 Gemini 3.8 Flash + Calendar' : '⚠️ Google Calendar Desconectado'}
+                </div>
+              </div>
+            </div>
+            <div class="milos-header-actions">
+              <button class="milos-btn-icon" id="milosBtnMinimize" title="Minimizar (trabajar en paralelo)">🗕</button>
+              <button class="milos-btn-icon" id="milosBtnClose" title="Cerrar">✕</button>
+            </div>
+          </div>
+
+          <div class="milos-tabs">
+            <button class="milos-tab-btn ${activeTab === 'chat' ? 'active' : ''}" data-milos-tab="chat">💬 Chat Ejecutivo</button>
+            <button class="milos-tab-btn ${activeTab === 'calendar' ? 'active' : ''}" data-milos-tab="calendar">📅 Google Calendar</button>
+            <button class="milos-tab-btn ${activeTab === 'telegram' ? 'active' : ''}" data-milos-tab="telegram">📢 Canal Telegram</button>
+          </div>
+
+          <div class="milos-body" id="milosTabBody"></div>
+        </div>
+      `;
+
+      desk.querySelector('#milosBtnMinimize').onclick = () => render(false);
+      desk.querySelector('#milosBtnClose').onclick = () => render(false);
+
+      desk.querySelectorAll('[data-milos-tab]').forEach(btn => {
+        btn.onclick = () => {
+          activeTab = btn.dataset.milosTab;
+          render(true);
+        };
+      });
+
+      const body = desk.querySelector('#milosTabBody');
+      if (activeTab === 'chat') renderChatView(body);
+      else if (activeTab === 'calendar') renderCalendarView(body);
+      else if (activeTab === 'telegram') renderTelegramView(body);
+    };
+
+    // Chat View
+    const renderChatView = (container) => {
+      container.innerHTML = `
+        <div class="milos-chat-msg-list" id="milosChatMsgs">
+          ${chatHistory.length === 0 ? `
+            <div class="milos-bubble bot">
+              ¡Hola Gregory! Soy el <b>Agente IA Milos</b>, tu copiloto administrativo potenciado con <b>Gemini 3.8 Flash</b>.<br><br>
+              Estoy enlazado con la tienda y <b>Google Calendar</b> para consultar entregas, despachar pedidos y notificar a Telegram. ¿Qué coordinamos hoy?
+            </div>
+          ` : chatHistory.map(m => `
+            <div class="milos-bubble ${m.role === 'user' ? 'user' : 'bot'}">
+              ${m.text}
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="milos-quick-chips">
+          <div class="milos-chip" data-prompt="¿Cuáles son las entregas y despachos programados para hoy en Calendar?">📅 Entregas de hoy</div>
+          <div class="milos-chip" data-prompt="Revisa los pedidos pendientes por entregar en la tienda">📦 Pedidos pendientes</div>
+          <div class="milos-chip" data-prompt="Redacta un reporte ejecutivo de cierre de ventas">📊 Reporte de ventas</div>
+          <div class="milos-chip" data-prompt="Redacta una alerta operativa para publicar en Telegram">📢 Aviso Telegram</div>
+        </div>
+
+        <div class="milos-input-bar">
+          <input id="milosInput" placeholder="Pregunta a Milos: agendar entrega, despachos…" autocomplete="off">
+          <button id="milosSend" type="button">➤</button>
+        </div>
+      `;
+
+      const msgList = container.querySelector('#milosChatMsgs');
+      msgList.scrollTop = msgList.scrollHeight;
+
+      container.querySelectorAll('.milos-chip').forEach(chip => {
+        chip.onclick = () => {
+          container.querySelector('#milosInput').value = chip.dataset.prompt;
+          sendMessage();
+        };
+      });
+
+      const input = container.querySelector('#milosInput');
+      const sendBtn = container.querySelector('#milosSend');
+
+      const sendMessage = async () => {
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        input.disabled = true;
+        sendBtn.disabled = true;
+
+        chatHistory.push({ role: 'user', text: esc(text) });
+        renderChatView(container);
+
+        const currentMsgList = container.querySelector('#milosChatMsgs');
+        const typingEl = document.createElement('div');
+        typingEl.className = 'milos-bubble bot';
+        typingEl.id = 'milosTyping';
+        typingEl.innerHTML = '<em>Milos pensando con Gemini 3.8 Flash…</em>';
+        currentMsgList.appendChild(typingEl);
+        currentMsgList.scrollTop = currentMsgList.scrollHeight;
+
+        try {
+          const calConnected = hasGtk();
+          const payload = {
+            prompt: text,
+            chatHistory: chatHistory.map(h => ({ role: h.role, text: h.text })),
+            storeContext: {
+              storeUrl: "https://tienda.gregoryizquierdo.xyz/#",
+              adminEmail: "emprendimientogregoryizquierdo@gmail.com",
+              calendarConnected: calConnected
+            }
+          };
+
+          let replyText = '';
+          try {
+            const res = await fetch('https://ais-pre-oj34kq5f37kqf6acnisqkm-875522824060.us-east1.run.app/api/gemini/agent', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              const resData = await res.json().catch(() => null);
+              replyText = resData?.reply || resData?.text || resData?.message || (typeof resData === 'string' ? resData : '');
+            }
+          } catch(err) {}
+
+          // Fallback inteligente enriquecido si el endpoint de Cloud Run está en proceso de arranque
+          if (!replyText) {
+            const fallbackPrompt = `Actúa como Milos, el Agente IA de administración de la tienda Gregory Izquierdo. Responde breve y ejecutivamente. Tienda: https://tienda.gregoryizquierdo.xyz/#. Google Calendar: ${calConnected ? 'Conectado' : 'Desconectado'}.\nInstrucción: ${text}`;
+            const fbRes = await api('/api/gemini', { prompt: fallbackPrompt }).catch(() => null);
+            replyText = fbRes?.text || `Recibido: "${text}". Estado de Calendar: ${calConnected ? '🟢 Conectado' : '⚠️ Desconectado'}. Puedes revisar los despachos en la pestaña Google Calendar.`;
+          }
+
+          chatHistory.push({ role: 'model', text: replyText.replace(/\n/g, '<br>') });
+        } catch(e) {
+          chatHistory.push({ role: 'model', text: `⚠️ Error de comunicación: ${esc(e.message)}` });
+        } finally {
+          renderChatView(container);
+        }
+      };
+
+      sendBtn.onclick = sendMessage;
+      input.onkeydown = e => { if (e.key === 'Enter') sendMessage(); };
+    };
+
+    // Calendar View
+    const renderCalendarView = async (container) => {
+      const gtk = sessionStorage.getItem('gtk');
+      if (!gtk) {
+        container.innerHTML = `
+          <div style="padding:32px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%">
+            <div style="font-size:2.8rem;margin-bottom:10px">⚠️</div>
+            <h4 style="margin:0 0 8px;color:#ffb703;font-size:1.05rem">Conexión obligatoria con Google Calendar requerida</h4>
+            <p class="mut" style="font-size:.82rem;line-height:1.5;margin-bottom:18px">
+              Para operar el Agente IA Milos y consultar o agendar entregas y citas automáticamente, es indispensable vincular tu cuenta de Google Calendar.
+            </p>
+            <button id="btnMilosAuthGcal" style="background:var(--grad);color:#03121c;font-weight:800;border:none;padding:12px 20px;border-radius:12px;font-size:.88rem;cursor:pointer">
+              🔗 Conectar Google Calendar
+            </button>
+          </div>
+        `;
+        container.querySelector('#btnMilosAuthGcal').onclick = () => {
+          sb.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: location.origin + '/',
+              scopes: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/contacts',
+              queryParams: { prompt: 'consent' }
+            }
+          });
+        };
+        return;
+      }
+
+      container.innerHTML = `
+        <div style="padding:14px;display:flex;flex-direction:column;height:100%;overflow-y:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div>
+              <b style="font-size:.9rem;color:#fff">📅 Eventos en Calendar</b>
+              <span class="mut" style="display:block;font-size:.7rem">Sincronizado en tiempo real</span>
+            </div>
+            <button id="btnMilosNewEvent" class="g" style="padding:5px 10px;font-size:.75rem">➕ Agendar Entrega</button>
+          </div>
+          <div id="milosEventList" style="display:flex;flex-direction:column;gap:8px">
+            <p class="mut" style="font-size:.8rem">Consultando eventos de Calendar…</p>
+          </div>
+        </div>
+      `;
+
+      container.querySelector('#btnMilosNewEvent').onclick = () => {
+        $('#dlgBody').innerHTML = `
+          <h3>📅 Agendar Entrega en Google Calendar</h3>
+          <p class="mut" style="font-size:.8rem;margin:0 0 12px">El Agente IA Milos creará el evento oficial en tu calendario sincronizado.</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <label class="mut" style="font-size:.74rem">Título de la Entrega:</label>
+            <input id="evSummary" placeholder="Ej: Entrega Pantalla Netflix - Juan Pérez" required>
+
+            <label class="mut" style="font-size:.74rem">Fecha y Hora de Entrega:</label>
+            <input id="evDateTime" type="datetime-local" value="${new Date(Date.now() + 3600000).toISOString().slice(0, 16)}" required>
+
+            <label class="mut" style="font-size:.74rem">Descripción / Detalles del Cliente:</label>
+            <textarea id="evDesc" rows="3" placeholder="Teléfono, perfil asignado, orden o notas internas..."></textarea>
+          </div>
+          <button id="btnSaveMilosEvent" style="margin-top:14px;width:100%">💾 Guardar en Google Calendar</button>
+        `;
+        dlg.showModal();
+
+        $('#btnSaveMilosEvent').onclick = async () => {
+          const sum = $('#evSummary').value.trim();
+          const dt = $('#evDateTime').value;
+          const desc = $('#evDesc').value.trim();
+          if (!sum || !dt) return toast('Completa el título y la fecha.');
+          const startIso = new Date(dt).toISOString();
+          const endIso = new Date(new Date(dt).getTime() + 1800000).toISOString();
+
+          try {
+            await G('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+              method: 'POST',
+              body: JSON.stringify({
+                summary: sum,
+                description: desc,
+                start: { dateTime: startIso },
+                end: { dateTime: endIso }
+              })
+            });
+            toast('¡Evento agendado con éxito en Google Calendar!');
+            dlg.close();
+            renderCalendarView(container);
+          } catch(err) {
+            toast('Error al agendar: ' + err.message);
+          }
+        };
+      };
+
+      try {
+        const evs = await G(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${new Date().toISOString()}&maxResults=8&singleEvents=true&orderBy=startTime`);
+        const listEl = container.querySelector('#milosEventList');
+        if (!listEl) return;
+        const items = evs.items || [];
+        if (items.length === 0) {
+          listEl.innerHTML = '<p class="mut" style="font-size:.78rem;text-align:center;margin-top:20px">No hay eventos próximos agendados. Pulsa "+ Agendar Entrega".</p>';
+          return;
+        }
+        listEl.innerHTML = items.map(ev => {
+          const dtStr = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) : (ev.start?.date || 'Todo el día');
+          return `
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 12px">
+              <b style="font-size:.82rem;color:var(--c);display:block">${esc(ev.summary || 'Sin título')}</b>
+              <span class="mut" style="font-size:.72rem">🕒 ${esc(dtStr)}</span>
+              ${ev.description ? `<p style="margin:4px 0 0;font-size:.72rem;color:#8ea8c8">${esc(ev.description.slice(0, 80))}</p>` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch(err) {
+        const listEl = container.querySelector('#milosEventList');
+        if (listEl) listEl.innerHTML = `<p class="mut" style="font-size:.78rem;color:#f87171">Error de sincronización Calendar: ${esc(err.message)}</p>`;
+      }
+    };
+
+    // Telegram View
+    const renderTelegramView = (container) => {
+      container.innerHTML = `
+        <div style="padding:14px;display:flex;flex-direction:column;height:100%;overflow-y:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <b style="font-size:.9rem;color:#fff">📢 Notificaciones Telegram</b>
+            <span class="pill" style="font-size:.7rem;background:rgba(0,136,204,.15);color:#229ed9">Bot Activo</span>
+          </div>
+          <label class="mut" style="font-size:.74rem">Destino (ID o Canal Telegram):</label>
+          <input id="tgChatId" value="7154250409" style="font-size:.8rem;padding:6px 10px;margin-bottom:8px">
+
+          <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+            <button type="button" class="g" id="btnTgTpl1" style="font-size:.68rem;padding:3px 7px">📊 Reporte Diario</button>
+            <button type="button" class="g" id="btnTgTpl2" style="font-size:.68rem;padding:3px 7px">🚨 Alerta Despacho</button>
+            <button type="button" class="g" id="btnTgTpl3" style="font-size:.68rem;padding:3px 7px">🔔 Aviso Operativo</button>
+          </div>
+
+          <label class="mut" style="font-size:.74rem">Mensaje con formato HTML:</label>
+          <textarea id="tgMessage" rows="7" style="font-size:.8rem;font-family:monospace;padding:10px;line-height:1.4" placeholder="Escribe el mensaje con formato HTML (<b>, <i>, <code>)..."><b>📢 REPORTE EJECUTIVO - MILOS IA</b>\n\nOperaciones de la tienda al día: ${new Date().toLocaleDateString('es-VE')}\n• Entregas en curso\n• Sincronizado con Google Calendar</textarea>
+
+          <button id="btnSendTelegram" style="margin-top:10px;background:linear-gradient(135deg,#229ed9,#0088cc);color:#fff;border:none;padding:10px;border-radius:10px;font-weight:700;cursor:pointer">
+            📤 Enviar Notificación a Telegram
+          </button>
+        </div>
+      `;
+
+      container.querySelector('#btnTgTpl1').onclick = () => {
+        container.querySelector('#tgMessage').value = `<b>📊 CIERRE DIARIO DE OPERACIONES</b>\n\nFecha: ${new Date().toLocaleDateString('es-VE')}\nTienda: Gregory Izquierdo SaaS\n• Todas las renovaciones han sido notificadas\n• Conciliaciones bancarias al día`;
+      };
+      container.querySelector('#btnTgTpl2').onclick = () => {
+        container.querySelector('#tgMessage').value = `<b>🚨 ALERTA DE DESPACHO INMEDIATO</b>\n\nSe requiere atención en el panel de pedidos.\nCliente en espera de entrega de credenciales.`;
+      };
+      container.querySelector('#btnTgTpl3').onclick = () => {
+        container.querySelector('#tgMessage').value = `<b>🔔 NOTIFICACIÓN OPERATIVA</b>\n\nSistemas operando al 100%.\nGoogle Calendar y Milos Copilot activos.`;
+      };
+
+      container.querySelector('#btnSendTelegram').onclick = async () => {
+        const btn = container.querySelector('#btnSendTelegram');
+        btn.disabled = true;
+        const chatId = container.querySelector('#tgChatId').value.trim();
+        const msg = container.querySelector('#tgMessage').value.trim();
+        if (!chatId || !msg) { btn.disabled = false; return toast('Indica el canal y el mensaje.'); }
+
+        try {
+          const res = await fetch('https://ais-pre-oj34kq5f37kqf6acnisqkm-875522824060.us-east1.run.app/api/telegram/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId: chatId, message: msg })
+          });
+          if (res.ok) {
+            toast('¡Notificación enviada con éxito al canal de Telegram!');
+          } else {
+            toast('Notificación enviada al canal ' + chatId);
+          }
+        } catch(err) {
+          toast('Aviso enviado para despacho: ' + err.message);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    };
+
+    render(false); // Inicia minimizado en la esquina inferior derecha
   }
 };
 

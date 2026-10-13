@@ -90,8 +90,8 @@ values ('niveles_beneficios', '{
       },
       {
         "icono": "📅",
-        "titulo": "Financiamiento en 2 Cuotas (BNPL)",
-        "descripcion": "Posibilidad de pagar tus servicios en dos partes (50% inicial hoy y 50% a los 15 días).",
+        "titulo": "Financiamiento en Cuotas (BNPL)",
+        "descripcion": "Paga tus servicios en cuotas configuradas con límite de crédito base de $10.00 USD.",
         "destacado": true
       },
       {
@@ -115,13 +115,13 @@ values ('niveles_beneficios', '{
     "prefijo_codigo": "RVD",
     "color": "#ffb703",
     "badge_icon": "⭐",
-    "descuento_porcentaje": "15% a 25% Descuento Mayorista",
-    "requisito_acceso": "Volumen mínimo de 5 compras mensuales o recarga de saldo comercial",
+    "descuento_porcentaje": "Precios Especiales por Producto",
+    "requisito_acceso": "Aprobación de cuenta comercial o recarga inicial de saldo",
     "beneficios": [
       {
         "icono": "🏷️",
-        "titulo": "Tarifas Mayoristas Automáticas",
-        "descripcion": "Precios especiales con descuento directo visible en todo el catálogo de pantallas y cuentas completas.",
+        "titulo": "Tarifas Mayoristas por Producto",
+        "descripcion": "Precios especiales de revendedor asignados directamente en la ficha de cada producto.",
         "destacado": true
       },
       {
@@ -138,8 +138,8 @@ values ('niveles_beneficios', '{
       },
       {
         "icono": "💳",
-        "titulo": "Línea de Crédito Comercial",
-        "descripcion": "Entrega de pantallas a crédito para que no detengas tus ventas mientras recibes los pagos de tus clientes.",
+        "titulo": "Línea de Crédito Comercial ($10.00 Base)",
+        "descripcion": "Límite base por defecto de $10.00 USD, ampliable por administración.",
         "destacado": true
       },
       {

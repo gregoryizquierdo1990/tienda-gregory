@@ -330,6 +330,39 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
   #invoiceDlg{position:fixed;left:0;top:0;width:100%!important;max-width:100%!important;border:none!important;box-shadow:none!important;padding:0!important;margin:0!important;background:#ffffff!important;color:#000000!important}
   .invoice-acts{display:none!important}
 }
+
+/* Agente IA Milos - Executive Admin Copilot Desk */
+#milosCopilotDesk{position:fixed;bottom:18px;right:22px;z-index:999;font-family:'Sora',sans-serif;display:none;flex-direction:column;align-items:flex-end;pointer-events:none}
+body.is-admin #milosCopilotDesk{display:flex}
+:not(.is-admin) #milosCopilotDesk{display:none!important}
+.milos-dock-pill{pointer-events:auto;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(10,26,50,.96),rgba(5,14,28,.99));border:1.5px solid rgba(0,212,255,.45);box-shadow:0 12px 32px rgba(0,0,0,.75),0 0 20px rgba(0,212,255,.2);border-radius:99px;padding:8px 16px;cursor:pointer;transition:all .2s ease;user-select:none}
+.milos-dock-pill:hover{transform:translateY(-2px);border-color:var(--a);box-shadow:0 16px 36px rgba(0,0,0,.85),0 0 26px rgba(0,245,160,.3)}
+.milos-dock-pill-title{font-size:.84rem;font-weight:800;color:#ffffff;display:flex;align-items:center;gap:6px}
+.milos-status-dot{width:8px;height:8px;border-radius:50%;background:#00f5a0;box-shadow:0 0 8px #00f5a0}
+.milos-status-dot.warn{background:#ffb703;box-shadow:0 0 8px #ffb703}
+.milos-window{pointer-events:auto;width:410px;max-width:calc(100vw - 32px);height:570px;max-height:calc(100vh - 90px);background:linear-gradient(180deg,rgba(10,24,46,.98) 0%,rgba(5,12,24,.99) 100%);border:1.5px solid rgba(0,212,255,.35);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.9),0 0 35px rgba(0,212,255,.15);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;flex-direction:column;overflow:hidden;animation:milosSlideUp .22s ease-out}
+@keyframes milosSlideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.milos-header{padding:12px 16px;background:linear-gradient(135deg,rgba(14,34,64,.95),rgba(7,18,36,.98));border-bottom:1px solid rgba(0,212,255,.2);display:flex;justify-content:space-between;align-items:center}
+.milos-header-title{display:flex;align-items:center;gap:10px;font-size:.92rem;font-weight:800;color:#ffffff}
+.milos-header-actions{display:flex;align-items:center;gap:4px}
+.milos-btn-icon{background:transparent;border:none;color:var(--mut);font-size:1.1rem;cursor:pointer;padding:4px 8px;box-shadow:none;transition:color .15s}
+.milos-btn-icon:hover{color:#ffffff;background:transparent;box-shadow:none}
+.milos-tabs{display:flex;background:rgba(3,8,18,.7);border-bottom:1px solid rgba(22,51,90,.8);padding:4px 8px;gap:6px}
+.milos-tab-btn{flex:1;background:transparent;border:none;color:#8ea8c8;font-size:.74rem;font-weight:700;padding:6px 4px;border-radius:8px;cursor:pointer;box-shadow:none;transition:all .15s;text-align:center}
+.milos-tab-btn:hover{background:rgba(255,255,255,.05);color:#ffffff;box-shadow:none}
+.milos-tab-btn.active{background:rgba(0,212,255,.15);color:var(--c);border:1px solid rgba(0,212,255,.3)}
+.milos-body{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.milos-chat-msg-list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.milos-bubble{max-width:85%;padding:10px 14px;border-radius:14px;font-size:.82rem;line-height:1.45;word-break:break-word}
+.milos-bubble.user{align-self:flex-end;background:linear-gradient(135deg,rgba(0,212,255,.2),rgba(0,245,160,.18));border:1px solid rgba(0,212,255,.4);color:#ffffff}
+.milos-bubble.bot{align-self:flex-start;background:rgba(14,30,54,.85);border:1px solid rgba(255,255,255,.08);color:#d1e2f7}
+.milos-bubble.bot b,.milos-bubble.bot strong{color:#ffffff}
+.milos-quick-chips{display:flex;gap:6px;overflow-x:auto;padding:6px 12px;background:rgba(3,8,18,.4);border-top:1px solid rgba(255,255,255,.05)}
+.milos-chip{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--c);padding:4px 9px;border-radius:99px;font-size:.7rem;font-weight:700;white-space:nowrap;cursor:pointer;transition:all .15s}
+.milos-chip:hover{background:rgba(0,245,160,.15);border-color:var(--a);color:var(--a)}
+.milos-input-bar{display:flex;gap:6px;padding:10px 12px;border-top:1px solid rgba(22,51,90,.8);background:rgba(7,16,32,.95)}
+.milos-input-bar input{flex:1;font-size:.82rem;padding:8px 12px;border-radius:10px;background:rgba(3,8,18,.8);border:1px solid var(--line);color:#ffffff}
+.milos-input-bar button{background:var(--grad);color:#03121c;border:none;padding:8px 14px;border-radius:10px;font-weight:800;cursor:pointer}
 </style></head><body>
 <div class="watermark-bg" id="watermarkBg" aria-hidden="true"><img src="/logo.png" alt="" id="watermarkImg"></div>
 <header><div class="brand"><div class="logo"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo"></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
@@ -350,6 +383,20 @@ const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const toast = m => { $('#dlgBody').innerHTML = '<p>'+esc(m)+'</p>'; if(!dlg.open) dlg.showModal(); };
+const formatBcvDate = dStr => {
+  if(!dStr) return '';
+  if(typeof dStr !== 'string') dStr = String(dStr);
+  const clean = dStr.split('T')[0].trim();
+  const parts = clean.split('-');
+  if(parts.length !== 3) return dStr;
+  const [yyyy, mm, dd] = parts;
+  if(yyyy.length !== 4) return dStr;
+  const dt = new Date(`${yyyy}-${mm}-${dd}T12:00:00Z`);
+  if(isNaN(dt.getTime())) return dStr;
+  const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const dayName = days[dt.getUTCDay()];
+  return `${dayName} ${String(dd).padStart(2, '0')}-${String(mm).padStart(2, '0')}-${yyyy}`;
+};
 
 const DEFAULT_MESSAGE_TEMPLATES = {
   entrega_servicio: {
@@ -431,7 +478,7 @@ const DEFAULT_NIVELES_BENEFICIOS = {
     beneficios: [
       { icono: '💳', titulo: 'Tarjeta Digital Zeny Oficial', descripcion: 'Tarjeta personalizada vinculada a tu saldo para compras instantáneas.', destacado: true },
       { icono: '🛡️', titulo: 'Garantía Total por 30 Días', descripcion: 'Soporte y reactivación inmediata ante cualquier reporte en tus perfiles.', destacado: true },
-      { icono: '📅', titulo: 'Financiamiento en 2 Cuotas (BNPL)', descripcion: 'Paga tus servicios en dos partes (50% hoy y 50% a los 15 días).', destacado: true },
+      { icono: '📅', titulo: 'Financiamiento en Cuotas (BNPL)', descripcion: 'Paga tus compras en cuotas con límite de crédito base de $10.00 USD.', destacado: true },
       { icono: '🧾', titulo: 'Facturación Digital Oficial', descripcion: 'Recibos oficiales emitidos en USD y Bolívares con tasa BCV legal.', destacado: false },
       { icono: '🔔', titulo: 'Recordatorios Automatizados', descripcion: 'Avisos oportunos a tu WhatsApp antes del vencimiento de tus servicios.', destacado: false }
     ]
@@ -443,13 +490,13 @@ const DEFAULT_NIVELES_BENEFICIOS = {
     prefijo_codigo: 'RVD',
     color: '#ffb703',
     badge_icon: '⭐',
-    descuento_porcentaje: '15% a 25% Descuento Mayorista',
-    requisito_acceso: 'Volumen mínimo de 5 compras mensuales o recarga de saldo comercial',
+    descuento_porcentaje: 'Precios Especiales por Producto',
+    requisito_acceso: 'Aprobación de cuenta comercial o recarga inicial de saldo',
     beneficios: [
-      { icono: '🏷️', titulo: 'Tarifas Mayoristas Automáticas', descripcion: 'Descuento directo del 15% al 25% en todo el catálogo de pantallas.', destacado: true },
+      { icono: '🏷️', titulo: 'Tarifas Mayoristas por Producto', descripcion: 'Precios especiales de revendedor asignados directamente en el catálogo.', destacado: true },
       { icono: '📋', titulo: 'Reenvío Limpio de Accesos', descripcion: 'Botón de 1 clic para copiar credenciales sin marcas para tus compradores.', destacado: true },
       { icono: '🆔', titulo: 'Identificador VIP RVD:1001+', descripcion: 'Código prioritario en el sistema para aprobación express de compras.', destacado: true },
-      { icono: '💳', titulo: 'Línea de Crédito Comercial', descripcion: 'Entrega de pantallas a crédito para que no detengas tus ventas.', destacado: true },
+      { icono: '💳', titulo: 'Línea de Crédito Comercial ($10.00 Base)', descripcion: 'Límite base por defecto de $10.00 USD, ampliable por administración.', destacado: true },
       { icono: '⚡', titulo: 'Canal de Soporte Directo', descripcion: 'Atención preferencial por WhatsApp para solución de incidencias y traslados.', destacado: false }
     ]
   },
@@ -466,7 +513,7 @@ const DEFAULT_NIVELES_BENEFICIOS = {
       { icono: '🌐', titulo: 'Tienda Web con Subdominio Propio', descripcion: 'Tu propio sitio web operativo 24/7 en tufranquicia.gregoryizquierdo.xyz listo para vender.', destacado: true },
       { icono: '🎨', titulo: 'Identidad de Marca 100% Personalizada', descripcion: 'Tu propio logo, colores de marca y teléfonos de contacto independientes.', destacado: true },
       { icono: '💼', titulo: 'Panel de Administración Privado', descripcion: 'Control total de tus propios clientes, pedidos e incidencias.', destacado: true },
-      { icono: '🔑', titulo: 'Inventario Centralizado Automatizado', descripcion: 'Vende directamente del stock global sin comprar cuentas por adelantado.', destacado: true },
+      { icono: '🔄', titulo: 'Inventario Híbrido Flexible', descripcion: 'Vende con tus cuentas propias o despacha con respaldo del stock central a precio mayorista.', destacado: true },
       { icono: '🛠️', titulo: 'Soporte y Mantenimiento Tecnológico', descripcion: 'Servidores, certificados SSL y seguridad mantenidos por la central.', destacado: false }
     ]
   }
@@ -552,9 +599,10 @@ function openInvoiceModal(invData){
         </div>
       </div>
 
-      <!-- Detalle de Forma de Pago y Tasa Oficial -->
+      <!-- Detalle de Forma de Pago, Referencia y Tasa Oficial -->
       <div style="background:#f1f5f9;border-radius:8px;padding:8px 12px;font-size:.76rem;margin-bottom:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <div><b>Método de Pago:</b> <span style="color:#0f172a">${esc(metodoPago)}</span></div>
+        <div><b>Método de Pago:</b> <span style="color:#0f172a;font-weight:700">${esc(metodoPago)}</span></div>
+        <div><b>Referencia Bancaria:</b> <code style="color:#0f172a;font-weight:700;font-size:.82rem">${esc(invData.referencia || '—')}</code></div>
         <div><b>Tasa Oficial BCV:</b> <span style="color:#0284c7;font-weight:700">${tasaBcv > 0 ? `${tasaBcv.toLocaleString('es-VE')} Bs/USD` : 'N/A'}</span></div>
       </div>
 
@@ -611,15 +659,17 @@ function openInvoiceModal(invData){
         Documento probatorio digital emitido conforme a las condiciones del servicio.
       </div>
 
-      <!-- Acciones: Imprimir / WhatsApp / Cerrar -->
+      <!-- Acciones: Solo Administrador puede descargar o compartir; Clientes solo visualizan en linea -->
       <div class="invoice-acts">
-        <button id="btnInvPrint" type="button" style="flex:1;background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff">
-          🖨️ Imprimir / Descargar PDF
-        </button>
-        <button id="btnInvWa" type="button" style="flex:1;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#03121c">
-          📲 Enviar por WhatsApp
-        </button>
-        <button class="g" id="btnInvClose" type="button" style="color:#334155;border-color:#cbd5e1">
+        ${S.isAdmin ? `
+          <button id="btnInvPrint" type="button" style="flex:1;background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff">
+            🖨️ Imprimir / Descargar PDF
+          </button>
+          <button id="btnInvWa" type="button" style="flex:1;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#03121c">
+            📲 Enviar por WhatsApp
+          </button>
+        ` : ''}
+        <button class="g" id="btnInvClose" type="button" style="${S.isAdmin ? '' : 'width:100%;'}color:#334155;border-color:#cbd5e1">
           Cerrar
         </button>
       </div>
@@ -627,24 +677,26 @@ function openInvoiceModal(invData){
   `;
 
   $('#btnInvClose').onclick = () => invoiceDlg.close();
-  $('#btnInvPrint').onclick = () => window.print();
+  if($('#btnInvPrint')) $('#btnInvPrint').onclick = () => window.print();
 
-  $('#btnInvWa').onclick = () => {
-    const rawWa = formatMessageTemplate('recibo_factura', {
-      cliente: clienteNombre,
-      numero_factura: numStr,
-      fecha: fechaStr,
-      total_usd: totalUsd.toFixed(2),
-      total_bs: totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
-      tasa_bcv: tasaBcv.toLocaleString('es-VE'),
-      negocio: emisorNombre,
-      rif: emisorRif
-    });
-    const waText = encodeURIComponent(rawWa);
-    const destTel = (invData.cliente_telefono || '').replace(/\D/g, '');
-    const url = destTel ? `https://wa.me/${destTel}?text=${waText}` : `https://wa.me/?text=${waText}`;
-    window.open(url, '_blank');
-  };
+  if($('#btnInvWa')) {
+    $('#btnInvWa').onclick = () => {
+      const rawWa = formatMessageTemplate('recibo_factura', {
+        cliente: clienteNombre,
+        numero_factura: numStr,
+        fecha: fechaStr,
+        total_usd: totalUsd.toFixed(2),
+        total_bs: totalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+        tasa_bcv: tasaBcv.toLocaleString('es-VE'),
+        negocio: emisorNombre,
+        rif: emisorRif
+      });
+      const waText = encodeURIComponent(rawWa);
+      const destTel = (invData.cliente_telefono || '').replace(/\D/g, '');
+      const url = destTel ? `https://wa.me/${destTel}?text=${waText}` : `https://wa.me/?text=${waText}`;
+      window.open(url, '_blank');
+    };
+  }
 
   invoiceDlg.showModal();
 }
@@ -729,7 +781,8 @@ async function loadPublic(){
     sb.rpc('stock')]);
   S.banners = bn.data||[]; S.stock = Object.fromEntries((st.data||[]).map(x=>[x.product_id,Number(x.disponibles)]));
   S.rate = Number(r.data?.[0]?.bs_por_usd||0); S.products = p.data||[];
-  S.rateDate = r.data?.[0]?.fecha || '';
+  S.rateDateRaw = r.data?.[0]?.fecha || '';
+  S.rateDate = formatBcvDate(S.rateDateRaw);
   S.settings = Object.fromEntries((s.data||[]).map(x=>[x.key,x.value]));
   const rateStr = S.rate ? `Tasa oficial BCV: ${S.rate.toLocaleString('es-VE')} Bs/USD · ${S.rateDate}` : 'Tasa BCV no disponible';
   $('#rate').textContent = rateStr;
@@ -801,10 +854,8 @@ function skeleton(){ return '<div class="hero"><div class="sk" style="min-height
 function productCard(p){
   const isReseller = S.me?.es_revendedor === true;
   const originalPrice = Number(p.precio_usd);
-  // Precio mayorista: si el producto tiene precio_revendedor_usd lo usa; sino calcula un 15% de descuento mayorista por defecto
-  const effectivePrice = isReseller
-    ? (p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0 ? Number(p.precio_revendedor_usd) : Math.round((originalPrice * 0.85) * 100) / 100)
-    : originalPrice;
+  const hasResellerSpecial = isReseller && p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0;
+  const effectivePrice = hasResellerSpecial ? Number(p.precio_revendedor_usd) : originalPrice;
 
   const out=!(S.stock[p.id]>0||p.tipo==='servicio'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(effectivePrice*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
   
@@ -812,16 +863,16 @@ function productCard(p){
    <div class="pb">
      <div style="display:flex;justify-content:space-between;align-items:center">
        <span class="tag">${esc(TL[p.tipo]||p.tipo)}</span>
-       ${isReseller ? '<span class="reseller-badge">VIP Revendedor</span>' : ''}
+       ${hasResellerSpecial ? '<span class="reseller-badge">Precio Revendedor</span>' : ''}
      </div>
      <h3>${esc(p.nombre)}</h3><p class="mut">${esc(p.descripcion)}</p>
      <div class="meta"><span>⏱ ${p.duracion_dias} días</span><span>🛡 Garantía ${p.garantia_dias||0} días</span></div>
      <div class="buy">
        <div>
          <div class="price">
-           ${isReseller ? `<span class="reseller-orig-price">$${originalPrice.toFixed(2)}</span>` : ''}
+           ${hasResellerSpecial ? `<span class="reseller-orig-price">$${originalPrice.toFixed(2)}</span>` : ''}
            ${money(effectivePrice)}
-           ${isReseller ? `<span class="reseller-price-tag">Mayorista</span>` : ''}
+           ${hasResellerSpecial ? `<span class="reseller-price-tag">Revendedor</span>` : ''}
          </div>
          ${bs}
        </div>
@@ -944,17 +995,37 @@ async function buyDlg(id){
   const isReseller = S.me?.es_revendedor === true;
   const standardPrice = Number(p.precio_usd);
   const totalOriginal = isReseller
-    ? (p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0 ? Number(p.precio_revendedor_usd) : Math.round((standardPrice * 0.85) * 100) / 100)
+    ? (p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0 ? Number(p.precio_revendedor_usd) : standardPrice)
     : standardPrice;
 
-  const isBnplEligible = totalOriginal >= 5; // Aplica para montos desde $5 en adelante
-  const cuotaInicialUsd = Math.round((totalOriginal * 0.5) * 100) / 100;
-  const cuotaDosUsd = Math.round((totalOriginal - cuotaInicialUsd) * 100) / 100;
+  // Parametros configurables de cuotas (definidos manualmente por el admin en ajustes)
+  const cuotasCfg = S.settings?.cuotas_config || { inicial_porcentaje: 50, total_cuotas: 2, dias_frecuencia: 15, monto_minimo: 5.00 };
+  const isBnplEligible = totalOriginal >= Number(cuotasCfg.monto_minimo || 5);
+  const nCuotas = Math.max(2, Number(cuotasCfg.total_cuotas || 2));
+  const pctInicial = Math.min(90, Math.max(10, Number(cuotasCfg.inicial_porcentaje || 50)));
+  const cuotaInicialUsd = Math.round((totalOriginal * (pctInicial / 100)) * 100) / 100;
+  const restanteUsd = Math.round((totalOriginal - cuotaInicialUsd) * 100) / 100;
+  const cuotaRestanteUsd = Math.round((restanteUsd / (nCuotas - 1)) * 100) / 100;
+  const diasFrecuencia = Number(cuotasCfg.dias_frecuencia || 15);
 
   const dateNow = new Date();
   const d1Str = dateNow.toISOString().slice(0, 10);
-  const d2 = new Date(dateNow.getTime() + 15 * 86400000);
-  const d2Str = d2.toISOString().slice(0, 10);
+
+  const buildInstallmentsData = (ordId, refVal) => {
+    const list = [{
+      order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: nCuotas,
+      monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', referencia: refVal
+    }];
+    for(let c = 2; c <= nCuotas; c++){
+      const due = new Date(dateNow.getTime() + (c - 1) * diasFrecuencia * 86400000).toISOString().slice(0, 10);
+      const mCuota = c === nCuotas ? (restanteUsd - cuotaRestanteUsd * (nCuotas - 2)) : cuotaRestanteUsd;
+      list.push({
+        order_id: ordId, customer_id: S.user.id, numero_cuota: c, total_cuotas: nCuotas,
+        monto_usd: Math.round(mCuota * 100) / 100, fecha_vencimiento: due, estado: 'pendiente'
+      });
+    }
+    return list;
+  };
 
   // Parsea datos estructurados: si viene como objeto los usa; si el administrador guardó todo en un solo texto o nombre lo divide en cajones limpios
   const parseMethodFields = (method) => {
@@ -1546,7 +1617,7 @@ async function portal(){
     const curLevel = nivelesCfg[curLevelKey] || DEFAULT_NIVELES_BENEFICIOS[curLevelKey] || DEFAULT_NIVELES_BENEFICIOS.cliente;
 
     const instData = inst?.data || [];
-    const creditLimit = Number(S.me?.limite_credito || 30.00);
+    const creditLimit = Number(S.me?.limite_credito != null ? S.me.limite_credito : 10.00);
     const creditTier = S.me?.nivel_credito || 'Bronce';
     const usedCredit = instData.filter(x => x.estado !== 'pagada').reduce((a, x) => a + Number(x.monto_usd || 0), 0);
     const availableCredit = Math.max(0, creditLimit - usedCredit);
@@ -1886,6 +1957,8 @@ async function portal(){
       const invId = b.dataset.viewInv;
       const inv = (i.data||[]).find(x => x.id === invId);
       if(!inv) return;
+      const ord = (o.data||[]).find(x => x.id === inv.order_id);
+      const payMethodName = ord?.payment_methods?.nombre || (ord?.referencia?.includes('Zeny') ? 'Billetera ZenyPoints' : (ord?.metodo_id ? 'Pago Bancario / Móvil' : 'Conciliación Digital'));
       openInvoiceModal({
         numero: inv.numero,
         fecha: inv.emitida ? new Date(inv.emitida).toLocaleString('es-VE') : new Date().toLocaleString('es-VE'),
@@ -1897,9 +1970,10 @@ async function portal(){
         tasa_bs: inv.tasa_bs,
         total_usd: inv.total_usd,
         total_bs: inv.total_bs,
-        metodo_pago: 'Conciliación Digital de Pedido',
+        metodo_pago: payMethodName,
+        referencia: ord?.referencia || inv.referencia || '—',
         items: [
-          { concepto: 'Suscripción / Pantalla Digital', cant: 1, precio_usd: inv.total_usd, total_usd: inv.total_usd }
+          { concepto: ord?.products?.nombre || 'Suscripción / Pantalla Digital', cant: 1, precio_usd: inv.total_usd, total_usd: inv.total_usd }
         ]
       });
     };
@@ -2013,7 +2087,7 @@ const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta']};
 const BOOL=['activo','activa','enabled','es_revendedor'], READONLY={customers:['zeny_balance']};
 const NOADD=['refunds','transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:10}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Asignar Crédito</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -2065,6 +2139,7 @@ const ADMIN_MENU = [
   {
     group: 'Bots & IA',
     items: [
+      { id: 'copilot', label: 'Agente IA Milos', icon: '🧠' },
       { id: 'telegram', label: 'Bot Telegram', icon: '🤖' },
       { id: 'bot_commands', label: 'Respuestas Bot', icon: '⚡' },
       { id: 'plantillas', label: 'Plantillas Mensajes', icon: '💬' },
@@ -2152,6 +2227,9 @@ async function admin(t){
     if(!ok) return toast('Acceso solo para el administrador');
   }
   document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
+  if(typeof EXTRA?.initMilosCopilot === 'function') EXTRA.initMilosCopilot();
+  const mDesk = document.getElementById('milosCopilotDesk');
+  if(mDesk) mDesk.style.display = 'flex';
   const tabs=[...Object.keys(TABLES),...Object.keys(EXTRA)];
   const tabInfo=getTabInfo(t), sideHtml=renderAdminSidebar(t,tabs);
   const mobBar=`<div class="admin-mobile-bar"><button class="admin-mobile-toggle" id="adminToggle" type="button"><span>☰ Menú: <strong>${tabInfo.icon} ${esc(tabInfo.label)}</strong></span><span class="mut" style="font-size:.74rem">Abrir ▾</span></button></div>`;
@@ -2194,6 +2272,42 @@ async function admin(t){
   app.querySelectorAll('[data-ref]').forEach(b=>b.onclick=()=>refundDlg(b.dataset.ref,b.dataset.tot,()=>admin(t)));
   app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));
   app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
+  app.querySelectorAll('[data-set-credit]').forEach(b=>b.onclick=()=>{
+    const uid=b.dataset.setCredit, nom=b.dataset.nom, cur=Number(b.dataset.cur||10).toFixed(2);
+    $('#dlgBody').innerHTML=`
+      <h3>💳 Asignar Límite de Crédito</h3>
+      <p class="mut" style="font-size:.85rem;margin:0 0 14px">Establece el límite de crédito disponible para <b>${esc(nom)}</b>.</p>
+      <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <span class="mut" style="font-size:.82rem">Límite actual:</span>
+          <b style="color:var(--c);font-size:1.1rem">$${cur} USD</b>
+        </div>
+        <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nuevo Límite de Crédito ($ USD):</label>
+        <input id="inputNewCreditLimit" type="number" step="1" min="0" value="${cur}" style="width:100%;font-size:1.15rem;font-weight:700" placeholder="Ej: 10, 25, 50, 100">
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=10">$10 (Base)</button>
+          <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=20">$20</button>
+          <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=30">$30</button>
+          <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=50">$50</button>
+          <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=100">$100</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="g" onclick="dlg.close()">Cancelar</button>
+        <button id="btnSaveCreditLimit">💾 Guardar Límite</button>
+      </div>
+    `;
+    dlg.showModal();
+    $('#btnSaveCreditLimit').onclick=async()=>{
+      const val=parseFloat($('#inputNewCreditLimit').value);
+      if(isNaN(val)||val<0) return toast('Ingresa un monto válido mayor o igual a 0');
+      const {error:err}=await sb.from('customers').update({limite_credito:val}).eq('id',uid);
+      if(err) return toast('Error al actualizar límite: '+err.message);
+      toast(`Límite de crédito actualizado a $${val.toFixed(2)} USD para ${nom}`);
+      dlg.close();
+      if(S.view==='admin') admin(t);
+    };
+  });
   const form=async row=>{
     const fks={}; await Promise.all(cols.filter(c=>FK[c]).map(async c=>{const [tb,lb]=FK[c];const {data:d}=await sb.from(tb).select('id,'+lb).limit(500);fks[c]=d||[];}));
     const inp=c=>{const v=row?row[c]:''; const ro=(READONLY[t]||[]).includes(c)&&row;

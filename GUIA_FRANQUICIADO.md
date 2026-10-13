@@ -62,8 +62,9 @@ Antes de hacer tu primera venta, debes configurar dónde recibirás el dinero de
 - Puedes modificar el precio de venta al público en USD, agregar descripciones atractivas o pausar productos que no tengas disponibles temporalmente.
 - **Precio Mayorista / Revendedor:** Puedes configurar precios preferenciales para clientes recurrentes que te compren por volumen.
 
-### 🔐 2. Cuentas Madre e Inventario de Perfiles (`mother_accounts` / `profiles_inventory`)
-- Es el corazón del sistema donde se almacenan las cuentas originales (Netflix, Disney+, Max, etc.).
+### 🔐 2. Cuentas Madre e Inventario Híbrido (`mother_accounts` / `profiles_inventory`)
+- **Stock Propio:** Puedes cargar tus cuentas originales y perfiles para obtener el 100% de tu margen de ganancia neto.
+- **Respaldo con Stock Central (Modalidad Híbrida):** Si se te agota un servicio o prefieres no comprar cuentas por adelantado, tu tienda puede despachar directamente desde el inventario central del Proveedor Tecnológico a tarifa mayorista preferencial para que nunca dejes de vender.
 - Cada cuenta madre tiene sus credenciales cifradas y se divide en perfiles (Perfil 1, Perfil 2, PIN).
 - Cuando un cliente compra y tú apruebas el pedido, el sistema toma automáticamente un perfil disponible y se lo entrega al cliente en su portal.
 
