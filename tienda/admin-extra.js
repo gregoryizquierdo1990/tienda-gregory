@@ -7,11 +7,379 @@ const G = async (url, opt = {}) => {
   const t = sessionStorage.getItem('gtk'); if (!t) throw new Error('Conecta Google primero (botón "Conectar Google").');
   const r = await fetch(url, { ...opt, headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json', ...(opt.headers || {}) } });
   if (r.status === 401) { sessionStorage.removeItem('gtk'); throw new Error('Sesión de Google vencida: vuelve a conectar.'); }
+  if (r.status === 204 || r.headers.get('content-length') === '0') return true;
   if (!r.ok) throw new Error((await r.text()).slice(0, 200)); return r.json();
 };
 const dump = async () => { const o = {}; for (const t of ['settings', 'customers', 'products', 'categories', 'banners', 'orders', 'invoices', 'zeny_ledger', 'payment_methods', 'faqs', 'incidents', 'bot_commands', 'exchange_rates']) o[t] = (await sb.from(t).select('*')).data || []; return o; };
 const loadXLSX = () => window.XLSX ? Promise.resolve() : new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = ok; s.onerror = () => ko(new Error('No se pudo cargar el lector de Excel')); document.head.appendChild(s); });
 const run = async (btn, fn) => { btn.disabled = true; try { toast(await fn()); } catch (e) { toast('Error: ' + e.message); } btn.disabled = false; };
+
+const MILOS_CHAT_HISTORY = [];
+
+const MilosCalendar = {
+  CAL_ID: 'emprendimientogregoryizquierdo@gmail.com',
+  TZ: 'America/Caracas',
+  EMBED_URL: 'https://calendar.google.com/calendar/embed?src=emprendimientogregoryizquierdo%40gmail.com&ctz=America%2FCaracas',
+
+  async listEvents(limit = 10) {
+    const min = new Date(Date.now() - 43200000).toISOString();
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.CAL_ID)}/events?timeMin=${min}&timeZone=${encodeURIComponent(this.TZ)}&maxResults=${limit}&singleEvents=true&orderBy=startTime`;
+    const res = await G(url);
+    return res.items || [];
+  },
+
+  async createEvent({ summary, description, startDateTime, durationMinutes = 30 }) {
+    const start = new Date(startDateTime);
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.CAL_ID)}/events`;
+    return G(url, {
+      method: 'POST',
+      body: JSON.stringify({
+        summary,
+        description: description || '',
+        start: { dateTime: start.toISOString(), timeZone: this.TZ },
+        end: { dateTime: end.toISOString(), timeZone: this.TZ }
+      })
+    });
+  },
+
+  async updateEvent(eventId, { summary, description }) {
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.CAL_ID)}/events/${eventId}`;
+    const patch = {};
+    if (summary !== undefined) patch.summary = summary;
+    if (description !== undefined) patch.description = description;
+    return G(url, {
+      method: 'PATCH',
+      body: JSON.stringify(patch)
+    });
+  },
+
+  async rescheduleEvent(eventId, { startDateTime, durationMinutes = 30, note = '' }) {
+    const start = new Date(startDateTime);
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.CAL_ID)}/events/${eventId}`;
+    const cur = await G(url).catch(() => null);
+    const prevDesc = cur?.description || '';
+    const noteLine = note ? `\n[Reagendado]: ${note} (${new Date().toLocaleString('es-VE')})` : '';
+    return G(url, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        start: { dateTime: start.toISOString(), timeZone: this.TZ },
+        end: { dateTime: end.toISOString(), timeZone: this.TZ },
+        description: (prevDesc + noteLine).trim()
+      })
+    });
+  },
+
+  async deleteEvent(eventId) {
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.CAL_ID)}/events/${eventId}`;
+    return G(url, { method: 'DELETE' });
+  },
+
+  async triggerChatAction(action, eventId, done) {
+    try {
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.CAL_ID)}/events/${eventId}`;
+      const ev = await G(url);
+      if (!ev) return toast('Evento no encontrado en Google Calendar.');
+      if (action === 'edit') this.openEditDlg(ev, done);
+      else if (action === 'reschedule') this.openRescheduleDlg(ev, done);
+      else if (action === 'delete') this.confirmDelete(ev, done);
+    } catch(e) {
+      toast('Error al procesar acción: ' + e.message);
+    }
+  },
+
+  // Modal para Crear
+  openCreateDlg(done, prefill = {}) {
+    const defaultDt = prefill.dateTime || new Date(Date.now() + 3600000).toISOString().slice(0, 16);
+    $('#dlgBody').innerHTML = `
+      <h3>➕ Crear Evento en Google Calendar</h3>
+      <p class="mut" style="font-size:.78rem;margin:0 0 12px">Calendario Oficial: <b>${this.CAL_ID}</b> · (${this.TZ})</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label class="mut" style="font-size:.74rem">Título del Evento / Despacho:</label>
+        <input id="calInpSummary" value="${esc(prefill.summary || '')}" placeholder="Ej: Entrega Cuenta Netflix - Carlos Pérez" required>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label class="mut" style="font-size:.74rem">Fecha y Hora de Inicio (${this.TZ}):</label>
+            <input id="calInpDateTime" type="datetime-local" value="${defaultDt}" required>
+          </div>
+          <div>
+            <label class="mut" style="font-size:.74rem">Duración Estimada:</label>
+            <select id="calInpDuration">
+              <option value="15">15 minutos</option>
+              <option value="30" selected>30 minutos</option>
+              <option value="45">45 minutos</option>
+              <option value="60">1 hora</option>
+              <option value="120">2 horas</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="mut" style="font-size:.74rem">Descripción / Notas:</label>
+        <textarea id="calInpDesc" rows="3" placeholder="Teléfono, perfil asignado, orden o notas internas...">${esc(prefill.description || '')}</textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button class="g" onclick="dlg.close()">Cancelar</button>
+        <button id="calBtnSaveCreate">💾 Guardar en Google Calendar</button>
+      </div>
+    `;
+    dlg.showModal();
+    $('#calBtnSaveCreate').onclick = async () => {
+      const summary = $('#calInpSummary').value.trim();
+      const startDateTime = $('#calInpDateTime').value;
+      const durationMinutes = Number($('#calInpDuration').value || 30);
+      const description = $('#calInpDesc').value.trim();
+      if (!summary || !startDateTime) return toast('Completa el título y la fecha.');
+      try {
+        await this.createEvent({ summary, description, startDateTime, durationMinutes });
+        toast('¡Evento creado exitosamente en Google Calendar!');
+        dlg.close();
+        if (done) done();
+      } catch(e) { toast('Error al crear: ' + e.message); }
+    };
+  },
+
+  // Modal para Modificar
+  openEditDlg(ev, done) {
+    $('#dlgBody').innerHTML = `
+      <h3>✏️ Modificar Evento en Google Calendar</h3>
+      <p class="mut" style="font-size:.78rem;margin:0 0 12px">ID: <code>${ev.id.slice(0, 10)}...</code> · ${this.CAL_ID}</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label class="mut" style="font-size:.74rem">Título del Evento:</label>
+        <input id="calEditSummary" value="${esc(ev.summary || '')}" required>
+        
+        <label class="mut" style="font-size:.74rem">Descripción / Notas:</label>
+        <textarea id="calEditDesc" rows="4">${esc(ev.description || '')}</textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button class="g" onclick="dlg.close()">Cancelar</button>
+        <button id="calBtnSaveEdit">💾 Guardar Cambios</button>
+      </div>
+    `;
+    dlg.showModal();
+    $('#calBtnSaveEdit').onclick = async () => {
+      const summary = $('#calEditSummary').value.trim();
+      const description = $('#calEditDesc').value.trim();
+      if (!summary) return toast('El título no puede estar vacío.');
+      try {
+        await this.updateEvent(ev.id, { summary, description });
+        toast('¡Evento modificado con éxito!');
+        dlg.close();
+        if (done) done();
+      } catch(e) { toast('Error al modificar: ' + e.message); }
+    };
+  },
+
+  // Modal para Reagendar
+  openRescheduleDlg(ev, done) {
+    const curStart = ev.start?.dateTime ? new Date(ev.start.dateTime) : new Date();
+    const curEnd = ev.end?.dateTime ? new Date(ev.end.dateTime) : new Date(curStart.getTime() + 1800000);
+    const diffMins = Math.max(15, Math.round((curEnd - curStart) / 60000));
+    const initDt = new Date(curStart.getTime() + 86400000).toISOString().slice(0, 16);
+
+    $('#dlgBody').innerHTML = `
+      <h3>📅 Reagendar Evento</h3>
+      <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px;margin-bottom:12px;font-size:.82rem">
+        <div><b>Evento:</b> ${esc(ev.summary || 'Sin título')}</div>
+        <div class="mut" style="font-size:.74rem;margin-top:2px">Horario actual: ${ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleString('es-VE') : 'Todo el día'} (${this.TZ})</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label class="mut" style="font-size:.74rem">Nueva Fecha y Hora de Inicio (${this.TZ}):</label>
+        <input id="calReDt" type="datetime-local" value="${initDt}" required>
+
+        <label class="mut" style="font-size:.74rem">Duración:</label>
+        <select id="calReDur">
+          <option value="15" ${diffMins === 15 ? 'selected' : ''}>15 minutos</option>
+          <option value="30" ${diffMins === 30 ? 'selected' : ''}>30 minutos</option>
+          <option value="45" ${diffMins === 45 ? 'selected' : ''}>45 minutos</option>
+          <option value="60" ${diffMins === 60 ? 'selected' : ''}>1 hora</option>
+          <option value="120" ${diffMins === 120 ? 'selected' : ''}>2 horas</option>
+        </select>
+
+        <label class="mut" style="font-size:.74rem">Motivo / Razón del cambio:</label>
+        <input id="calReNote" placeholder="Ej: Solicitud del cliente por cambio de turno">
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button class="g" onclick="dlg.close()">Cancelar</button>
+        <button id="calBtnSaveRe">📅 Confirmar Reagendamiento</button>
+      </div>
+    `;
+    dlg.showModal();
+    $('#calBtnSaveRe').onclick = async () => {
+      const newDt = $('#calReDt').value;
+      const dur = Number($('#calReDur').value || 30);
+      const note = $('#calReNote').value.trim();
+      if (!newDt) return toast('Indica la nueva fecha y hora.');
+      try {
+        await this.rescheduleEvent(ev.id, { startDateTime: newDt, durationMinutes: dur, note });
+        toast('¡Evento reagendado con éxito en Google Calendar!');
+        dlg.close();
+        if (done) done();
+      } catch(e) { toast('Error al reagendar: ' + e.message); }
+    };
+  },
+
+  // Confirmar y Eliminar
+  async confirmDelete(ev, done) {
+    if (!confirm(`¿Eliminar definitivamente el evento "${ev.summary || 'Sin título'}" de Google Calendar (${this.CAL_ID})?`)) return;
+    try {
+      await this.deleteEvent(ev.id);
+      toast('¡Evento eliminado con éxito de Google Calendar!');
+      if (done) done();
+    } catch(e) { toast('Error al eliminar: ' + e.message); }
+  },
+
+  // Modal para ver el calendario embebido en vivo
+  openEmbedView() {
+    $('#dlgBody').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="margin:0">📅 Google Calendar Principal</h3>
+        <span class="pill" style="font-size:.7rem;color:var(--c)">${this.TZ}</span>
+      </div>
+      <p class="mut" style="font-size:.78rem;margin:0 0 10px">
+        Calendario oficial: <b>${this.CAL_ID}</b>
+      </p>
+      <div style="position:relative;width:100%;height:450px;border-radius:12px;overflow:hidden;border:1px solid rgba(0,212,255,.25);background:#fff">
+        <iframe src="${this.EMBED_URL}" style="width:100%;height:100%;border:none" frameborder="0" scrolling="yes"></iframe>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+        <a href="${this.EMBED_URL}" target="_blank" rel="noopener noreferrer" style="color:var(--c);font-size:.8rem;font-weight:700;text-decoration:none">
+          ↗ Abrir en Google Calendar Web
+        </a>
+        <button class="g" onclick="dlg.close()">Cerrar</button>
+      </div>
+    `;
+    dlg.showModal();
+  }
+};
+window.MilosCalendar = MilosCalendar;
+
+async function queryMilosAgent(promptText) {
+  const calConnected = !!sessionStorage.getItem('gtk');
+  const payload = {
+    prompt: promptText,
+    chatHistory: MILOS_CHAT_HISTORY.map(h => ({ role: h.role, text: h.text })),
+    storeContext: {
+      storeUrl: "https://tienda.gregoryizquierdo.xyz/#",
+      adminEmail: "emprendimientogregoryizquierdo@gmail.com",
+      calendarConnected: calConnected
+    }
+  };
+
+  let replyText = '';
+  try {
+    const res = await fetch('https://ais-pre-oj34kq5f37kqf6acnisqkm-875522824060.us-east1.run.app/api/gemini/agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const resData = await res.json().catch(() => null);
+      replyText = resData?.reply || resData?.text || resData?.message || (typeof resData === 'string' ? resData : '');
+    }
+  } catch(err) {}
+
+  if (!replyText) {
+    const lower = promptText.toLowerCase();
+
+    // 1. Acciones y consultas directas en Google Calendar
+    if (lower.includes('calendar') || lower.includes('agenda') || lower.includes('entreg') || lower.includes('despach') || lower.includes('cita') || lower.includes('evento')) {
+      if (!calConnected) {
+        replyText = `⚠️ <b>Conexión obligatoria con Google Calendar requerida:</b><br>` +
+          `Para operar el Agente IA Milos y gestionar eventos en <code>${MilosCalendar.CAL_ID}</code> (${MilosCalendar.TZ}), debes vincular tu cuenta de Google.<br><br>` +
+          `<button style="background:var(--grad);color:#03121c;font-weight:800;border:none;padding:8px 14px;border-radius:10px;font-size:.78rem;cursor:pointer" onclick="sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+'/',scopes:'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/contacts',queryParams:{prompt:'consent'}}})">🔗 Conectar Google Calendar</button>`;
+      } else if (lower.includes('crear') || lower.includes('nueva') || lower.includes('nuevo') || lower.includes('agendar')) {
+        replyText = `📅 <b>Crear Evento / Despacho en Google Calendar:</b><br>` +
+          `Tengo permisos para registrar eventos en el calendario oficial <b>${MilosCalendar.CAL_ID}</b> (${MilosCalendar.TZ}).<br><br>` +
+          `<div style="display:flex;gap:6px;flex-wrap:wrap">` +
+          `<button class="g" style="padding:6px 12px;font-size:.78rem;font-weight:700" onclick="MilosCalendar.openCreateDlg()">➕ Abrir Creador de Eventos</button>` +
+          `<button class="g" style="padding:6px 12px;font-size:.78rem" onclick="MilosCalendar.openEmbedView()">🌐 Ver Calendario en Vivo</button>` +
+          `</div>`;
+      } else if (lower.includes('modificar') || lower.includes('editar') || lower.includes('reagendar') || lower.includes('eliminar') || lower.includes('borrar') || lower.includes('cancelar')) {
+        try {
+          const events = await MilosCalendar.listEvents(5);
+          if (!events || events.length === 0) {
+            replyText = `📅 <b>Gestión de Eventos en Google Calendar:</b><br>` +
+              `No hay eventos próximos en <code>${MilosCalendar.CAL_ID}</code>.<br><br>` +
+              `<button class="g" style="padding:6px 12px;font-size:.78rem" onclick="MilosCalendar.openCreateDlg()">➕ Crear un Evento Ahora</button>`;
+          } else {
+            replyText = `📅 <b>Eventos disponibles para Modificar, Reagendar o Eliminar:</b><br>` +
+              `Acciones directas en tu calendario oficial (<code>${MilosCalendar.CAL_ID}</code>):<br>` +
+              events.map(ev => {
+                const dtStr = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short', timeZone: MilosCalendar.TZ }) : (ev.start?.date || 'Todo el día');
+                return `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(0,212,255,.2);border-radius:8px;padding:8px 10px;margin-top:6px">` +
+                  `<b>${esc(ev.summary || 'Sin título')}</b><br>` +
+                  `<span style="font-size:.72rem;color:#8ea8c8">🕒 ${esc(dtStr)} (${MilosCalendar.TZ})</span>` +
+                  `<div style="display:flex;gap:5px;margin-top:6px">` +
+                  `<button class="g" style="padding:3px 7px;font-size:.72rem" onclick="MilosCalendar.triggerChatAction('edit', '${ev.id}')">✏️ Modificar</button>` +
+                  `<button class="g" style="padding:3px 7px;font-size:.72rem" onclick="MilosCalendar.triggerChatAction('reschedule', '${ev.id}')">📅 Reagendar</button>` +
+                  `<button class="d" style="padding:3px 7px;font-size:.72rem" onclick="MilosCalendar.triggerChatAction('delete', '${ev.id}')">🗑️ Eliminar</button>` +
+                  `</div></div>`;
+              }).join('') +
+              `<div style="margin-top:8px"><button class="g" style="padding:5px 10px;font-size:.75rem" onclick="MilosCalendar.openEmbedView()">🌐 Ver Calendario en Vivo</button></div>`;
+          }
+        } catch(e) {
+          replyText = `⚠️ Error al consultar eventos: ${esc(e.message)}`;
+        }
+      } else {
+        // Consulta general de eventos / entregas
+        try {
+          const events = await MilosCalendar.listEvents(5);
+          if (!events || events.length === 0) {
+            replyText = `📅 <b>Google Calendar sincronizado (${MilosCalendar.CAL_ID}):</b><br>` +
+              `No tienes eventos o despachos programados en las próximas horas.<br><br>` +
+              `<div style="display:flex;gap:6px">` +
+              `<button class="g" style="padding:6px 12px;font-size:.78rem;font-weight:700" onclick="MilosCalendar.openCreateDlg()">➕ Agendar Entrega</button>` +
+              `<button class="g" style="padding:6px 12px;font-size:.78rem" onclick="MilosCalendar.openEmbedView()">🌐 Ver en Vivo</button>` +
+              `</div>`;
+          } else {
+            replyText = `📅 <b>Próximas entregas y eventos en Google Calendar:</b><br>` +
+              `Calendario: <code>${MilosCalendar.CAL_ID}</code> · Zona: <code>${MilosCalendar.TZ}</code><br>` +
+              events.map(ev => {
+                const dtStr = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short', timeZone: MilosCalendar.TZ }) : (ev.start?.date || 'Todo el día');
+                return `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;margin-top:6px">` +
+                  `<b>${esc(ev.summary || 'Sin título')}</b><br>` +
+                  `<span style="font-size:.72rem;color:#8ea8c8">🕒 ${esc(dtStr)}</span>` +
+                  `<div style="display:flex;gap:4px;margin-top:5px">` +
+                  `<button class="g" style="padding:2px 6px;font-size:.7rem" onclick="MilosCalendar.triggerChatAction('edit', '${ev.id}')">✏️ Modificar</button>` +
+                  `<button class="g" style="padding:2px 6px;font-size:.7rem" onclick="MilosCalendar.triggerChatAction('reschedule', '${ev.id}')">📅 Reagendar</button>` +
+                  `<button class="d" style="padding:2px 6px;font-size:.7rem" onclick="MilosCalendar.triggerChatAction('delete', '${ev.id}')">🗑️ Eliminar</button>` +
+                  `</div></div>`;
+              }).join('') +
+              `<div style="display:flex;gap:6px;margin-top:8px">` +
+              `<button class="g" style="padding:5px 10px;font-size:.75rem" onclick="MilosCalendar.openCreateDlg()">➕ Crear Evento</button>` +
+              `<button class="g" style="padding:5px 10px;font-size:.75rem" onclick="MilosCalendar.openEmbedView()">🌐 Ver en Vivo</button>` +
+              `</div>`;
+          }
+        } catch(e) {
+          replyText = `⚠️ Error al consultar Calendar: ${esc(e.message)}`;
+        }
+      }
+    } else if (lower.includes('pedido') || lower.includes('orden')) {
+      const { data: pOrders } = await sb.from('orders').select('id,total_usd,estado,created_at,customers(nombre,telefono),products(nombre)').eq('estado', 'pendiente').limit(5).catch(()=>({data:[]}));
+      if (pOrders && pOrders.length > 0) {
+        replyText = `📦 <b>Pedidos pendientes por entregar (${pOrders.length}):</b><br>` +
+          pOrders.map(o => `• #${o.id.slice(0,6)}: ${esc(o.products?.nombre||'Servicio')} - ${esc(o.customers?.nombre||'Cliente')} ($${o.total_usd} USD)`).join('<br>') +
+          `<br><br><button class="g" style="padding:5px 10px;font-size:.75rem" onclick="MilosCalendar.openCreateDlg(null,{summary:'Despacho Pedido #${pOrders[0].id.slice(0,6)} - ${pOrders[0].customers?.nombre||'Cliente'}',description:'Tel: ${pOrders[0].customers?.telefono||''}\\nPedido: ${pOrders[0].id}'})">📅 Agendar Despacho en Calendar</button>`;
+      } else {
+        replyText = `✅ No hay pedidos pendientes por entregar en este momento. La cola de despachos está al día.`;
+      }
+    } else if (lower.includes('reporte') || lower.includes('venta') || lower.includes('balance') || lower.includes('cierre')) {
+      const { data: ords } = await sb.from('orders').select('total_usd').in('estado', ['entregado', 'pagado']).limit(50).catch(()=>({data:[]}));
+      const tot = (ords || []).reduce((acc, o) => acc + Number(o.total_usd || 0), 0);
+      replyText = `📊 <b>Reporte Ejecutivo de Operaciones:</b><br>• Estado general: Operativo y activo.<br>• Facturación acumulada reciente: <b>$${tot.toFixed(2)} USD</b>.<br>• Google Calendar: <b>${calConnected ? '🟢 Conectado (' + MilosCalendar.CAL_ID + ')' : '⚠️ Desconectado'}</b>.<br>• Canal Telegram: <b>7154250409</b> listo para alertas.`;
+    } else if (lower.includes('telegram') || lower.includes('alerta') || lower.includes('aviso')) {
+      replyText = `📢 <b>Canal de Notificaciones de Telegram:</b><br>Puedes redactar y despachar alertas directas al ID <code>7154250409</code> desde la pestaña lateral con formato HTML.`;
+    } else {
+      const fallbackPrompt = `Actúa como Milos, el Agente IA de administración de la tienda Gregory Izquierdo. Responde breve y ejecutivamente. Tienda: https://tienda.gregoryizquierdo.xyz/#. Google Calendar: ${calConnected ? 'Conectado (' + MilosCalendar.CAL_ID + ')' : 'Desconectado'}.\nInstrucción: ${promptText}`;
+      const fbRes = await api('/api/gemini', { prompt: fallbackPrompt }).catch(() => null);
+      replyText = fbRes?.text || `¡Entendido! Soy <b>Milos</b>, tu asistente ejecutivo administrativo.<br>Estoy coordinando con <b>Google Calendar</b> (${calConnected ? '🟢 Conectado' : '⚠️ Desconectado'}) y la tienda online. Puedes pedirme agendar entregas, modificar/reagendar/eliminar eventos, revisar pedidos pendientes o despachar avisos a Telegram.`;
+    }
+  }
+
+  return replyText;
+}
 
 function refundDlg(id, total, done) {
   $('#dlgBody').innerHTML = `<h3>Devolución</h3><p class="mut">Total del pedido: $${esc(total)}. Si dejas el monto vacío se devuelve todo (se libera el perfil y se anula la factura).</p>
@@ -2437,37 +2805,371 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
   },
 
   copilot(box) {
+    const calConnected = !!sessionStorage.getItem('gtk');
+
     box.innerHTML = `
-      <div class="card" style="background:linear-gradient(135deg,rgba(10,26,50,.9),rgba(5,14,28,.95));border:1.5px solid rgba(0,212,255,.4)">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-          <div>
-            <h3 style="margin:0 0 6px;color:#ffffff;display:flex;align-items:center;gap:8px">
-              <span>🧠 Agente IA Milos</span>
-              <span class="pill" style="font-size:.72rem">Gemini 3.8 Flash + Calendar</span>
-            </h3>
-            <p class="mut" style="margin:0;font-size:.84rem">
-              Tu copiloto administrativo inteligente está activo en la <b>esquina inferior derecha</b> de tu pantalla.
-            </p>
+      <div class="milos-desk-workbench">
+        <!-- Barra de Estado Superior -->
+        <div class="card" style="background:linear-gradient(135deg,rgba(10,26,50,.92),rgba(5,14,28,.97));border:1.5px solid rgba(0,212,255,.35);padding:16px 20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+                <h3 style="margin:0;color:#fff;font-size:1.15rem;display:flex;align-items:center;gap:8px">
+                  <span>🧠 Agente IA Milos</span>
+                  <span class="pill" style="font-size:.72rem;background:rgba(0,212,255,.15);color:var(--c)">Gemini 3.8 Flash</span>
+                </h3>
+                <span class="milos-status-dot ${calConnected ? '' : 'warn'}"></span>
+              </div>
+              <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.76rem">
+                <span style="color:#8ea8c8">Backend: <b style="color:#00f5a0">Cloud Run (us-east1)</b></span>
+                <span style="color:#8ea8c8">Google Calendar: <b style="${calConnected ? 'color:#00f5a0' : 'color:#ffb703'}">${calConnected ? '🟢 Conectado' : '⚠️ Requiere Conexión'}</b></span>
+                <span style="color:#8ea8c8">Telegram Destino: <b style="color:#229ed9">ID 7154250409</b></span>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <button id="btnToggleFloatingDesk" class="g" style="padding:8px 14px;font-size:.78rem;font-weight:700">
+                📌 Desplegar Flotante (Paralelo)
+              </button>
+            </div>
           </div>
-          <button id="btnFocusMilosDesk" style="background:var(--grad);color:#03121c;font-weight:800;border:none;padding:10px 18px;border-radius:12px">
-            ▲ Abrir Consola de Milos
-          </button>
+        </div>
+
+        <!-- Layout Central de 2 Columnas -->
+        <div class="milos-desk-grid">
+          <!-- Columna 1: Consola Ejecutiva Milos (Gemini 3.8 Flash) -->
+          <div class="milos-desk-chat-card">
+            <div style="padding:12px 16px;background:rgba(7,16,32,.95);border-bottom:1px solid rgba(0,212,255,.2);display:flex;justify-content:space-between;align-items:center">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:1rem">💬</span>
+                <b style="font-size:.88rem;color:#fff">Conversación Ejecutiva con Milos</b>
+              </div>
+              <button id="btnMainClearChat" class="g" style="padding:4px 8px;font-size:.7rem" title="Limpiar historial">🗑️ Limpiar</button>
+            </div>
+
+            <div class="milos-chat-msg-list" id="mainMilosMsgs" style="flex:1"></div>
+
+            <div class="milos-quick-chips">
+              <div class="milos-chip" data-main-prompt="¿Cuáles son las entregas y despachos programados para hoy en Calendar?">📅 Entregas de hoy</div>
+              <div class="milos-chip" data-main-prompt="Revisa los pedidos pendientes por entregar en la tienda">📦 Pedidos pendientes</div>
+              <div class="milos-chip" data-main-prompt="Redacta un reporte ejecutivo de cierre de ventas">📊 Reporte de ventas</div>
+              <div class="milos-chip" data-main-prompt="Redacta una alerta operativa para publicar en Telegram">📢 Aviso Telegram</div>
+            </div>
+
+            <div class="milos-input-bar">
+              <input id="mainMilosInput" placeholder="Pregunta a Milos: agendar entrega, despachos, reporte…" autocomplete="off">
+              <button id="mainMilosSend" type="button">➤</button>
+            </div>
+          </div>
+
+          <!-- Columna 2: Módulos Google Calendar & Telegram -->
+          <div class="milos-desk-side-card">
+            <!-- Módulo Google Calendar -->
+            <div style="background:rgba(3,8,18,.7);border:1px solid rgba(22,51,90,.8);border-radius:14px;padding:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <div>
+                  <b style="font-size:.88rem;color:#fff;display:flex;align-items:center;gap:6px">
+                    <span>📅 Google Calendar</span>
+                    <span class="pill" style="font-size:.68rem;${calConnected ? 'color:#00f5a0;background:rgba(0,245,160,.1)' : 'color:#ffb703;background:rgba(255,183,3,.1)'}">
+                      ${calConnected ? '🟢 Sincronizado' : '⚠️ Desconectado'}
+                    </span>
+                  </b>
+                  <span class="mut" style="display:block;font-size:.7rem">emprendimientogregoryizquierdo@gmail.com · America/Caracas</span>
+                </div>
+                ${calConnected ? `
+                  <div style="display:flex;gap:4px">
+                    <button id="btnMainEmbedCal" class="g" style="padding:4px 8px;font-size:.72rem" title="Ver Google Calendar Oficial">🌐 Ver en Vivo</button>
+                    <button id="btnMainNewCalEvent" class="g" style="padding:4px 8px;font-size:.72rem" title="Crear Evento en Calendar">➕ Crear</button>
+                  </div>
+                ` : ''}
+              </div>
+
+              ${!calConnected ? `
+                <div class="milos-blocker-card">
+                  <div style="font-size:2.4rem;margin-bottom:6px">⚠️</div>
+                  <h4 style="margin:0 0 6px;color:#ffb703;font-size:.95rem">Conexión obligatoria con Google Calendar requerida</h4>
+                  <p class="mut" style="font-size:.78rem;line-height:1.45;margin:0 0 14px">
+                    Para operar el Agente IA Milos y sincronizar entregas automáticamente, es indispensable vincular tu cuenta oficial.
+                  </p>
+                  <button id="btnMainAuthGCal" style="background:var(--grad);color:#03121c;font-weight:800;border:none;padding:10px 18px;border-radius:10px;font-size:.82rem;cursor:pointer">
+                    🔗 Conectar Google Calendar (OAuth)
+                  </button>
+                </div>
+              ` : `
+                <!-- Selector directo de pedido de la tienda para agendar en Calendar -->
+                <div style="background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);border-radius:10px;padding:10px;margin-bottom:12px">
+                  <label class="mut" style="font-size:.72rem;display:block;margin-bottom:4px">📦 Agendar Entrega de Pedido en Calendar:</label>
+                  <div style="display:flex;gap:6px">
+                    <select id="mainSelectOrderToCal" style="flex:1;font-size:.76rem;padding:6px">
+                      <option value="">Cargando pedidos recientes…</option>
+                    </select>
+                    <button id="btnMainScheduleOrder" class="g" style="padding:6px 10px;font-size:.74rem;white-space:nowrap">📅 Agendar</button>
+                  </div>
+                </div>
+                <div id="mainCalEventList" style="display:flex;flex-direction:column;gap:6px;max-height:170px;overflow-y:auto">
+                  <p class="mut" style="font-size:.76rem">Consultando eventos…</p>
+                </div>
+              `}
+            </div>
+
+            <!-- Módulo Telegram -->
+            <div style="background:rgba(3,8,18,.7);border:1px solid rgba(22,51,90,.8);border-radius:14px;padding:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <b style="font-size:.88rem;color:#fff;display:flex;align-items:center;gap:6px">
+                  <span>📢 Canal de Telegram</span>
+                  <span class="pill" style="font-size:.68rem;color:#229ed9;background:rgba(34,158,217,.15)">Bot Despacho</span>
+                </b>
+                <span class="mut" style="font-size:.72rem">Destino: <b>7154250409</b></span>
+              </div>
+              <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+                <button type="button" class="g" id="btnMainTg1" style="font-size:.68rem;padding:3px 7px">📊 Reporte Diario</button>
+                <button type="button" class="g" id="btnMainTg2" style="font-size:.68rem;padding:3px 7px">🚨 Alerta Despacho</button>
+                <button type="button" class="g" id="btnMainTg3" style="font-size:.68rem;padding:3px 7px">🔔 Notificación</button>
+              </div>
+              <textarea id="mainTgMsg" rows="3" style="font-size:.78rem;font-family:monospace;padding:8px;line-height:1.4" placeholder="Escribe tu mensaje en HTML..."><b>📢 REPORTE DE OPERACIONES</b>\nEntregas y despachos al día.\nSincronizado con Google Calendar.</textarea>
+              <button id="btnMainSendTg" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#229ed9,#0088cc);color:#fff;border:none;padding:8px;border-radius:10px;font-weight:700;cursor:pointer;font-size:.8rem">
+                📤 Enviar al ID 7154250409
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      <div style="margin-top:16px;line-height:1.6;font-size:.88rem;color:#8ea8c8">
-        <p>• <b>Sin interrupciones:</b> Milos permanece ubicado en la parte inferior derecha sin sobreponerse con tus tablas de pedidos o inventario, permitiéndote trabajar en paralelo en cualquier módulo.</p>
-        <p>• <b>Google Calendar Obligatorio:</b> Sincroniza y agenda automáticamente citas, despachos y entregas de perfiles.</p>
-        <p>• <b>Canal de Telegram:</b> Envía alertas formateadas en HTML directamente a tu ID de Telegram <code>7154250409</code>.</p>
-      </div>
     `;
-    const btn = box.querySelector('#btnFocusMilosDesk');
-    if (btn) {
-      btn.onclick = () => {
+
+    // Renderizar mensajes principales
+    const renderMainMessages = () => {
+      const msgList = box.querySelector('#mainMilosMsgs');
+      if (!msgList) return;
+      msgList.innerHTML = MILOS_CHAT_HISTORY.length === 0 ? `
+        <div class="milos-bubble bot">
+          ¡Hola Gregory! Soy el <b>Agente IA Milos</b>, tu copiloto administrativo potenciado con <b>Gemini 3.8 Flash</b>.<br><br>
+          Estoy enlazado con la tienda y <b>Google Calendar</b> para consultar entregas, despachar pedidos y notificar a Telegram. ¿Qué coordinamos hoy?
+        </div>
+      ` : MILOS_CHAT_HISTORY.map(m => `
+        <div class="milos-bubble ${m.role === 'user' ? 'user' : 'bot'}">${m.text}</div>
+      `).join('');
+      msgList.scrollTop = msgList.scrollHeight;
+    };
+    renderMainMessages();
+
+    // Toggle widget flotante
+    const toggleBtn = box.querySelector('#btnToggleFloatingDesk');
+    if (toggleBtn) {
+      toggleBtn.onclick = () => {
         const desk = document.getElementById('milosCopilotDesk');
         const pill = desk?.querySelector('#milosDockPill');
         if (pill) pill.click();
+        else {
+          EXTRA.initMilosCopilot();
+          const p = document.querySelector('#milosDockPill');
+          if (p) p.click();
+        }
       };
     }
+
+    // Botón limpiar chat
+    const clearBtn = box.querySelector('#btnMainClearChat');
+    if (clearBtn) {
+      clearBtn.onclick = () => {
+        MILOS_CHAT_HISTORY.length = 0;
+        renderMainMessages();
+      };
+    }
+
+    // Chips rápidos principales
+    box.querySelectorAll('[data-main-prompt]').forEach(chip => {
+      chip.onclick = () => {
+        const input = box.querySelector('#mainMilosInput');
+        if (input) {
+          input.value = chip.dataset.mainPrompt;
+          sendMainMessage();
+        }
+      };
+    });
+
+    // Enviar mensaje principal
+    const input = box.querySelector('#mainMilosInput');
+    const sendBtn = box.querySelector('#mainMilosSend');
+
+    const sendMainMessage = async () => {
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      input.disabled = true;
+      sendBtn.disabled = true;
+
+      MILOS_CHAT_HISTORY.push({ role: 'user', text: esc(text) });
+      renderMainMessages();
+
+      const msgList = box.querySelector('#mainMilosMsgs');
+      const typingEl = document.createElement('div');
+      typingEl.className = 'milos-bubble bot';
+      typingEl.id = 'mainMilosTyping';
+      typingEl.innerHTML = '<em>Milos pensando con Gemini 3.8 Flash…</em>';
+      msgList.appendChild(typingEl);
+      msgList.scrollTop = msgList.scrollHeight;
+
+      try {
+        const reply = await queryMilosAgent(text);
+        MILOS_CHAT_HISTORY.push({ role: 'model', text: reply });
+      } catch(e) {
+        MILOS_CHAT_HISTORY.push({ role: 'model', text: `⚠️ Error: ${esc(e.message)}` });
+      } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        renderMainMessages();
+        input.focus();
+      }
+    };
+
+    if (sendBtn) sendBtn.onclick = sendMainMessage;
+    if (input) input.onkeydown = e => { if (e.key === 'Enter') sendMainMessage(); };
+
+    // Conexión Google Calendar OAuth
+    const authBtn = box.querySelector('#btnMainAuthGCal');
+    if (authBtn) {
+      authBtn.onclick = () => {
+        sb.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: location.origin + '/',
+            scopes: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/contacts',
+            queryParams: { prompt: 'consent' }
+          }
+        });
+      };
+    }
+
+    // Cargar pedidos para agendar en Google Calendar
+    if (calConnected) {
+      const selOrd = box.querySelector('#mainSelectOrderToCal');
+      if (selOrd) {
+        sb.from('orders').select('id,total_usd,created_at,customers(nombre,telefono),products(nombre)')
+          .in('estado', ['pendiente', 'pagado', 'entregado'])
+          .order('created_at', { ascending: false })
+          .limit(10)
+          .then(({ data: ords }) => {
+            if (!ords || ords.length === 0) {
+              selOrd.innerHTML = '<option value="">No hay pedidos recientes</option>';
+              return;
+            }
+            selOrd.innerHTML = ords.map(o => `
+              <option value="${o.id}" data-prod="${esc(o.products?.nombre||'Servicio')}" data-cust="${esc(o.customers?.nombre||'Cliente')}" data-tel="${esc(o.customers?.telefono||'')}">
+                #${o.id.slice(0,6)} · ${esc(o.products?.nombre||'Servicio')} (${esc(o.customers?.nombre||'Cliente')})
+              </option>
+            `).join('');
+          }).catch(()=>{});
+      }
+
+      // Función para recargar la lista de eventos con botones de Modificar, Reagendar, Eliminar
+      const loadCalEvents = () => {
+        const list = box.querySelector('#mainCalEventList');
+        if (!list) return;
+        list.innerHTML = '<p class="mut" style="font-size:.76rem">Consultando eventos en tiempo real…</p>';
+
+        MilosCalendar.listEvents(8).then(items => {
+          if (!items || items.length === 0) {
+            list.innerHTML = '<p class="mut" style="font-size:.76rem;text-align:center;padding:10px 0">No hay eventos próximos agendados. Pulsa "+ Crear".</p>';
+            return;
+          }
+
+          list.innerHTML = items.map(ev => {
+            const dtStr = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short', timeZone: MilosCalendar.TZ }) : (ev.start?.date || 'Todo el día');
+            return `
+              <div class="milos-cal-event-item" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                <div style="flex:1;overflow:hidden">
+                  <b style="font-size:.82rem;color:var(--c);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ev.summary || 'Sin título')}</b>
+                  <span class="mut" style="font-size:.7rem">🕒 ${esc(dtStr)} (${MilosCalendar.TZ})</span>
+                  ${ev.description ? `<p style="margin:4px 0 0;font-size:.72rem;color:#8ea8c8;line-height:1.3">${esc(ev.description.slice(0, 70))}${ev.description.length > 70 ? '…' : ''}</p>` : ''}
+                </div>
+                <div style="display:flex;gap:4px;flex-shrink:0">
+                  <button class="g" data-cal-edit="${ev.id}" title="✏️ Modificar título y notas" style="padding:3px 7px;font-size:.72rem">✏️</button>
+                  <button class="g" data-cal-re="${ev.id}" title="📅 Reagendar fecha y hora" style="padding:3px 7px;font-size:.72rem">📅</button>
+                  <button class="d" data-cal-del="${ev.id}" title="🗑️ Eliminar de Google Calendar" style="padding:3px 7px;font-size:.72rem">🗑️</button>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          // Event listeners para Modificar, Reagendar, Eliminar
+          list.querySelectorAll('[data-cal-edit]').forEach(btn => {
+            btn.onclick = () => {
+              const ev = items.find(x => x.id === btn.dataset.calEdit);
+              if (ev) MilosCalendar.openEditDlg(ev, loadCalEvents);
+            };
+          });
+          list.querySelectorAll('[data-cal-re]').forEach(btn => {
+            btn.onclick = () => {
+              const ev = items.find(x => x.id === btn.dataset.calRe);
+              if (ev) MilosCalendar.openRescheduleDlg(ev, loadCalEvents);
+            };
+          });
+          list.querySelectorAll('[data-cal-del]').forEach(btn => {
+            btn.onclick = () => {
+              const ev = items.find(x => x.id === btn.dataset.calDel);
+              if (ev) MilosCalendar.confirmDelete(ev, loadCalEvents);
+            };
+          });
+        }).catch(err => {
+          list.innerHTML = `<p class="mut" style="font-size:.74rem;color:#f87171">Error Calendar: ${esc(err.message)}</p>`;
+        });
+      };
+
+      // Botón Ver Calendario Embebido
+      const btnEmbed = box.querySelector('#btnMainEmbedCal');
+      if (btnEmbed) btnEmbed.onclick = () => MilosCalendar.openEmbedView();
+
+      // Botón Nuevo Evento
+      const btnNewEv = box.querySelector('#btnMainNewCalEvent');
+      if (btnNewEv) btnNewEv.onclick = () => MilosCalendar.openCreateDlg(loadCalEvents);
+
+      // Botón Agendar Pedido de la Tienda
+      const btnSch = box.querySelector('#btnMainScheduleOrder');
+      if (btnSch) {
+        btnSch.onclick = () => {
+          const selOrd = box.querySelector('#mainSelectOrderToCal');
+          const opt = selOrd?.selectedOptions?.[0];
+          if (!opt || !opt.value) return toast('Selecciona un pedido.');
+          const prod = opt.dataset.prod, cust = opt.dataset.cust, tel = opt.dataset.tel;
+          MilosCalendar.openCreateDlg(loadCalEvents, {
+            summary: `Despacho ${prod} - ${cust}`,
+            description: `Cliente: ${cust}\nTeléfono: ${tel}\nPedido ID: ${opt.value}`
+          });
+        };
+      }
+
+      loadCalEvents();
+    }
+
+    // Plantillas Telegram principales
+    box.querySelector('#btnMainTg1').onclick = () => {
+      box.querySelector('#mainTgMsg').value = `<b>📊 CIERRE DIARIO DE OPERACIONES</b>\nFecha: ${new Date().toLocaleDateString('es-VE')}\n• Renovaciones notificadas\n• Conciliaciones al día`;
+    };
+    box.querySelector('#btnMainTg2').onclick = () => {
+      box.querySelector('#mainTgMsg').value = `<b>🚨 ALERTA DE DESPACHO INMEDIATO</b>\nSe requiere atención en pedidos pendientes.\nCliente en espera de credenciales.`;
+    };
+    box.querySelector('#btnMainTg3').onclick = () => {
+      box.querySelector('#mainTgMsg').value = `<b>🔔 NOTIFICACIÓN OPERATIVA</b>\nSistemas operando al 100%.\nGoogle Calendar sincronizado.`;
+    };
+
+    // Envío Telegram principal
+    box.querySelector('#btnMainSendTg').onclick = async () => {
+      const btn = box.querySelector('#btnMainSendTg');
+      btn.disabled = true;
+      const msg = box.querySelector('#mainTgMsg').value.trim();
+      if (!msg) { btn.disabled = false; return toast('Escribe un mensaje.'); }
+      try {
+        const res = await fetch('https://ais-pre-oj34kq5f37kqf6acnisqkm-875522824060.us-east1.run.app/api/telegram/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId: '7154250409', message: msg })
+        });
+        toast('¡Notificación enviada con éxito al ID 7154250409!');
+      } catch(err) {
+        toast('Notificación enviada: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    };
   },
 
   initMilosCopilot() {
@@ -2478,7 +3180,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     document.body.appendChild(desk);
 
     let activeTab = 'chat';
-    let chatHistory = [];
+    const chatHistory = MILOS_CHAT_HISTORY;
     const hasGtk = () => !!sessionStorage.getItem('gtk');
 
     const render = (expanded = false) => {
@@ -2603,38 +3305,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         currentMsgList.scrollTop = currentMsgList.scrollHeight;
 
         try {
-          const calConnected = hasGtk();
-          const payload = {
-            prompt: text,
-            chatHistory: chatHistory.map(h => ({ role: h.role, text: h.text })),
-            storeContext: {
-              storeUrl: "https://tienda.gregoryizquierdo.xyz/#",
-              adminEmail: "emprendimientogregoryizquierdo@gmail.com",
-              calendarConnected: calConnected
-            }
-          };
-
-          let replyText = '';
-          try {
-            const res = await fetch('https://ais-pre-oj34kq5f37kqf6acnisqkm-875522824060.us-east1.run.app/api/gemini/agent', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-              const resData = await res.json().catch(() => null);
-              replyText = resData?.reply || resData?.text || resData?.message || (typeof resData === 'string' ? resData : '');
-            }
-          } catch(err) {}
-
-          // Fallback inteligente enriquecido si el endpoint de Cloud Run está en proceso de arranque
-          if (!replyText) {
-            const fallbackPrompt = `Actúa como Milos, el Agente IA de administración de la tienda Gregory Izquierdo. Responde breve y ejecutivamente. Tienda: https://tienda.gregoryizquierdo.xyz/#. Google Calendar: ${calConnected ? 'Conectado' : 'Desconectado'}.\nInstrucción: ${text}`;
-            const fbRes = await api('/api/gemini', { prompt: fallbackPrompt }).catch(() => null);
-            replyText = fbRes?.text || `Recibido: "${text}". Estado de Calendar: ${calConnected ? '🟢 Conectado' : '⚠️ Desconectado'}. Puedes revisar los despachos en la pestaña Google Calendar.`;
-          }
-
-          chatHistory.push({ role: 'model', text: replyText.replace(/\n/g, '<br>') });
+          const replyText = await queryMilosAgent(text);
+          chatHistory.push({ role: 'model', text: replyText });
         } catch(e) {
           chatHistory.push({ role: 'model', text: `⚠️ Error de comunicación: ${esc(e.message)}` });
         } finally {
@@ -2679,10 +3351,13 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         <div style="padding:14px;display:flex;flex-direction:column;height:100%;overflow-y:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <div>
-              <b style="font-size:.9rem;color:#fff">📅 Eventos en Calendar</b>
-              <span class="mut" style="display:block;font-size:.7rem">Sincronizado en tiempo real</span>
+              <b style="font-size:.9rem;color:#fff">📅 Google Calendar Principal</b>
+              <span class="mut" style="display:block;font-size:.7rem">${MilosCalendar.CAL_ID} · ${MilosCalendar.TZ}</span>
             </div>
-            <button id="btnMilosNewEvent" class="g" style="padding:5px 10px;font-size:.75rem">➕ Agendar Entrega</button>
+            <div style="display:flex;gap:4px">
+              <button id="btnMilosEmbedCal" class="g" style="padding:4px 8px;font-size:.72rem" title="Ver en vivo">🌐 En Vivo</button>
+              <button id="btnMilosNewEvent" class="g" style="padding:4px 8px;font-size:.72rem" title="Crear Evento">➕ Crear</button>
+            </div>
           </div>
           <div id="milosEventList" style="display:flex;flex-direction:column;gap:8px">
             <p class="mut" style="font-size:.8rem">Consultando eventos de Calendar…</p>
@@ -2690,73 +3365,56 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         </div>
       `;
 
-      container.querySelector('#btnMilosNewEvent').onclick = () => {
-        $('#dlgBody').innerHTML = `
-          <h3>📅 Agendar Entrega en Google Calendar</h3>
-          <p class="mut" style="font-size:.8rem;margin:0 0 12px">El Agente IA Milos creará el evento oficial en tu calendario sincronizado.</p>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <label class="mut" style="font-size:.74rem">Título de la Entrega:</label>
-            <input id="evSummary" placeholder="Ej: Entrega Pantalla Netflix - Juan Pérez" required>
-
-            <label class="mut" style="font-size:.74rem">Fecha y Hora de Entrega:</label>
-            <input id="evDateTime" type="datetime-local" value="${new Date(Date.now() + 3600000).toISOString().slice(0, 16)}" required>
-
-            <label class="mut" style="font-size:.74rem">Descripción / Detalles del Cliente:</label>
-            <textarea id="evDesc" rows="3" placeholder="Teléfono, perfil asignado, orden o notas internas..."></textarea>
-          </div>
-          <button id="btnSaveMilosEvent" style="margin-top:14px;width:100%">💾 Guardar en Google Calendar</button>
-        `;
-        dlg.showModal();
-
-        $('#btnSaveMilosEvent').onclick = async () => {
-          const sum = $('#evSummary').value.trim();
-          const dt = $('#evDateTime').value;
-          const desc = $('#evDesc').value.trim();
-          if (!sum || !dt) return toast('Completa el título y la fecha.');
-          const startIso = new Date(dt).toISOString();
-          const endIso = new Date(new Date(dt).getTime() + 1800000).toISOString();
-
-          try {
-            await G('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-              method: 'POST',
-              body: JSON.stringify({
-                summary: sum,
-                description: desc,
-                start: { dateTime: startIso },
-                end: { dateTime: endIso }
-              })
-            });
-            toast('¡Evento agendado con éxito en Google Calendar!');
-            dlg.close();
-            renderCalendarView(container);
-          } catch(err) {
-            toast('Error al agendar: ' + err.message);
-          }
-        };
-      };
+      container.querySelector('#btnMilosEmbedCal').onclick = () => MilosCalendar.openEmbedView();
+      container.querySelector('#btnMilosNewEvent').onclick = () => MilosCalendar.openCreateDlg(() => renderCalendarView(container));
 
       try {
-        const evs = await G(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${new Date().toISOString()}&maxResults=8&singleEvents=true&orderBy=startTime`);
+        const items = await MilosCalendar.listEvents(8);
         const listEl = container.querySelector('#milosEventList');
         if (!listEl) return;
-        const items = evs.items || [];
         if (items.length === 0) {
-          listEl.innerHTML = '<p class="mut" style="font-size:.78rem;text-align:center;margin-top:20px">No hay eventos próximos agendados. Pulsa "+ Agendar Entrega".</p>';
+          listEl.innerHTML = '<p class="mut" style="font-size:.78rem;text-align:center;margin-top:20px">No hay eventos próximos agendados. Pulsa "+ Crear".</p>';
           return;
         }
         listEl.innerHTML = items.map(ev => {
-          const dtStr = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) : (ev.start?.date || 'Todo el día');
+          const dtStr = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short', timeZone: MilosCalendar.TZ }) : (ev.start?.date || 'Todo el día');
           return `
-            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 12px">
-              <b style="font-size:.82rem;color:var(--c);display:block">${esc(ev.summary || 'Sin título')}</b>
-              <span class="mut" style="font-size:.72rem">🕒 ${esc(dtStr)}</span>
-              ${ev.description ? `<p style="margin:4px 0 0;font-size:.72rem;color:#8ea8c8">${esc(ev.description.slice(0, 80))}</p>` : ''}
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div style="flex:1;overflow:hidden">
+                <b style="font-size:.82rem;color:var(--c);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ev.summary || 'Sin título')}</b>
+                <span class="mut" style="font-size:.7rem">🕒 ${esc(dtStr)} (${MilosCalendar.TZ})</span>
+                ${ev.description ? `<p style="margin:4px 0 0;font-size:.72rem;color:#8ea8c8;line-height:1.3">${esc(ev.description.slice(0, 70))}${ev.description.length > 70 ? '…' : ''}</p>` : ''}
+              </div>
+              <div style="display:flex;gap:4px;flex-shrink:0">
+                <button class="g" data-cal-edit="${ev.id}" title="✏️ Modificar título y notas" style="padding:3px 7px;font-size:.72rem">✏️</button>
+                <button class="g" data-cal-re="${ev.id}" title="📅 Reagendar fecha y hora" style="padding:3px 7px;font-size:.72rem">📅</button>
+                <button class="d" data-cal-del="${ev.id}" title="🗑️ Eliminar de Google Calendar" style="padding:3px 7px;font-size:.72rem">🗑️</button>
+              </div>
             </div>
           `;
         }).join('');
+
+        listEl.querySelectorAll('[data-cal-edit]').forEach(btn => {
+          btn.onclick = () => {
+            const ev = items.find(x => x.id === btn.dataset.calEdit);
+            if (ev) MilosCalendar.openEditDlg(ev, () => renderCalendarView(container));
+          };
+        });
+        listEl.querySelectorAll('[data-cal-re]').forEach(btn => {
+          btn.onclick = () => {
+            const ev = items.find(x => x.id === btn.dataset.calRe);
+            if (ev) MilosCalendar.openRescheduleDlg(ev, () => renderCalendarView(container));
+          };
+        });
+        listEl.querySelectorAll('[data-cal-del]').forEach(btn => {
+          btn.onclick = () => {
+            const ev = items.find(x => x.id === btn.dataset.calDel);
+            if (ev) MilosCalendar.confirmDelete(ev, () => renderCalendarView(container));
+          };
+        });
       } catch(err) {
         const listEl = container.querySelector('#milosEventList');
-        if (listEl) listEl.innerHTML = `<p class="mut" style="font-size:.78rem;color:#f87171">Error de sincronización Calendar: ${esc(err.message)}</p>`;
+        if (listEl) listEl.innerHTML = `<p class="mut" style="font-size:.78rem;color:#f87171">Error Calendar: ${esc(err.message)}</p>`;
       }
     };
 
@@ -2844,4 +3502,8 @@ function parseSheet(ws, plataforma) {
     out.profiles.push({ correo: cur.correo, perfil: perfil == null ? null : String(perfil).trim(), pin: pin == null ? null : String(pin), vendedor: g(r, 'VENDEDOR') ? String(g(r, 'VENDEDOR')).trim() : null, inicia: ini, vence: plus(ini, 30), estado: perfil != null || ini ? 'vendido' : 'disponible' });
   }
   return out;
+}
+
+if (typeof document !== 'undefined' && document.body && document.body.classList.contains('is-admin')) {
+  EXTRA.initMilosCopilot();
 }

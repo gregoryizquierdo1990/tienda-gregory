@@ -333,8 +333,14 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 
 /* Agente IA Milos - Executive Admin Copilot Desk */
 #milosCopilotDesk{position:fixed;bottom:18px;right:22px;z-index:999;font-family:'Sora',sans-serif;display:none;flex-direction:column;align-items:flex-end;pointer-events:none}
-body.is-admin #milosCopilotDesk{display:flex}
-:not(.is-admin) #milosCopilotDesk{display:none!important}
+body.is-admin #milosCopilotDesk{display:flex!important}
+body:not(.is-admin) #milosCopilotDesk{display:none!important}
+.milos-desk-workbench{display:flex;flex-direction:column;gap:18px;width:100%}
+.milos-desk-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}
+@media(max-width:960px){.milos-desk-grid{grid-template-columns:1fr}}
+.milos-desk-chat-card{background:linear-gradient(180deg,rgba(10,24,46,.95),rgba(5,12,24,.98));border:1.5px solid rgba(0,212,255,.3);border-radius:18px;display:flex;flex-direction:column;height:620px;overflow:hidden}
+.milos-desk-side-card{background:linear-gradient(180deg,rgba(10,24,46,.95),rgba(5,12,24,.98));border:1.5px solid rgba(0,212,255,.3);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:18px}
+.milos-blocker-card{background:rgba(255,183,3,.08);border:1.5px solid #ffb703;border-radius:14px;padding:20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .milos-dock-pill{pointer-events:auto;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(10,26,50,.96),rgba(5,14,28,.99));border:1.5px solid rgba(0,212,255,.45);box-shadow:0 12px 32px rgba(0,0,0,.75),0 0 20px rgba(0,212,255,.2);border-radius:99px;padding:8px 16px;cursor:pointer;transition:all .2s ease;user-select:none}
 .milos-dock-pill:hover{transform:translateY(-2px);border-color:var(--a);box-shadow:0 16px 36px rgba(0,0,0,.85),0 0 26px rgba(0,245,160,.3)}
 .milos-dock-pill-title{font-size:.84rem;font-weight:800;color:#ffffff;display:flex;align-items:center;gap:6px}
@@ -949,15 +955,151 @@ function home(){
   renderTabs(); renderGrid();
 }
 
+const DEFAULT_PAYMENT_METHODS = [
+  {
+    id: 'pm-1-pago-movil-bnc',
+    nombre: 'Pago Móvil (BNC)',
+    tipo: 'pago_movil',
+    subtitulo: 'BNC 0191 · Tasa oficial BCV',
+    orden: 1,
+    activo: true,
+    datos: {
+      'Banco': 'BNC (Banco Nacional de Crédito)',
+      'Código Banco': '0191',
+      'Teléfono': '04242809333',
+      'Documento': 'V 18931731'
+    }
+  },
+  {
+    id: 'pm-2-binance',
+    nombre: 'Binance (USDT)',
+    tipo: 'binance',
+    subtitulo: 'Crypto USDT · Cero comisiones',
+    orden: 2,
+    activo: true,
+    datos: {
+      'ID Binance': '393089335',
+      'Correo': 'gregoryrodriguez2021@gmail.com'
+    }
+  },
+  {
+    id: 'pm-3-transf-internacional',
+    nombre: 'Transferencia Internacional (Ecuador)',
+    tipo: 'transferencia_internacional',
+    subtitulo: 'Banco Guayaquil · USD Ecuador',
+    orden: 3,
+    activo: true,
+    datos: {
+      'Banco': 'Guayaquil',
+      'Tipo de Cuenta': 'Ahorros',
+      'Titular': 'Evert Izquierdo',
+      'Documento': '2451655498',
+      'N° Cuenta': '0042286503',
+      'Email': 'evertizquierdo91@gmail.com'
+    }
+  },
+  {
+    id: 'pm-4-apolopay',
+    nombre: 'ApoloPay',
+    tipo: 'apolopay',
+    subtitulo: 'Billetera digital multimoneda',
+    orden: 4,
+    activo: true,
+    datos: {
+      'ID Usuario': '7604',
+      'Correo': 'gregoryrodriguez2021@gmail.com'
+    }
+  },
+  {
+    id: 'pm-5-zinli',
+    nombre: 'Zinli',
+    tipo: 'zinli',
+    subtitulo: 'Monedero digital en USD',
+    orden: 5,
+    activo: true,
+    datos: {
+      'Teléfono': '04242809333',
+      'Correo': 'gregoryrodriguez2021@gmail.com'
+    }
+  },
+  {
+    id: 'pm-6-wally',
+    nombre: 'Wally',
+    tipo: 'wally',
+    subtitulo: 'Billetera digital en USD',
+    orden: 6,
+    activo: true,
+    datos: {
+      'Teléfono': '04242809333',
+      'Correo': 'gregoryrodriguez2021@gmail.com'
+    }
+  },
+  {
+    id: 'pm-7-uglycash',
+    nombre: 'Uglycash',
+    tipo: 'uglycash',
+    subtitulo: 'Envío instantáneo entre usuarios',
+    orden: 7,
+    activo: true,
+    datos: {
+      'Usuario': 'gair1990'
+    }
+  },
+  {
+    id: 'pm-8-transf-eeuu',
+    nombre: 'Transferencia EEUU (Lead Bank)',
+    tipo: 'transferencia_eeuu',
+    subtitulo: 'Cuenta bancaria en USD (ACH / Wire)',
+    orden: 8,
+    activo: true,
+    datos: {
+      'Banco': 'Lead Bank',
+      'Tipo de Cuenta': 'Corriente',
+      'Titular': 'Gregori Antonio Izquierdo Rodriguez',
+      'N° Cuenta': '210345561126',
+      'Routing': '101019644',
+      'Dirección Banco': '1801 Main St., Kansas City. MO 64108'
+    }
+  },
+  {
+    id: 'pm-9-pago-movil-juridico',
+    nombre: 'Pago Móvil Jurídico',
+    tipo: 'pago_movil_juridico',
+    subtitulo: 'Venezolano de Crédito 0104 · RIF J',
+    orden: 9,
+    activo: true,
+    datos: {
+      'Banco': 'Venezolano de Crédito',
+      'Código Banco': '0104',
+      'Teléfono': '04242809333',
+      'Documento': 'J 506393794'
+    }
+  }
+];
+
 const PAYMENT_ICONS = {
+  'pago movil juridico': '🏢',
+  'pago móvil jurídico': '🏢',
+  'juridico': '🏢',
+  'jurídico': '🏢',
   'pago movil': '📱',
   'pago móvil': '📱',
+  'binance': '🟡',
+  'binance usdt': '🟡',
+  'guayaquil': '🇪🇨',
+  'ecuador': '🇪🇨',
+  'internacional': '🌐',
+  'apolopay': '⚡',
+  'apolo': '⚡',
+  'zinli': '🟣',
+  'wally': '🔵',
+  'uglycash': '🟢',
+  'ugly': '🟢',
+  'lead bank': '🇺🇸',
+  'eeuu': '🇺🇸',
   'transferencia': '🏦',
   'depósito': '🏧',
   'deposito': '🏧',
-  'binance': '🟡',
-  'binance usdt': '🟡',
-  'zinli': '🟣',
   'zelle': '💜',
   'efectivo': '💵',
   'punto de venta': '💳',
@@ -977,11 +1119,12 @@ async function buyDlg(id){
   const p = S.products.find(x => x.id === id);
   if(!p) return toast('Producto no encontrado');
 
-  const [{data: pmList}, {data: h}, {data: userCard}] = await Promise.all([
+  const [{data: rawPmList}, {data: h}, {data: userCard}] = await Promise.all([
     sb.from('payment_methods').select('*').eq('activo', true).order('orden'),
     sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente'),
     sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle().catch(()=>({data:null}))
   ]);
+  const pmList = (rawPmList && rawPmList.length > 0) ? rawPmList : DEFAULT_PAYMENT_METHODS;
 
   const hasActiveCard = userCard && userCard.estado === 'activa';
   const availZeny = Math.max(0, Number(S.me?.zeny_balance || 0) + (h || []).reduce((a, x) => a + Number(x.monto), 0));
@@ -1030,10 +1173,13 @@ async function buyDlg(id){
   // Parsea datos estructurados: si viene como objeto los usa; si el administrador guardó todo en un solo texto o nombre lo divide en cajones limpios
   const parseMethodFields = (method) => {
     if(!method) return [];
-    const rawData = method.datos || {};
+    let rawData = method.datos || {};
+    if(typeof rawData === 'string'){
+      try { rawData = JSON.parse(rawData); } catch(e){}
+    }
     let fields = [];
 
-    if(typeof rawData === 'object' && Object.keys(rawData).length > 0){
+    if(typeof rawData === 'object' && rawData !== null && Object.keys(rawData).length > 0){
       for(const [k, v] of Object.entries(rawData)){
         if(v != null && String(v).trim()) fields.push({ label: k, value: String(v).trim() });
       }
@@ -1076,12 +1222,8 @@ async function buyDlg(id){
       const methodsHtml = (pmList || []).map(m => {
         const isSel = m.id === selectedMethodId;
         const icon = getPaymentIcon(m.nombre);
-        let displayTitle = m.nombre;
-        if(/pago\s*m[oó]vil/i.test(m.nombre) || /pago\s*m[oó]vil/i.test(m.tipo || '')) displayTitle = 'Pago Móvil';
-        else if(/transferencia/i.test(m.nombre)) displayTitle = 'Transferencia Bancaria';
-        else if(/binance/i.test(m.nombre)) displayTitle = 'Binance USDT';
-        else if(/zinli/i.test(m.nombre)) displayTitle = 'Zinli';
-        else if(/zelle/i.test(m.nombre)) displayTitle = 'Zelle';
+        const displayTitle = m.nombre;
+        const displaySubtitle = m.subtitulo || (m.tipo ? m.tipo.replace(/_/g, ' ') : 'Toca para ver los datos bancarios');
 
         return `
           <div class="checkout-method-card ${isSel ? 'active' : ''}" data-pm-choose="${m.id}">
@@ -1089,7 +1231,7 @@ async function buyDlg(id){
               <div class="checkout-method-icon">${icon}</div>
               <div>
                 <div class="checkout-method-name">${esc(displayTitle)}</div>
-                <div class="checkout-method-type">Toca para ver los datos bancarios</div>
+                <div class="checkout-method-type">${esc(displaySubtitle)}</div>
               </div>
             </div>
             <div class="checkout-method-arrow" style="font-size:1.2rem;font-weight:800">›</div>
