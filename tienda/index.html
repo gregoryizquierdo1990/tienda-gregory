@@ -882,8 +882,8 @@ async function onSession(session){
     try {
       const [m, a, rpc] = await Promise.all([
         sb.from('customers').select('*').eq('id',S.user.id).maybeSingle(),
-        sb.from('admins').select('email').ilike('email', email).maybeSingle().catch(()=>({data:null})),
-        sb.rpc('is_admin').catch(()=>({data:null}))
+        Promise.resolve(sb.from('admins').select('email').ilike('email', email).maybeSingle()).catch(()=>({data:null})),
+        Promise.resolve(sb.rpc('is_admin')).catch(()=>({data:null}))
       ]);
       S.me = m?.data || S.me;
       S.isAdmin = Boolean(rpc?.data === true || a?.data || (isKnown && isGoogle));
@@ -1266,7 +1266,7 @@ async function buyDlg(id){
   const [{data: rawPmList}, {data: h}, {data: userCard}] = await Promise.all([
     sb.from('payment_methods').select('*').eq('activo', true).order('orden'),
     sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente'),
-    sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle().catch(()=>({data:null}))
+    Promise.resolve(sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle()).catch(()=>({data:null}))
   ]);
   const pmList = (rawPmList && rawPmList.length > 0) ? rawPmList : DEFAULT_PAYMENT_METHODS;
 
@@ -3525,7 +3525,13 @@ async function admin(t){
 
   if(EXTRA[t]){
     app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2></div></div><div id="ex"></div></div></div></div>`;
-    setupAdminEvents(); return EXTRA[t]($('#ex'));
+    setupAdminEvents();
+    try {
+      return await EXTRA[t]($('#ex'));
+    } catch(err) {
+      console.error('Error cargando módulo admin:', err);
+      $('#ex').innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:24px;border-radius:14px;max-width:640px;margin:20px auto;text-align:center"><h3 style="margin:0 0 8px;color:#f87171">⚠️ Error al cargar el módulo ${esc(tabInfo.label)}</h3><p class="mut" style="margin:0 0 16px;font-size:.85rem">${esc(err.message)}</p><button class="g" onclick="admin('${esc(t)}')">🔄 Reintentar</button></div>`;
+    }
   }
   const extraHeadBtn = t === 'payment_methods'
     ? `<button class="g" id="btnLoadOfficialPM" style="background:rgba(0,245,160,.12);border-color:#00f5a0;color:#00f5a0;font-weight:700">⚡ Cargar los 9 Métodos Oficiales</button>`

@@ -640,7 +640,7 @@ const EXTRA = {
           if (matchedOrd && evDate && evDate !== matchedOrd.vence) {
             await sb.from('orders').update({ vence: evDate, proximo_pago: evDate }).eq('id', matchedOrd.id);
             if (matchedOrd.profile_id) {
-              await sb.from('profiles_inventory').update({ vence: evDate }).eq('id', matchedOrd.profile_id).catch(() => {});
+              try { await sb.from('profiles_inventory').update({ vence: evDate }).eq('id', matchedOrd.profile_id); } catch(e){}
             }
             matchedOrd.vence = evDate;
             updatedFromCalendar++;
@@ -744,7 +744,7 @@ const EXTRA = {
         try {
           await GCal.deleteEvent(evId);
           // Desenlazar en orders si estaba asociado
-          await sb.from('orders').update({ gcal_event_id: null }).eq('gcal_event_id', evId).catch(() => {});
+          try { await sb.from('orders').update({ gcal_event_id: null }).eq('gcal_event_id', evId); } catch(e){}
           toast('🗑️ Evento eliminado de Google Calendar.');
           EXTRA.vencimientos(box);
         } catch(err) {
@@ -800,7 +800,7 @@ const EXTRA = {
             if (oErr) throw oErr;
 
             if (oRow?.profile_id) {
-              await sb.from('profiles_inventory').update({ vence: newDate }).eq('id', oRow.profile_id).catch(() => {});
+              try { await sb.from('profiles_inventory').update({ vence: newDate }).eq('id', oRow.profile_id); } catch(e){}
             }
 
             // 2. Google Calendar sync si está conectado
@@ -861,7 +861,7 @@ Fecha Vencimiento: ${newDate}`;
         }).eq('id', btn.dataset.calRenov);
 
         if(oData.profile_id){
-          await sb.from('profiles_inventory').update({ vence: nextVence }).eq('id', oData.profile_id).catch(()=>{});
+          try { await sb.from('profiles_inventory').update({ vence: nextVence }).eq('id', oData.profile_id); } catch(e){}
         }
 
         // Sincronizar de inmediato con Google Calendar si está conectado
@@ -1277,11 +1277,27 @@ grant execute on function approve_installment(uuid) to authenticated;`;
   },
 
   async franquicias(box) {
-    const [{ data: franqList, error }, { data: appsData }] = await Promise.all([
-      sb.from('franchises').select('*').order('created_at', { ascending: false }),
-      sb.from('franchise_applications').select('*').order('created_at', { ascending: false }).catch(() => ({ data: [] }))
-    ]);
-    const apps = appsData || [];
+    box.innerHTML = '<div style="padding:30px;text-align:center"><div class="sk" style="height:120px;max-width:500px;margin:auto"></div><p class="mut" style="margin-top:12px">Cargando Red de Franquicias…</p></div>';
+
+    let franqList = [];
+    let error = null;
+    try {
+      const resF = await sb.from('franchises').select('*').order('created_at', { ascending: false });
+      if (resF.error) error = resF.error;
+      else franqList = resF.data || [];
+    } catch(errF) {
+      error = errF;
+    }
+
+    let apps = [];
+    try {
+      const resA = await sb.from('franchise_applications').select('*').order('created_at', { ascending: false });
+      if (!resA.error && resA.data) {
+        apps = resA.data;
+      }
+    } catch(errA) {
+      apps = [];
+    }
 
     if (error && (error.message?.includes('schema cache') || error.code === '42P01')) {
       box.innerHTML = `
@@ -2899,10 +2915,12 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           if (ptoId) {
             const pto = puntos.find(x => x.id === ptoId);
             const curSaldo = Number(pto?.saldo_actual_247 || 0);
-            await sb.from('recargas_puntos').update({
-              saldo_actual_247: Math.round((curSaldo + saldo) * 100) / 100,
-              updated_at: new Date().toISOString()
-            }).eq('id', ptoId).catch(() => {});
+            try {
+              await sb.from('recargas_puntos').update({
+                saldo_actual_247: Math.round((curSaldo + saldo) * 100) / 100,
+                updated_at: new Date().toISOString()
+              }).eq('id', ptoId);
+            } catch(e){}
           }
 
           toast(`¡Abono conciliado con éxito para ${taq}!`);
