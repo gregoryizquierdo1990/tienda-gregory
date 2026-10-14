@@ -502,6 +502,30 @@ const DEFAULT_MESSAGE_TEMPLATES = {
     descripcion: 'Mensaje formateado enviado por el bot de Telegram ante pedidos o recargas.',
     tags: ['cliente', 'servicio', 'monto_usd', 'estado', 'negocio'],
     cuerpo: '🤖 *Notificación de {negocio}*\n\nHola {cliente}, tu solicitud para *{servicio}* se encuentra en estado: *{estado}*.\nMonto: ${monto_usd} USD.\n\nAccede a tu portal para ver tus accesos actualizados.'
+  },
+  recarga_gaming: {
+    id: 'recarga_gaming',
+    canal: 'whatsapp',
+    titulo: 'Entrega de Recarga Gaming / Activos',
+    descripcion: 'Enviado al cliente cuando su recarga de juego (Free Fire, Roblox, etc.) ha sido procesada.',
+    tags: ['cliente', 'producto', 'player_id', 'nickname', 'monto_usd', 'codigo_id', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 🎮✨\nTu recarga de {producto} ha sido PROCESADA CON ÉXITO.\n\n📌 Juego / Servicio: {producto}\n🆔 ID de Jugador: {player_id}\n👤 Nickname: {nickname}\n💵 Monto: ${monto_usd} USD\n🧾 Pedido ID: {codigo_id}\n\n⚠️ Por favor abre o reinicia el juego para verificar tus activos. ¡Gracias por confiar en {negocio}! 🔥'
+  },
+  recarga_telefonica: {
+    id: 'recarga_telefonica',
+    canal: 'whatsapp',
+    titulo: 'Entrega de Recarga Telefónica',
+    descripcion: 'Enviado al cliente cuando su recarga de saldo móvil ha sido abonada.',
+    tags: ['cliente', 'producto', 'operadora', 'telefono_recarga', 'monto_usd', 'monto_bs', 'codigo_id', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 📱⚡\nTu recarga telefónica de {producto} ha sido ACREDITADA EXITOSAMENTE.\n\n📌 Operadora: {operadora}\n📞 Teléfono: {telefono_recarga}\n💵 Monto: ${monto_usd} USD (Bs. {monto_bs})\n🧾 Pedido ID: {codigo_id}\n\n¡Gracias por recargar con {negocio}! Quedamos a tu orden para tus próximas recargas. ✨'
+  },
+  abono_recargas247: {
+    id: 'abono_recargas247',
+    canal: 'whatsapp',
+    titulo: 'Confirmación de Abono Punto Recargas247',
+    descripcion: 'Enviado al revendedor cuando Gregory le concilia y acredita saldo en Recargas247.',
+    tags: ['titular', 'nombre_punto', 'usuario_247', 'monto_usd', 'monto_bs', 'referencia', 'negocio'],
+    cuerpo: '¡Hola {titular}! ✅\nTu abono de saldo ha sido verificado y acreditado en tu usuario {usuario_247} de Recargas247.\n\n🏪 Punto de Venta: {nombre_punto}\n💵 Monto Acreditado: ${monto_usd} USD (Bs. {monto_bs})\n🔢 Referencia: {referencia}\n\nTu saldo ya se encuentra disponible para emitir recargas a tus clientes. ¡Éxito en las ventas de hoy! 🚀'
   }
 };
 
@@ -905,9 +929,28 @@ $('#bRegister').onclick = () => loginDlg('register');
 if($('#bFranchise')) $('#bFranchise').onclick = () => openFranchiseModal();
 
 // ---------- TIENDA ----------
-const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Servicio'};
+const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Servicio Digital',gaming:'🎮 Gaming & Activos',recarga_telefonica:'📱 Recarga Telefónica'};
 function getBrandInfo(nombre = ''){
   const n = (nombre||'').toLowerCase();
+  // Gaming
+  if(n.includes('free fire')) return { name: 'Free Fire', color: '#FF5722', bg: 'rgba(255,87,34,0.2)' };
+  if(n.includes('roblox') || n.includes('robux')) return { name: 'Roblox', color: '#E02424', bg: 'rgba(224,36,36,0.2)' };
+  if(n.includes('call of duty') || n.includes('cod') || n.includes('warzone')) return { name: 'Call of Duty', color: '#10B981', bg: 'rgba(16,185,129,0.2)' };
+  if(n.includes('mobile legends') || n.includes('mlbb')) return { name: 'Mobile Legends', color: '#3B82F6', bg: 'rgba(59,130,246,0.2)' };
+  if(n.includes('pubg')) return { name: 'PUBG Mobile', color: '#F59E0B', bg: 'rgba(245,158,11,0.2)' };
+  if(n.includes('playstation') || n.includes('psn')) return { name: 'PlayStation', color: '#003791', bg: 'rgba(0,55,145,0.2)' };
+  if(n.includes('steam')) return { name: 'Steam', color: '#1B2838', bg: 'rgba(27,40,56,0.3)' };
+  if(n.includes('xbox')) return { name: 'Xbox', color: '#107C10', bg: 'rgba(16,124,16,0.2)' };
+
+  // Telefónicas & TV
+  if(n.includes('movistar')) return { name: 'Movistar', color: '#00A9E0', bg: 'rgba(0,169,224,0.2)' };
+  if(n.includes('digitel')) return { name: 'Digitel', color: '#E60000', bg: 'rgba(230,0,0,0.2)' };
+  if(n.includes('movilnet')) return { name: 'Movilnet', color: '#FF6600', bg: 'rgba(255,102,0,0.2)' };
+  if(n.includes('simpletv') || n.includes('simple tv')) return { name: 'SimpleTV', color: '#2563EB', bg: 'rgba(37,99,235,0.2)' };
+  if(n.includes('inter')) return { name: 'Inter', color: '#059669', bg: 'rgba(5,150,105,0.2)' };
+  if(n.includes('cantv')) return { name: 'CANTV', color: '#0284C7', bg: 'rgba(2,132,199,0.2)' };
+
+  // Streaming
   if(n.includes('netflix')) return { name: 'Netflix', color: '#E50914', bg: 'rgba(229,9,20,0.2)' };
   if(n.includes('disney')) return { name: 'Disney+', color: '#38BDF8', bg: 'rgba(56,189,248,0.2)' };
   if(n.includes('max') || n.includes('hbo')) return { name: 'Max', color: '#818CF8', bg: 'rgba(129,140,248,0.2)' };
@@ -923,14 +966,15 @@ function getBrandInfo(nombre = ''){
 function skeleton(){ return '<div class="hero"><div class="sk" style="min-height:120px;border:0"></div></div><div class="pgrid">'+'<div class="sk"></div>'.repeat(6)+'</div>'; }
 function productCard(p){
   const isReseller = S.me?.es_revendedor === true;
+  const isCentralOnly = p.es_exclusivo_central === true || p.tipo === 'gaming' || p.tipo === 'recarga_telefonica';
   const originalPrice = Number(p.precio_usd);
-  const hasResellerSpecial = isReseller && p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0;
+  const hasResellerSpecial = !isCentralOnly && isReseller && p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0;
   const effectivePrice = hasResellerSpecial ? Number(p.precio_revendedor_usd) : originalPrice;
   const hasBinanceSpecial = p.precio_binance_usd != null && Number(p.precio_binance_usd) > 0;
   const hasCuotas = p.permite_cuotas === true;
   const brand = getBrandInfo(p.nombre);
 
-  const out=!(S.stock[p.id]>0||p.tipo==='servicio'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(effectivePrice*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
+  const out=!(S.stock[p.id]>0||p.tipo==='servicio'||p.tipo==='gaming'||p.tipo==='recarga_telefonica'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(effectivePrice*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
   
   return `<article class="pc t-${esc(p.tipo)}">
     <div class="pc-brand-indicator" style="background:${brand.bg};color:${brand.color};border-color:${brand.color}66">
@@ -956,17 +1000,32 @@ function productCard(p){
          </div>
          ${bs}
        </div>
-       ${out?'<span class="pill off">Agotado</span>':`<button class="cta" data-buy="${p.id}">Comprar</button>`}
+       ${out?'<span class="pill off">Agotado</span>':`<button class="cta" data-buy="${p.id}">${(p.tipo === 'gaming' || p.tipo === 'recarga_telefonica') ? '⚡ Recargar' : 'Comprar'}</button>`}
      </div>
    </div></article>`;
 }
 function renderGrid(){
-  const q=(S.q||'').toLowerCase(), list=S.products.filter(p=>(S.tipo?p.tipo===S.tipo:true)&&(p.nombre||'').toLowerCase().includes(q)), g=$('#grid'); if(!g) return;
-  g.innerHTML=list.map(productCard).join('')||'<p class="mut empty">Aún no hay productos disponibles. Vuelve pronto.</p>';
+  const q=(S.q||'').toLowerCase();
+  const list=S.products.filter(p=>{
+    if(S.franchise && (p.es_exclusivo_central || p.tipo === 'gaming' || p.tipo === 'recarga_telefonica')) return false;
+    return (S.tipo?p.tipo===S.tipo:true)&&(p.nombre||'').toLowerCase().includes(q);
+  });
+  const g=$('#grid'); if(!g) return;
+  g.innerHTML=list.map(productCard).join('')||'<p class="mut empty">Aún no hay productos disponibles en esta categoría. Vuelve pronto.</p>';
   g.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>buyDlg(b.dataset.buy));
 }
 function renderTabs(){
-  $('#tabs').innerHTML=[['','Todo'],['pantalla','Pantallas'],['cuenta_completa','Cuentas completas'],['servicio','Servicios']].map(([v,t])=>`<button class="${(S.tipo||'')===v?'':'g'}" data-t="${v}">${t}</button>`).join('');
+  const baseTabs = [
+    ['', 'Todo'],
+    ['pantalla', 'Pantallas'],
+    ['cuenta_completa', 'Cuentas completas'],
+    ['servicio', 'Servicios Digitales']
+  ];
+  if(!S.franchise){
+    baseTabs.push(['gaming', '🎮 Gaming & Activos']);
+    baseTabs.push(['recarga_telefonica', '📱 Recargas Telefónicas']);
+  }
+  $('#tabs').innerHTML=baseTabs.map(([v,t])=>`<button class="${(S.tipo||'')===v?'':'g'}" data-t="${v}">${t}</button>`).join('');
   $('#tabs').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.tipo=b.dataset.t;renderTabs();renderGrid();});
 }
 function home(){
@@ -1217,11 +1276,44 @@ async function buyDlg(id){
   let selectedMethodId = (pmList && pmList.length > 0) ? pmList[0].id : null;
   let appliedZeny = 0;
 
+  // Variables y sincronización de datos de recarga (Gaming y Telefonía)
+  let rechargeData = { player_id: '', servidor: '', nickname: '', operadora: 'Movistar', telefono: '' };
+  const isGaming = p.tipo === 'gaming';
+  const isTelecom = p.tipo === 'recarga_telefonica';
+  const isRechargeService = isGaming || isTelecom;
+
+  const syncRecharge = () => {
+    const elPlayer = $('#recPlayerId');
+    const elServer = $('#recServer');
+    const elNick = $('#recNickname');
+    const elOp = $('#recOperator');
+    const elPhone = $('#recPhone');
+    if(elPlayer) rechargeData.player_id = elPlayer.value.trim();
+    if(elServer) rechargeData.servidor = elServer.value.trim();
+    if(elNick) rechargeData.nickname = elNick.value.trim();
+    if(elOp) rechargeData.operadora = elOp.value;
+    if(elPhone) rechargeData.telefono = elPhone.value.trim();
+  };
+
+  const validateRecharge = () => {
+    syncRecharge();
+    if(isGaming && !rechargeData.player_id){
+      toast('⚠️ Por favor indica tu ID de jugador o usuario para procesar la recarga.');
+      return false;
+    }
+    if(isTelecom && !rechargeData.telefono){
+      toast('⚠️ Por favor indica el número de teléfono o cuenta contrato a recargar.');
+      return false;
+    }
+    return true;
+  };
+
   // Calculos de precio (Minorista o Mayorista si es Revendedor)
   const isReseller = S.me?.es_revendedor === true;
+  const isCentralOnly = p.es_exclusivo_central === true || isGaming || isTelecom;
   const standardPrice = Number(p.precio_usd);
-  const totalOriginal = isReseller
-    ? (p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0 ? Number(p.precio_revendedor_usd) : standardPrice)
+  const totalOriginal = (!isCentralOnly && isReseller && p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0)
+    ? Number(p.precio_revendedor_usd)
     : standardPrice;
 
   // Parametros configurables de cuotas (definidos manualmente por el admin en ajustes)
@@ -1361,6 +1453,53 @@ async function buyDlg(id){
               </div>
             ` : ''}
 
+            <!-- Datos de recarga (Gaming & Telefónicas) -->
+            ${isRechargeService ? `
+              <div class="checkout-recharge-card" style="margin-bottom:14px;padding:12px 14px;background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.4);border-radius:14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                  <span style="font-size:1.25rem">${isGaming ? '🎮' : '📱'}</span>
+                  <div>
+                    <div style="font-size:.84rem;font-weight:700;color:#38bdf8">${isGaming ? 'Datos de tu Cuenta / Jugador' : 'Datos de la Línea a Recargar'}</div>
+                    <div style="font-size:.72rem;color:#94a3b8">${isGaming ? 'Ingresa los datos para acreditar tu recarga' : 'Operadora y número telefónico o contrato'}</div>
+                  </div>
+                </div>
+                ${isGaming ? `
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+                    <div style="grid-column:1/-1">
+                      <label style="display:block;font-size:.72rem;color:#94a3b8;margin-bottom:3px">ID de Jugador / User ID *</label>
+                      <input id="recPlayerId" class="checkout-input" style="font-size:.86rem;padding:8px 10px" placeholder="Ej: 198273645" value="${esc(rechargeData.player_id)}" required>
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:.72rem;color:#94a3b8;margin-bottom:3px">Servidor / Zona (opcional)</label>
+                      <input id="recServer" class="checkout-input" style="font-size:.86rem;padding:8px 10px" placeholder="Ej: EEUU / Zona 1234" value="${esc(rechargeData.servidor)}">
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:.72rem;color:#94a3b8;margin-bottom:3px">Nickname / Apodo (opcional)</label>
+                      <input id="recNickname" class="checkout-input" style="font-size:.86rem;padding:8px 10px" placeholder="Ej: GregoryPro" value="${esc(rechargeData.nickname)}">
+                    </div>
+                  </div>
+                ` : `
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+                    <div>
+                      <label style="display:block;font-size:.72rem;color:#94a3b8;margin-bottom:3px">Operadora / Servicio *</label>
+                      <select id="recOperator" class="checkout-input" style="font-size:.86rem;padding:8px 10px">
+                        <option value="Movistar" ${rechargeData.operadora==='Movistar'?'selected':''}>Movistar</option>
+                        <option value="Digitel" ${rechargeData.operadora==='Digitel'?'selected':''}>Digitel</option>
+                        <option value="Movilnet" ${rechargeData.operadora==='Movilnet'?'selected':''}>Movilnet</option>
+                        <option value="SimpleTV" ${rechargeData.operadora==='SimpleTV'?'selected':''}>SimpleTV</option>
+                        <option value="Inter" ${rechargeData.operadora==='Inter'?'selected':''}>Inter</option>
+                        <option value="CANTV" ${rechargeData.operadora==='CANTV'?'selected':''}>CANTV</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:.72rem;color:#94a3b8;margin-bottom:3px">N° Teléfono / Contrato *</label>
+                      <input id="recPhone" class="checkout-input" style="font-size:.86rem;padding:8px 10px" placeholder="Ej: 04121234567" value="${esc(rechargeData.telefono)}" required>
+                    </div>
+                  </div>
+                `}
+              </div>
+            ` : ''}
+
             <!-- Resumen de compra -->
             <div class="checkout-summary-box">
               <div class="checkout-summary-row">
@@ -1464,6 +1603,14 @@ async function buyDlg(id){
 
       $('#coCloseBtn').onclick = () => checkoutDlg.close();
 
+      if(isRechargeService){
+        const elPlayer = $('#recPlayerId'); if(elPlayer) elPlayer.oninput = () => rechargeData.player_id = elPlayer.value.trim();
+        const elServer = $('#recServer'); if(elServer) elServer.oninput = () => rechargeData.servidor = elServer.value.trim();
+        const elNick = $('#recNickname'); if(elNick) elNick.oninput = () => rechargeData.nickname = elNick.value.trim();
+        const elOp = $('#recOperator'); if(elOp) elOp.onchange = () => rechargeData.operadora = elOp.value;
+        const elPhone = $('#recPhone'); if(elPhone) elPhone.oninput = () => rechargeData.telefono = elPhone.value.trim();
+      }
+
       const btnPlanContado = $('#pmPlanContado');
       if(btnPlanContado) btnPlanContado.onclick = () => { payPlan = 'contado'; appliedZeny = 0; renderCheckout(); };
       const btnPlanCuotas = $('#pmPlanCuotas');
@@ -1471,6 +1618,7 @@ async function buyDlg(id){
 
       checkoutDlg.querySelectorAll('[data-pm-choose]').forEach(el => {
         el.onclick = () => {
+          if(isRechargeService && !validateRecharge()) return;
           selectedMethodId = el.dataset.pmChoose;
           currentStep = 'details';
           renderCheckout();
@@ -1495,13 +1643,15 @@ async function buyDlg(id){
       const zenySubmit = $('#coSubmitZenyBtn');
       if(zenySubmit){
         zenySubmit.onclick = async () => {
+          if(isRechargeService && !validateRecharge()) return;
           zenySubmit.disabled = true;
           const refText = payPlan === 'cuotas' ? `Inicial Cuota 1 (Zeny)` : 'Pago completo Zeny';
           const {data: ordId, error} = await sb.rpc('create_order', {
             p_product: id,
             p_metodo: null,
             p_ref: refText,
-            p_zeny: appliedZeny
+            p_zeny: appliedZeny,
+            p_datos_recarga: isRechargeService ? rechargeData : {}
           });
           if(error){
             zenySubmit.disabled = false;
@@ -1526,13 +1676,15 @@ async function buyDlg(id){
       const cardDirectBtn = $('#coPayCardDirectBtn');
       if(cardDirectBtn){
         cardDirectBtn.onclick = async () => {
+          if(isRechargeService && !validateRecharge()) return;
           cardDirectBtn.disabled = true;
           const refCard = `[TDC Zeny] ${userCard.numero_tarjeta}`;
           const {data: ordId, error} = await sb.rpc('create_order', {
             p_product: id,
             p_metodo: null,
             p_ref: refCard,
-            p_zeny: totalToPayToday
+            p_zeny: totalToPayToday,
+            p_datos_recarga: isRechargeService ? rechargeData : {}
           });
           if(error){
             cardDirectBtn.disabled = false;
@@ -1569,6 +1721,18 @@ async function buyDlg(id){
         </div>
 
         <div class="checkout-body">
+          <!-- Resumen de recarga si aplica -->
+          ${isRechargeService ? `
+            <div style="margin-bottom:12px;padding:10px 12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);border-radius:12px;display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:.78rem">
+                <span style="color:#38bdf8;font-weight:700">${isGaming ? '🎮 Recarga:' : '📱 Recarga:'}</span>
+                <b style="color:#fff;margin-left:4px">${isGaming ? esc(rechargeData.player_id) : (esc(rechargeData.operadora) + ' ' + esc(rechargeData.telefono))}</b>
+                ${rechargeData.servidor ? `<span style="color:#94a3b8;font-size:.72rem"> (${esc(rechargeData.servidor)})</span>` : ''}
+              </div>
+              <button type="button" class="g" id="btnEditRecharge" style="font-size:.7rem;padding:3px 8px">Modificar</button>
+            </div>
+          ` : ''}
+
           <!-- Monto compacto superior -->
           <div class="checkout-summary-box" style="margin-bottom:14px;padding:12px 14px">
             <div style="display:flex;justify-content:space-between;align-items:center">
@@ -1631,7 +1795,7 @@ async function buyDlg(id){
             ${payPlan === 'cuotas' ? 'Enviar Pago de Cuota Inicial' : 'Enviar Pedido para Conciliación'}
           </button>
           <p class="mut" style="text-align:center;font-size:.72rem;margin:10px 0 0">
-            🛡 Las credenciales se entregarán en tu portal tan pronto el administrador verifique tu pago.
+            🛡 ${isRechargeService ? 'La recarga se procesará tan pronto el administrador verifique tu pago.' : 'Las credenciales se entregarán en tu portal tan pronto el administrador verifique tu pago.'}
           </p>
         </div>
       </div>
@@ -1641,6 +1805,14 @@ async function buyDlg(id){
       currentStep = 'method';
       renderCheckout();
     };
+
+    const btnEditRecharge = $('#btnEditRecharge');
+    if(btnEditRecharge){
+      btnEditRecharge.onclick = () => {
+        currentStep = 'method';
+        renderCheckout();
+      };
+    }
 
     $('#coCloseBtn').onclick = () => checkoutDlg.close();
 
@@ -1674,6 +1846,7 @@ async function buyDlg(id){
 
     $('#coSubmitBtn').onclick = async () => {
       const btn = $('#coSubmitBtn');
+      if(isRechargeService && !validateRecharge()) return;
       btn.disabled = true;
       const refVal = $('#coRefInput')?.value?.trim() || '';
       if(!refVal){
@@ -1687,7 +1860,8 @@ async function buyDlg(id){
         p_product: id,
         p_metodo: selectedMethodId,
         p_ref: orderRef,
-        p_zeny: appliedZeny
+        p_zeny: appliedZeny,
+        p_datos_recarga: isRechargeService ? rechargeData : {}
       });
 
       if(error){
@@ -2415,7 +2589,37 @@ async function portal(){
       </table>
     </div>
   ` : '<p class="mut">Aquí verás tus accesos cuando tu pedido sea entregado.</p>'}
-  <h3>Mis compras y pedidos</h3>${T(['Servicio','Estado','Inicia','Vence','Total'],(o.data||[]).map(x=>[x.products?.nombre,x.estado==='pendiente'?'En revisión (conciliación manual)':x.estado,x.inicia,x.vence,'$'+x.total_usd]))}
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:28px 0 10px">
+    <h3 style="margin:0">Mis compras y pedidos</h3>
+    <span class="mut" style="font-size:.8rem">${(o.data||[]).length} pedidos</span>
+  </div>
+  ${(o.data||[]).length ? `
+    <div class="wrap">
+      <table>
+        <tr><th>Servicio / Destino</th><th>Estado</th><th>Inicia</th><th>Vence</th><th>Total</th></tr>
+        ${(o.data||[]).map(x => {
+          const d = x.datos_recarga || {};
+          let info = '';
+          if(d.player_id) info = `<div style="font-size:.74rem;color:#38bdf8;margin-top:2px">🎮 ID: <b>${esc(d.player_id)}</b>${d.servidor ? ' ('+esc(d.servidor)+')' : ''}${d.nickname ? ' ['+esc(d.nickname)+']' : ''}</div>`;
+          else if(d.telefono) info = `<div style="font-size:.74rem;color:#38bdf8;margin-top:2px">📱 ${esc(d.operadora||'Línea')}: <b>${esc(d.telefono)}</b></div>`;
+          
+          const stLabel = x.estado === 'pendiente' 
+            ? '<span class="pill" style="font-size:.7rem;background:rgba(234,179,8,.15);color:#fde047">⏳ En revisión</span>' 
+            : (x.estado === 'entregado' ? `<span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.15);color:#00f5a0">${info ? '⚡ Recargado' : '✅ Entregado'}</span>` : `<span class="pill off" style="font-size:.7rem">${esc(x.estado)}</span>`);
+
+          return `
+            <tr>
+              <td><b>${esc(x.products?.nombre || 'Servicio')}</b>${info}</td>
+              <td>${stLabel}</td>
+              <td>${esc(x.inicia || '—')}</td>
+              <td>${esc(x.vence || '—')}</td>
+              <td><b>$${Number(x.total_usd).toFixed(2)}</b></td>
+            </tr>
+          `;
+        }).join('')}
+      </table>
+    </div>
+  ` : '<p class="mut">No has realizado compras todavía.</p>'}
   ${(o.data||[]).filter(x=>x.estado==='pendiente').map(x=>`<button class="g" data-cancel="${x.id}" style="margin:6px 6px 0 0">Cancelar pedido: ${esc(x.products?.nombre)}</button>`).join('')}
   <h3>Facturas</h3>
   ${(i.data||[]).length ? `
@@ -2733,10 +2937,10 @@ async function portal(){
 }
 // ---------- PANEL ADMIN (CRUD generico, protegido por RLS) ----------
 const TABLES = {
- orders:['customer_id','product_id','total_usd','zeny_aplicado','referencia','estado','conciliado_por','inicia','vence','proximo_pago'],
+ orders:['customer_id','product_id','datos_recarga','total_usd','zeny_aplicado','referencia','estado','estado_recarga','conciliado_por','inicia','vence','proximo_pago'],
  installments:['order_id','customer_id','numero_cuota','total_cuotas','monto_usd','fecha_vencimiento','estado','referencia','pagada_at'],
  zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
- products:['nombre','descripcion','tipo','precio_usd','precio_binance_usd','precio_revendedor_usd','permite_cuotas','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
+ products:['nombre','descripcion','tipo','es_exclusivo_central','precio_usd','precio_binance_usd','precio_revendedor_usd','permite_cuotas','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
  banners:['titulo','texto','imagen_url','enlace','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
  payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
@@ -2745,15 +2949,22 @@ const TABLES = {
   bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
   exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','notas'], purchases:['fecha','proveedor','plataforma','mother_id','monto_usd','notas'],
   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
-const SEL={orders:'*,customers(nombre,email),products(nombre)',installments:'*,customers(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
+const SEL={orders:'*,customers(nombre,email),products(nombre,tipo)',installments:'*,customers(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
-const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo']};
-const BOOL=['activo','activa','enabled','es_revendedor','permite_cuotas'], READONLY={customers:['zeny_balance']};
+const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo']};
+const BOOL=['activo','activa','enabled','es_revendedor','permite_cuotas','es_exclusivo_central'], READONLY={customers:['zeny_balance']};
 const NOADD=['refunds','transfers'];
 const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Asignar Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Resetear Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 Acceso WA</button>`:''}`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
+  if(c==='datos_recarga'){
+    const d=r.datos_recarga;
+    if(!d||(!d.player_id&&!d.telefono&&!d.operadora)) return '<span class="mut">—</span>';
+    const info=d.player_id?`🎮 ID: ${d.player_id}${d.servidor?' ('+d.servidor+')':''}${d.nickname?' ['+d.nickname+']':''}`:`📱 ${d.operadora||''}: ${d.telefono||''}`;
+    const copyVal=d.player_id||d.telefono||'';
+    return `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem"><b>${esc(info)}</b><button type="button" class="g" style="padding:2px 6px;font-size:.7rem" data-clean-copy="${esc(copyVal)}" title="Copiar dato">📋</button></div>`;
+  }
   if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):''); return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
 const ADMIN_MENU = [
   {
@@ -2764,6 +2975,7 @@ const ADMIN_MENU = [
       { id: 'cuotas', label: 'Cobranza Cuotas', icon: '💳' },
       { id: 'tarjetas', label: 'Tarjetas Zeny (TDC)', icon: '💳' },
       { id: 'franquicias', label: 'Red de Franquicias', icon: '🏢' },
+      { id: 'recargas247', label: 'Red Recargas247', icon: '📱' },
       { id: 'installments', label: 'Cuotas por Cobrar', icon: '💳' },
       { id: 'vencimientos', label: 'Vencimientos', icon: '📅' },
       { id: 'zeny_ledger', label: 'Billetera Zeny', icon: '💰', badgeKey: 'zeny_ledger' },

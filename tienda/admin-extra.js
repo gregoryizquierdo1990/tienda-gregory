@@ -2344,6 +2344,670 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     });
   },
 
+  async recargas247(box) {
+    box.innerHTML = '<div style="text-align:center;padding:30px"><p class="mut">Cargando Red de Recargas247…</p></div>';
+
+    let subTab = box._r247Tab || 'abonos';
+
+    let puntos = [];
+    let abonos = [];
+    let tableError = false;
+
+    try {
+      const [rPuntos, rAbonos] = await Promise.all([
+        sb.from('recargas_puntos').select('*').order('created_at', { ascending: false }),
+        sb.from('recargas_abonos').select('*, recargas_puntos(nombre, apellido, telefono, nombre_taquilla)').order('created_at', { ascending: false })
+      ]);
+
+      if (rPuntos.error && rPuntos.error.code === 'PGRST205') tableError = true;
+      if (rAbonos.error && rAbonos.error.code === 'PGRST205') tableError = true;
+
+      puntos = rPuntos.data || [];
+      abonos = rAbonos.data || [];
+    } catch (e) {
+      console.warn('Tablas recargas247 no creadas aún:', e);
+      tableError = true;
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // Métricas
+    const taquillasActivas = puntos.filter(p => p.estado === 'activo').length;
+    const canonesProyectadosUsd = puntos.filter(p => p.estado === 'activo').reduce((acc, p) => acc + Number(p.canon_mensual_usd || 0), 0);
+    const abonosPendientes = abonos.filter(a => a.estado === 'pendiente');
+    const totalGananciaComisiones = abonos.filter(a => a.estado === 'conciliado_abonado').reduce((acc, a) => acc + Number(a.ganancia_gregory_usd || 0), 0);
+
+    const render = () => {
+      box._r247Tab = subTab;
+      box.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+          <div>
+            <h2 style="margin:0 0 6px;display:flex;align-items:center;gap:8px">
+              <span>📱 Red de Taquillas & Distribución</span>
+              <span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)">Recargas247.net</span>
+            </h2>
+            <p class="mut" style="font-size:.84rem;margin:0;max-width:680px">
+              Control maestro de revendedor: da de alta nuevas taquillas en tu red, supervisa el cobro de cánones mensuales y concilia compras de saldo obteniendo tu comisión de distribuidor.
+            </p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a href="https://www.recargas247.net" target="_blank" rel="noopener noreferrer" class="g" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid rgba(56,189,248,.4);color:#38bdf8">
+              <span>🌐 Abrir Panel Recargas247.net</span>
+              <svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+            <button id="btnNewTaquilla" style="background:var(--grad);color:#03121c;font-weight:800;border:none;border-radius:10px;padding:8px 14px;cursor:pointer">
+              ➕ Registrar Nueva Taquilla
+            </button>
+            <button id="btnNewAbono" class="g" style="padding:8px 14px;border-radius:10px;cursor:pointer">
+              💰 Cargar Solicitud de Abono
+            </button>
+          </div>
+        </div>
+
+        ${tableError ? `
+          <div style="margin-bottom:18px;padding:14px 18px;background:rgba(234,179,8,.12);border:1.5px solid rgba(234,179,8,.4);border-radius:14px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <span style="font-size:1.3rem">⚠️</span>
+              <b style="color:#fde047;font-size:.92rem">Tablas de Base de Datos no detectadas</b>
+            </div>
+            <p class="mut" style="font-size:.82rem;margin:0 0 10px;color:#fef08a">
+              Para comenzar a guardar taquillas y abonos en Supabase, ejecuta el script <b>supabase/migracion_20_gaming_y_recargas247.sql</b> en tu panel SQL de Supabase.
+            </p>
+          </div>
+        ` : ''}
+
+        <!-- Tarjetas de Métricas -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:20px">
+          <div class="card" style="padding:16px">
+            <div class="mut" style="font-size:.78rem">🏪 Taquillas en Red</div>
+            <div class="price" style="font-size:1.75rem;margin:6px 0 2px">${taquillasActivas} <span style="font-size:.9rem;color:var(--mut)">/ ${puntos.length}</span></div>
+            <div class="mut" style="font-size:.74rem">Puntos de recarga activos</div>
+          </div>
+          <div class="card" style="padding:16px">
+            <div class="mut" style="font-size:.78rem">💵 Cánones Mensuales</div>
+            <div class="price" style="font-size:1.75rem;margin:6px 0 2px">$${canonesProyectadosUsd.toFixed(2)} <span style="font-size:.85rem;color:var(--mut)">USD/mes</span></div>
+            <div class="mut" style="font-size:.74rem">Mantenimiento de plataforma</div>
+          </div>
+          <div class="card" style="padding:16px">
+            <div class="mut" style="font-size:.78rem">⏳ Abonos por Conciliar</div>
+            <div class="price" style="font-size:1.75rem;margin:6px 0 2px;color:${abonosPendientes.length ? '#fde047' : 'var(--tx)'}">${abonosPendientes.length}</div>
+            <div class="mut" style="font-size:.74rem">Depósitos de saldo pendientes</div>
+          </div>
+          <div class="card" style="padding:16px">
+            <div class="mut" style="font-size:.78rem">💰 Ganancia Comisiones</div>
+            <div class="price" style="font-size:1.75rem;margin:6px 0 2px;color:var(--c)">$${totalGananciaComisiones.toFixed(2)} <span style="font-size:.85rem;color:var(--mut)">USD</span></div>
+            <div class="mut" style="font-size:.74rem">Comisión retenida en depósitos</div>
+          </div>
+        </div>
+
+        <!-- Pestañas de sub-módulos -->
+        <div style="display:flex;gap:8px;border-bottom:1px solid var(--line);margin-bottom:16px">
+          <button id="tabAbonos" class="${subTab === 'abonos' ? '' : 'g'}" style="border-radius:10px 10px 0 0;padding:10px 18px;font-size:.84rem;font-weight:700;border-bottom:none">
+            📥 Solicitudes de Abono de Saldo (${abonos.length})
+          </button>
+          <button id="tabTaquillas" class="${subTab === 'taquillas' ? '' : 'g'}" style="border-radius:10px 10px 0 0;padding:10px 18px;font-size:.84rem;font-weight:700;border-bottom:none">
+            🏪 Directorio de Taquillas & Cánones (${puntos.length})
+          </button>
+        </div>
+
+        <!-- Vista Pestaña 1: Abonos y Depósitos -->
+        ${subTab === 'abonos' ? `
+          ${abonos.length ? `
+            <div class="wrap">
+              <table>
+                <tr>
+                  <th>Taquilla / Titular</th>
+                  <th>Depósito USD</th>
+                  <th>Comisión Gregory</th>
+                  <th>Saldo Acreditar 247</th>
+                  <th>Método / Ref</th>
+                  <th>Estado</th>
+                  <th>Fecha</th>
+                  <th>Acción</th>
+                </tr>
+                ${abonos.map(a => {
+                  const taqNom = a.recargas_puntos?.nombre_taquilla || 'Taquilla';
+                  const titNom = `${a.recargas_puntos?.nombre || ''} ${a.recargas_puntos?.apellido || ''}`.trim() || 'Titular';
+                  const tel = a.recargas_puntos?.telefono || '';
+                  const stPill = a.estado === 'conciliado_abonado' 
+                    ? '<span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.15);color:#00f5a0">✅ Conciliado</span>'
+                    : (a.estado === 'pendiente' 
+                      ? '<span class="pill" style="font-size:.7rem;background:rgba(234,179,8,.15);color:#fde047">⏳ Pendiente</span>'
+                      : '<span class="pill off" style="font-size:.7rem">❌ Rechazado</span>');
+
+                  return `
+                    <tr>
+                      <td>
+                        <b>${esc(taqNom)}</b>
+                        <div style="font-size:.74rem;color:var(--mut)">${esc(titNom)}</div>
+                      </td>
+                      <td><b>$${Number(a.monto_depositado_usd).toFixed(2)}</b></td>
+                      <td>
+                        <span style="color:var(--c);font-weight:700">+$${Number(a.ganancia_gregory_usd || 0).toFixed(2)}</span>
+                        <div style="font-size:.72rem;color:var(--mut)">(${Number(a.comision_distribuidor_pct || 3)}%)</div>
+                      </td>
+                      <td>
+                        <b style="color:#38bdf8;font-size:.95rem">$${Number(a.saldo_acreditado_usd || (a.monto_depositado_usd - (a.ganancia_gregory_usd||0))).toFixed(2)}</b>
+                      </td>
+                      <td>
+                        <div style="font-size:.78rem"><b>${esc(a.metodo_pago)}</b></div>
+                        <div style="font-size:.72rem;color:var(--mut)">Ref: <code>${esc(a.referencia)}</code></div>
+                      </td>
+                      <td>${stPill}</td>
+                      <td style="font-size:.74rem;color:var(--mut)">${a.created_at?.slice(0, 10)}</td>
+                      <td>
+                        ${a.estado === 'pendiente' ? `
+                          <div style="display:flex;gap:4px">
+                            <button data-abono-ok="${a.id}" data-ptoid="${a.punto_id}" data-monto="${a.monto_depositado_usd}" data-saldo="${a.saldo_acreditado_usd}" data-gan="${a.ganancia_gregory_usd}" data-nom="${esc(titNom)}" data-taq="${esc(taqNom)}" data-tel="${esc(tel)}" style="padding:4px 10px;font-size:.75rem">
+                              ✅ Conciliar
+                            </button>
+                            <button class="g" data-abono-rej="${a.id}" style="padding:4px 8px;font-size:.75rem">
+                              ✕
+                            </button>
+                          </div>
+                        ` : (a.estado === 'conciliado_abonado' && tel ? `
+                          <button class="g" data-abono-wa="${a.id}" data-nom="${esc(titNom)}" data-taq="${esc(taqNom)}" data-tel="${esc(tel)}" data-saldo="${a.saldo_acreditado_usd}" style="padding:4px 8px;font-size:.72rem">
+                            💬 Avisar WA
+                          </button>
+                        ` : '<span class="mut" style="font-size:.75rem">—</span>')}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </table>
+            </div>
+          ` : '<p class="mut empty">No hay solicitudes de abono registradas aún. Puedes cargar depósitos de saldo usando el botón superior.</p>'}
+        ` : `
+          <!-- Vista Pestaña 2: Directorio de Taquillas & Cánones -->
+          ${puntos.length ? `
+            <div class="wrap">
+              <table>
+                <tr>
+                  <th>Taquilla</th>
+                  <th>Titular & Contacto</th>
+                  <th>Ubicación</th>
+                  <th>Canon Mensual</th>
+                  <th>Vencimiento Canon</th>
+                  <th>Comisión</th>
+                  <th>Saldo Red</th>
+                  <th>Acción</th>
+                </tr>
+                ${puntos.map(p => {
+                  const isMora = p.fecha_vencimiento_canon < todayStr;
+                  const diffDays = Math.ceil((new Date(p.fecha_vencimiento_canon) - new Date(todayStr)) / 86400000);
+                  const isSoon = !isMora && diffDays <= 3;
+                  
+                  const duePill = isMora 
+                    ? `<span class="pill off" style="font-size:.7rem">⚠️ Vencido (${esc(p.fecha_vencimiento_canon)})</span>`
+                    : (isSoon 
+                      ? `<span class="pill" style="font-size:.7rem;background:rgba(234,179,8,.15);color:#fde047">⏳ Vence en ${diffDays}d (${esc(p.fecha_vencimiento_canon)})</span>`
+                      : `<span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.15);color:#00f5a0">✅ Al día (${esc(p.fecha_vencimiento_canon)})</span>`);
+
+                  return `
+                    <tr>
+                      <td>
+                        <b>${esc(p.nombre_taquilla)}</b>
+                        <div style="font-size:.72rem;color:var(--mut)">Estado: <b style="color:${p.estado === 'activo' ? '#00f5a0' : '#ef4444'}">${esc(p.estado)}</b></div>
+                      </td>
+                      <td>
+                        <div><b>${esc(p.nombre)} ${esc(p.apellido)}</b></div>
+                        <div style="font-size:.74rem;color:var(--mut)">${esc(p.email)}</div>
+                        <div style="font-size:.74rem;color:#38bdf8">${esc(p.telefono)}</div>
+                      </td>
+                      <td>
+                        <div style="font-size:.78rem">${esc(p.estado_region)}</div>
+                        <div style="font-size:.72rem;color:var(--mut)">${esc(p.pais)}</div>
+                      </td>
+                      <td><b>$${Number(p.canon_mensual_usd).toFixed(2)}</b> <span style="font-size:.72rem;color:var(--mut)">/mes</span></td>
+                      <td>${duePill}</td>
+                      <td><b>${Number(p.comision_deposito_pct || 3)}%</b></td>
+                      <td><b style="color:var(--c)">$${Number(p.saldo_actual_247 || 0).toFixed(2)}</b></td>
+                      <td>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap">
+                          <button class="g" data-wa-canon="${p.id}" data-nom="${esc(p.nombre)}" data-taq="${esc(p.nombre_taquilla)}" data-tel="${esc(p.telefono)}" data-canon="${p.canon_mensual_usd}" data-vence="${p.fecha_vencimiento_canon}" title="Cobrar canon por WhatsApp" style="padding:4px 8px;font-size:.72rem">
+                            💬 Cobrar WA
+                          </button>
+                          <button class="g" data-renovar-canon="${p.id}" data-taq="${esc(p.nombre_taquilla)}" title="Renovar canon por 30 días" style="padding:4px 8px;font-size:.72rem">
+                            📅 Renovar 30d
+                          </button>
+                          <button class="g" data-ver-clave="${p.id}" data-nom="${esc(p.nombre)}" data-mail="${esc(p.email)}" data-clave="${esc(p.clave_acceso || 'No registrada')}" style="padding:4px 8px;font-size:.72rem" title="Ver credenciales">
+                            🔑 Ver
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </table>
+            </div>
+          ` : '<p class="mut empty">No hay taquillas registradas todavía. Pulsa el botón "Registrar Nueva Taquilla" para agregar la primera.</p>'}
+        `}
+      `;
+
+      // Eventos de Pestañas
+      const tabA = $('#tabAbonos');
+      const tabT = $('#tabTaquillas');
+      if (tabA) tabA.onclick = () => { subTab = 'abonos'; render(); };
+      if (tabT) tabT.onclick = () => { subTab = 'taquillas'; render(); };
+
+      // Modal: REGISTRAR NUEVA TAQUILLA (Exactos 8 campos oficiales pedidos por Gregory)
+      const btnNewTaq = $('#btnNewTaquilla');
+      if (btnNewTaq) btnNewTaq.onclick = () => {
+        $('#dlgBody').innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:1.4rem">🏪</span>
+            <div>
+              <h3 style="margin:0">REGISTRAR NUEVA TAQUILLA</h3>
+              <p class="mut" style="font-size:.78rem;margin:2px 0 0">Ingrese los datos del titular de la nueva taquilla en Recargas247.</p>
+            </div>
+          </div>
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Nombre *</label>
+              <input id="taqNombre" placeholder="Ej: Pedro" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Apellido *</label>
+              <input id="taqApellido" placeholder="Ej: Perez" required>
+            </div>
+            <div style="grid-column:1/-1">
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Email *</label>
+              <input id="taqEmail" type="email" placeholder="correo@ejemplo.com" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Contraseña *</label>
+              <input id="taqClave" type="password" placeholder="Mínimo 6 caracteres" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Confirmar contraseña *</label>
+              <input id="taqClaveConf" type="password" placeholder="Repite la contraseña" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">País *</label>
+              <input id="taqPais" value="Venezuela" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Estado *</label>
+              <input id="taqEstado" placeholder="Ej: Miranda / Distrito Capital" value="Distrito Capital" required>
+            </div>
+            <div style="grid-column:1/-1">
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Teléfono * (Ej: 584126665544)</label>
+              <input id="taqTelefono" placeholder="584126665544" required>
+            </div>
+            <div style="grid-column:1/-1">
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Nombre de la Taquilla (Punto Comercial)</label>
+              <input id="taqNombreComercial" placeholder="Ej: Bodega San Juan / Inversiones 2026" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Canon Mensual ($ USD)</label>
+              <input id="taqCanon" type="number" step="0.5" value="5.00" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Comisión sobre Depósito (%)</label>
+              <input id="taqComision" type="number" step="0.1" value="3.00" required>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnSaveTaquilla" style="background:var(--grad);color:#03121c;font-weight:800;border:none">
+              Guardar y Crear Taquilla
+            </button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnSaveTaquilla').onclick = async () => {
+          const btn = $('#btnSaveTaquilla');
+          btn.disabled = true;
+
+          const nom = $('#taqNombre').value.trim();
+          const ape = $('#taqApellido').value.trim();
+          const mail = $('#taqEmail').value.trim().toLowerCase();
+          const pass = $('#taqClave').value;
+          const passConf = $('#taqClaveConf').value;
+          const pais = $('#taqPais').value.trim() || 'Venezuela';
+          const est = $('#taqEstado').value.trim() || 'Distrito Capital';
+          const tel = $('#taqTelefono').value.replace(/\D/g, '');
+          const nomCom = $('#taqNombreComercial').value.trim() || `Taquilla ${nom}`;
+          const canon = parseFloat($('#taqCanon').value) || 5.00;
+          const comPct = parseFloat($('#taqComision').value) || 3.00;
+
+          if (!nom || !ape || !mail || !pass || !passConf || !tel) {
+            btn.disabled = false;
+            return toast('Por favor completa todos los campos obligatorios (*).');
+          }
+
+          if (pass !== passConf) {
+            btn.disabled = false;
+            return toast('Las contraseñas no coinciden. Verifícalas.');
+          }
+
+          if (pass.length < 6) {
+            btn.disabled = false;
+            return toast('La contraseña debe tener al menos 6 caracteres.');
+          }
+
+          const { data: newPt, error } = await sb.from('recargas_puntos').insert({
+            nombre: nom,
+            apellido: ape,
+            email: mail,
+            clave_acceso: pass,
+            pais: pais,
+            estado_region: est,
+            telefono: tel,
+            nombre_taquilla: nomCom,
+            canon_mensual_usd: canon,
+            comision_deposito_pct: comPct,
+            fecha_vencimiento_canon: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+            estado: 'activo'
+          }).select().single();
+
+          if (error) {
+            btn.disabled = false;
+            return toast('Error al registrar taquilla: ' + error.message);
+          }
+
+          dlg.close();
+
+          const waMsg = encodeURIComponent(
+            `🎉 ¡Bienvenido a nuestra Red de Puntos de Recargas247!\n\n` +
+            `*Titular:* ${nom} ${ape}\n` +
+            `*Punto / Taquilla:* ${nomCom}\n` +
+            `*Panel Oficial:* https://www.recargas247.net\n` +
+            `*Usuario / Email:* ${mail}\n` +
+            `*Contraseña de acceso:* ${pass}\n\n` +
+            `*Condiciones de tu red:*\n` +
+            `• Canon mensual de mantenimiento: $${canon.toFixed(2)} USD\n` +
+            `• Comisión sobre compras de saldo: ${comPct}%\n\n` +
+            `Ya puedes acceder a la plataforma para comenzar a recargar. ¡Mucho éxito en tus ventas!`
+          );
+
+          $('#dlgBody').innerHTML = `
+            <div style="text-align:center;padding:10px 0">
+              <span style="font-size:2.5rem">🎉</span>
+              <h3 style="margin:10px 0 4px">¡Taquilla Creada Exitosamente!</h3>
+              <p class="mut" style="font-size:.85rem;margin:0 0 16px">
+                Se guardó <b>${esc(nomCom)}</b> (${esc(nom)} ${esc(ape)}) en tu base de datos.
+              </p>
+              
+              <div style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto">
+                <a href="https://wa.me/${tel}?text=${waMsg}" target="_blank" rel="noopener noreferrer" style="background:#25D366;color:#fff;padding:12px;border-radius:12px;text-decoration:none;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px">
+                  <span>💬 Enviar Accesos por WhatsApp</span>
+                </a>
+                <a href="https://www.recargas247.net" target="_blank" rel="noopener noreferrer" class="g" style="padding:10px;border-radius:12px;text-decoration:none;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">
+                  <span>🌐 Abrir Recargas247.net para validar</span>
+                </a>
+                <button class="g" onclick="dlg.close()">Cerrar</button>
+              </div>
+            </div>
+          `;
+          dlg.showModal();
+          EXTRA.recargas247(box);
+        };
+      };
+
+      // Modal: CARGAR SOLICITUD DE ABONO DE SALDO
+      const btnNewAb = $('#btnNewAbono');
+      if (btnNewAb) btnNewAb.onclick = () => {
+        if (!puntos.length) {
+          return toast('Primero debes registrar al menos una taquilla para cargar abonos.');
+        }
+
+        const ptoOptions = puntos.map(p => `<option value="${p.id}" data-pct="${p.comision_deposito_pct || 3}" data-nom="${esc(p.nombre_taquilla)}">${esc(p.nombre_taquilla)} (${esc(p.nombre)} ${esc(p.apellido)})</option>`).join('');
+
+        $('#dlgBody').innerHTML = `
+          <h3>Cargar Solicitud de Abono de Saldo</h3>
+          <p class="mut" style="font-size:.8rem;margin:0 0 14px">Registra un depósito solicitado por una taquilla. El sistema calculará tu ganancia por comisión automáticamente.</p>
+
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Seleccionar Taquilla *</label>
+          <select id="abPuntoSelect" style="margin-bottom:10px">${ptoOptions}</select>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Monto Depositado ($ USD) *</label>
+              <input id="abMontoUsd" type="number" step="0.5" placeholder="Ej: 50.00" value="50.00" required>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">% Comisión Distribuidor</label>
+              <input id="abComPct" type="number" step="0.1" value="${puntos[0]?.comision_deposito_pct || 3.00}" required>
+            </div>
+          </div>
+
+          <div style="background:rgba(56,189,248,.08);padding:10px 14px;border-radius:10px;border:1px solid rgba(56,189,248,.25);margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:.82rem">
+              <span>Ganancia para ti (Comisión):</span>
+              <b id="abGananciaText" style="color:var(--c)">$1.50 USD</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:.84rem">
+              <span>Saldo a Acreditar en Recargas247:</span>
+              <b id="abSaldoText" style="color:#38bdf8;font-size:1.05rem">$48.50 USD</b>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Método de Pago *</label>
+              <select id="abMetodo">
+                <option value="Pago Móvil">Pago Móvil</option>
+                <option value="Binance USDT">Binance USDT</option>
+                <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                <option value="Billetera Zeny">Billetera Zeny</option>
+              </select>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Referencia Bancaria *</label>
+              <input id="abRef" placeholder="Ej: 8 dígitos comprobante" required>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnSaveAbono" style="background:var(--grad);color:#03121c;font-weight:800;border:none">
+              Registrar Abono
+            </button>
+          </div>
+        `;
+        dlg.showModal();
+
+        const updateCalc = () => {
+          const m = parseFloat($('#abMontoUsd').value) || 0;
+          const p = parseFloat($('#abComPct').value) || 0;
+          const gan = Math.round((m * (p / 100)) * 100) / 100;
+          const sal = Math.round((m - gan) * 100) / 100;
+          $('#abGananciaText').textContent = `$${gan.toFixed(2)} USD`;
+          $('#abSaldoText').textContent = `$${sal.toFixed(2)} USD`;
+        };
+
+        $('#abMontoUsd').oninput = updateCalc;
+        $('#abComPct').oninput = updateCalc;
+        $('#abPuntoSelect').onchange = () => {
+          const opt = $('#abPuntoSelect').selectedOptions[0];
+          if (opt && opt.dataset.pct) {
+            $('#abComPct').value = opt.dataset.pct;
+            updateCalc();
+          }
+        };
+
+        $('#btnSaveAbono').onclick = async () => {
+          const btn = $('#btnSaveAbono');
+          btn.disabled = true;
+
+          const ptoId = $('#abPuntoSelect').value;
+          const mUsd = parseFloat($('#abMontoUsd').value) || 0;
+          const cPct = parseFloat($('#abComPct').value) || 0;
+          const met = $('#abMetodo').value;
+          const ref = $('#abRef').value.trim();
+
+          if (mUsd <= 0 || !ref) {
+            btn.disabled = false;
+            return toast('Ingresa un monto válido y la referencia del depósito.');
+          }
+
+          const gan = Math.round((mUsd * (cPct / 100)) * 100) / 100;
+          const sal = Math.round((mUsd - gan) * 100) / 100;
+
+          const { error: abErr } = await sb.from('recargas_abonos').insert({
+            punto_id: ptoId,
+            monto_depositado_usd: mUsd,
+            comision_distribuidor_pct: cPct,
+            ganancia_gregory_usd: gan,
+            saldo_acreditado_usd: sal,
+            metodo_pago: met,
+            referencia: ref,
+            estado: 'pendiente'
+          });
+
+          if (abErr) {
+            btn.disabled = false;
+            return toast('Error al registrar abono: ' + abErr.message);
+          }
+
+          dlg.close();
+          toast('Solicitud de abono registrada con éxito.');
+          EXTRA.recargas247(box);
+        };
+      };
+
+      // Acciones de Abono: CONCILIAR Y ACREDITAR
+      box.querySelectorAll('[data-abono-ok]').forEach(btn => {
+        btn.onclick = async () => {
+          const abId = btn.dataset.abonoOk;
+          const ptoId = btn.dataset.ptoid;
+          const monto = parseFloat(btn.dataset.monto);
+          const saldo = parseFloat(btn.dataset.saldo);
+          const nom = btn.dataset.nom;
+          const taq = btn.dataset.taq;
+          const tel = btn.dataset.tel;
+
+          if (!confirm(`¿Confirmas la conciliación del abono de $${monto.toFixed(2)} USD para la taquilla "${taq}"? Se le acreditarán $${saldo.toFixed(2)} USD en Recargas247.`)) {
+            return;
+          }
+
+          btn.disabled = true;
+          const { error: updErr } = await sb.from('recargas_abonos').update({
+            estado: 'conciliado_abonado',
+            abonado_at: new Date().toISOString()
+          }).eq('id', abId);
+
+          if (updErr) {
+            btn.disabled = false;
+            return toast('Error al conciliar abono: ' + updErr.message);
+          }
+
+          if (ptoId) {
+            const pto = puntos.find(x => x.id === ptoId);
+            const curSaldo = Number(pto?.saldo_actual_247 || 0);
+            await sb.from('recargas_puntos').update({
+              saldo_actual_247: Math.round((curSaldo + saldo) * 100) / 100,
+              updated_at: new Date().toISOString()
+            }).eq('id', ptoId).catch(() => {});
+          }
+
+          toast(`¡Abono conciliado con éxito para ${taq}!`);
+
+          if (tel) {
+            const waText = encodeURIComponent(
+              `✅ ¡Tu compra de saldo ha sido conciliada exitosamente!\n\n` +
+              `*Taquilla:* ${taq}\n` +
+              `*Monto pagado:* $${monto.toFixed(2)} USD\n` +
+              `*Saldo acreditado en Recargas247:* $${saldo.toFixed(2)} USD\n\n` +
+              `Ya tienes tus fondos disponibles en https://www.recargas247.net para seguir recargando. ¡Gracias por tu confianza!`
+            );
+            window.open(`https://wa.me/${tel}?text=${waText}`, '_blank');
+          }
+
+          EXTRA.recargas247(box);
+        };
+      });
+
+      // Acciones de Abono: RECHAZAR
+      box.querySelectorAll('[data-abono-rej]').forEach(btn => {
+        btn.onclick = async () => {
+          const abId = btn.dataset.abonoRej;
+          if (!confirm('¿Deseas rechazar esta solicitud de abono?')) return;
+          await sb.from('recargas_abonos').update({ estado: 'rechazado' }).eq('id', abId);
+          toast('Abono marcado como rechazado.');
+          EXTRA.recargas247(box);
+        };
+      });
+
+      // Acciones de Abono: AVISO POR WHATSAPP
+      box.querySelectorAll('[data-abono-wa]').forEach(btn => {
+        btn.onclick = () => {
+          const tel = btn.dataset.tel;
+          const taq = btn.dataset.taq;
+          const saldo = btn.dataset.saldo;
+          const waText = encodeURIComponent(
+            `✅ ¡Hola! Te confirmamos que tu saldo de *$${saldo} USD* se encuentra disponible y activo en tu taquilla *${taq}* en https://www.recargas247.net. ¡Éxitos en tus ventas!`
+          );
+          window.open(`https://wa.me/${tel}?text=${waText}`, '_blank');
+        };
+      });
+
+      // Acciones de Taquillas: COBRAR CANON WA
+      box.querySelectorAll('[data-wa-canon]').forEach(btn => {
+        btn.onclick = () => {
+          const tel = btn.dataset.tel;
+          const nom = btn.dataset.nom;
+          const taq = btn.dataset.taq;
+          const canon = btn.dataset.canon;
+          const vence = btn.dataset.vence;
+
+          const msg = encodeURIComponent(
+            `👋 Hola ${nom}, te saludamos de la administración.\n\n` +
+            `Te recordamos que el canon mensual de mantenimiento para tu punto de recarga *${taq}* ($${Number(canon).toFixed(2)} USD) vence el *${vence}*.\n\n` +
+            `Por favor remítenos tu comprobante de pago por esta vía para mantener tu taquilla operativa en nuestra red de https://www.recargas247.net.\n\n` +
+            `¡Muchas gracias y feliz jornada!`
+          );
+          window.open(`https://wa.me/${tel}?text=${msg}`, '_blank');
+        };
+      });
+
+      // Acciones de Taquillas: RENOVAR CANON 30 DÍAS
+      box.querySelectorAll('[data-renovar-canon]').forEach(btn => {
+        btn.onclick = async () => {
+          const pId = btn.dataset.renovarCanon;
+          const taq = btn.dataset.taq;
+          const nextDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+          if (!confirm(`¿Renovar por 30 días el canon de la taquilla "${taq}" hasta el ${nextDate}?`)) return;
+
+          const { error } = await sb.from('recargas_puntos').update({
+            fecha_vencimiento_canon: nextDate,
+            estado: 'activo',
+            updated_at: new Date().toISOString()
+          }).eq('id', pId);
+
+          if (error) return toast(error.message);
+          toast(`Canon de ${taq} renovado hasta el ${nextDate}.`);
+          EXTRA.recargas247(box);
+        };
+      });
+
+      // Acciones de Taquillas: VER CREDENCIALES
+      box.querySelectorAll('[data-ver-clave]').forEach(btn => {
+        btn.onclick = () => {
+          $('#dlgBody').innerHTML = `
+            <h3>Credenciales de la Taquilla</h3>
+            <div style="background:rgba(255,255,255,.05);padding:14px;border-radius:12px;margin:12px 0">
+              <div style="margin-bottom:8px"><b>Titular:</b> ${esc(btn.dataset.nom)}</div>
+              <div style="margin-bottom:8px"><b>Email / Usuario:</b> <code>${esc(btn.dataset.mail)}</code></div>
+              <div><b>Contraseña registrada:</b> <code>${esc(btn.dataset.clave)}</code></div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <a href="https://www.recargas247.net" target="_blank" rel="noopener noreferrer" class="g" style="padding:8px 12px;border-radius:8px;text-decoration:none;font-size:.82rem">Abrir Recargas247</a>
+              <button class="g" onclick="dlg.close()">Cerrar</button>
+            </div>
+          `;
+          dlg.showModal();
+        };
+      });
+    };
+
+    render();
+  },
+
   async gemini(box) {
     if (!box._chatHistory) {
       box._chatHistory = [];
