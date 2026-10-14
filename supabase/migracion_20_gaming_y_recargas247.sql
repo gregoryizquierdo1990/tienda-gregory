@@ -15,6 +15,9 @@ alter table orders add column if not exists datos_recarga jsonb not null default
 alter table orders add column if not exists estado_recarga text default 'pendiente' check (estado_recarga in ('pendiente', 'recargado', 'fallido'));
 
 -- 3. Actualizar función create_order para aceptar datos_recarga y respetar exclusividad
+drop function if exists create_order(uuid, uuid, text, numeric);
+drop function if exists create_order(uuid, uuid, text, numeric, jsonb);
+
 create or replace function create_order(
   p_product uuid,
   p_metodo uuid default null,
@@ -97,7 +100,7 @@ create or replace function create_order(
   p_product uuid,
   p_metodo uuid,
   p_ref text,
-  p_zeny numeric
+  p_zeny numeric default 0
 ) returns uuid language sql security definer set search_path = public as $$
   select create_order(p_product, p_metodo, p_ref, p_zeny, '{}'::jsonb);
 $$;
@@ -105,6 +108,7 @@ revoke execute on function create_order(uuid,uuid,text,numeric) from public, ano
 grant execute on function create_order(uuid,uuid,text,numeric) to authenticated;
 
 -- 4. Actualizar función de entrega _deliver para no exigir perfiles en gaming o recargas
+drop function if exists _deliver(uuid);
 create or replace function _deliver(p_order uuid) returns void language plpgsql security definer set search_path = public as $$
 declare
   o orders;
@@ -156,7 +160,7 @@ create table if not exists recargas_puntos (
   nombre_taquilla text not null, -- Nombre comercial del punto (ej: Bodega San Juan)
   usuario_recargas247 text, -- Usuario asignado en recargas247.net
   canon_mensual_usd numeric(10,2) not null default 5.00,
-  fecha_vencimiento_canon date not null default (current_date + interval '30 days'),
+  fecha_vencimiento_canon date not null default (current_date + 30),
   comision_deposito_pct numeric(5,2) not null default 3.00, -- Porcentaje de ganancia de Gregory sobre cada depósito
   saldo_actual_247 numeric(14,2) not null default 0,
   estado text not null default 'activo' check (estado in ('activo', 'suspendido_mora', 'inactivo')),
