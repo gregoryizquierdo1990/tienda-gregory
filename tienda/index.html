@@ -163,7 +163,45 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 .cal-item-pill{font-size:.65rem;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .cal-item-pill.order{background:#e0f2fe;color:#0369a1;border-left:3px solid #0284c7}
 .cal-item-pill.mother{background:#fef3c7;color:#b45309;border-left:3px solid #f59e0b}
+.cal-item-pill.gcal{background:#e8f0fe;color:#1a73e8;border-left:3px solid #1a73e8}
 .cal-sheet-notes{background:#f1f5f9;border-top:1px solid #0f172a;padding:10px 12px;margin-top:1px;font-size:.75rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:1px}
+
+/* Gemini AI Workspace Chat Styles (Inspirado en Gemini, ChatGPT y Claude) */
+.ai-chat-container{display:flex;flex-direction:column;height:calc(100vh - 170px);min-height:520px;background:#030812;border-radius:20px;border:1px solid rgba(0,212,255,.2);overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.ai-chat-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(135deg,rgba(10,26,50,.95),rgba(6,18,36,.98));border-bottom:1px solid rgba(0,212,255,.18)}
+.ai-chat-header-brand{display:flex;align-items:center;gap:12px}
+.ai-badge-icon{font-size:1.6rem;background:linear-gradient(135deg,#00f5a0,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ai-chat-title{font-size:1.05rem;font-weight:800;color:#fff}
+.ai-chat-sub{font-size:.74rem;color:#8ea8c8}
+.ai-chat-body{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column}
+.ai-welcome{margin:auto;text-align:center;max-width:680px;padding:30px 15px}
+.ai-welcome-sparkle{font-size:3rem;margin-bottom:10px}
+.ai-prompts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;text-align:left}
+.ai-prompt-chip{background:rgba(255,255,255,.04);border:1px solid rgba(0,212,255,.2);border-radius:14px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:4px;transition:all .2s;color:inherit;text-align:left}
+.ai-prompt-chip:hover{background:rgba(0,212,255,.1);border-color:var(--c);transform:translateY(-2px)}
+.ai-chip-title{font-size:.85rem;font-weight:700;color:var(--c)}
+.ai-chip-sub{font-size:.73rem;color:#8ea8c8;line-height:1.3}
+.ai-messages-list{display:flex;flex-direction:column;gap:16px;flex:1}
+.ai-msg{display:flex;gap:12px;max-width:85%}
+.ai-msg.user{align-self:flex-end;flex-direction:row-reverse}
+.ai-msg.model{align-self:flex-start}
+.ai-msg-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);flex-shrink:0}
+.ai-msg.model .ai-msg-avatar{background:linear-gradient(135deg,rgba(0,245,160,.2),rgba(0,212,255,.2));border-color:rgba(0,212,255,.4)}
+.ai-msg-bubble{background:rgba(13,29,54,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:12px 16px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.ai-msg.user .ai-msg-bubble{background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(0,245,160,.12));border-color:rgba(0,212,255,.3)}
+.ai-msg-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.ai-msg-author{font-size:.72rem;font-weight:700;color:#8ea8c8}
+.ai-copy-btn{background:transparent;border:none;color:var(--c);font-size:.7rem;cursor:pointer;padding:2px 6px;border-radius:4px}
+.ai-copy-btn:hover{background:rgba(0,212,255,.15)}
+.ai-msg-text{font-size:.88rem;line-height:1.55;color:#e2e8f0;word-break:break-word}
+.ai-chat-footer{padding:14px 18px;background:rgba(6,18,36,.95);border-top:1px solid rgba(0,212,255,.18)}
+.ai-input-wrap{display:flex;align-items:flex-end;gap:10px;background:rgba(13,29,54,.95);border:1px solid rgba(0,212,255,.28);border-radius:16px;padding:8px 12px}
+.ai-input-wrap:focus-within{border-color:var(--c);box-shadow:0 0 14px rgba(0,212,255,.3)}
+#aiPromptInput{flex:1;background:transparent;border:none;color:#fff;font-family:inherit;font-size:.9rem;resize:none;max-height:140px;outline:none;padding:4px 0}
+#aiSendBtn{width:38px;height:38px;border-radius:50%;border:none;background:var(--grad);color:#03121c;font-size:1.1rem;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:transform .15s}
+#aiSendBtn:hover{transform:scale(1.08)}
+#aiSendBtn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.ai-input-hint{font-size:.68rem;color:#64748b;margin-top:6px;text-align:right}
 
 /* Panel de Pago / Checkout Adaptado (Paleta Oficial de la Plataforma: Azul Oscuro, Cyan y Esmeralda) */
 .checkout-modal{border:0;background:transparent;padding:0;width:100%;max-width:480px;box-shadow:none;overflow:visible}
@@ -683,7 +721,19 @@ async function init(){
   const {data:{session}} = await sb.auth.getSession(); await onSession(session);
   sb.auth.onAuthStateChange((_e,s)=>onSession(s));
   await loadPublic();
-  if(!S.isSuspended) home();
+  
+  // Detección de ruta Admin directa (URL con ?app=admin o #admin para acceso/app del administrador)
+  const isAdminRoute = location.hash.startsWith('#admin') || new URLSearchParams(location.search).get('app') === 'admin';
+  if (isAdminRoute) {
+    if (S.isAdmin) {
+      const subTab = location.hash.replace(/^#admin\/?/, '') || 'finanzas';
+      admin(subTab);
+    } else {
+      adminLoginDlg();
+    }
+  } else if(!S.isSuspended) {
+    home();
+  }
   // Realtime: cualquier cambio en catalogo/tasa se refleja en vivo
   sb.channel('pub').on('postgres_changes',{event:'*',schema:'public',table:'products'},()=>loadPublic().then(()=>S.view==='home'&&home()))
     .on('postgres_changes',{event:'*',schema:'public',table:'exchange_rates'},loadPublic).on('postgres_changes',{event:'*',schema:'public',table:'banners'},()=>loadPublic().then(()=>S.view==='home'&&home())).subscribe();
@@ -824,6 +874,7 @@ function productCard(p){
   const hasResellerSpecial = isReseller && p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0;
   const effectivePrice = hasResellerSpecial ? Number(p.precio_revendedor_usd) : originalPrice;
   const hasBinanceSpecial = p.precio_binance_usd != null && Number(p.precio_binance_usd) > 0;
+  const hasCuotas = p.permite_cuotas === true;
 
   const out=!(S.stock[p.id]>0||p.tipo==='servicio'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(effectivePrice*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
   
@@ -833,6 +884,7 @@ function productCard(p){
        <span class="tag">${esc(TL[p.tipo]||p.tipo)}</span>
        ${hasResellerSpecial ? '<span class="reseller-badge">Precio Revendedor</span>' : ''}
        ${hasBinanceSpecial ? `<span class="pill" style="font-size:.65rem;background:rgba(240,185,11,.15);color:#f0b90b;border:1px solid rgba(240,185,11,.3);font-weight:700" title="Precio especial con Binance Pay">🟡 Binance: $${Number(p.precio_binance_usd).toFixed(2)} USDT</span>` : ''}
+       ${hasCuotas ? `<span class="pill" style="font-size:.65rem;background:rgba(0,212,255,.12);color:#00d4ff;border:1px solid rgba(0,212,255,.3);font-weight:700" title="Plan financiado en cuotas quincenales">💳 Disponible en Cuotas</span>` : ''}
      </div>
      <h3>${esc(p.nombre)}</h3><p class="mut">${esc(p.descripcion)}</p>
      <div class="meta"><span>⏱ ${p.duracion_dias} días</span><span>🛡 Garantía ${p.garantia_dias||0} días</span></div>
@@ -1106,7 +1158,7 @@ async function buyDlg(id){
 
   // Parametros configurables de cuotas (definidos manualmente por el admin en ajustes)
   const cuotasCfg = S.settings?.cuotas_config || { inicial_porcentaje: 50, total_cuotas: 2, dias_frecuencia: 15, monto_minimo: 5.00 };
-  const isBnplEligible = totalOriginal >= Number(cuotasCfg.monto_minimo || 5);
+  const isBnplEligible = (p.permite_cuotas === true) && (totalOriginal >= Number(cuotasCfg.monto_minimo || 5));
   const nCuotas = Math.max(2, Number(cuotasCfg.total_cuotas || 2));
   const pctInicial = Math.min(90, Math.max(10, Number(cuotasCfg.inicial_porcentaje || 50)));
   const cuotaInicialUsd = Math.round((totalOriginal * (pctInicial / 100)) * 100) / 100;
@@ -1709,7 +1761,7 @@ function adminLoginDlg(){
   const subtitle = 'Acceso de Administrador';
   const contentHtml = `
     <p class="mut" style="text-align:center;font-size:.82rem;margin:0 0 16px;line-height:1.4">
-      El acceso al panel administrativo está reservado para el correo oficial mediante Google...
+      El acceso al panel administrativo está reservado para el correo oficial mediante Google con permisos de sincronización bidireccional (Calendar, Drive, Contactos y Sheets).
     </p>
     <button id="facetAdminGoogle" class="facet-btn" style="min-width:210px;padding:12px 24px" type="button">
       ACCEDER CON GOOGLE
@@ -1718,7 +1770,17 @@ function adminLoginDlg(){
 
   facetDlg.innerHTML = renderFacetShell({title, subtitle, contentHtml});
   $('#facetCloseBtn').onclick = () => facetDlg.close();
-  $('#facetAdminGoogle').onclick = () => sb.auth.signInWithOAuth({provider:'google', options:{redirectTo: location.origin + '/'}});
+  $('#facetAdminGoogle').onclick = () => sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: location.origin + '/?app=admin#admin',
+      scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/spreadsheets',
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent'
+      }
+    }
+  });
 
   if(!facetDlg.open) facetDlg.showModal();
 }
@@ -1752,7 +1814,7 @@ async function portal(){
     const curLevel = nivelesCfg[curLevelKey] || DEFAULT_NIVELES_BENEFICIOS[curLevelKey] || DEFAULT_NIVELES_BENEFICIOS.cliente;
 
     const instData = inst?.data || [];
-    const creditLimit = Number(S.me?.limite_credito != null ? S.me.limite_credito : 10.00);
+    const creditLimit = Number(S.me?.limite_credito != null ? S.me.limite_credito : 0.00);
     const creditTier = S.me?.nivel_credito || 'Bronce';
     const usedCredit = instData.filter(x => x.estado !== 'pagada').reduce((a, x) => a + Number(x.monto_usd || 0), 0);
     const availableCredit = Math.max(0, creditLimit - usedCredit);
@@ -2208,7 +2270,7 @@ const TABLES = {
  orders:['customer_id','product_id','total_usd','zeny_aplicado','referencia','estado','conciliado_por','inicia','vence','proximo_pago'],
  installments:['order_id','customer_id','numero_cuota','total_cuotas','monto_usd','fecha_vencimiento','estado','referencia','pagada_at'],
  zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
- products:['nombre','descripcion','tipo','precio_usd','precio_binance_usd','precio_revendedor_usd','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
+ products:['nombre','descripcion','tipo','precio_usd','precio_binance_usd','precio_revendedor_usd','permite_cuotas','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
  banners:['titulo','texto','imagen_url','enlace','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
  payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
@@ -2219,10 +2281,10 @@ const TABLES = {
   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
 const SEL={orders:'*,customers(nombre,email),products(nombre)',installments:'*,customers(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
-const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta']};
-const BOOL=['activo','activa','enabled','es_revendedor'], READONLY={customers:['zeny_balance']};
+const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo']};
+const BOOL=['activo','activa','enabled','es_revendedor','permite_cuotas'], READONLY={customers:['zeny_balance']};
 const NOADD=['refunds','transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:10}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Asignar Crédito</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Asignar Crédito</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -2369,10 +2431,39 @@ async function admin(t){
     app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2></div></div><div id="ex"></div></div></div></div>`;
     setupAdminEvents(); return EXTRA[t]($('#ex'));
   }
+  const extraHeadBtn = t === 'payment_methods'
+    ? `<button class="g" id="btnLoadOfficialPM" style="background:rgba(0,245,160,.12);border-color:#00f5a0;color:#00f5a0;font-weight:700">⚡ Cargar los 9 Métodos Oficiales</button>`
+    : '';
   const cols=TABLES[t], {data,error}=await sb.from(t).select(SEL[t]||'*').order(cols.includes('created_at')?'created_at':cols[0],{ascending:false}).limit(300);
   const pk=PK[t]||'id', hasAct=t==='orders'||t==='zeny_ledger';
-  app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2><span class="mut">${error?esc(error.message):(data||[]).length+' registros'}</span></div><div class="row">${NOADD.includes(t)?'':'<button id="add">+ Agregar</button>'}</div></div><div class="wrap"><table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th></th></tr>${(data||[]).map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c)}</td>`).join('')}<td class="row">${acts(t,r)}${NOADD.includes(t)?'':`<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}</table></div></div></div></div>`;
+  app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2><span class="mut">${error?esc(error.message):(data||[]).length+' registros'}</span></div><div class="row">${extraHeadBtn}${NOADD.includes(t)?'':'<button id="add">+ Agregar</button>'}</div></div><div class="wrap"><table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th></th></tr>${(data||[]).map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c)}</td>`).join('')}<td class="row">${acts(t,r)}${NOADD.includes(t)?'':`<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}</table></div></div></div></div>`;
   setupAdminEvents();
+  if($('#btnLoadOfficialPM')){
+    $('#btnLoadOfficialPM').onclick = async () => {
+      if(!confirm('¿Cargar o actualizar los 9 métodos de pago oficiales (BNC, Binance, Guayaquil, ApoloPay, Zinli, Wally, Uglycash, Lead Bank, PM Jurídico)?')) return;
+      const officialList = [
+        { nombre: 'Pago Móvil (BNC)', tipo: 'pago_movil', orden: 1, activo: true, datos: { 'Banco': 'BNC (Banco Nacional de Crédito)', 'Código': '0191', 'Teléfono': '04242809333', 'Documento': 'V 18931731' } },
+        { nombre: 'Binance (USDT)', tipo: 'binance', orden: 2, activo: true, datos: { 'ID Binance': '393089335', 'Correo': 'gregoryrodriguez2021@gmail.com' } },
+        { nombre: 'Transferencia Internacional (Ecuador)', tipo: 'transferencia_internacional', orden: 3, activo: true, datos: { 'Banco': 'Guayaquil', 'Tipo de Cuenta': 'Ahorros', 'Titular': 'Evert Izquierdo', 'Documento': '2451655498', 'N° Cuenta': '0042286503', 'Email': 'evertizquierdo91@gmail.com' } },
+        { nombre: 'ApoloPay', tipo: 'apolopay', orden: 4, activo: true, datos: { 'ID Usuario': '7604', 'Correo': 'gregoryrodriguez2021@gmail.com' } },
+        { nombre: 'Zinli', tipo: 'zinli', orden: 5, activo: true, datos: { 'Teléfono': '04242809333', 'Correo': 'gregoryrodriguez2021@gmail.com' } },
+        { nombre: 'Wally', tipo: 'wally', orden: 6, activo: true, datos: { 'Teléfono': '04242809333', 'Correo': 'gregoryrodriguez2021@gmail.com' } },
+        { nombre: 'Uglycash', tipo: 'uglycash', orden: 7, activo: true, datos: { 'Usuario': 'gair1990' } },
+        { nombre: 'Transferencia EEUU (Lead Bank)', tipo: 'transferencia_eeuu', orden: 8, activo: true, datos: { 'Banco': 'Lead Bank', 'Tipo de Cuenta': 'Corriente', 'Titular': 'Gregori Antonio Izquierdo Rodriguez', 'N° Cuenta': '210345561126', 'Routing': '101019644', 'Dirección Banco': '1801 Main St., Kansas City. MO 64108' } },
+        { nombre: 'Pago Móvil Jurídico', tipo: 'pago_movil_juridico', orden: 9, activo: true, datos: { 'Banco': 'Venezolano de Crédito', 'Código': '0104', 'Teléfono': '04242809333', 'Documento': 'J 506393794' } }
+      ];
+      for(const pm of officialList){
+        const { data: existing } = await sb.from('payment_methods').select('id').eq('nombre', pm.nombre).maybeSingle();
+        if(existing?.id){
+          await sb.from('payment_methods').update(pm).eq('id', existing.id);
+        } else {
+          await sb.from('payment_methods').insert(pm);
+        }
+      }
+      toast('✅ 9 Métodos de pago oficiales cargados y sincronizados en la base de datos.');
+      admin('payment_methods');
+    };
+  }
   app.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const {data:v,error:e}=await sb.rpc('reveal_secret',{p:b.dataset.rv});toast(e?e.message:v);});
   app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!confirm(t==='orders'?`¿Verificaste el pago? Total $${b.dataset.tot} (ZenyPoints aplicados: $${b.dataset.z}). Se entregarán las credenciales al cliente.`:'¿Verificaste el pago de esta recarga?'))return;const {error:e}=t==='orders'?await sb.rpc('deliver_order',{p_order:b.dataset.ok}):await sb.from(t).update({estado:'aprobado'}).eq('id',b.dataset.ok);e?toast(e.message):admin(t);});
   app.querySelectorAll('[data-cred]').forEach(b=>b.onclick=async()=>{
@@ -2404,7 +2495,7 @@ async function admin(t){
   app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));
   app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
   app.querySelectorAll('[data-set-credit]').forEach(b=>b.onclick=()=>{
-    const uid=b.dataset.setCredit, nom=b.dataset.nom, cur=Number(b.dataset.cur||10).toFixed(2);
+    const uid=b.dataset.setCredit, nom=b.dataset.nom, cur=Number(b.dataset.cur||0).toFixed(2);
     $('#dlgBody').innerHTML=`
       <h3>💳 Asignar Límite de Crédito</h3>
       <p class="mut" style="font-size:.85rem;margin:0 0 14px">Establece el límite de crédito disponible para <b>${esc(nom)}</b>.</p>
@@ -2414,11 +2505,11 @@ async function admin(t){
           <b style="color:var(--c);font-size:1.1rem">$${cur} USD</b>
         </div>
         <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nuevo Límite de Crédito ($ USD):</label>
-        <input id="inputNewCreditLimit" type="number" step="1" min="0" value="${cur}" style="width:100%;font-size:1.15rem;font-weight:700" placeholder="Ej: 10, 25, 50, 100">
+        <input id="inputNewCreditLimit" type="number" step="1" min="0" value="${cur}" style="width:100%;font-size:1.15rem;font-weight:700" placeholder="Ej: 0, 10, 25, 50, 100">
         <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-          <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=10">$10 (Base)</button>
+          <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=0">$0 (Sin crédito)</button>
+          <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=10">$10</button>
           <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=20">$20</button>
-          <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=30">$30</button>
           <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=50">$50</button>
           <button type="button" class="g" style="padding:4px 8px;font-size:.72rem" onclick="$('#inputNewCreditLimit').value=100">$100</button>
         </div>
@@ -2446,6 +2537,7 @@ async function admin(t){
         'products.precio_usd':'Precio Base USD (Conversión a Tasa BCV)',
         'products.precio_binance_usd':'Precio Binance USDT (Pago directo por Binance Pay)',
         'products.precio_revendedor_usd':'Precio Revendedor Mayorista (USD)',
+        'products.permite_cuotas':'¿Permite Financiamiento en Cuotas (BNPL)?',
         'products.nombre':'Nombre del Producto / Servicio',
         'products.descripcion':'Descripción detallada',
         'products.tipo':'Tipo / Modalidad',
@@ -2454,7 +2546,8 @@ async function admin(t){
         'products.imagen_url':'Imagen del Producto',
         'products.category_id':'Categoría',
         'products.orden':'Orden de visualización',
-        'products.activo':'¿Activo en catálogo?'
+        'products.activo':'¿Activo en catálogo?',
+        'expenses.categoria':'Categoría del Gasto'
       };
       return m[t+'.'+c]||c;
     };

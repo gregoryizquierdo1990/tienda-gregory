@@ -42,24 +42,52 @@ const GCal = {
     });
   },
 
-  async listEvents({ timeMin, timeMax, maxResults = 100 } = {}) {
+  async listEvents({ timeMin, timeMax, maxResults = 250 } = {}) {
     const min = timeMin || new Date(Date.now() - 30 * 86400000).toISOString();
     let q = `timeMin=${encodeURIComponent(min)}&timeZone=${encodeURIComponent(this.TZ)}&maxResults=${maxResults}&singleEvents=true&orderBy=startTime`;
     if (timeMax) q += `&timeMax=${encodeURIComponent(timeMax)}`;
+
+    const eventsMap = new Map();
+    // 1. Consultar primary (calendario por defecto del usuario OAuth autenticado)
     try {
       const res = await G(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${q}`);
-      return res.items || [];
-    } catch(e) {
-      const res = await G(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.CAL_ID)}/events?${q}`);
-      return res.items || [];
+      (res.items || []).forEach(ev => {
+        if (ev && ev.status !== 'cancelled') eventsMap.set(ev.id, ev);
+      });
+    } catch(e) {}
+
+    // 2. Si CAL_ID está configurado y es diferente a primary, consultar también por si los eventos se crearon allí
+    if (this.CAL_ID && this.CAL_ID !== 'primary') {
+      try {
+        const res2 = await G(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.CAL_ID)}/events?${q}`);
+        (res2.items || []).forEach(ev => {
+          if (ev && ev.status !== 'cancelled') eventsMap.set(ev.id, ev);
+        });
+      } catch(e) {}
     }
+
+    return Array.from(eventsMap.values());
+  },
+
+  getEventDate(ev) {
+    if (!ev) return null;
+    if (ev.start?.date) return ev.start.date;
+    if (ev.start?.dateTime) {
+      try {
+        const d = new Date(ev.start.dateTime);
+        return new Intl.DateTimeFormat('en-CA', { timeZone: this.TZ || 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+      } catch (e) {
+        return ev.start.dateTime.slice(0, 10);
+      }
+    }
+    return null;
   },
 
   async listMonthEvents(year, month) {
     const pad = n => String(n).padStart(2, '0');
-    const startStr = `${year}-${pad(month)}-01T00:00:00Z`;
+    const startStr = `${year}-${pad(month)}-01T00:00:00-04:00`;
     const lastDay = new Date(year, month, 0).getDate();
-    const endStr = `${year}-${pad(month)}-${pad(lastDay)}T23:59:59Z`;
+    const endStr = `${year}-${pad(month)}-${pad(lastDay)}T23:59:59-04:00`;
     return this.listEvents({ timeMin: startStr, timeMax: endStr, maxResults: 250 });
   },
 
@@ -144,12 +172,88 @@ const GCal = {
 window.GCal = GCal;
 
 function refundDlg(id, total, done) {
-  $('#dlgBody').innerHTML = `<h3>Devolución</h3><p class="mut">Total del pedido: $${esc(total)}. Si dejas el monto vacío se devuelve todo (se libera el perfil y se anula la factura).</p>
-  <input id="rm" type="number" step="0.01" min="0.01" max="${esc(total)}" placeholder="Monto USD (vacío = total)">
-  <select id="rd" style="margin-top:8px"><option value="zeny">Devolver como ZenyPoints (automático)</option><option value="externo">Devolver por fuera (pago móvil, etc.)</option></select>
-  <input id="rr" placeholder="Motivo" style="margin-top:8px"><select id="rl" style="margin-top:8px"><option value="true">Liberar el perfil (vuelve a disponible)</option><option value="false">Suspender el perfil (revisar o cambiar PIN antes)</option></select>
-  <button id="rok" class="d" style="margin-top:10px;width:100%">Confirmar devolución</button>`; dlg.showModal();
-  $('#rok').onclick = e => run(e.target, async () => { const { error } = await sb.rpc('refund_order', { p_order: id, p_monto: $('#rm').value ? +$('#rm').value : null, p_destino: $('#rd').value, p_motivo: $('#rr').value, p_liberar: $('#rl').value === 'true' }); if (error) throw error; done && done(); return 'Devolución registrada.'; });
+  $('#dlgBody').innerHTML = `
+    <h3>💳 Procesar Devolución / Reembolso</h3>
+    <p class="mut" style="font-size:.82rem;margin:0 0 12px">Total original del pedido: <b>$${esc(total)} USD</b>. Si dejas el monto vacío se reembolsará la totalidad (liberando o suspendiendo el perfil y anulando la factura).</p>
+    
+    <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Monto a Devolver (USD):</label>
+    <input id="rm" type="number" step="0.01" min="0.01" max="${esc(total)}" placeholder="Monto USD (vacío = total: $${esc(total)})" style="width:100%;font-size:1rem;margin-bottom:10px">
+
+    <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Canal / Medio de Devolución:</label>
+    <select id="rd" style="width:100%;font-size:.88rem;margin-bottom:10px;padding:8px">
+      <option value="zeny">💎 Saldo Zeny (Wallet interna del cliente - automático)</option>
+      <option value="usdt">🟡 USDT (Binance Pay / Crypto)</option>
+      <option value="bolivares">🟢 Bolívares (Pago Móvil / Transferencia Bancaria)</option>
+      <option value="externo">🌐 Otra Plataforma (Zinli, Wally, Lead Bank EEUU, ApoloPay, etc.)</option>
+    </select>
+
+    <div id="refundExtraRefWrap" style="margin-bottom:10px">
+      <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Referencia / Comprobante de Pago:</label>
+      <input id="rRef" placeholder="Ej: Pago Móvil #123456, Binance Order ID #98765..." style="width:100%;font-size:.85rem">
+    </div>
+
+    <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Motivo de la Devolución:</label>
+    <input id="rr" placeholder="Ej: Cuenta con caída de proveedor, cliente cambió de plan..." style="width:100%;font-size:.85rem;margin-bottom:10px">
+
+    <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Destino del Perfil / Pantalla:</label>
+    <select id="rl" style="width:100%;font-size:.88rem;margin-bottom:16px;padding:8px">
+      <option value="true">Liberar el perfil (vuelve a estado Disponible en inventario)</option>
+      <option value="false">Suspender el perfil (revisar o cambiar credenciales antes)</option>
+    </select>
+
+    <button id="rok" class="d" style="width:100%;padding:10px;font-weight:700">Confirmar Devolución</button>
+  `;
+  dlg.showModal();
+
+  $('#rd').onchange = () => {
+    const isZeny = $('#rd').value === 'zeny';
+    const refWrap = $('#refundExtraRefWrap');
+    if (refWrap) refWrap.style.display = isZeny ? 'none' : 'block';
+  };
+  $('#rd').onchange();
+
+  $('#rok').onclick = e => run(e.target, async () => {
+    const rawDest = $('#rd').value;
+    const refTxt = ($('#rRef')?.value || '').trim();
+    const motivoBase = ($('#rr').value || '').trim();
+    const destLabel = rawDest === 'zeny' ? 'Saldo Zeny' : (rawDest === 'usdt' ? 'USDT Binance' : (rawDest === 'bolivares' ? 'Bolívares / Pago Móvil' : 'Plataforma Externa'));
+    
+    // Construir motivo estructurado incluyendo referencia de pago
+    let finalMotivo = motivoBase || 'Reembolso autorizado';
+    if (rawDest !== 'zeny') {
+      finalMotivo = `[Vía ${destLabel}${refTxt ? ' · Ref: ' + refTxt : ''}] ${finalMotivo}`;
+    }
+
+    // Intentar pasar el destino directo; si la BD aún tiene el check antiguo, mapear a 'externo'
+    let err = null;
+    try {
+      const res = await sb.rpc('refund_order', {
+        p_order: id,
+        p_monto: $('#rm').value ? +$('#rm').value : null,
+        p_destino: rawDest,
+        p_motivo: finalMotivo,
+        p_liberar: $('#rl').value === 'true'
+      });
+      if (res.error) throw res.error;
+    } catch(rpcErr) {
+      if (rawDest !== 'zeny' && String(rpcErr.message).includes('Destino')) {
+        // Fallback para BD con restricción anterior ('zeny','externo')
+        const fallbackRes = await sb.rpc('refund_order', {
+          p_order: id,
+          p_monto: $('#rm').value ? +$('#rm').value : null,
+          p_destino: 'externo',
+          p_motivo: finalMotivo,
+          p_liberar: $('#rl').value === 'true'
+        });
+        if (fallbackRes.error) throw fallbackRes.error;
+      } else {
+        throw rpcErr;
+      }
+    }
+
+    done && done();
+    return `✅ Devolución registrada exitosamente (${destLabel}).`;
+  });
 }
 
 async function transferDlg(orderId, done) {
@@ -209,10 +313,10 @@ const EXTRA = {
     const endMonth = `${state.year}-${pad(state.month + 1)}-${pad(lastDayOfMonth)}`;
     const calConnected = GCal.isConnected();
 
-    box.innerHTML = '<p class="mut">Cargando calendario de vencimientos…</p>';
+    box.innerHTML = '<p class="mut">Cargando calendario de vencimientos y Google Calendar…</p>';
 
-    // Consultamos pedidos entregados/activos y cuentas madre activas con fecha de vencimiento
-    const [{ data: orders, error: errOrd }, { data: mothers, error: errMoth }] = await Promise.all([
+    // Consultamos pedidos entregados/activos, cuentas madre y eventos de Google Calendar en paralelo
+    const pms = [
       sb.from('orders')
         .select('id,customer_id,product_id,profile_id,total_usd,referencia,inicia,vence,gcal_event_id,estado,customers(nombre,email,telefono),products(nombre)')
         .not('vence', 'is', null)
@@ -223,41 +327,66 @@ const EXTRA = {
         .not('vence', 'is', null)
         .gte('vence', startMonth)
         .lte('vence', endMonth)
-    ]);
+    ];
 
-    if (errOrd || errMoth) {
-      return box.innerHTML = `<p class="mut">Error al cargar datos: ${esc((errOrd || errMoth).message)}</p>`;
+    if (calConnected) {
+      pms.push(GCal.listMonthEvents(state.year, state.month + 1).catch(e => {
+        console.warn('GCal fetch warning:', e);
+        return [];
+      }));
+    }
+
+    const [resOrd, resMoth, resGcal] = await Promise.all(pms);
+    const orders = resOrd?.data || [];
+    const mothers = resMoth?.data || [];
+    const gcalEvents = Array.isArray(resGcal) ? resGcal : [];
+
+    if (resOrd?.error || resMoth?.error) {
+      return box.innerHTML = `<p class="mut">Error al cargar datos: ${esc((resOrd?.error || resMoth?.error).message)}</p>`;
     }
 
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
     // Mapear eventos por fecha (YYYY-MM-DD)
+    const linkedGcalIds = new Set(orders.map(o => o.gcal_event_id).filter(Boolean));
     const eventsByDate = {};
-    (orders || []).forEach(o => {
+    orders.forEach(o => {
       const d = o.vence;
-      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [] };
+      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], gcal: [] };
       eventsByDate[d].orders.push(o);
     });
-    (mothers || []).forEach(m => {
+    mothers.forEach(m => {
       const d = m.vence;
-      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [] };
+      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], gcal: [] };
       eventsByDate[d].mothers.push(m);
     });
+    gcalEvents.forEach(g => {
+      g._isLinked = linkedGcalIds.has(g.id);
+      if (g._isLinked) {
+        g._order = orders.find(o => o.gcal_event_id === g.id);
+      }
+      const d = GCal.getEventDate(g);
+      if (d) {
+        if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], gcal: [] };
+        eventsByDate[d].gcal.push(g);
+      }
+    });
 
-    const totalOrdersMonth = (orders || []).length;
-    const totalMothersMonth = (mothers || []).length;
-    const todayEvents = eventsByDate[todayStr] || { orders: [], mothers: [] };
-    const todayTotal = todayEvents.orders.length + todayEvents.mothers.length;
+    const totalOrdersMonth = orders.length;
+    const totalMothersMonth = mothers.length;
+    const totalGcalMonth = gcalEvents.length;
+    const todayEvents = eventsByDate[todayStr] || { orders: [], mothers: [], gcal: [] };
+    const todayTotal = todayEvents.orders.length + todayEvents.mothers.length + (todayEvents.gcal || []).filter(g => !g._isLinked).length;
 
-    // Calculo de celdas de calendario estilo Hoja de Calculo Google Sheets (Empieza en DOMINGO como la plantilla)
-    const firstDayIndex = new Date(state.year, state.month, 1).getDay(); // Domingo = 0, Lunes = 1, etc.
+    // Calculo de celdas de calendario estilo Hoja de Calculo Google Sheets
+    const firstDayIndex = new Date(state.year, state.month, 1).getDay(); // Domingo = 0
     const prevMonthDays = new Date(state.year, state.month, 0).getDate();
 
     const daysHtml = [];
     const weekHeaders = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'].map(d => `<div class="cal-sheet-th">${d}</div>`).join('');
 
-    // Celdas del mes anterior (sombreadas en gris azulado como en la plantilla)
+    // Celdas del mes anterior
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dNum = prevMonthDays - i;
       daysHtml.push(`<div class="cal-sheet-cell disabled"><span class="cal-sheet-num">${dNum}</span></div>`);
@@ -271,10 +400,12 @@ const EXTRA = {
       const isSel = dStr === state.selectedDate;
       const numOrd = ev?.orders?.length || 0;
       const numMoth = ev?.mothers?.length || 0;
+      const numGcalUnlinked = (ev?.gcal || []).filter(g => !g._isLinked).length;
 
       let itemsHtml = '';
       if (numOrd > 0) itemsHtml += `<div class="cal-item-pill order" title="${numOrd} clientes">👤 ${numOrd} servicio${numOrd > 1 ? 's' : ''}</div>`;
       if (numMoth > 0) itemsHtml += `<div class="cal-item-pill mother" title="${numMoth} cuentas madre">🔑 ${numMoth} cuenta${numMoth > 1 ? 's' : ''}</div>`;
+      if (numGcalUnlinked > 0) itemsHtml += `<div class="cal-item-pill gcal" style="background:#e8f0fe;color:#1a73e8;border-left:3px solid #1a73e8" title="${numGcalUnlinked} eventos en Google Calendar">📅 ${numGcalUnlinked} Calendar</div>`;
 
       daysHtml.push(`
         <div class="cal-sheet-cell ${isToday ? 'is-today' : ''} ${isSel ? 'is-selected' : ''}" data-day="${dStr}">
@@ -284,7 +415,7 @@ const EXTRA = {
       `);
     }
 
-    // Completar cuadrícula restante para múltiplos de 7 (sombreadas en gris azulado)
+    // Completar cuadrícula restante para múltiplos de 7
     const remainingDays = (7 - ((firstDayIndex + lastDayOfMonth) % 7)) % 7;
     for (let r = 1; r <= remainingDays; r++) {
       daysHtml.push(`<div class="cal-sheet-cell disabled"><span class="cal-sheet-num">${r}</span></div>`);
@@ -292,8 +423,8 @@ const EXTRA = {
 
     // Detalle del día seleccionado
     const selDate = state.selectedDate || todayStr;
-    const selEvents = eventsByDate[selDate] || { orders: [], mothers: [] };
-    const selTotal = selEvents.orders.length + selEvents.mothers.length;
+    const selEvents = eventsByDate[selDate] || { orders: [], mothers: [], gcal: [] };
+    const selTotal = selEvents.orders.length + selEvents.mothers.length + (selEvents.gcal || []).filter(g => !g._isLinked).length;
 
     let detailHtml = `
       <div class="cal-detail">
@@ -303,7 +434,7 @@ const EXTRA = {
         </div>
     `;
 
-    if (selTotal === 0) {
+    if (selTotal === 0 && (!selEvents.gcal || selEvents.gcal.length === 0)) {
       detailHtml += '<p class="mut" style="margin:0">No hay servicios ni cuentas madre programados para vencer en esta fecha.</p>';
     } else {
       if (selEvents.orders.length > 0) {
@@ -339,7 +470,7 @@ const EXTRA = {
       if (selEvents.mothers.length > 0) {
         detailHtml += `
           <h5 style="margin:8px 0 6px;color:#ffb703">Cuentas Madre (${selEvents.mothers.length})</h5>
-          <div class="wrap">
+          <div class="wrap" style="margin-bottom:12px">
             <table>
               <tr><th>Plataforma</th><th>Correo Madre</th><th>Proveedor</th><th>Estado</th></tr>
               ${selEvents.mothers.map(m => `
@@ -348,6 +479,32 @@ const EXTRA = {
                   <td>${esc(m.correo)}</td>
                   <td>${esc(m.proveedor || '—')}</td>
                   <td><span class="pill ${m.activa ? '' : 'off'}">${m.activa ? 'Activa' : 'Inactiva'}</span></td>
+                </tr>
+              `).join('')}
+            </table>
+          </div>
+        `;
+      }
+      if (selEvents.gcal && selEvents.gcal.length > 0) {
+        detailHtml += `
+          <h5 style="margin:14px 0 6px;color:#4285f4;display:flex;align-items:center;justify-content:space-between">
+            <span>📅 Eventos en Google Calendar (${selEvents.gcal.length})</span>
+            <span class="mut" style="font-size:.74rem">Sincronización en vivo</span>
+          </h5>
+          <div class="wrap" style="margin-bottom:12px">
+            <table>
+              <tr><th>Evento</th><th>Horario</th><th>Descripción / Notas</th><th>Estado</th><th>Acciones</th></tr>
+              ${selEvents.gcal.map(g => `
+                <tr>
+                  <td><b>${esc(g.summary || '(Sin título)')}</b></td>
+                  <td>${esc(g.start?.dateTime ? g.start.dateTime.slice(11, 16) + ' VET' : 'Todo el día')}</td>
+                  <td style="max-width:240px;font-size:.76rem">${esc(g.description || '—')}</td>
+                  <td>${g._isLinked ? `<span class="pill" style="font-size:.68rem;background:rgba(0,245,160,.12);color:#00f5a0;border:1px solid rgba(0,245,160,.3)">🔗 Pedido #${esc(String(g._order?.id || '').slice(0, 8))}</span>` : '<span class="pill" style="font-size:.68rem;background:rgba(66,133,244,.12);color:#8ab4f8;border:1px solid rgba(66,133,244,.3)">📅 Google Calendar</span>'}</td>
+                  <td class="row" style="gap:5px">
+                    ${g.htmlLink ? `<a href="${esc(g.htmlLink)}" target="_blank" rel="noopener noreferrer" class="cal-sheet-btn" style="text-decoration:none;padding:4px 8px;font-size:.72rem" title="Abrir en Google Calendar Web">🌐 Ver</a>` : ''}
+                    <button class="g" data-gcal-edit="${esc(g.id)}" data-gcal-sum="${esc(g.summary || '')}" data-gcal-date="${esc(GCal.getEventDate(g) || '')}" style="padding:4px 8px;font-size:.72rem">✏️ Fecha</button>
+                    <button class="d" data-gcal-del="${esc(g.id)}" style="padding:4px 8px;font-size:.72rem">🗑️</button>
+                  </td>
                 </tr>
               `).join('')}
             </table>
@@ -391,7 +548,7 @@ const EXTRA = {
         </div>
 
         <div class="cal-sheet-notes" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <div>NOTAS / RESUMEN: Hoy vencen ${todayTotal} · Total mes: ${totalOrdersMonth} servicios clientes y ${totalMothersMonth} cuentas madre.</div>
+          <div>NOTAS / RESUMEN: Hoy vencen ${todayTotal} · Total mes: ${totalOrdersMonth} servicios clientes, ${totalMothersMonth} cuentas madre${calConnected ? ` y ${totalGcalMonth} eventos en Google Calendar.` : '.'}</div>
           <div style="font-size:.76rem;color:#8ea8c8">
             Google Calendar (<code>${GCal.CAL_ID}</code>): <b style="${calConnected ? 'color:#00f5a0' : 'color:#ffb703'}">${calConnected ? '🟢 Sincronización Bidireccional Activa' : '⚠️ Desconectado'}</b>
           </div>
@@ -434,44 +591,66 @@ const EXTRA = {
           gMap.set(ev.id, ev);
         }
 
-        // 2. Traer todos los pedidos del mes para comparar
-        const { data: curOrders, error: curErr } = await sb.from('orders')
-          .select('id,customer_id,product_id,profile_id,inicia,vence,gcal_event_id,estado,customers(nombre,email,telefono),products(nombre)')
-          .not('vence', 'is', null)
-          .gte('vence', startMonth)
-          .lte('vence', endMonth);
+        // 2. Traer todos los pedidos del mes y los vinculados a Google Calendar
+        const [{ data: curOrders, error: curErr }, { data: linkedOrders }] = await Promise.all([
+          sb.from('orders')
+            .select('id,customer_id,product_id,profile_id,inicia,vence,gcal_event_id,estado,customers(nombre,email,telefono),products(nombre)')
+            .not('vence', 'is', null)
+            .gte('vence', startMonth)
+            .lte('vence', endMonth),
+          sb.from('orders')
+            .select('id,customer_id,product_id,profile_id,inicia,vence,gcal_event_id,estado,customers(nombre,email,telefono),products(nombre)')
+            .not('gcal_event_id', 'is', null)
+        ]);
         if (curErr) throw curErr;
+
+        const ordersMap = new Map();
+        (curOrders || []).forEach(o => ordersMap.set(o.id, o));
+        (linkedOrders || []).forEach(o => ordersMap.set(o.id, o));
+        const allOrders = Array.from(ordersMap.values());
 
         let updatedFromCalendar = 0;
         let pushedToCalendar = 0;
+        let linkedFromCalendar = 0;
+        let totalGoogleEvents = gEvents.length;
 
-        // A) Calendar -> Plataforma: si el evento se movió de fecha en Google Calendar, actualizar pedidos en Supabase
-        for (const ord of (curOrders || [])) {
-          if (ord.gcal_event_id && gMap.has(ord.gcal_event_id)) {
-            const ev = gMap.get(ord.gcal_event_id);
-            const evDate = ev.start?.date || (ev.start?.dateTime ? ev.start.dateTime.slice(0, 10) : null);
-            if (evDate && evDate !== ord.vence) {
-              await sb.from('orders').update({ vence: evDate, proximo_pago: evDate }).eq('id', ord.id);
-              if (ord.profile_id) {
-                await sb.from('profiles_inventory').update({ vence: evDate }).eq('id', ord.profile_id).catch(() => {});
-              }
-              ord.vence = evDate;
-              updatedFromCalendar++;
+        // A) Calendar -> Plataforma: Smart Matching y Actualización de fechas
+        for (const ev of gEvents) {
+          const evDate = GCal.getEventDate(ev);
+          let matchedOrd = allOrders.find(o => o.gcal_event_id === ev.id);
+
+          // Si no está vinculado por ID, buscar si el evento menciona el ID de pedido (#uuid o #8chars)
+          if (!matchedOrd) {
+            const txt = `${ev.summary || ''} ${ev.description || ''}`;
+            matchedOrd = allOrders.find(o => {
+              if (o.gcal_event_id) return false;
+              return txt.includes(o.id) || txt.includes(o.id.slice(0, 8));
+            });
+            if (matchedOrd) {
+              await sb.from('orders').update({ gcal_event_id: ev.id }).eq('id', matchedOrd.id);
+              matchedOrd.gcal_event_id = ev.id;
+              linkedFromCalendar++;
             }
+          }
+
+          // Si el evento está enlazado a un pedido y su fecha cambió en Google Calendar, actualizar pedido en Supabase
+          if (matchedOrd && evDate && evDate !== matchedOrd.vence) {
+            await sb.from('orders').update({ vence: evDate, proximo_pago: evDate }).eq('id', matchedOrd.id);
+            if (matchedOrd.profile_id) {
+              await sb.from('profiles_inventory').update({ vence: evDate }).eq('id', matchedOrd.profile_id).catch(() => {});
+            }
+            matchedOrd.vence = evDate;
+            updatedFromCalendar++;
           }
         }
 
-        // B) Plataforma -> Calendar: si hay pedidos activos sin evento en Calendar, crearlos
+        // B) Plataforma -> Calendar: Si hay pedidos activos/entregados sin evento en Calendar, crearlos
         for (const ord of (curOrders || [])) {
           if (['pagado', 'entregado'].includes(ord.estado)) {
             const prodName = ord.products?.nombre || 'Servicio';
             const custName = ord.customers?.nombre || ord.customers?.email || 'Cliente';
             const evSummary = `Vence: ${prodName} · ${custName}`;
-            const evDesc = `Pedido #${ord.id}
-Cliente: ${custName}
-Teléfono: ${ord.customers?.telefono || 'N/A'}
-Servicio: ${prodName}
-Fecha Vencimiento: ${ord.vence}`;
+            const evDesc = `Pedido #${ord.id}\nCliente: ${custName}\nTeléfono: ${ord.customers?.telefono || 'N/A'}\nServicio: ${prodName}\nFecha Vencimiento: ${ord.vence}`;
 
             if (!ord.gcal_event_id) {
               const newEv = await GCal.createEvent({
@@ -485,7 +664,7 @@ Fecha Vencimiento: ${ord.vence}`;
                 pushedToCalendar++;
               }
             } else if (!gMap.has(ord.gcal_event_id)) {
-              // Si el ID guardado no existe en Google Calendar (fue borrado allá), recrear
+              // Si el evento fue eliminado en Google Calendar, recrearlo
               const newEv = await GCal.createEvent({
                 summary: evSummary,
                 description: evDesc,
@@ -501,9 +680,75 @@ Fecha Vencimiento: ${ord.vence}`;
         }
 
         EXTRA.vencimientos(box);
-        return `Sincronización completa: ${pushedToCalendar} eventos creados en Calendar, ${updatedFromCalendar} actualizados desde Calendar.`;
+        let msg = `📅 Sincronización con Google Calendar completa:`;
+        msg += `\n• Eventos en Google Calendar: ${totalGoogleEvents}`;
+        if (pushedToCalendar > 0) msg += `\n• Pedidos subidos a Google Calendar: ${pushedToCalendar}`;
+        if (updatedFromCalendar > 0) msg += `\n• Fechas actualizadas desde Calendar: ${updatedFromCalendar}`;
+        if (linkedFromCalendar > 0) msg += `\n• Pedidos vinculados automáticamente: ${linkedFromCalendar}`;
+        if (pushedToCalendar === 0 && updatedFromCalendar === 0 && linkedFromCalendar === 0) {
+          msg += `\n• Todos los vencimientos y eventos están al día.`;
+        }
+        return msg;
       });
     }
+
+    // Acciones sobre eventos propios de Google Calendar en el detalle
+    box.querySelectorAll('[data-gcal-edit]').forEach(btn => {
+      btn.onclick = () => {
+        const evId = btn.dataset.gcalEdit;
+        const curSum = btn.dataset.gcalSum;
+        const curDate = btn.dataset.gcalDate;
+
+        $('#dlgBody').innerHTML = `
+          <h3>📅 Modificar Evento en Google Calendar</h3>
+          <p class="mut" style="font-size:.82rem;margin:0 0 12px">Evento: <b>${esc(curSum)}</b></p>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <label class="mut" style="font-size:.76rem">Nuevo Título / Resumen:</label>
+            <input type="text" id="dlgGcalNewSum" value="${esc(curSum)}" style="font-size:1rem;padding:8px 12px">
+            <label class="mut" style="font-size:.76rem">Nueva Fecha:</label>
+            <input type="date" id="dlgGcalNewDate" value="${curDate}" required style="font-size:1rem;padding:8px 12px">
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="dlgSaveGcalEvent">💾 Guardar en Google Calendar</button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#dlgSaveGcalEvent').onclick = async () => {
+          const newSum = $('#dlgGcalNewSum').value.trim();
+          const newDate = $('#dlgGcalNewDate').value;
+          if (!newDate) return toast('Ingresa una fecha válida.');
+          dlg.close();
+
+          try {
+            await GCal.updateEvent(evId, { summary: newSum || curSum, date: newDate });
+            // Si estaba enlazado a un pedido, actualizarlo en Supabase
+            await sb.from('orders').update({ vence: newDate, proximo_pago: newDate }).eq('gcal_event_id', evId);
+            toast('✅ Evento actualizado en Google Calendar.');
+            EXTRA.vencimientos(box);
+          } catch(err) {
+            toast('Error al actualizar evento: ' + err.message);
+          }
+        };
+      };
+    });
+
+    box.querySelectorAll('[data-gcal-del]').forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('¿Eliminar este evento de tu Google Calendar?')) return;
+        const evId = btn.dataset.gcalDel;
+        try {
+          await GCal.deleteEvent(evId);
+          // Desenlazar en orders si estaba asociado
+          await sb.from('orders').update({ gcal_event_id: null }).eq('gcal_event_id', evId).catch(() => {});
+          toast('🗑️ Evento eliminado de Google Calendar.');
+          EXTRA.vencimientos(box);
+        } catch(err) {
+          toast('Error al eliminar evento: ' + err.message);
+        }
+      };
+    });
 
     box.querySelectorAll('[data-day]').forEach(cell => {
       cell.onclick = () => {
@@ -2053,8 +2298,182 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
   },
 
   async gemini(box) {
-    box.innerHTML = `<textarea id="gp" rows="5" placeholder="Pídele a Gemini: redactar promociones, mensajes de cobro, respuestas para clientes…"></textarea><div class="row" style="margin:8px 0"><button id="gg2">Preguntar</button></div><pre id="go" style="white-space:pre-wrap" class="card"></pre>`;
-    $('#gg2').onclick = e => run(e.target, async () => { const r = await api('/api/gemini', { prompt: $('#gp').value }); $('#go').textContent = r.text; return 'Listo'; });
+    if (!box._chatHistory) {
+      box._chatHistory = [];
+    }
+    const history = box._chatHistory;
+
+    const renderChat = () => {
+      const msgsHtml = history.length === 0 ? `
+        <div class="ai-welcome">
+          <div class="ai-welcome-sparkle">✨</div>
+          <h3 style="margin:0 0 6px;font-size:1.3rem;background:linear-gradient(135deg,#00f5a0,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">¿En qué puedo ayudarte hoy, Gregory?</h3>
+          <p class="mut" style="font-size:.85rem;max-width:540px;margin:0 auto 20px;line-height:1.5">
+            Soy tu Asistente de IA comercial impulsado por <b>Gemini 2.5 Flash</b>. Puedo redactar promociones de WhatsApp, mensajes de cobro, respuestas para reclamos o sugerir estrategias para tu tienda.
+          </p>
+          <div class="ai-prompts-grid">
+            <button type="button" class="ai-prompt-chip" data-p="Redacta un mensaje de WhatsApp atractivo y con emojis para promocionar combos de pantallas de Netflix y Disney+ este fin de semana.">
+              <span class="ai-chip-title">📢 Combo Fin de Semana</span>
+              <span class="ai-chip-sub">Mensaje para WhatsApp y estados con emojis y llamado a la acción</span>
+            </button>
+            <button type="button" class="ai-prompt-chip" data-p="Escribe un mensaje de cobro muy educado, respetuoso pero firme para un cliente que tiene una cuota o crédito vencido en la plataforma.">
+              <span class="ai-chip-title">💬 Recordatorio de Cobro</span>
+              <span class="ai-chip-sub">Cobro respetuoso y formal para clientes en mora</span>
+            </button>
+            <button type="button" class="ai-prompt-chip" data-p="Redacta una respuesta amable y tranquilizadora para un cliente cuya pantalla presentó caída de acceso y le estamos reponiendo un nuevo PIN de inmediato.">
+              <span class="ai-chip-title">🛡️ Reposición de PIN / Soporte</span>
+              <span class="ai-chip-sub">Respuesta tranquilizadora ante fallas de proveedor</span>
+            </button>
+            <button type="button" class="ai-prompt-chip" data-p="Dame 3 estrategias comerciales rápidas y prácticas para incentivar a los clientes a comprar cuentas completas en lugar de solo pantallas individuales.">
+              <span class="ai-chip-title">📊 Estrategia de Ventas</span>
+              <span class="ai-chip-sub">Tácticas para potenciar venta de cuentas completas</span>
+            </button>
+          </div>
+        </div>
+      ` : `
+        <div class="ai-messages-list" id="aiMsgList">
+          ${history.map((m, i) => `
+            <div class="ai-msg ${m.role}">
+              <div class="ai-msg-avatar">${m.role === 'user' ? '👤' : '✨'}</div>
+              <div class="ai-msg-bubble">
+                <div class="ai-msg-header">
+                  <span class="ai-msg-author">${m.role === 'user' ? 'Tú (Gregory)' : 'Gemini 2.5 Flash'}</span>
+                  ${m.role === 'model' ? `<button class="ai-copy-btn" data-copy="${i}" title="Copiar texto al portapapeles">📋 Copiar</button>` : ''}
+                </div>
+                <div class="ai-msg-text">${esc(m.text).replace(/\n/g, '<br>')}</div>
+              </div>
+            </div>
+          `).join('')}
+          <div id="aiScrollAnchor"></div>
+        </div>
+      `;
+
+      box.innerHTML = `
+        <div class="ai-chat-container">
+          <div class="ai-chat-header">
+            <div class="ai-chat-header-brand">
+              <span class="ai-badge-icon">✨</span>
+              <div>
+                <div class="ai-chat-title">Gemini AI Workspace</div>
+                <div class="ai-chat-sub">Modelo activo: <b>Gemini 2.5 Flash</b> · Contexto Comercial</div>
+              </div>
+            </div>
+            <div class="row" style="gap:8px">
+              <span class="pill" style="font-size:.72rem;background:rgba(0,245,160,.12);color:#00f5a0;border:1px solid rgba(0,245,160,.3)">🟢 Conectado</span>
+              <button class="g" id="aiClearBtn" type="button" style="padding:5px 10px;font-size:.75rem">🗑️ Limpiar Chat</button>
+            </div>
+          </div>
+
+          <div class="ai-chat-body" id="aiChatBody">
+            ${msgsHtml}
+          </div>
+
+          <div class="ai-chat-footer">
+            <div class="ai-input-wrap">
+              <textarea id="aiPromptInput" rows="1" placeholder="Pregúntale a Gemini algo o pídele una tarea... (Enter para enviar, Shift+Enter para nueva línea)"></textarea>
+              <button id="aiSendBtn" type="button" title="Enviar mensaje">➤</button>
+            </div>
+            <div class="ai-input-hint">Presiona <b>Enter</b> para enviar · <b>Shift + Enter</b> para salto de línea</div>
+          </div>
+        </div>
+      `;
+
+      const input = $('#aiPromptInput');
+      const sendBtn = $('#aiSendBtn');
+      const clearBtn = $('#aiClearBtn');
+
+      if (clearBtn) {
+        clearBtn.onclick = () => {
+          box._chatHistory = [];
+          renderChat();
+        };
+      }
+
+      box.querySelectorAll('.ai-copy-btn').forEach(btn => {
+        btn.onclick = () => {
+          const idx = Number(btn.dataset.copy);
+          const txt = history[idx]?.text || '';
+          navigator.clipboard.writeText(txt).then(() => toast('Texto copiado al portapapeles.'));
+        };
+      });
+
+      box.querySelectorAll('.ai-prompt-chip').forEach(btn => {
+        btn.onclick = () => {
+          if (input) {
+            input.value = btn.dataset.p;
+            doSend();
+          }
+        };
+      });
+
+      const doSend = async () => {
+        const text = (input?.value || '').trim();
+        if (!text) return;
+        input.value = '';
+        input.style.height = 'auto';
+
+        history.push({ role: 'user', text });
+        renderChat();
+
+        setTimeout(() => {
+          const anc = $('#aiScrollAnchor');
+          if (anc) anc.scrollIntoView({ behavior: 'smooth' });
+        }, 50);
+
+        const curSend = $('#aiSendBtn');
+        if (curSend) curSend.disabled = true;
+
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'ai-msg model ai-typing';
+        loadingDiv.innerHTML = `
+          <div class="ai-msg-avatar">✨</div>
+          <div class="ai-msg-bubble">
+            <div class="ai-msg-text" style="color:#00d4ff">✨ Gemini está redactando respuesta…</div>
+          </div>
+        `;
+        const bodyEl = $('#aiChatBody');
+        const listEl = $('#aiMsgList') || bodyEl;
+        listEl.appendChild(loadingDiv);
+        loadingDiv.scrollIntoView({ behavior: 'smooth' });
+
+        try {
+          const contents = history.map(h => ({
+            role: h.role === 'user' ? 'user' : 'model',
+            parts: [{ text: h.text }]
+          }));
+
+          const r = await api('/api/gemini', { contents });
+          loadingDiv.remove();
+          history.push({ role: 'model', text: r.text || 'Sin respuesta generada.' });
+          renderChat();
+          setTimeout(() => {
+            const anc = $('#aiScrollAnchor');
+            if (anc) anc.scrollIntoView({ behavior: 'smooth' });
+          }, 50);
+        } catch (err) {
+          loadingDiv.remove();
+          history.push({ role: 'model', text: '⚠️ Error al consultar Gemini: ' + err.message });
+          renderChat();
+        }
+      };
+
+      if (sendBtn) sendBtn.onclick = doSend;
+      if (input) {
+        input.onkeydown = e => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            doSend();
+          }
+        };
+        input.oninput = () => {
+          input.style.height = 'auto';
+          input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+        };
+        input.focus();
+      }
+    };
+
+    renderChat();
   },
 
   async importar(box) {
