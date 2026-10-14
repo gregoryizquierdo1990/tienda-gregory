@@ -330,45 +330,6 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
   #invoiceDlg{position:fixed;left:0;top:0;width:100%!important;max-width:100%!important;border:none!important;box-shadow:none!important;padding:0!important;margin:0!important;background:#ffffff!important;color:#000000!important}
   .invoice-acts{display:none!important}
 }
-
-/* Agente IA Milos - Executive Admin Copilot Desk */
-#milosCopilotDesk{position:fixed;bottom:18px;right:22px;z-index:999;font-family:'Sora',sans-serif;display:none;flex-direction:column;align-items:flex-end;pointer-events:none}
-body.is-admin #milosCopilotDesk{display:flex!important}
-body:not(.is-admin) #milosCopilotDesk{display:none!important}
-.milos-desk-workbench{display:flex;flex-direction:column;gap:18px;width:100%}
-.milos-desk-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}
-@media(max-width:960px){.milos-desk-grid{grid-template-columns:1fr}}
-.milos-desk-chat-card{background:linear-gradient(180deg,rgba(10,24,46,.95),rgba(5,12,24,.98));border:1.5px solid rgba(0,212,255,.3);border-radius:18px;display:flex;flex-direction:column;height:620px;overflow:hidden}
-.milos-desk-side-card{background:linear-gradient(180deg,rgba(10,24,46,.95),rgba(5,12,24,.98));border:1.5px solid rgba(0,212,255,.3);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:18px}
-.milos-blocker-card{background:rgba(255,183,3,.08);border:1.5px solid #ffb703;border-radius:14px;padding:20px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.milos-dock-pill{pointer-events:auto;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(10,26,50,.96),rgba(5,14,28,.99));border:1.5px solid rgba(0,212,255,.45);box-shadow:0 12px 32px rgba(0,0,0,.75),0 0 20px rgba(0,212,255,.2);border-radius:99px;padding:8px 16px;cursor:pointer;transition:all .2s ease;user-select:none}
-.milos-dock-pill:hover{transform:translateY(-2px);border-color:var(--a);box-shadow:0 16px 36px rgba(0,0,0,.85),0 0 26px rgba(0,245,160,.3)}
-.milos-dock-pill-title{font-size:.84rem;font-weight:800;color:#ffffff;display:flex;align-items:center;gap:6px}
-.milos-status-dot{width:8px;height:8px;border-radius:50%;background:#00f5a0;box-shadow:0 0 8px #00f5a0}
-.milos-status-dot.warn{background:#ffb703;box-shadow:0 0 8px #ffb703}
-.milos-window{pointer-events:auto;width:410px;max-width:calc(100vw - 32px);height:570px;max-height:calc(100vh - 90px);background:linear-gradient(180deg,rgba(10,24,46,.98) 0%,rgba(5,12,24,.99) 100%);border:1.5px solid rgba(0,212,255,.35);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.9),0 0 35px rgba(0,212,255,.15);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:flex;flex-direction:column;overflow:hidden;animation:milosSlideUp .22s ease-out}
-@keyframes milosSlideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-.milos-header{padding:12px 16px;background:linear-gradient(135deg,rgba(14,34,64,.95),rgba(7,18,36,.98));border-bottom:1px solid rgba(0,212,255,.2);display:flex;justify-content:space-between;align-items:center}
-.milos-header-title{display:flex;align-items:center;gap:10px;font-size:.92rem;font-weight:800;color:#ffffff}
-.milos-header-actions{display:flex;align-items:center;gap:4px}
-.milos-btn-icon{background:transparent;border:none;color:var(--mut);font-size:1.1rem;cursor:pointer;padding:4px 8px;box-shadow:none;transition:color .15s}
-.milos-btn-icon:hover{color:#ffffff;background:transparent;box-shadow:none}
-.milos-tabs{display:flex;background:rgba(3,8,18,.7);border-bottom:1px solid rgba(22,51,90,.8);padding:4px 8px;gap:6px}
-.milos-tab-btn{flex:1;background:transparent;border:none;color:#8ea8c8;font-size:.74rem;font-weight:700;padding:6px 4px;border-radius:8px;cursor:pointer;box-shadow:none;transition:all .15s;text-align:center}
-.milos-tab-btn:hover{background:rgba(255,255,255,.05);color:#ffffff;box-shadow:none}
-.milos-tab-btn.active{background:rgba(0,212,255,.15);color:var(--c);border:1px solid rgba(0,212,255,.3)}
-.milos-body{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.milos-chat-msg-list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
-.milos-bubble{max-width:85%;padding:10px 14px;border-radius:14px;font-size:.82rem;line-height:1.45;word-break:break-word}
-.milos-bubble.user{align-self:flex-end;background:linear-gradient(135deg,rgba(0,212,255,.2),rgba(0,245,160,.18));border:1px solid rgba(0,212,255,.4);color:#ffffff}
-.milos-bubble.bot{align-self:flex-start;background:rgba(14,30,54,.85);border:1px solid rgba(255,255,255,.08);color:#d1e2f7}
-.milos-bubble.bot b,.milos-bubble.bot strong{color:#ffffff}
-.milos-quick-chips{display:flex;gap:6px;overflow-x:auto;padding:6px 12px;background:rgba(3,8,18,.4);border-top:1px solid rgba(255,255,255,.05)}
-.milos-chip{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--c);padding:4px 9px;border-radius:99px;font-size:.7rem;font-weight:700;white-space:nowrap;cursor:pointer;transition:all .15s}
-.milos-chip:hover{background:rgba(0,245,160,.15);border-color:var(--a);color:var(--a)}
-.milos-input-bar{display:flex;gap:6px;padding:10px 12px;border-top:1px solid rgba(22,51,90,.8);background:rgba(7,16,32,.95)}
-.milos-input-bar input{flex:1;font-size:.82rem;padding:8px 12px;border-radius:10px;background:rgba(3,8,18,.8);border:1px solid var(--line);color:#ffffff}
-.milos-input-bar button{background:var(--grad);color:#03121c;border:none;padding:8px 14px;border-radius:10px;font-weight:800;cursor:pointer}
 </style></head><body>
 <div class="watermark-bg" id="watermarkBg" aria-hidden="true"><img src="/logo.png" alt="" id="watermarkImg"></div>
 <header><div class="brand"><div class="logo"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo"></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
@@ -862,14 +823,16 @@ function productCard(p){
   const originalPrice = Number(p.precio_usd);
   const hasResellerSpecial = isReseller && p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0;
   const effectivePrice = hasResellerSpecial ? Number(p.precio_revendedor_usd) : originalPrice;
+  const hasBinanceSpecial = p.precio_binance_usd != null && Number(p.precio_binance_usd) > 0;
 
   const out=!(S.stock[p.id]>0||p.tipo==='servicio'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(effectivePrice*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
   
   return `<article class="pc t-${esc(p.tipo)}">${p.imagen_url?`<img src="${esc(p.imagen_url)}" alt="" loading="lazy" decoding="async">`:`<div class="ph" aria-hidden="true">${esc((p.nombre||'?').slice(0,1).toUpperCase())}</div>`}
    <div class="pb">
-     <div style="display:flex;justify-content:space-between;align-items:center">
+     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
        <span class="tag">${esc(TL[p.tipo]||p.tipo)}</span>
        ${hasResellerSpecial ? '<span class="reseller-badge">Precio Revendedor</span>' : ''}
+       ${hasBinanceSpecial ? `<span class="pill" style="font-size:.65rem;background:rgba(240,185,11,.15);color:#f0b90b;border:1px solid rgba(240,185,11,.3);font-weight:700" title="Precio especial con Binance Pay">🟡 Binance: $${Number(p.precio_binance_usd).toFixed(2)} USDT</span>` : ''}
      </div>
      <h3>${esc(p.nombre)}</h3><p class="mut">${esc(p.descripcion)}</p>
      <div class="meta"><span>⏱ ${p.duracion_dias} días</span><span>🛡 Garantía ${p.garantia_dias||0} días</span></div>
@@ -1211,11 +1174,21 @@ async function buyDlg(id){
   };
 
   const renderCheckout = () => {
-    const totalToPayToday = payPlan === 'cuotas' ? cuotaInicialUsd : totalOriginal;
+    const selectedMethod = (pmList || []).find(m => m.id === selectedMethodId) || (pmList || [])[0];
+    const isBinanceMethod = selectedMethod && (selectedMethod.tipo === 'binance' || /binance/i.test(selectedMethod.nombre || ''));
+    const hasBinanceSpecial = isBinanceMethod && p.precio_binance_usd != null && Number(p.precio_binance_usd) > 0;
+    const currentTotal = hasBinanceSpecial ? Number(p.precio_binance_usd) : totalOriginal;
+
+    const curCuotaInicial = Math.round((currentTotal * (pctInicial / 100)) * 100) / 100;
+    const curRestante = Math.round((currentTotal - curCuotaInicial) * 100) / 100;
+    const curCuotaDos = Math.round((curRestante / (nCuotas - 1)) * 100) / 100;
+    const cuotaDosUsd = nCuotas === 2 ? curRestante : curCuotaDos;
+    const d2Str = new Date(dateNow.getTime() + diasFrecuencia * 86400000).toISOString().slice(0, 10);
+
+    const totalToPayToday = payPlan === 'cuotas' ? curCuotaInicial : currentTotal;
     const restUsd = Math.max(0, totalToPayToday - appliedZeny);
     const restBs = restUsd * (S.rate || 0);
     const isFullZeny = restUsd <= 0;
-    const selectedMethod = (pmList || []).find(m => m.id === selectedMethodId) || (pmList || [])[0];
 
     // PASO 1: SELECCIÓN DEL MÉTODO DE PAGO
     if(currentStep === 'method'){
@@ -1223,15 +1196,22 @@ async function buyDlg(id){
         const isSel = m.id === selectedMethodId;
         const icon = getPaymentIcon(m.nombre);
         const displayTitle = m.nombre;
-        const displaySubtitle = m.subtitulo || (m.tipo ? m.tipo.replace(/_/g, ' ') : 'Toca para ver los datos bancarios');
+        const isMthBinance = m.tipo === 'binance' || /binance/i.test(m.nombre || '');
+        const binanceSpecial = isMthBinance && p.precio_binance_usd != null && Number(p.precio_binance_usd) > 0;
+        const displaySubtitle = binanceSpecial 
+          ? `Precio con Binance: $${Number(p.precio_binance_usd).toFixed(2)} USDT` 
+          : (m.subtitulo || (m.tipo ? m.tipo.replace(/_/g, ' ') : 'Toca para ver los datos bancarios'));
 
         return `
           <div class="checkout-method-card ${isSel ? 'active' : ''}" data-pm-choose="${m.id}">
             <div class="checkout-method-left">
               <div class="checkout-method-icon">${icon}</div>
               <div>
-                <div class="checkout-method-name">${esc(displayTitle)}</div>
-                <div class="checkout-method-type">${esc(displaySubtitle)}</div>
+                <div class="checkout-method-name">
+                  ${esc(displayTitle)}
+                  ${binanceSpecial ? `<span class="pill" style="font-size:.65rem;background:rgba(240,185,11,.15);color:#f0b90b;margin-left:6px;border:1px solid rgba(240,185,11,.3);font-weight:700">$${Number(p.precio_binance_usd).toFixed(2)} USDT</span>` : ''}
+                </div>
+                <div class="checkout-method-type" style="${binanceSpecial ? 'color:#f0b90b;font-weight:600' : ''}">${esc(displaySubtitle)}</div>
               </div>
             </div>
             <div class="checkout-method-arrow" style="font-size:1.2rem;font-weight:800">›</div>
@@ -1328,9 +1308,13 @@ async function buyDlg(id){
                   <span style="font-size:.76rem;color:var(--mut);display:block">
                     ${payPlan === 'cuotas' ? 'Monto a pagar hoy (Inicial):' : 'Total a transferir:'}
                   </span>
-                  <span class="price-usd">$${restUsd.toFixed(2)} USD</span>
+                  <span class="price-usd">${isBinanceMethod ? `$${restUsd.toFixed(2)} USDT` : `$${restUsd.toFixed(2)} USD`}</span>
                 </div>
-                ${S.rate ? `<span class="price-bs">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
+                ${isBinanceMethod ? `
+                  <span class="pill" style="font-size:.74rem;background:rgba(240,185,11,.15);color:#f0b90b;border:1px solid rgba(240,185,11,.3);font-weight:700">
+                    🟡 Binance Pay
+                  </span>
+                ` : (S.rate ? `<span class="price-bs">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : '')}
               </div>
             </div>
 
@@ -1472,13 +1456,22 @@ async function buyDlg(id){
                 <span style="font-size:.72rem;color:#64748b;display:block">
                   ${payPlan === 'cuotas' ? 'Monto Cuota Inicial a transferir:' : 'Monto a transferir:'}
                 </span>
-                <span class="price-usd" style="font-size:1.35rem">$${restUsd.toFixed(2)} USD</span>
+                <span class="price-usd" style="font-size:1.35rem">
+                  ${isBinanceMethod ? `${restUsd.toFixed(2)} USDT` : `$${restUsd.toFixed(2)} USD`}
+                </span>
               </div>
-              ${S.rate ? `<span class="price-bs" style="font-size:.92rem;font-weight:800;color:#0284c7">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
+              ${isBinanceMethod ? `
+                <div style="text-align:right">
+                  <span class="pill" style="font-size:.74rem;background:rgba(240,185,11,.15);color:#f0b90b;border:1px solid rgba(240,185,11,.35);font-weight:700">
+                    🟡 Red Binance Pay
+                  </span>
+                  ${hasBinanceSpecial ? `<div style="font-size:.7rem;color:#94a3b8;margin-top:2px">Precio diferencial USDT</div>` : ''}
+                </div>
+              ` : (S.rate ? `<span class="price-bs" style="font-size:.92rem;font-weight:800;color:#0284c7">≈ Bs. ${restBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : '')}
             </div>
             ${payPlan === 'cuotas' ? `
               <div style="margin-top:6px;font-size:.74rem;color:var(--a);font-weight:700">
-                ✨ Cuota 1 de 2. La cuota 2 ($${cuotaDosUsd.toFixed(2)}) vencerá el ${d2Str}.
+                ✨ Cuota 1 de ${nCuotas}. Monto por cuota: $${curCuotaInicial.toFixed(2)}
               </div>
             ` : ''}
           </div>
@@ -2215,7 +2208,7 @@ const TABLES = {
  orders:['customer_id','product_id','total_usd','zeny_aplicado','referencia','estado','conciliado_por','inicia','vence','proximo_pago'],
  installments:['order_id','customer_id','numero_cuota','total_cuotas','monto_usd','fecha_vencimiento','estado','referencia','pagada_at'],
  zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
- products:['nombre','descripcion','tipo','precio_usd','precio_revendedor_usd','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
+ products:['nombre','descripcion','tipo','precio_usd','precio_binance_usd','precio_revendedor_usd','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
  banners:['titulo','texto','imagen_url','enlace','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
  payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
@@ -2281,7 +2274,6 @@ const ADMIN_MENU = [
   {
     group: 'Bots & IA',
     items: [
-      { id: 'copilot', label: 'Agente IA Milos', icon: '🧠' },
       { id: 'telegram', label: 'Bot Telegram', icon: '🤖' },
       { id: 'bot_commands', label: 'Respuestas Bot', icon: '⚡' },
       { id: 'plantillas', label: 'Plantillas Mensajes', icon: '💬' },
@@ -2369,9 +2361,6 @@ async function admin(t){
     if(!ok) return toast('Acceso solo para el administrador');
   }
   document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
-  if(typeof EXTRA?.initMilosCopilot === 'function') EXTRA.initMilosCopilot();
-  const mDesk = document.getElementById('milosCopilotDesk');
-  if(mDesk) mDesk.style.display = 'flex';
   const tabs=[...Object.keys(TABLES),...Object.keys(EXTRA)];
   const tabInfo=getTabInfo(t), sideHtml=renderAdminSidebar(t,tabs);
   const mobBar=`<div class="admin-mobile-bar"><button class="admin-mobile-toggle" id="adminToggle" type="button"><span>☰ Menú: <strong>${tabInfo.icon} ${esc(tabInfo.label)}</strong></span><span class="mut" style="font-size:.74rem">Abrir ▾</span></button></div>`;
@@ -2452,6 +2441,23 @@ async function admin(t){
   });
   const form=async row=>{
     const fks={}; await Promise.all(cols.filter(c=>FK[c]).map(async c=>{const [tb,lb]=FK[c];const {data:d}=await sb.from(tb).select('id,'+lb).limit(500);fks[c]=d||[];}));
+    const labelFor=c=>{
+      const m={
+        'products.precio_usd':'Precio Base USD (Conversión a Tasa BCV)',
+        'products.precio_binance_usd':'Precio Binance USDT (Pago directo por Binance Pay)',
+        'products.precio_revendedor_usd':'Precio Revendedor Mayorista (USD)',
+        'products.nombre':'Nombre del Producto / Servicio',
+        'products.descripcion':'Descripción detallada',
+        'products.tipo':'Tipo / Modalidad',
+        'products.duracion_dias':'Duración (días)',
+        'products.garantia_dias':'Garantía (días)',
+        'products.imagen_url':'Imagen del Producto',
+        'products.category_id':'Categoría',
+        'products.orden':'Orden de visualización',
+        'products.activo':'¿Activo en catálogo?'
+      };
+      return m[t+'.'+c]||c;
+    };
     const inp=c=>{const v=row?row[c]:''; const ro=(READONLY[t]||[]).includes(c)&&row;
       if(fks[c]) return `<select data-c="${c}"><option value="">—</option>${fks[c].map(o=>`<option value="${o.id}" ${row&&row[c]===o.id?'selected':''}>${esc(o[FK[c][1]])}</option>`).join('')}</select>`;
       if(ENUM[t+'.'+c]) return `<select data-c="${c}">${ENUM[t+'.'+c].map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('')}</select>`;
@@ -2459,8 +2465,54 @@ async function admin(t){
       if(c==='imagen_url') return `<input data-c="${c}" value="${esc(v)}" placeholder="URL"><input type="file" accept="image/*" data-up style="margin-top:6px">`;
       if(typeof v==='string'&&v.startsWith('enc:')) return `<input data-c="${c}" type="password" placeholder="(sin cambios — escribe para reemplazar)" autocomplete="off">`;
       if(['clave','pin'].includes(c)) return `<input data-c="${c}" type="password" autocomplete="off">`;
-      return `<input data-c="${c}" ${ro?'disabled':''} value="${esc(v&&typeof v==='object'?JSON.stringify(v):v)}">`;};
-    $('#dlgBody').innerHTML=`<h3>${row?'Editar':'Agregar'} ${t}</h3><div style="max-height:62vh;overflow:auto">`+cols.map(c=>`<label class="mut">${c}</label>${inp(c)}`).join('')+'</div><button id="save" style="margin-top:10px;width:100%">Guardar</button>'; dlg.showModal();
+      let extraHtml='';
+      if(t==='products'&&c==='precio_binance_usd'){
+        extraHtml=`
+          <div style="background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.3);border-radius:10px;padding:10px;margin:8px 0 12px;font-size:.76rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <b style="color:#f0b90b">⚡ Calculador Diferencial Al Cambio (USDT)</b>
+              <span class="pill" style="font-size:.65rem;background:rgba(240,185,11,.15);color:#f0b90b">Paridad BCV vs USDT</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+              <div>
+                <span class="mut" style="font-size:.68rem">Tasa BCV Oficial (Bs/USD):</span>
+                <input id="calcRateBcv" type="number" step="0.01" value="${S.rate||0}" style="padding:4px 8px;font-size:.8rem;width:100%">
+              </div>
+              <div>
+                <span class="mut" style="font-size:.68rem">Tasa Al Cambio (Bs/USDT):</span>
+                <input id="calcRateAlCambio" type="number" step="0.01" value="1008.90" style="padding:4px 8px;font-size:.8rem;width:100%">
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button type="button" class="g" id="btnCalcBinanceDiff" style="padding:5px 10px;font-size:.74rem;background:rgba(240,185,11,.15);color:#f0b90b;border-color:rgba(240,185,11,.4);font-weight:700">
+                ⚡ Calcular Precio USDT
+              </button>
+              <span id="calcDiffPreview" style="font-size:.72rem;color:#94a3b8"></span>
+            </div>
+          </div>
+        `;
+      }
+      return `<input data-c="${c}" ${ro?'disabled':''} value="${esc(v&&typeof v==='object'?JSON.stringify(v):v)}" ${['precio_usd','precio_binance_usd','precio_revendedor_usd'].includes(c)?'type="number" step="0.01" min="0" placeholder="0.00"':''}>`+extraHtml;};
+    $('#dlgBody').innerHTML=`<h3>${row?'Editar':'Agregar'} ${t}</h3><div style="max-height:62vh;overflow:auto">`+cols.map(c=>`<label class="mut" style="font-size:.78rem;font-weight:600">${labelFor(c)}</label>${inp(c)}`).join('')+'</div><button id="save" style="margin-top:10px;width:100%">Guardar</button>'; dlg.showModal();
+    const btnCalc = $('#btnCalcBinanceDiff');
+    if(btnCalc){
+      btnCalc.onclick = () => {
+        const pUsd = parseFloat(dlg.querySelector('[data-c="precio_usd"]')?.value || 0);
+        const tBcv = parseFloat($('#calcRateBcv')?.value || 0) || (S.rate || 0);
+        const tAlCambio = parseFloat($('#calcRateAlCambio')?.value || 1008.90);
+        if(pUsd <= 0) return toast('Ingresa primero el Precio Base USD.');
+        if(tAlCambio <= 0) return toast('Indica una tasa de Al Cambio válida (ej. 1008.90).');
+        const totalBs = pUsd * (tBcv > 0 ? tBcv : 1);
+        const usdtVal = tBcv > 0 ? Math.round((totalBs / tAlCambio) * 100) / 100 : pUsd;
+        const inpBin = dlg.querySelector('[data-c="precio_binance_usd"]');
+        if(inpBin){
+          inpBin.value = usdtVal.toFixed(2);
+          const preview = $('#calcDiffPreview');
+          if(preview) preview.innerHTML = `✓ Calculado: <b>$${usdtVal.toFixed(2)} USDT</b> (${pUsd} USD × ${tBcv} Bs ÷ ${tAlCambio} Bs/USDT)`;
+          toast(`Precio Binance calculado: $${usdtVal.toFixed(2)} USDT`);
+        }
+      };
+    }
     $('#save').onclick=async()=>{const o={};
       for(const i of dlg.querySelectorAll('[data-c]')){let v=i.value;if(v===''||i.disabled)continue;if(v==='true'||v==='false')v=v==='true';else if(/^[\[{]/.test(v))try{v=JSON.parse(v)}catch{};o[i.dataset.c]=v;}
       for(const f of dlg.querySelectorAll('[data-up]')){const file=f.files[0];if(file){const path=`${t}/${Date.now()}-${file.name.replace(/[^\w.-]/g,'_')}`;const u=await sb.storage.from('catalogo').upload(path,file);if(u.error)return toast(u.error.message);o.imagen_url=sb.storage.from('catalogo').getPublicUrl(path).data.publicUrl;}}
