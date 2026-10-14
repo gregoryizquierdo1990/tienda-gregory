@@ -2103,6 +2103,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const genRand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
       const autoNum = `4${genRand(100, 999)} ${genRand(1000, 9999)} ${genRand(1000, 9999)} ${genRand(1000, 9999)}`;
       const autoCvv = String(genRand(100, 999));
+      const expDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      const autoExp = `${String(expDate.getMonth() + 1).padStart(2, '0')}/${String(expDate.getFullYear()).slice(-2)}`;
 
       $('#dlgBody').innerHTML = `
         <h3>💳 Emitir Tarjeta de Crédito Digital Zeny</h3>
@@ -2120,8 +2122,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           <label class="mut" style="font-size:.76rem">Código de Activación (CVV reverso):</label>
           <input id="emitCvvInput" value="${autoCvv}" maxlength="4" style="font-family:monospace;letter-spacing:2px;max-width:140px" required>
 
-          <label class="mut" style="font-size:.76rem">Fecha de Vencimiento (MM/YY):</label>
-          <input id="emitExpInput" value="12/31" maxlength="5" style="font-family:monospace;max-width:140px" required>
+          <label class="mut" style="font-size:.76rem">Fecha de Vencimiento (365 días - MM/YY):</label>
+          <input id="emitExpInput" value="${autoExp}" maxlength="5" style="font-family:monospace;max-width:140px" required>
 
           <label class="mut" style="font-size:.76rem">Estado Inicial:</label>
           <select id="emitStateSelect">
@@ -2185,22 +2187,14 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           <div class="zeny-card-stage" id="previewStage" style="margin:0 auto">
             <div class="zeny-card-inner">
               <div class="zeny-card-face zeny-card-front">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start">
-                  <div class="zeny-card-chip"></div>
-                  <span style="font-size:.65rem;font-weight:800;letter-spacing:1px;color:#fde047">ZENY CARD</span>
+                <div class="zeny-card-front-number-box">
+                  <div class="zeny-card-number-text">${esc(c.numero_tarjeta)}</div>
                 </div>
-                <div>
-                  <div class="zeny-card-number">${esc(c.numero_tarjeta)}</div>
-                  <div style="display:flex;justify-content:space-between;align-items:flex-end">
-                    <div>
-                      <span style="font-size:.65rem;color:#cbd5e1;display:block">TITULAR</span>
-                      <div class="zeny-card-holder">${esc(c.nombre_titular)}</div>
-                    </div>
-                    <div style="text-align:right">
-                      <span style="font-size:.65rem;color:#cbd5e1;display:block">VENCE</span>
-                      <div class="zeny-card-expiry">${esc(c.fecha_vencimiento)}</div>
-                    </div>
-                  </div>
+                <div class="zeny-card-front-expiry-box">
+                  <span class="zeny-card-expiry-text">${esc(c.fecha_vencimiento)}</span>
+                </div>
+                <div class="zeny-card-front-holder-box">
+                  <div class="zeny-card-holder-name">${esc(c.nombre_titular)}</div>
                 </div>
               </div>
               <div class="zeny-card-face zeny-card-back">

@@ -6,6 +6,7 @@
 <link rel="preconnect" href="https://tevjiqnnnjnakftrjgud.supabase.co" crossorigin><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 <style>
 :root{--bg:#030812;--card:#0a1628;--line:#16335a;--tx:#ecf6ff;--mut:#8ea8c8;--a:#00f5a0;--g:#00f5a0;--c:#00d4ff;--b:#2563ff;--grad:linear-gradient(135deg,#00f5a0 0%,#00d4ff 48%,#2563ff 100%);--r:16px}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
@@ -61,15 +62,20 @@ dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border
 .banner-promo-title{font-size:clamp(1.2rem,3.5vw,1.6rem);font-weight:800;margin:0 0 4px;background:linear-gradient(135deg,#ffffff 0%,#ecf6ff 60%,#00d4ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.3px}
 .banner-promo-sub{margin:0;font-size:.92rem;font-weight:600;color:#00d4ff;letter-spacing:1px;text-shadow:0 0 12px rgba(0,212,255,.4)}
 .banner-promo-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:70%;background:radial-gradient(circle,rgba(0,212,255,.18) 0%,transparent 70%);filter:blur(30px);pointer-events:none}
-.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
-.pc{position:relative;display:flex;flex-direction:column;border-radius:20px;overflow:hidden;background:linear-gradient(180deg,rgba(13,29,54,.9),rgba(7,16,30,.95));border:1px solid var(--line);transition:transform .2s,border-color .2s,box-shadow .25s}
-.pc:hover{transform:translateY(-4px);border-color:rgba(0,245,160,.55);box-shadow:0 18px 50px -18px rgba(0,245,160,.45)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px}
+.pc{position:relative;display:flex;flex-direction:column;border-radius:24px;overflow:hidden;background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(8,14,28,.97));border:1.5px solid rgba(148,163,184,.14);box-shadow:0 8px 24px -6px rgba(0,0,0,.6);transition:transform .22s cubic-bezier(.4,0,.2,1),border-color .22s ease,box-shadow .22s ease}
+.pc:hover{transform:translateY(-2px);border-color:rgba(99,102,241,.45);box-shadow:0 16px 36px -8px rgba(0,0,0,.75),0 0 20px -5px rgba(99,102,241,.25)}
+.pc-brand-indicator{position:absolute;top:10px;right:10px;z-index:2;display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:.66rem;font-weight:800;letter-spacing:.4px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);box-shadow:0 4px 12px rgba(0,0,0,.45)}
+.pc-brand-dot{width:7px;height:7px;border-radius:50%;display:inline-block;box-shadow:0 0 6px currentColor}
 .pc img,.ph{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}.ph{display:grid;place-items:center;font-size:3rem;font-weight:800;color:#03121c;background:var(--grad)}
 .pb{display:flex;flex-direction:column;gap:6px;padding:14px 16px 16px;flex:1}.pb h3{margin:0;font-size:1.05rem}.pb p{margin:0;min-height:1.2em}
 .tag{align-self:flex-start;font-size:.68rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:3px 9px;border-radius:99px;color:#03121c;background:var(--grad)}
 .t-cuenta_completa .tag{background:linear-gradient(135deg,#00d4ff,#2563ff);color:#fff}.t-servicio .tag{background:linear-gradient(135deg,#00f5a0,#00d4ff)}
-.meta{display:flex;gap:12px;font-size:.78rem;color:var(--mut)}.buy{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-top:8px}.sub{font-size:.74rem;color:var(--mut)}.cta{padding:10px 18px}.empty{padding:40px 10px;text-align:center;grid-column:1/-1}
-.sk{border-radius:20px;min-height:280px;background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(0,212,255,.10) 50%,rgba(255,255,255,.04) 70%);background-size:200% 100%;animation:sh 1.4s infinite linear;border:1px solid var(--line)}@keyframes sh{to{background-position:-200% 0}}
+.meta{display:flex;gap:12px;font-size:.78rem;color:var(--mut)}.buy{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-top:8px}.sub{font-size:.74rem;color:var(--mut)}
+.cta{padding:9px 18px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border-radius:12px;font-weight:800;border:none;box-shadow:0 4px 16px rgba(79,70,229,.4);transition:transform .15s ease,box-shadow .2s ease}
+.cta:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.6);filter:brightness(1.08)}
+.empty{padding:40px 10px;text-align:center;grid-column:1/-1}
+.sk{border-radius:24px;min-height:280px;background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(0,212,255,.10) 50%,rgba(255,255,255,.04) 70%);background-size:200% 100%;animation:sh 1.4s infinite linear;border:1px solid var(--line)}@keyframes sh{to{background-position:-200% 0}}
 .float-acts{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:6;display:flex;align-items:center;gap:10px}
 .wa,.tg{border-radius:99px;text-decoration:none;padding:11px 16px;font-weight:800;font-size:.85rem;display:inline-flex;align-items:center;gap:7px;box-shadow:0 10px 30px -6px rgba(0,0,0,.6);transition:transform .18s ease,box-shadow .2s ease}
 .wa{color:#03121c;background:linear-gradient(135deg,#00f5a0,#00d4ff);box-shadow:0 10px 30px -6px rgba(0,245,160,.7)}
@@ -298,11 +304,11 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 .zeny-mini-card-face{position:absolute;inset:0;width:100%;height:100%;border-radius:14px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background-size:100% 100%;background-repeat:no-repeat;background-position:center;border:1.5px solid rgba(212,175,55,.55)}
 .zeny-mini-card-front{background-color:#0d0e12;background-image:url('/tarjeta-zeny-frente.jpg');position:relative}
 .zeny-mini-card-back{transform:rotateY(180deg);background-color:#0b0d11;background-image:url('/tarjeta-zeny-reverso.jpg');display:flex;flex-direction:column;justify-content:space-between;padding:10px 0 8px}
-.zeny-card-front-number-box{position:absolute;left:7.5%;top:44%;right:6%;background:rgba(10,12,16,.94);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;box-shadow:0 2px 8px rgba(0,0,0,.85);border:1px solid rgba(212,175,55,.3);display:flex;align-items:center;justify-content:center}
-.zeny-card-number-text{font-family:'Courier New',Courier,monospace;font-size:clamp(.82rem,3.2vw,1.14rem);font-weight:900;letter-spacing:2.5px;color:#f0cf7e;text-shadow:0 2px 3px #000,0 -1px 1px #fff5c0,0 0 1px #d4af37;white-space:nowrap}
-.zeny-card-front-expiry-box{position:absolute;left:34%;top:70%;background:rgba(10,12,16,.92);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border-radius:4px;padding:1px 6px;box-shadow:0 1px 4px rgba(0,0,0,.8);border:1px solid rgba(212,175,55,.25);display:flex;align-items:center;gap:4px}
-.zeny-card-expiry-label{font-size:clamp(.48rem,1.8vw,.6rem);letter-spacing:1px;color:#c9b071;font-weight:700}
-.zeny-card-expiry-text{font-family:'Courier New',Courier,monospace;font-size:clamp(.68rem,2.2vw,.84rem);font-weight:800;color:#f0cf7e;letter-spacing:1.2px;text-shadow:0 1px 2px #000,0 0 1px #d4af37}
+.zeny-card-front-number-box{position:absolute;left:8.5%;top:73.5%;max-width:65%;display:flex;align-items:center;text-align:left}
+.zeny-card-number-text{font-family:'Courier New',Courier,monospace;font-size:clamp(.80rem,3.1vw,1.10rem);font-weight:900;letter-spacing:2.2px;color:#f0cf7e;text-shadow:0 2px 4px #000,0 -1px 1px #fff5c0,0 0 2px #d4af37;white-space:nowrap}
+.zeny-card-front-expiry-box{position:absolute;right:9%;top:64%;width:22%;text-align:center;display:flex;justify-content:center;align-items:center}
+.zeny-card-expiry-label{display:none}
+.zeny-card-expiry-text{font-family:'Courier New',Courier,monospace;font-size:clamp(.74rem,2.8vw,.95rem);font-weight:900;color:#f0cf7e;letter-spacing:1.5px;text-shadow:0 2px 3px #000,0 -1px 1px #fff5c0,0 0 2px #d4af37}
 .portal-tdc-info-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}
 
 /* Compatibilidad general de Tarjeta Zeny */
@@ -314,7 +320,7 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 .zeny-card-face{position:absolute;inset:0;width:100%;height:100%;border-radius:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background-size:100% 100%;background-repeat:no-repeat;background-position:center;border:1.5px solid rgba(212,175,55,.6);box-shadow:inset 0 0 14px rgba(0,0,0,.85)}
 .zeny-card-front{background-color:#0d0e12;background-image:url('/tarjeta-zeny-frente.jpg');position:relative}
 .zeny-card-back{transform:rotateY(180deg);background-color:#0b0d11;background-image:url('/tarjeta-zeny-reverso.jpg');display:flex;flex-direction:column;justify-content:space-between;padding:16px 0 14px}
-.zeny-card-front-holder-box{position:absolute;left:8.8%;bottom:8.2%;right:36%;text-align:left;overflow:hidden;background:rgba(10,12,16,.85);border-radius:4px;padding:1px 6px}
+.zeny-card-front-holder-box{position:absolute;left:8.5%;bottom:8.5%;max-width:62%;text-align:left;overflow:hidden}
 .zeny-card-holder-name{font-family:'Sora',system-ui,sans-serif;font-size:clamp(.72rem,2.8vw,.95rem);font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#f0cf7e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 3px #000,0 -1px 1px #fff5c0,0 0 1px #d4af37}
 .zeny-card-magstrip{width:100%;height:32px;background:#050506;border-top:1px solid #1e293b;border-bottom:1px solid #1e293b;margin-top:4px}
 .zeny-card-back-body{padding:0 16px;display:flex;flex-direction:column;gap:8px}
@@ -836,6 +842,9 @@ async function onSession(session){
       S.me = m?.data || S.me;
       S.isAdmin = Boolean(rpc?.data === true || a?.data || (isKnown && isGoogle));
       sb.from('login_log').insert({customer_id:S.user.id,email:S.user.email,user_agent:navigator.userAgent}).then(()=>{});
+      if(S.me?.debe_cambiar_password === true && !S.isAdmin){
+        setTimeout(() => forceChangePasswordDlg(), 250);
+      }
     } catch(err) {
       if(isKnown && isGoogle) S.isAdmin = true;
     }
@@ -875,6 +884,20 @@ $('#bRegister').onclick = () => loginDlg('register');
 
 // ---------- TIENDA ----------
 const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Servicio'};
+function getBrandInfo(nombre = ''){
+  const n = (nombre||'').toLowerCase();
+  if(n.includes('netflix')) return { name: 'Netflix', color: '#E50914', bg: 'rgba(229,9,20,0.2)' };
+  if(n.includes('disney')) return { name: 'Disney+', color: '#38BDF8', bg: 'rgba(56,189,248,0.2)' };
+  if(n.includes('max') || n.includes('hbo')) return { name: 'Max', color: '#818CF8', bg: 'rgba(129,140,248,0.2)' };
+  if(n.includes('prime') || n.includes('amazon')) return { name: 'Prime Video', color: '#00A8E1', bg: 'rgba(0,168,225,0.2)' };
+  if(n.includes('spotify')) return { name: 'Spotify', color: '#10B981', bg: 'rgba(16,185,129,0.2)' };
+  if(n.includes('youtube')) return { name: 'YouTube', color: '#EF4444', bg: 'rgba(239,68,68,0.2)' };
+  if(n.includes('magis') || n.includes('iptv')) return { name: 'Magis TV', color: '#F59E0B', bg: 'rgba(245,158,11,0.2)' };
+  if(n.includes('paramount')) return { name: 'Paramount+', color: '#60A5FA', bg: 'rgba(96,165,250,0.2)' };
+  if(n.includes('apple')) return { name: 'Apple TV', color: '#94A3B8', bg: 'rgba(148,163,184,0.2)' };
+  if(n.includes('crunchyroll')) return { name: 'Crunchyroll', color: '#FB923C', bg: 'rgba(251,146,60,0.2)' };
+  return { name: 'Oficial', color: '#6366F1', bg: 'rgba(99,102,241,0.18)' };
+}
 function skeleton(){ return '<div class="hero"><div class="sk" style="min-height:120px;border:0"></div></div><div class="pgrid">'+'<div class="sk"></div>'.repeat(6)+'</div>'; }
 function productCard(p){
   const isReseller = S.me?.es_revendedor === true;
@@ -883,10 +906,16 @@ function productCard(p){
   const effectivePrice = hasResellerSpecial ? Number(p.precio_revendedor_usd) : originalPrice;
   const hasBinanceSpecial = p.precio_binance_usd != null && Number(p.precio_binance_usd) > 0;
   const hasCuotas = p.permite_cuotas === true;
+  const brand = getBrandInfo(p.nombre);
 
   const out=!(S.stock[p.id]>0||p.tipo==='servicio'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(effectivePrice*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
   
-  return `<article class="pc t-${esc(p.tipo)}">${p.imagen_url?`<img src="${esc(p.imagen_url)}" alt="" loading="lazy" decoding="async">`:`<div class="ph" aria-hidden="true">${esc((p.nombre||'?').slice(0,1).toUpperCase())}</div>`}
+  return `<article class="pc t-${esc(p.tipo)}">
+    <div class="pc-brand-indicator" style="background:${brand.bg};color:${brand.color};border-color:${brand.color}66">
+      <span class="pc-brand-dot" style="background:${brand.color}"></span>
+      <span>${esc(brand.name)}</span>
+    </div>
+    ${p.imagen_url?`<img src="${esc(p.imagen_url)}" alt="" loading="lazy" decoding="async">`:`<div class="ph" aria-hidden="true">${esc((p.nombre||'?').slice(0,1).toUpperCase())}</div>`}
    <div class="pb">
      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
        <span class="tag">${esc(TL[p.tipo]||p.tipo)}</span>
@@ -1139,6 +1168,7 @@ function getPaymentIcon(name=''){
 
 async function buyDlg(id){
   if(!S.user) return loginDlg('login');
+  if(S.me?.debe_cambiar_password === true && !S.isAdmin) return forceChangePasswordDlg();
   const p = S.products.find(x => x.id === id);
   if(!p) return toast('Producto no encontrado');
 
@@ -1654,10 +1684,10 @@ async function buyDlg(id){
   if(!checkoutDlg.open) checkoutDlg.showModal();
 }
 // ---------- AUTH (ESTILO GEMA FACETADA FUTURISTA) ----------
-function renderFacetShell({title, subtitle, contentHtml, linksHtml=''}){
+function renderFacetShell({title, subtitle, contentHtml, linksHtml='', closable=true}){
   return `
   <div class="facet-card">
-    <button class="facet-close" id="facetCloseBtn" type="button" aria-label="Cerrar">✕</button>
+    ${closable ? `<button class="facet-close" id="facetCloseBtn" type="button" aria-label="Cerrar">✕</button>` : ''}
     <div class="facet-shine"></div>
     <div class="facet-glow-top"></div>
     <div class="facet-glow-corner"></div>
@@ -1689,7 +1719,7 @@ function loginDlg(mode = 'login'){
     </div>
     ` : `
     <div class="facet-input-wrap">
-      <input id="facetId" class="facet-input" placeholder="EMAIL / CORREO ELECTRÓNICO" autocomplete="username" required>
+      <input id="facetId" class="facet-input" placeholder="CORREO O N° DE WHATSAPP (0412...)" autocomplete="username" required>
     </div>
     `}
     <div class="facet-input-wrap">
@@ -1713,20 +1743,20 @@ function loginDlg(mode = 'login'){
   $('#facetGoogle').onclick = () => sb.auth.signInWithOAuth({provider:'google', options:{redirectTo: location.origin + '/'}});
 
   $('#facetAction').onclick = async () => {
-    const emailVal = ($('#facetId')?.value || '').trim();
+    const inputId = ($('#facetId')?.value || '').trim();
     const pwVal = $('#facetPw')?.value || '';
 
-    if(!emailVal) return toast('Ingresa tu correo electrónico');
-    if(!emailVal.includes('@')) return toast('Debes ingresar un correo electrónico válido (ej: tu@gmail.com).');
+    if(!inputId) return toast(isReg ? 'Ingresa tu correo electrónico' : 'Ingresa tu correo o teléfono de WhatsApp');
     if(!pwVal || pwVal.length < 6) return toast('La contraseña debe tener al menos 6 caracteres');
 
     if(isReg){
+      if(!inputId.includes('@')) return toast('Debes ingresar un correo electrónico válido (ej: tu@gmail.com).');
       const nombreVal = ($('#facetNm')?.value || '').trim();
       const telVal = ($('#facetTel')?.value || '').trim();
       if(!nombreVal) return toast('Por favor ingresa tu nombre completo');
 
       const {data, error} = await sb.auth.signUp({
-        email: emailVal,
+        email: inputId,
         password: pwVal,
         options: {
           data: {
@@ -1751,13 +1781,161 @@ function loginDlg(mode = 'login'){
       facetDlg.close();
       toast('Cuenta creada exitosamente. Revisa tu correo si requiere confirmación o inicia sesión.');
     } else {
-      const {error} = await sb.auth.signInWithPassword({
-        email: emailVal,
+      let loginEmail = inputId;
+      const isPhone = !inputId.includes('@');
+      if(isPhone){
+        const cleanPhone = inputId.replace(/\D/g, '');
+        if(cleanPhone.length < 7) return toast('Ingresa un número de WhatsApp válido (ej: 04121234567).');
+        loginEmail = `${cleanPhone}@cliente.gregoryizquierdo.xyz`;
+      }
+
+      let {error} = await sb.auth.signInWithPassword({
+        email: loginEmail,
         password: pwVal
       });
-      if(error) return toast(error.message);
+
+      // Si falló y era teléfono, intentar con variantes comunes (ej. 0412 vs 58412):
+      if(error && isPhone){
+        const cleanDigits = inputId.replace(/\D/g, '');
+        const altPhone = cleanDigits.startsWith('58') ? ('0' + cleanDigits.slice(2)) : (cleanDigits.startsWith('0') ? ('58' + cleanDigits.slice(1)) : ('0' + cleanDigits));
+        const altEmail = `${altPhone}@cliente.gregoryizquierdo.xyz`;
+        const retry = await sb.auth.signInWithPassword({ email: altEmail, password: pwVal });
+        if(!retry.error){
+          error = null;
+        }
+      }
+
+      if(error){
+        if(error.message.includes('Invalid login credentials')){
+          return toast(isPhone ? 'Teléfono o contraseña incorrecta. Si es tu primer ingreso, la contraseña son los últimos 6 dígitos de tu WhatsApp.' : 'Correo o contraseña incorrecta.');
+        }
+        return toast(error.message);
+      }
+
+      // Comprobar si requiere cambiar clave por primera vez
+      try {
+        const { data: { user: u } } = await sb.auth.getUser();
+        if(u){
+          const m = await sb.from('customers').select('*').eq('id', u.id).maybeSingle();
+          if(m?.data) S.me = m.data;
+          if(S.me?.debe_cambiar_password === true && !S.isAdmin){
+            facetDlg.close();
+            forceChangePasswordDlg();
+            return;
+          }
+        }
+      } catch(e){}
+
       facetDlg.close();
       home();
+    }
+  };
+
+  if(!facetDlg.open) facetDlg.showModal();
+}
+
+function forceChangePasswordDlg(){
+  const title = 'SEGURIDAD DE TU CUENTA';
+  const subtitle = 'Personaliza tu contraseña de acceso';
+  const nameDisplay = S.me?.nombre || 'Cliente';
+
+  const contentHtml = `
+    <div style="background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.3);border-radius:14px;padding:12px 14px;margin-bottom:16px;font-size:.82rem;line-height:1.45;color:var(--tx);text-align:left">
+      👋 ¡Hola <b>${esc(nameDisplay)}</b>! Has ingresado con tus credenciales temporales de WhatsApp. Por seguridad de tus pantallas y saldo en la Tarjeta Zeny, debes <b>establecer tu contraseña privada de preferencia</b> para continuar al portal.
+    </div>
+
+    <div class="facet-input-wrap">
+      <input id="facetNewPw" class="facet-input" type="password" placeholder="NUEVA CONTRASEÑA (MÍNIMO 6 CARACTERES)" autocomplete="new-password" required>
+    </div>
+    <div class="facet-input-wrap">
+      <input id="facetConfPw" class="facet-input" type="password" placeholder="CONFIRMAR NUEVA CONTRASEÑA" autocomplete="new-password" required>
+    </div>
+
+    <div style="margin:16px 0 6px;text-align:left">
+      <label style="font-size:.78rem;font-weight:700;color:var(--c);display:flex;align-items:center;gap:6px">
+        <span>📧 Correo Electrónico Personal</span>
+        <span style="font-size:.68rem;background:rgba(0,245,160,.15);color:#00f5a0;padding:2px 8px;border-radius:99px;border:1px solid rgba(0,245,160,.3)">Opcional</span>
+      </label>
+      <div class="facet-input-wrap" style="margin-top:6px">
+        <input id="facetEmailOpt" class="facet-input" type="email" placeholder="ejemplo@gmail.com (para ofertas y promociones)" autocomplete="email" value="${esc(S.me?.email && !S.me.email.includes('@cliente.gregoryizquierdo.xyz') ? S.me.email : '')}">
+      </div>
+      <p style="margin:4px 0 0;font-size:.73rem;color:var(--mut);line-height:1.35">
+        💡 Opcional: Nos servirá para enviarte cupones especiales, promociones exclusivas y avisos de renovación directamente a tu correo.
+      </p>
+    </div>
+
+    <button id="facetSavePw" class="facet-btn" style="min-width:230px;margin-top:14px;background:linear-gradient(135deg,#00f5a0,#00d4ff,#2563ff);color:#03121c;font-weight:800;letter-spacing:.8px;padding:13px 20px" type="button">
+      🔒 GUARDAR Y ACTIVAR MI CUENTA
+    </button>
+  `;
+
+  facetDlg.innerHTML = renderFacetShell({
+    title,
+    subtitle,
+    contentHtml,
+    linksHtml: `<span style="font-size:.74rem;color:var(--mut)">🔒 Conexión cifrada y protegida · Gregory Izquierdo</span>`,
+    closable: false
+  });
+
+  // Impedir cierre con tecla ESC
+  facetDlg.oncancel = e => e.preventDefault();
+
+  $('#facetSavePw').onclick = async () => {
+    const newPw = ($('#facetNewPw')?.value || '').trim();
+    const confPw = ($('#facetConfPw')?.value || '').trim();
+    const optEmail = ($('#facetEmailOpt')?.value || '').trim();
+
+    if(!newPw || newPw.length < 6){
+      return toast('La nueva contraseña debe tener al menos 6 caracteres.');
+    }
+    if(newPw !== confPw){
+      return toast('Las contraseñas no coinciden. Por favor verifícalas.');
+    }
+    if(optEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(optEmail)){
+      return toast('El formato del correo electrónico opcional no es válido.');
+    }
+
+    const btn = $('#facetSavePw');
+    btn.disabled = true;
+    btn.textContent = 'Actualizando seguridad...';
+
+    try {
+      // 1. Actualizar contraseña en Supabase Auth para la sesión activa
+      const { error: authErr } = await sb.auth.updateUser({ password: newPw });
+      if(authErr){
+        btn.disabled = false;
+        btn.textContent = '🔒 GUARDAR Y ACTIVAR MI CUENTA';
+        return toast('Error al actualizar contraseña: ' + authErr.message);
+      }
+
+      // 2. Marcar en base de datos que ya completó el cambio obligatorio y registrar email opcional
+      const { error: rpcErr } = await sb.rpc('completar_primer_cambio_clave', { p_nuevo_email: optEmail || null });
+      if(rpcErr){
+        await sb.from('customers').update({
+          debe_cambiar_password: false,
+          ...(optEmail ? { email: optEmail } : {})
+        }).eq('id', S.user.id).catch(()=>{});
+      }
+
+      if(S.me){
+        S.me.debe_cambiar_password = false;
+        if(optEmail) S.me.email = optEmail;
+      }
+
+      facetDlg.oncancel = null;
+      facetDlg.close();
+
+      // Confetti de celebración
+      if(typeof confetti === 'function'){
+        try { confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } }); } catch(e){}
+      }
+
+      toast('¡Contraseña personalizada con éxito! Tu cuenta está blindada. Bienvenido a tu portal.');
+      portal();
+    } catch(err){
+      btn.disabled = false;
+      btn.textContent = '🔒 GUARDAR Y ACTIVAR MI CUENTA';
+      toast('Error inesperado: ' + (err.message || err));
     }
   };
 
@@ -1796,6 +1974,7 @@ function adminLoginDlg(){
 // ---------- PORTAL CLIENTE ----------
 async function portal(){
   if(!S.user) return loginDlg('login');
+  if(S.me?.debe_cambiar_password === true && !S.isAdmin) return forceChangePasswordDlg();
   document.body.classList.remove('is-admin');
   S.view='portal';
   app.innerHTML = '<div style="text-align:center;padding:40px 10px"><div class="sk" style="max-width:440px;margin:auto;min-height:200px"></div><p class="mut" style="margin-top:14px">Cargando tu portal…</p></div>';
@@ -1844,7 +2023,12 @@ async function portal(){
       }
     }
     const cardHolderName = (cardData?.nombre_titular || S.me?.nombre || S.user?.email || 'CLIENTE VIP').toUpperCase();
-    const cardExpiry = cardData?.fecha_vencimiento || '12/31';
+    const cardExpiry = (cardData?.fecha_vencimiento && cardData.fecha_vencimiento !== '12/31')
+      ? cardData.fecha_vencimiento
+      : (() => {
+          const d = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+          return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
+        })();
     const cardState = cardData?.estado || 'activa';
 
     app.innerHTML = `
@@ -1908,7 +2092,6 @@ async function portal(){
                 <div class="zeny-card-number-text">${esc(displayCardNum)}</div>
               </div>
               <div class="zeny-card-front-expiry-box">
-                <span class="zeny-card-expiry-label">VENCE</span>
                 <span class="zeny-card-expiry-text">${esc(cardExpiry)}</span>
               </div>
               <div class="zeny-card-front-holder-box">
@@ -2361,7 +2544,7 @@ const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo']};
 const BOOL=['activo','activa','enabled','es_revendedor','permite_cuotas'], READONLY={customers:['zeny_balance']};
 const NOADD=['refunds','transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Asignar Crédito</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Asignar Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Resetear Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 Acceso WA</button>`:''}`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -2445,7 +2628,7 @@ function renderAdminSidebar(curTab, allTabs){
   const extra = allTabs.filter(k => !known.has(k));
   const groups = [...ADMIN_MENU];
   if(extra.length) groups.push({ group: 'Otras tablas', items: extra.map(k => ({ id: k, label: k, icon: '📄' })) });
-  return `<div class="admin-backdrop" id="adminBackdrop"></div><aside class="admin-sidebar" id="adminSidebar"><div class="admin-sidebar-head"><div class="admin-sidebar-brand"><div class="admin-sb-icon"><img src="/logo-badge.png" alt="Logo"></div><div><div class="admin-sb-title">Panel Admin</div><div class="admin-sb-sub">Emprendimiento Gregory</div></div></div><button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button></div><nav class="admin-nav-scroll">${groups.map(g=>`<div class="admin-sb-group">${esc(g.group)}</div>${g.items.map(it=>{
+  return `<div class="admin-backdrop" id="adminBackdrop"></div><aside class="admin-sidebar" id="adminSidebar"><div class="admin-sidebar-head"><div class="admin-sidebar-brand"><div class="admin-sb-icon"><img src="/logo-badge.png" alt="Logo"></div><div><div class="admin-sb-title">Panel Admin</div><div class="admin-sb-sub">Emprendimiento Gregory</div></div></div><button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button></div><div style="padding:8px 12px 4px"><input id="adminSidebarSearch" placeholder="🔍 Buscar módulo..." style="width:100%;font-size:.76rem;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#fff"></div><nav class="admin-nav-scroll">${groups.map(g=>`<div class="admin-sb-group">${esc(g.group)}</div>${g.items.map(it=>{
     const act = it.id===curTab ? ' active' : '';
     const bCount = (it.badgeKey && S.badges) ? (S.badges[it.badgeKey]||0) : 0;
     const bCls = it.id==='incidents' ? 'admin-sb-badge warn' : 'admin-sb-badge';
@@ -2454,6 +2637,25 @@ function renderAdminSidebar(curTab, allTabs){
 }
 
 function setupAdminEvents(){
+  const searchInput = $('#adminSidebarSearch');
+  if(searchInput){
+    searchInput.oninput = () => {
+      const q = searchInput.value.toLowerCase().trim();
+      app.querySelectorAll('.admin-sb-btn').forEach(btn => {
+        const text = btn.textContent.toLowerCase();
+        btn.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
+      });
+      app.querySelectorAll('.admin-sb-group').forEach(grp => {
+        let next = grp.nextElementSibling;
+        let hasVisible = false;
+        while(next && next.classList.contains('admin-sb-btn')){
+          if(next.style.display !== 'none') hasVisible = true;
+          next = next.nextElementSibling;
+        }
+        grp.style.display = (!q || hasVisible) ? 'block' : 'none';
+      });
+    };
+  }
   app.querySelectorAll('[data-k]').forEach(b=>b.onclick=async()=>{
     const sb=$('#adminSidebar'), bd=$('#adminBackdrop');
     if(sb) sb.classList.remove('open');
@@ -2510,7 +2712,9 @@ async function admin(t){
   }
   const extraHeadBtn = t === 'payment_methods'
     ? `<button class="g" id="btnLoadOfficialPM" style="background:rgba(0,245,160,.12);border-color:#00f5a0;color:#00f5a0;font-weight:700">⚡ Cargar los 9 Métodos Oficiales</button>`
-    : '';
+    : (t === 'customers'
+      ? `<button class="g" id="btnPreRegWhatsApp" style="background:linear-gradient(135deg,rgba(37,211,102,.15),rgba(18,140,126,.2));border-color:#25d366;color:#25d366;font-weight:700">📲 Pre-registro WhatsApp</button>`
+      : '');
   const cols=TABLES[t], {data,error}=await sb.from(t).select(SEL[t]||'*').order(cols.includes('created_at')?'created_at':cols[0],{ascending:false}).limit(300);
   const pk=PK[t]||'id', hasAct=t==='orders'||t==='zeny_ledger';
   app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2><span class="mut">${error?esc(error.message):(data||[]).length+' registros'}</span></div><div class="row">${extraHeadBtn}${NOADD.includes(t)?'':'<button id="add">+ Agregar</button>'}</div></div><div class="wrap"><table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th></th></tr>${(data||[]).map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c)}</td>`).join('')}<td class="row">${acts(t,r)}${NOADD.includes(t)?'':`<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}</table></div></div></div></div>`;
@@ -2607,6 +2811,222 @@ async function admin(t){
       if(S.view==='admin') admin(t);
     };
   });
+  app.querySelectorAll('[data-reset-pw]').forEach(b => b.onclick = async () => {
+    const custId = b.dataset.resetPw;
+    const nom = b.dataset.nom || 'Cliente';
+    const tel = (b.dataset.tel || '').trim();
+    const cleanTel = tel.replace(/\D/g, '');
+    const pass = cleanTel.length >= 6 ? cleanTel.slice(-6) : '123456';
+
+    if(!confirm(`¿Deseas restablecer la contraseña de acceso para "${nom}"?\n\n• La contraseña volverá a ser por defecto: ${pass} (últimos 6 dígitos de su teléfono)\n• Al volver a ingresar al portal, el sistema le exigirá obligatoriamente cambiarla por su clave personal de preferencia.`)){
+      return;
+    }
+
+    b.disabled = true;
+    b.textContent = '⏳ Reseteando...';
+
+    const { data: res, error } = await sb.rpc('resetear_clave_cliente', { p_customer_id: custId });
+    b.disabled = false;
+    b.textContent = '🔑 Resetear Clave';
+
+    if(error){
+      if(error.message.includes('resetear_clave_cliente') || error.message.includes('does not exist')){
+        return alert('⚠️ Debes ejecutar la Migración 16 en el SQL Editor de Supabase para activar la función de reseteo de claves.');
+      }
+      return toast('Error al resetear clave: ' + error.message);
+    }
+
+    const msg = res?.mensaje_whatsapp || `¡Hola ${nom}! 👋 Tu acceso al portal ha sido restablecido.\n\n🌐 *Tienda Web:* https://gregoryizquierdo.xyz\n👤 *Usuario:* ${tel}\n🔑 *Contraseña temporal:* ${pass} (los últimos 6 dígitos de tu WhatsApp)\n\n⚠️ *Aviso:* Al iniciar sesión se te pedirá cambiarla por tu clave personal de preferencia.`;
+    navigator.clipboard.writeText(msg).catch(() => {});
+
+    if(cleanTel){
+      const waUrl = `https://wa.me/${cleanTel.startsWith('58') ? cleanTel : ('58' + cleanTel.replace(/^0+/, ''))}?text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, '_blank');
+    }
+
+    toast(`Contraseña reseteada a "${pass}" para ${nom}. Notificación de WhatsApp copiada.`);
+    if(S.view === 'admin') admin(t);
+  });
+
+  app.querySelectorAll('[data-wa-welcome]').forEach(b => b.onclick = () => {
+    const nom = b.dataset.nom || 'Cliente';
+    const tel = (b.dataset.tel || '').trim();
+    const cleanTel = tel.replace(/\D/g, '');
+    const pass = cleanTel.slice(-6);
+    const msg = `¡Hola ${nom}! 👋 Bienvenido a la plataforma oficial de *Emprendimiento Gregory Izquierdo*.\n\nYa activamos tu cuenta para que puedas ver el catálogo en vivo, tus pantallas y vencimientos:\n🌐 *Tienda Web:* https://gregoryizquierdo.xyz\n👤 *Usuario:* ${tel}\n🔑 *Contraseña temporal:* ${pass} (los últimos 6 dígitos de tu WhatsApp)\n\n⚠️ *Aviso de Seguridad:* Al iniciar sesión por primera vez, el sistema te solicitará cambiar tu clave por una personal de tu preferencia.\n\n💳 En tu panel ya tienes asignada tu *Tarjeta Digital Zeny* para comprar y acumular puntos. ¡Cualquier duda me avisas por aquí!`;
+    navigator.clipboard.writeText(msg).catch(() => {});
+    const waUrl = `https://wa.me/${cleanTel.startsWith('58') ? cleanTel : ('58' + cleanTel.replace(/^0+/, ''))}?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank');
+    toast(`Mensaje de acceso copiado. Abriendo WhatsApp para ${nom}...`);
+  });
+
+  if($('#btnPreRegWhatsApp')){
+    $('#btnPreRegWhatsApp').onclick = () => {
+      $('#dlgBody').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">📲 Pre-registro de Clientes WhatsApp</h3>
+        </div>
+        <p class="mut" style="font-size:.84rem;margin:0 0 14px">
+          Crea las cuentas de tus clientes solo con su <b>Nombre</b> y <b>Número de WhatsApp</b>. Se les asignará cuenta activa, crédito $0 y su Tarjeta Digital Zeny.
+        </p>
+
+        <div style="display:flex;gap:8px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:10px">
+          <button type="button" id="tabPreRegSingle" class="g" style="font-weight:700;font-size:.8rem;background:rgba(37,211,102,.2);color:#25d366;border-color:#25d366">1. Registro Individual</button>
+          <button type="button" id="tabPreRegBatch" class="g" style="font-weight:700;font-size:.8rem">2. Carga Masiva (Lista)</button>
+        </div>
+
+        <!-- Vista 1: Individual -->
+        <div id="viewPreRegSingle">
+          <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nombre y Apellido del Cliente:</label>
+          <input id="preNom" placeholder="Ej: Carlos Pérez" style="width:100%;margin-bottom:10px" required>
+
+          <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Número de WhatsApp (ej: 04121234567 o +58...):</label>
+          <input id="preTel" placeholder="Ej: 04121234567" style="width:100%;margin-bottom:10px" required>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Límite de Crédito ($ USD):</label>
+              <input id="preCred" type="number" min="0" value="0.00" style="width:100%">
+            </div>
+            <div>
+              <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Saldo Zeny Inicial (ZP):</label>
+              <input id="preZeny" type="number" min="0" value="0.00" style="width:100%">
+            </div>
+          </div>
+
+          <button id="btnSubmitSinglePreReg" style="width:100%;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;font-weight:800;border:none;border-radius:10px;padding:12px;font-size:.9rem;cursor:pointer">
+            ⚡ Pre-registrar y Abrir WhatsApp
+          </button>
+        </div>
+
+        <!-- Vista 2: Masiva -->
+        <div id="viewPreRegBatch" style="display:none">
+          <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">
+            Pega tu lista de WhatsApp (Nombre, Teléfono - un cliente por línea):
+          </label>
+          <textarea id="preBatchText" rows="6" style="width:100%;font-family:monospace;font-size:.82rem" placeholder="Carlos Pérez, 04121234567&#10;Ana Silva, 04149876543&#10;Pedro Gómez, 04241983648"></textarea>
+          <div class="mut" style="font-size:.74rem;margin:6px 0 14px">
+            * Contraseña = últimos 6 dígitos de su WhatsApp. Límite de crédito inicial $0.00.
+          </div>
+          <button id="btnSubmitBatchPreReg" style="width:100%;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;font-weight:800;border:none;border-radius:10px;padding:12px;font-size:.9rem;cursor:pointer">
+            🚀 Pre-registrar Lista Completa
+          </button>
+        </div>
+
+        <div id="preRegResultArea" style="margin-top:14px;display:none"></div>
+      `;
+      dlg.showModal();
+
+      const tabS = $('#tabPreRegSingle'), tabB = $('#tabPreRegBatch');
+      const viewS = $('#viewPreRegSingle'), viewB = $('#viewPreRegBatch');
+      tabS.onclick = () => {
+        tabS.style.background = 'rgba(37,211,102,.2)'; tabS.style.color = '#25d366'; tabS.style.borderColor = '#25d366';
+        tabB.style.background = ''; tabB.style.color = ''; tabB.style.borderColor = '';
+        viewS.style.display = 'block'; viewB.style.display = 'none';
+      };
+      tabB.onclick = () => {
+        tabB.style.background = 'rgba(37,211,102,.2)'; tabB.style.color = '#25d366'; tabB.style.borderColor = '#25d366';
+        tabS.style.background = ''; tabS.style.color = ''; tabS.style.borderColor = '';
+        viewB.style.display = 'block'; viewS.style.display = 'none';
+      };
+
+      $('#btnSubmitSinglePreReg').onclick = async () => {
+        const nom = $('#preNom')?.value?.trim();
+        const tel = $('#preTel')?.value?.trim();
+        const cred = parseFloat($('#preCred')?.value || 0);
+        const zeny = parseFloat($('#preZeny')?.value || 0);
+        if(!nom || !tel) return toast('Ingresa el nombre y el número de WhatsApp.');
+
+        $('#btnSubmitSinglePreReg').disabled = true;
+        $('#btnSubmitSinglePreReg').textContent = 'Procesando...';
+
+        const { data, error } = await sb.rpc('preregistrar_cliente_whatsapp', {
+          p_nombre: nom,
+          p_telefono: tel,
+          p_limite_credito: cred,
+          p_saldo_zeny: zeny
+        });
+
+        $('#btnSubmitSinglePreReg').disabled = false;
+        $('#btnSubmitSinglePreReg').textContent = '⚡ Pre-registrar y Abrir WhatsApp';
+
+        if(error){
+          if(error.message.includes('preregistrar_cliente_whatsapp') || error.message.includes('does not exist')){
+            return alert('⚠️ Falta ejecutar la Migración 16 en Supabase SQL Editor para habilitar la función de pre-registro.');
+          }
+          return toast(error.message);
+        }
+
+        toast(`¡Cliente ${nom} pre-registrado con éxito!`);
+        const cleanTel = tel.replace(/\D/g, '');
+        const waUrl = `https://wa.me/${cleanTel.startsWith('58') ? cleanTel : ('58' + cleanTel.replace(/^0+/, ''))}?text=${encodeURIComponent(data.mensaje_whatsapp)}`;
+        navigator.clipboard.writeText(data.mensaje_whatsapp).catch(() => {});
+
+        $('#preRegResultArea').style.display = 'block';
+        $('#preRegResultArea').innerHTML = `
+          <div style="background:rgba(37,211,102,.12);border:1.5px solid #25d366;border-radius:12px;padding:12px;text-align:center">
+            <h4 style="margin:0 0 6px;color:#25d366">✅ Cliente Pre-registrado</h4>
+            <div style="font-size:.82rem;margin-bottom:10px">
+              Usuario: <b>${esc(tel)}</b> · Clave inicial: <b>${esc(data.password_inicial)}</b>
+            </div>
+            <a href="${waUrl}" target="_blank" class="g" style="background:#25d366;color:#03121c;font-weight:800;padding:8px 16px;border-radius:8px;text-decoration:none;display:inline-block">
+              📲 Enviar Acceso por WhatsApp
+            </a>
+          </div>
+        `;
+        if(S.view === 'admin') admin('customers');
+      };
+
+      $('#btnSubmitBatchPreReg').onclick = async () => {
+        const raw = $('#preBatchText')?.value || '';
+        const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+        if(!lines.length) return toast('Pega al menos una línea con formato: Nombre, Teléfono');
+
+        $('#btnSubmitBatchPreReg').disabled = true;
+        let okCount = 0;
+        const results = [];
+
+        for(let i = 0; i < lines.length; i++){
+          const line = lines[i];
+          const parts = line.split(/[,;\t]/);
+          const nom = (parts[0] || '').trim();
+          const tel = (parts[1] || '').trim();
+          if(!nom || !tel) continue;
+          $('#btnSubmitBatchPreReg').textContent = `Procesando ${i+1} de ${lines.length}...`;
+          const { data, error } = await sb.rpc('preregistrar_cliente_whatsapp', {
+            p_nombre: nom,
+            p_telefono: tel
+          });
+          if(!error && data){
+            okCount++;
+            results.push(data);
+          }
+        }
+
+        $('#btnSubmitBatchPreReg').disabled = false;
+        $('#btnSubmitBatchPreReg').textContent = '🚀 Pre-registrar Lista Completa';
+        toast(`Pre-registro masivo completo: ${okCount} clientes registrados.`);
+
+        $('#preRegResultArea').style.display = 'block';
+        $('#preRegResultArea').innerHTML = `
+          <div style="max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;background:rgba(0,0,0,.4)">
+            <h4 style="margin:4px 0 8px;color:#25d366">✅ ${okCount} Clientes Listos</h4>
+            ${results.map(r => {
+              const clean = r.telefono.replace(/\D/g, '');
+              const url = `https://wa.me/${clean.startsWith('58') ? clean : ('58' + clean.replace(/^0+/, ''))}?text=${encodeURIComponent(r.mensaje_whatsapp)}`;
+              return `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.8rem">
+                  <div><b>${esc(r.nombre)}</b> (${esc(r.telefono)})</div>
+                  <a href="${url}" target="_blank" class="g" style="padding:3px 8px;font-size:.72rem;text-decoration:none">📲 Enviar WA</a>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+        if(S.view === 'admin') admin('customers');
+      };
+    };
+  }
   const form=async row=>{
     const fks={}; await Promise.all(cols.filter(c=>FK[c]).map(async c=>{const [tb,lb]=FK[c];const {data:d}=await sb.from(tb).select('id,'+lb).limit(500);fks[c]=d||[];}));
     const labelFor=c=>{
@@ -2685,8 +3105,19 @@ async function admin(t){
     }
     $('#save').onclick=async()=>{const o={};
       for(const i of dlg.querySelectorAll('[data-c]')){let v=i.value;if(v===''||i.disabled)continue;if(v==='true'||v==='false')v=v==='true';else if(/^[\[{]/.test(v))try{v=JSON.parse(v)}catch{};o[i.dataset.c]=v;}
-      for(const f of dlg.querySelectorAll('[data-up]')){const file=f.files[0];if(file){const path=`${t}/${Date.now()}-${file.name.replace(/[^\w.-]/g,'_')}`;const u=await sb.storage.from('catalogo').upload(path,file);if(u.error)return toast(u.error.message);o.imagen_url=sb.storage.from('catalogo').getPublicUrl(path).data.publicUrl;}}
-      const {error:e}=await (row?sb.from(t).update(o).eq(pk,row[pk]):sb.from(t).insert(o));e?toast(e.message):(dlg.close(),admin(t));};};
+      let {error:e}=await (row?sb.from(t).update(o).eq(pk,row[pk]):sb.from(t).insert(o));
+      if(e && e.message && e.message.includes('permite_cuotas')){
+        const oFallback = {...o};
+        delete oFallback.permite_cuotas;
+        const retry = await (row?sb.from(t).update(oFallback).eq(pk,row[pk]):sb.from(t).insert(oFallback));
+        if(!retry.error){
+          dlg.close();
+          toast('Producto guardado. ⚠️ Ejecuta la migración 15 en Supabase SQL Editor para activar la casilla de cuotas.');
+          return admin(t);
+        }
+        e = retry.error;
+      }
+      e?toast(e.message):(dlg.close(),admin(t));};};
   if($('#add')) $('#add').onclick=()=>form(null);
   app.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>form(data.find(r=>String(r[pk])===b.dataset.e)));
   app.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar registro?')){const {error:e}=await sb.from(t).delete().eq(pk,b.dataset.x);e?toast(e.message):admin(t);}});
