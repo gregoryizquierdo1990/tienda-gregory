@@ -3008,6 +3008,466 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     render();
   },
 
+  async mesa_cambio(box) {
+    box.innerHTML = '<div style="padding:30px;text-align:center"><div class="sk" style="height:120px;max-width:500px;margin:auto"></div><p class="mut" style="margin-top:12px">Cargando Mesa de Cambio USDT…</p></div>';
+
+    // 1. Cargar Configuración de Mesa de Cambio desde settings
+    let cfg = S.settings?.mesa_cambio_config || {
+      activo: true,
+      tasa_usdt_bs: 52.50,
+      min_usdt: 5,
+      max_usdt: 500,
+      metodo_pago: 'Pago Móvil (BNC)',
+      banco: 'BNC (0191)',
+      telefono: '04242809333',
+      documento: 'V 18931731',
+      titular: 'Gregory Izquierdo',
+      mensaje_aviso: '⚠️ IMPORTANTE: Por favor verifica cuidadosamente tu ID de Binance Pay o Correo electrónico antes de enviar la solicitud. No nos hacemos responsables ni realizaremos reembolsos por mala identificación de sus datos.'
+    };
+
+    // 2. Cargar operaciones desde mesa_cambio_operaciones con fallback a settings si la tabla no existe
+    let operaciones = [];
+    let tableError = false;
+    try {
+      const { data, error } = await sb.from('mesa_cambio_operaciones').select('*').order('created_at', { ascending: false });
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          tableError = true;
+          operaciones = S.settings?.mesa_cambio_operaciones || [];
+        } else {
+          toast('Aviso: ' + error.message);
+        }
+      } else {
+        operaciones = data || [];
+      }
+    } catch(err) {
+      tableError = true;
+      operaciones = S.settings?.mesa_cambio_operaciones || [];
+    }
+
+    let filterEstado = 'todos';
+    let searchQuery = '';
+
+    const render = () => {
+      // Filtrar operaciones
+      const filtered = operaciones.filter(op => {
+        if (filterEstado !== 'todos' && op.estado !== filterEstado) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const matchNom = (op.cliente_nombre || '').toLowerCase().includes(q);
+          const matchTel = (op.cliente_telefono || '').includes(q);
+          const matchDest = (op.destino_valor || '').toLowerCase().includes(q);
+          const matchRef = (op.referencia_bancaria || '').toLowerCase().includes(q);
+          return matchNom || matchTel || matchDest || matchRef;
+        }
+        return true;
+      });
+
+      const pendientes = operaciones.filter(o => o.estado === 'pendiente');
+      const completados = operaciones.filter(o => o.estado === 'completado_enviado');
+      const totalUsdtDespachado = completados.reduce((acc, o) => acc + Number(o.monto_usdt || 0), 0);
+      const totalBsRecaudado = completados.reduce((acc, o) => acc + Number(o.total_bs || 0), 0);
+
+      box.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:20px">
+          
+          <!-- TARJETA CABECERA DE CONFIGURACIÓN DE TASA USDT EXCLUSIVA -->
+          <div style="background:linear-gradient(135deg,rgba(15,23,42,.95),rgba(30,41,59,.9));border:1.5px solid rgba(253,224,71,.3);border-radius:16px;padding:22px;box-shadow:0 8px 30px rgba(0,0,0,.35)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+              <div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="font-size:1.8rem">💱</span>
+                  <div>
+                    <h3 style="margin:0;font-size:1.3rem;color:#fde047">Mesa de Cambio USDT</h3>
+                    <div style="font-size:.8rem;color:#94a3b8">Venta directa de USDT con abono verificado a Binance Pay o Correo Binance</div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:rgba(255,255,255,.05);padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1)">
+                  <input type="checkbox" id="mcActivo" ${cfg.activo ? 'checked' : ''} style="accent-color:#00f5a0;transform:scale(1.2)">
+                  <span style="font-weight:700;font-size:.85rem;color:${cfg.activo ? '#00f5a0' : '#f87171'}">
+                    ${cfg.activo ? '🟢 Mesa Operativa (Abierta)' : '🔴 Mesa Cerrada / Pausada'}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
+              <span style="font-size:1.4rem">📌</span>
+              <div style="font-size:.82rem;color:#fef08a;line-height:1.4">
+                <b>Regla de Aislamiento Estricto:</b> La tasa manual que configures en esta casilla aplica <b>únicamente</b> para la Mesa de Cambio USDT (<code>Total Bs = USDT × Tasa</code>). No modifica la Tasa Oficial BCV de la tienda, ni los precios de suscripciones ni el saldo Zeny.
+              </div>
+            </div>
+
+            <!-- FORMULARIO DE TASA Y CONDICIONES -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px">
+              <div style="background:rgba(0,0,0,.25);padding:12px;border-radius:12px;border:1px solid rgba(253,224,71,.25)">
+                <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px;color:#fde047;font-weight:700">Tasa de Venta USDT (Bs/USDT) *</label>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-weight:800;font-size:1.1rem;color:#fde047">Bs.</span>
+                  <input id="mcTasaBs" type="number" step="0.01" value="${cfg.tasa_usdt_bs || 52.50}" style="font-size:1.2rem;font-weight:800;color:#fde047;background:rgba(255,255,255,.07);border:1px solid rgba(253,224,71,.4);border-radius:8px;padding:6px 10px;width:100%" required>
+                </div>
+                <span class="mut" style="font-size:.72rem;display:block;margin-top:4px">Ejemplo: Si el cliente pide 10 USDT, pagará Bs. ${((cfg.tasa_usdt_bs||52.5)*10).toLocaleString('es-VE',{minimumFractionDigits:2})}</span>
+              </div>
+
+              <div style="background:rgba(0,0,0,.25);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
+                <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Mínimo de Compra (USDT)</label>
+                <input id="mcMinUsdt" type="number" step="1" value="${cfg.min_usdt || 5}" style="font-size:1rem;font-weight:700;padding:7px 10px;width:100%">
+                <span class="mut" style="font-size:.72rem;display:block;margin-top:4px">Límite mínimo por transacción</span>
+              </div>
+
+              <div style="background:rgba(0,0,0,.25);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
+                <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Máximo de Compra (USDT)</label>
+                <input id="mcMaxUsdt" type="number" step="1" value="${cfg.max_usdt || 500}" style="font-size:1rem;font-weight:700;padding:7px 10px;width:100%">
+                <span class="mut" style="font-size:.72rem;display:block;margin-top:4px">Límite máximo por transacción</span>
+              </div>
+
+              <div style="background:rgba(0,0,0,.25);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
+                <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Método para recibir Bs</label>
+                <input id="mcMetodo" type="text" value="${esc(cfg.metodo_pago || 'Pago Móvil (BNC)')}" style="font-size:.9rem;padding:7px 10px;width:100%">
+                <span class="mut" style="font-size:.72rem;display:block;margin-top:4px">Ej: Pago Móvil / BNC</span>
+              </div>
+            </div>
+
+            <!-- DATOS BANCARIOS EDITABLES -->
+            <details style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 14px;margin-bottom:16px">
+              <summary style="cursor:pointer;font-weight:700;font-size:.82rem;color:#94a3b8">
+                🏦 Configurar tus Datos de Pago Móvil / Bancarios para recibir los Bolívares
+              </summary>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px">
+                <div>
+                  <label class="mut" style="font-size:.72rem;display:block;margin-bottom:2px">Banco</label>
+                  <input id="mcBanco" type="text" value="${esc(cfg.banco || 'BNC (0191)')}">
+                </div>
+                <div>
+                  <label class="mut" style="font-size:.72rem;display:block;margin-bottom:2px">Teléfono Pago Móvil</label>
+                  <input id="mcTel" type="text" value="${esc(cfg.telefono || '04242809333')}">
+                </div>
+                <div>
+                  <label class="mut" style="font-size:.72rem;display:block;margin-bottom:2px">Cédula / RIF</label>
+                  <input id="mcDoc" type="text" value="${esc(cfg.documento || 'V 18931731')}">
+                </div>
+                <div>
+                  <label class="mut" style="font-size:.72rem;display:block;margin-bottom:2px">Titular de la cuenta</label>
+                  <input id="mcTitular" type="text" value="${esc(cfg.titular || 'Gregory Izquierdo')}">
+                </div>
+              </div>
+            </details>
+
+            <div style="display:flex;justify-content:flex-end">
+              <button id="btnSaveMesaCfg" style="background:#fde047;color:#0f172a;font-weight:800;border:none;padding:10px 22px;border-radius:10px;display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+                <span>💾 Guardar Tasa y Configuración</span>
+              </button>
+            </div>
+          </div>
+
+          ${tableError ? `
+            <div style="background:rgba(239,68,68,.12);border:1px solid #ef4444;border-radius:12px;padding:14px;color:#fca5a5;font-size:.85rem">
+              ⚠️ <b>Nota técnica:</b> La tabla <code>mesa_cambio_operaciones</code> aún no está ejecutada en tu Supabase SQL Editor. Las operaciones se están guardando provisionalmente en ajustes. Ejecuta el archivo <code>supabase/migracion_21_mesa_de_cambio.sql</code> para habilitar la tabla oficial.
+            </div>
+          ` : ''}
+
+          <!-- TARJETAS DE ESTADÍSTICAS -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px">
+            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px">
+              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">Solicitudes Pendientes</div>
+              <div style="font-size:1.8rem;font-weight:900;color:#fde047;margin:6px 0">${pendientes.length}</div>
+              <div class="mut" style="font-size:.75rem">Requieren revisión de pago y envío a Binance</div>
+            </div>
+
+            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px">
+              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">Total USDT Despachados</div>
+              <div style="font-size:1.8rem;font-weight:900;color:#00f5a0;margin:6px 0">$${totalUsdtDespachado.toFixed(2)} USDT</div>
+              <div class="mut" style="font-size:.75rem">Enviados a clientes a través de Binance Pay</div>
+            </div>
+
+            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px">
+              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">Total Bolívares Recibidos</div>
+              <div style="font-size:1.8rem;font-weight:900;color:#38bdf8;margin:6px 0">Bs. ${totalBsRecaudado.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+              <div class="mut" style="font-size:.75rem">Ingresados a tus cuentas bancarias</div>
+            </div>
+          </div>
+
+          <!-- LISTA DE SOLICITUDES Y OPERACIONES -->
+          <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <h4 style="margin:0;font-size:1.05rem">Historial de Operaciones de USDT</h4>
+                <span class="pill" style="font-size:.75rem">${filtered.length} operaciones</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <input id="mcSearchInput" type="search" placeholder="🔍 Buscar por cliente, ID, ref..." value="${esc(searchQuery)}" style="padding:6px 12px;font-size:.8rem;border-radius:8px">
+                <div class="tabs" style="margin:0">
+                  <button class="${filterEstado==='todos'?'':'g'}" data-mc-st="todos" style="padding:6px 12px;font-size:.78rem">Todos</button>
+                  <button class="${filterEstado==='pendiente'?'':'g'}" data-mc-st="pendiente" style="padding:6px 12px;font-size:.78rem">⏳ Pendientes (${pendientes.length})</button>
+                  <button class="${filterEstado==='completado_enviado'?'':'g'}" data-mc-st="completado_enviado" style="padding:6px 12px;font-size:.78rem">✅ Enviados (${completados.length})</button>
+                  <button class="${filterEstado==='rechazado'?'':'g'}" data-mc-st="rechazado" style="padding:6px 12px;font-size:.78rem">❌ Rechazados</button>
+                </div>
+              </div>
+            </div>
+
+            ${filtered.length ? `
+              <div class="wrap">
+                <table>
+                  <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Cliente</th>
+                    <th>Monto USDT</th>
+                    <th>Tasa & Total Bs</th>
+                    <th>Destino Binance</th>
+                    <th>Pago / Referencia</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                  ${filtered.map(op => {
+                    const dt = op.created_at ? new Date(op.created_at).toLocaleString('es-VE', { timeZone: 'America/Caracas', dateStyle: 'short', timeStyle: 'short' }) : '—';
+                    const isPend = op.estado === 'pendiente';
+                    const isComp = op.estado === 'completado_enviado';
+                    const isRech = op.estado === 'rechazado';
+                    const telClean = (op.cliente_telefono || '').replace(/\D/g, '');
+
+                    const stBadge = isPend
+                      ? '<span class="pill" style="background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.35)">⏳ Pendiente</span>'
+                      : (isComp
+                        ? '<span class="pill" style="background:rgba(0,245,160,.15);color:#00f5a0;border-color:rgba(0,245,160,.35)">✅ Enviado</span>'
+                        : '<span class="pill off">❌ Rechazado</span>');
+
+                    const destTypeLabel = op.destino_tipo === 'binance_email' ? '📧 Binance Email' : '🆔 Binance Pay ID';
+
+                    return `
+                      <tr>
+                        <td style="font-size:.78rem;white-space:nowrap">${esc(dt)}</td>
+                        <td>
+                          <b>${esc(op.cliente_nombre || 'Cliente')}</b>
+                          ${telClean ? `
+                            <div style="font-size:.75rem;margin-top:2px">
+                              <a href="https://wa.me/${telClean}" target="_blank" rel="noopener noreferrer" style="color:#25d366;text-decoration:none">
+                                💬 ${esc(op.cliente_telefono)}
+                              </a>
+                            </div>
+                          ` : ''}
+                        </td>
+                        <td>
+                          <b style="color:#00f5a0;font-size:1.1rem;font-family:monospace">$${Number(op.monto_usdt).toFixed(2)} USDT</b>
+                        </td>
+                        <td>
+                          <div style="font-size:.85rem;font-weight:700;color:#fde047">Bs. ${Number(op.total_bs).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                          <span class="mut" style="font-size:.72rem">Tasa: Bs. ${Number(op.tasa_bs).toFixed(2)}</span>
+                        </td>
+                        <td>
+                          <div style="font-size:.72rem;color:#818cf8;font-weight:700">${destTypeLabel}</div>
+                          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+                            <code style="font-size:.82rem;font-weight:800;background:rgba(255,255,255,.08);padding:3px 6px;border-radius:6px">${esc(op.destino_valor)}</code>
+                            <button type="button" class="g" data-mc-copy="${esc(op.destino_valor)}" title="Copiar destino para transferir en Binance" style="padding:3px 7px;font-size:.72rem">📋</button>
+                          </div>
+                        </td>
+                        <td>
+                          <div style="font-size:.78rem;font-weight:700">${esc(op.metodo_pago || 'Pago Móvil')}</div>
+                          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+                            <span class="mut" style="font-size:.74rem">Ref:</span>
+                            <code style="font-size:.8rem">${esc(op.referencia_bancaria)}</code>
+                            <button type="button" class="g" data-mc-copy="${esc(op.referencia_bancaria)}" title="Copiar referencia" style="padding:2px 5px;font-size:.68rem">📋</button>
+                          </div>
+                        </td>
+                        <td>${stBadge}</td>
+                        <td class="row">
+                          ${isPend ? `
+                            <button class="cta" data-mc-send="${op.id}" data-usdt="${op.monto_usdt}" data-dest="${esc(op.destino_valor)}" data-dest-tipo="${esc(op.destino_tipo)}" data-nom="${esc(op.cliente_nombre||'Cliente')}" data-tel="${esc(op.cliente_telefono||'')}" style="background:#00f5a0;color:#000;font-size:.76rem;padding:5px 10px;font-weight:800">
+                              ⚡ Marcar Enviado
+                            </button>
+                            <button class="g" data-mc-reject="${op.id}" data-nom="${esc(op.cliente_nombre||'Cliente')}" style="font-size:.74rem;padding:5px 8px;color:#f87171">
+                              ✕ Rechazar
+                            </button>
+                          ` : (isComp ? `
+                            <button class="g" data-mc-wa="${op.id}" data-usdt="${op.monto_usdt}" data-dest="${esc(op.destino_valor)}" data-nom="${esc(op.cliente_nombre||'Cliente')}" data-tel="${esc(op.cliente_telefono||'')}" style="font-size:.74rem;padding:4px 8px">
+                              💬 WA
+                            </button>
+                          ` : '<span class="mut" style="font-size:.75rem">—</span>')}
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </table>
+              </div>
+            ` : `
+              <div style="text-align:center;padding:34px 14px">
+                <span style="font-size:2.2rem">💱</span>
+                <p class="mut" style="margin:8px 0 0;font-size:.85rem">No se encontraron operaciones registradas con los filtros actuales.</p>
+              </div>
+            `}
+          </div>
+
+        </div>
+      `;
+
+      // Eventos: Guardar Configuración
+      const btnSave = $('#btnSaveMesaCfg');
+      if (btnSave) {
+        btnSave.onclick = async () => {
+          const tasa = parseFloat($('#mcTasaBs').value);
+          if (isNaN(tasa) || tasa <= 0) return toast('Ingresa una tasa de cambio válida (mayor a 0).');
+
+          const newCfg = {
+            activo: $('#mcActivo').checked,
+            tasa_usdt_bs: tasa,
+            min_usdt: parseFloat($('#mcMinUsdt').value) || 5,
+            max_usdt: parseFloat($('#mcMaxUsdt').value) || 500,
+            metodo_pago: $('#mcMetodo').value.trim() || 'Pago Móvil (BNC)',
+            banco: $('#mcBanco').value.trim(),
+            telefono: $('#mcTel').value.trim(),
+            documento: $('#mcDoc').value.trim(),
+            titular: $('#mcTitular').value.trim(),
+            mensaje_aviso: cfg.mensaje_aviso
+          };
+
+          btnSave.disabled = true;
+          btnSave.innerHTML = '<span>⏳ Guardando...</span>';
+
+          try {
+            const { error } = await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: newCfg });
+            if (error) throw error;
+            S.settings.mesa_cambio_config = newCfg;
+            cfg = newCfg;
+            toast('✅ Configuración de Mesa de Cambio guardada exitosamente. Tasa activa: Bs. ' + tasa.toFixed(2));
+            render();
+          } catch(err) {
+            toast('Error al guardar: ' + err.message);
+          } finally {
+            btnSave.disabled = false;
+          }
+        };
+      }
+
+      // Copiar al portapapeles
+      box.querySelectorAll('[data-mc-copy]').forEach(b => {
+        b.onclick = async () => {
+          const val = b.dataset.mcCopy;
+          if (!val) return;
+          try {
+            await navigator.clipboard.writeText(val);
+            const orig = b.textContent;
+            b.textContent = '✓';
+            setTimeout(() => b.textContent = orig, 1200);
+          } catch(e) {
+            toast('Copia manualmente: ' + val);
+          }
+        };
+      });
+
+      // Filtros de estado
+      box.querySelectorAll('[data-mc-st]').forEach(b => {
+        b.onclick = () => {
+          filterEstado = b.dataset.mcSt;
+          render();
+        };
+      });
+
+      // Buscador
+      const sInput = $('#mcSearchInput');
+      if (sInput) {
+        sInput.oninput = () => {
+          searchQuery = sInput.value.trim();
+          render();
+        };
+      }
+
+      // Marcar Enviado (Abono completado)
+      box.querySelectorAll('[data-mc-send]').forEach(b => {
+        b.onclick = async () => {
+          const opId = b.dataset.mcSend;
+          const usdt = b.dataset.usdt;
+          const dest = b.dataset.dest;
+          const destTipo = b.dataset.destTipo === 'binance_email' ? 'Correo de Binance' : 'Binance Pay ID';
+          const nom = b.dataset.nom;
+          const tel = (b.dataset.tel || '').replace(/\D/g, '');
+
+          if (!confirm(`¿Confirmas que ya enviaste ${usdt} USDT a ${destTipo} ${dest} (${nom})?`)) return;
+
+          const now = new Date().toISOString();
+          let err = null;
+          if (!tableError) {
+            const res = await sb.from('mesa_cambio_operaciones').update({ estado: 'completado_enviado', enviado_at: now }).eq('id', opId);
+            err = res.error;
+          }
+
+          if (err) return toast('Error al actualizar: ' + err.message);
+
+          // Actualizar en memoria local
+          const f = operaciones.find(o => o.id === opId);
+          if (f) {
+            f.estado = 'completado_enviado';
+            f.enviado_at = now;
+          }
+
+          const waMsg = encodeURIComponent(
+            `¡Hola ${nom}! 🎉 Tus *${usdt} USDT* de la Mesa de Cambio han sido transferidos exitosamente a tu cuenta de Binance (${dest}).\n\n` +
+            `Por favor verifica en tu aplicación de Binance Pay / Fondos. ¡Muchas gracias por tu confianza!`
+          );
+
+          $('#dlgBody').innerHTML = `
+            <div style="text-align:center;padding:12px 0">
+              <span style="font-size:2.5rem">⚡</span>
+              <h3 style="margin:10px 0 6px">¡Operación Marcada como Enviada!</h3>
+              <p class="mut" style="font-size:.85rem;margin:0 0 16px">Se registraron los ${usdt} USDT como despachados para <b>${esc(nom)}</b> (${esc(dest)}).</p>
+              ${tel ? `
+                <a href="https://wa.me/${tel}?text=${waMsg}" target="_blank" rel="noopener noreferrer" style="background:#25D366;color:#fff;padding:12px;border-radius:12px;text-decoration:none;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">
+                  <span>💬 Enviar Notificación de Abono por WhatsApp</span>
+                </a>
+              ` : ''}
+              <button class="g" onclick="dlg.close()">Cerrar</button>
+            </div>
+          `;
+          dlg.showModal();
+          render();
+        };
+      });
+
+      // Rechazar Operación
+      box.querySelectorAll('[data-mc-reject]').forEach(b => {
+        b.onclick = async () => {
+          const opId = b.dataset.mcReject;
+          const nom = b.dataset.nom;
+          const motivo = prompt(`Ingresa el motivo del rechazo para la solicitud de ${nom}:`, 'Pago no verificado / Referencia no encontrada');
+          if (motivo === null) return;
+
+          let err = null;
+          if (!tableError) {
+            const res = await sb.from('mesa_cambio_operaciones').update({ estado: 'rechazado', notas_admin: motivo }).eq('id', opId);
+            err = res.error;
+          }
+
+          if (err) return toast('Error al rechazar: ' + err.message);
+
+          const f = operaciones.find(o => o.id === opId);
+          if (f) {
+            f.estado = 'rechazado';
+            f.notas_admin = motivo;
+          }
+          toast('Operación marcada como rechazada.');
+          render();
+        };
+      });
+
+      // Reenviar WA
+      box.querySelectorAll('[data-mc-wa]').forEach(b => {
+        b.onclick = () => {
+          const usdt = b.dataset.usdt;
+          const dest = b.dataset.dest;
+          const nom = b.dataset.nom;
+          const tel = (b.dataset.tel || '').replace(/\D/g, '');
+          const waMsg = encodeURIComponent(
+            `¡Hola ${nom}! 🎉 Comprobante de tu operación en la Mesa de Cambio: Tus *${usdt} USDT* fueron enviados a tu Binance (${dest}). ¡Muchas gracias por tu preferencia!`
+          );
+          if (tel) window.open(`https://wa.me/${tel}?text=${waMsg}`, '_blank');
+          else toast('El cliente no registró teléfono.');
+        };
+      });
+    };
+
+    render();
+  },
+
   async gemini(box) {
     if (!box._chatHistory) {
       box._chatHistory = [];
