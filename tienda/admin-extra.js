@@ -1277,7 +1277,11 @@ grant execute on function approve_installment(uuid) to authenticated;`;
   },
 
   async franquicias(box) {
-    const { data: franqList, error } = await sb.from('franchises').select('*').order('created_at', { ascending: false });
+    const [{ data: franqList, error }, { data: appsData }] = await Promise.all([
+      sb.from('franchises').select('*').order('created_at', { ascending: false }),
+      sb.from('franchise_applications').select('*').order('created_at', { ascending: false }).catch(() => ({ data: [] }))
+    ]);
+    const apps = appsData || [];
 
     if (error && (error.message?.includes('schema cache') || error.code === '42P01')) {
       box.innerHTML = `
@@ -1385,6 +1389,52 @@ create policy franchises_public_select on franchises for select to anon using (t
         <div class="card">
           <div class="mut">Dominio Base Red</div>
           <div style="font-size:1.05rem;font-weight:700;color:var(--c);margin-top:6px">*.${esc(baseDomain)}</div>
+        </div>
+      </div>
+
+      <!-- Solicitudes Recibidas desde la Web -->
+      <div style="margin-bottom:24px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h4 style="margin:0;font-size:1.05rem;color:var(--tx);display:flex;align-items:center;gap:8px">
+            <span>📬 Solicitudes de Franquicia Web</span>
+            <span class="pill" style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(129,140,248,.4)">${apps.length}</span>
+          </h4>
+        </div>
+        <div class="wrap">
+          <table>
+            <tr>
+              <th>Negocio / Aspirante</th>
+              <th>Contacto</th>
+              <th>Telegram</th>
+              <th>Notas / Experiencia</th>
+              <th>Fecha</th>
+              <th>Acción Inmediata</th>
+            </tr>
+            ${apps.map(app => {
+              const waNum = (app.phone || '').replace(/[^\d]/g, '');
+              const waDirectUrl = `https://wa.me/${waNum}?text=${encodeURIComponent(`Hola ${app.owner_name}, un gusto saludarte. Te escribe Gregory Izquierdo respecto a tu solicitud para la franquicia ${app.business_name}.`)}`;
+              return `
+                <tr>
+                  <td>
+                    <b>${esc(app.business_name)}</b>
+                    <span class="mut" style="display:block;font-size:.75rem">Titular: ${esc(app.owner_name)}</span>
+                  </td>
+                  <td>
+                    <b>${esc(app.phone)}</b>
+                    <span class="mut" style="display:block;font-size:.73rem">${esc(app.email)}</span>
+                  </td>
+                  <td>${app.telegram_user ? `<a href="https://t.me/${esc(app.telegram_user.replace(/^@/,''))}" target="_blank" style="color:var(--c)">@${esc(app.telegram_user.replace(/^@/,''))}</a>` : '<span class="mut">—</span>'}</td>
+                  <td style="max-width:240px;font-size:.78rem" class="mut">${esc(app.notes || 'Sin notas')}</td>
+                  <td style="font-size:.75rem">${new Date(app.created_at).toLocaleDateString('es-VE')}</td>
+                  <td>
+                    <a href="${waDirectUrl}" target="_blank" rel="noopener noreferrer" class="g" style="color:#25d366;border-color:rgba(37,211,102,.4);font-weight:700;font-size:.78rem;padding:5px 11px;border-radius:10px;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
+                      💬 WhatsApp
+                    </a>
+                  </td>
+                </tr>
+              `;
+            }).join('') || '<tr><td colspan="6" class="mut empty">No hay solicitudes web pendientes por contactar.</td></tr>'}
+          </table>
         </div>
       </div>
 

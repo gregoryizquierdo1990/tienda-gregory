@@ -297,11 +297,13 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 /* Portal Resumen: 3 Recuadros Iguales (Saldo, Vencimiento, TDC Zeny) */
 .portal-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:16px;align-items:stretch}
 .portal-summary-card{display:flex;flex-direction:column;justify-content:space-between;min-height:220px;position:relative;margin:0}
-.portal-tdc-summary-card{background:radial-gradient(ellipse at 50% 15%,rgba(20,32,54,.85) 0%,rgba(6,12,22,.96) 100%);border:1.5px solid rgba(212,175,55,.35);box-shadow:0 12px 30px -8px rgba(0,0,0,.75),0 0 20px rgba(0,212,255,.05);padding:16px 16px 14px}
-.zeny-mini-card-wrapper{perspective:1000px;width:100%;max-width:340px;margin:4px auto;cursor:pointer;user-select:none}
-.zeny-mini-card-inner{position:relative;width:100%;aspect-ratio:1.586;transition:transform .7s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d;border-radius:14px;box-shadow:0 10px 24px -6px rgba(0,0,0,.9),0 0 16px rgba(212,175,55,.25)}
+@keyframes neonGoldGlow{0%,100%{border-color:#ffd700;box-shadow:0 0 8px rgba(255,215,0,.85),0 0 18px rgba(255,215,0,.5),0 0 32px rgba(212,175,55,.3),inset 0 0 8px rgba(255,215,0,.4)}50%{border-color:#ffe55a;box-shadow:0 0 14px rgba(255,229,90,1),0 0 28px rgba(255,215,0,.75),0 0 48px rgba(212,175,55,.45),inset 0 0 12px rgba(255,215,0,.55)}}
+.portal-tdc-summary-card{background:radial-gradient(ellipse at 50% 15%,rgba(20,32,54,.9) 0%,rgba(6,12,22,.98) 100%);border:1.5px solid rgba(255,215,0,.6);box-shadow:0 0 18px rgba(255,215,0,.28),0 12px 30px -8px rgba(0,0,0,.85),inset 0 0 22px rgba(255,215,0,.1);padding:16px 16px 14px;transition:border-color .3s,box-shadow .3s}
+.portal-tdc-summary-card:hover{border-color:#ffd700;box-shadow:0 0 28px rgba(255,215,0,.45),0 16px 36px -8px rgba(0,0,0,.9),inset 0 0 28px rgba(255,215,0,.16)}
+.zeny-mini-card-wrapper{perspective:1000px;width:100%;max-width:340px;margin:6px auto;cursor:pointer;user-select:none;filter:drop-shadow(0 0 12px rgba(255,215,0,.35))}
+.zeny-mini-card-inner{position:relative;width:100%;aspect-ratio:1.586;transition:transform .7s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d;border-radius:16px}
 .zeny-mini-card-wrapper.flipped .zeny-mini-card-inner{transform:rotateY(180deg)}
-.zeny-mini-card-face{position:absolute;inset:0;width:100%;height:100%;border-radius:14px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background-size:100% 100%;background-repeat:no-repeat;background-position:center;border:1.5px solid rgba(212,175,55,.55)}
+.zeny-mini-card-face{position:absolute;inset:0;width:100%;height:100%;border-radius:16px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background-size:100% 100%;background-repeat:no-repeat;background-position:center;border:2px solid #ffd700;animation:neonGoldGlow 3.5s ease-in-out infinite}
 .zeny-mini-card-front{background-color:#0d0e12;background-image:url('/tarjeta-zeny-frente.jpg');position:relative}
 .zeny-mini-card-back{transform:rotateY(180deg);background-color:#0b0d11;background-image:url('/tarjeta-zeny-reverso.jpg');display:flex;flex-direction:column;justify-content:space-between;padding:10px 0 8px}
 .zeny-card-front-number-box{position:absolute;left:8.5%;top:73.5%;max-width:65%;display:flex;align-items:center;text-align:left}
@@ -312,12 +314,12 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 .portal-tdc-info-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}
 
 /* Compatibilidad general de Tarjeta Zeny */
-.zeny-card-container{background:radial-gradient(ellipse at 50% 20%,rgba(20,32,54,.85) 0%,rgba(6,12,22,.96) 100%);border:1.5px solid rgba(212,175,55,.3);border-radius:24px;padding:24px 20px 22px;margin:16px auto 24px;max-width:520px;box-shadow:0 16px 40px -10px rgba(0,0,0,.9),0 0 30px rgba(0,212,255,.08);display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;overflow:hidden}
-.zeny-card-container::before{content:"";position:absolute;top:-40%;left:50%;transform:translateX(-50%);width:320px;height:240px;background:radial-gradient(circle,rgba(212,175,55,.14) 0%,transparent 70%);pointer-events:none}
-.zeny-card-stage{perspective:1200px;max-width:420px;width:100%;margin:0 auto;cursor:pointer;user-select:none;display:flex;justify-content:center}
-.zeny-card-inner{position:relative;width:100%;aspect-ratio:1.586;transition:transform .75s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d;border-radius:20px;box-shadow:0 20px 45px -8px rgba(0,0,0,.95),0 0 25px rgba(212,175,55,.25)}
+.zeny-card-container{background:radial-gradient(ellipse at 50% 20%,rgba(20,32,54,.85) 0%,rgba(6,12,22,.96) 100%);border:1.5px solid rgba(255,215,0,.45);border-radius:24px;padding:24px 20px 22px;margin:16px auto 24px;max-width:520px;box-shadow:0 16px 40px -10px rgba(0,0,0,.9),0 0 30px rgba(255,215,0,.15);display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;overflow:hidden}
+.zeny-card-container::before{content:"";position:absolute;top:-40%;left:50%;transform:translateX(-50%);width:320px;height:240px;background:radial-gradient(circle,rgba(255,215,0,.18) 0%,transparent 70%);pointer-events:none}
+.zeny-card-stage{perspective:1200px;max-width:420px;width:100%;margin:0 auto;cursor:pointer;user-select:none;display:flex;justify-content:center;filter:drop-shadow(0 0 16px rgba(255,215,0,.35))}
+.zeny-card-inner{position:relative;width:100%;aspect-ratio:1.586;transition:transform .75s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d;border-radius:20px}
 .zeny-card-stage.flipped .zeny-card-inner{transform:rotateY(180deg)}
-.zeny-card-face{position:absolute;inset:0;width:100%;height:100%;border-radius:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background-size:100% 100%;background-repeat:no-repeat;background-position:center;border:1.5px solid rgba(212,175,55,.6);box-shadow:inset 0 0 14px rgba(0,0,0,.85)}
+.zeny-card-face{position:absolute;inset:0;width:100%;height:100%;border-radius:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;background-size:100% 100%;background-repeat:no-repeat;background-position:center;border:2px solid #ffd700;animation:neonGoldGlow 3.5s ease-in-out infinite}
 .zeny-card-front{background-color:#0d0e12;background-image:url('/tarjeta-zeny-frente.jpg');position:relative}
 .zeny-card-back{transform:rotateY(180deg);background-color:#0b0d11;background-image:url('/tarjeta-zeny-reverso.jpg');display:flex;flex-direction:column;justify-content:space-between;padding:16px 0 14px}
 .zeny-card-front-holder-box{position:absolute;left:8.5%;bottom:8.5%;max-width:62%;text-align:left;overflow:hidden}
@@ -376,6 +378,24 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 .invoice-legal-note{font-size:.7rem;color:#64748b;line-height:1.4;margin-top:20px;padding-top:12px;border-top:1px dashed #cbd5e1;text-align:center}
 .invoice-acts{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
 
+/* Banner de Captacion de Franquicias (Footer / Tienda) */
+.franchise-recruit-banner{margin:28px auto 14px;max-width:860px;background:linear-gradient(135deg,rgba(15,23,42,.95) 0%,rgba(30,27,75,.88) 100%);border:1.5px solid rgba(129,140,248,.38);border-radius:24px;padding:22px 24px;display:flex;align-items:center;justify-content:space-between;gap:18px;cursor:pointer;box-shadow:0 12px 35px -8px rgba(0,0,0,.7),0 0 24px rgba(99,102,241,.15);transition:all .22s cubic-bezier(.4,0,.2,1);text-align:left}
+.franchise-recruit-banner:hover{transform:translateY(-2px);border-color:rgba(129,140,248,.75);box-shadow:0 18px 45px -8px rgba(0,0,0,.8),0 0 32px rgba(99,102,241,.3)}
+.frb-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:.68rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(129,140,248,.4);margin-bottom:6px}
+.frb-title{font-size:1.1rem;font-weight:800;color:#ffffff;margin-bottom:4px;letter-spacing:.2px}
+.frb-desc{font-size:.82rem;color:#94a3b8;line-height:1.4}
+.frb-btn{background:linear-gradient(135deg,#4f46e5,#6366f1);color:#ffffff;padding:11px 20px;border-radius:14px;font-weight:800;font-size:.85rem;border:none;cursor:pointer;white-space:nowrap;box-shadow:0 6px 18px rgba(79,70,229,.4);transition:all .15s ease;flex-shrink:0}
+.franchise-recruit-banner:hover .frb-btn{filter:brightness(1.1);transform:scale(1.03)}
+.fq-grid-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 16px}
+.fq-feature-box{background:rgba(15,23,42,.7);border:1px solid rgba(51,65,85,.6);border-radius:14px;padding:12px 14px}
+.fq-feature-box h4{margin:0 0 4px;font-size:.84rem;font-weight:800;color:#e2e8f0;display:flex;align-items:center;gap:6px}
+.fq-feature-box p{margin:0;font-size:.74rem;color:#94a3b8;line-height:1.35}
+.fq-wa-inquiry-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:14px;background:linear-gradient(135deg,rgba(37,211,102,.12),rgba(59,130,246,.12));border:1.5px solid rgba(37,211,102,.4);color:#4ade80;font-weight:700;font-size:.84rem;text-decoration:none;cursor:pointer;transition:all .2s ease;margin:10px 0 4px}
+.fq-wa-inquiry-btn:hover{background:linear-gradient(135deg,rgba(37,211,102,.22),rgba(59,130,246,.22));border-color:#22c55e;color:#ffffff;transform:translateY(-1px);box-shadow:0 6px 20px rgba(37,211,102,.25)}
+.fq-wa-success-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 20px;border-radius:16px;background:linear-gradient(135deg,#10b981,#059669);color:#ffffff;font-weight:800;font-size:.92rem;text-decoration:none;box-shadow:0 8px 24px rgba(16,185,129,.4),0 0 20px rgba(16,185,129,.3);transition:all .2s ease;margin:16px 0 10px;border:none;cursor:pointer;animation:neonGoldGlow 3s ease-in-out infinite}
+.fq-wa-success-btn:hover{transform:scale(1.02);filter:brightness(1.08);box-shadow:0 12px 30px rgba(16,185,129,.6),0 0 26px rgba(16,185,129,.4)}
+@media(max-width:640px){.franchise-recruit-banner{flex-direction:column;align-items:stretch;gap:14px;padding:18px 16px}.frb-btn{text-align:center}.fq-grid-cards{grid-template-columns:1fr}}
+
 @media print {
   body *{visibility:hidden}
   #invoiceDlg, #invoiceDlg *{visibility:visible}
@@ -386,18 +406,19 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 <div class="watermark-bg" id="watermarkBg" aria-hidden="true"><img src="/logo.png" alt="" id="watermarkImg"></div>
 <header><div class="brand"><div class="logo"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo"></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
 <div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
-<button class="g" id="bHome">Tienda</button><button class="g" id="bInstall">Instalar app</button><button class="g hide" id="bSnd">🔔 Sonido</button><button class="g hide" id="bPortal">Mi portal</button><button class="g" id="bAdmin">Admin</button><button class="g" id="bRegister">Registrarse</button><button id="bLogin">Ingresar</button><button class="g hide" id="bOut">Salir</button></div></header>
+<button class="g" id="bHome">Tienda</button><button class="g" id="bInstall">Instalar app</button><button class="g" id="bFranchise" style="color:#a5b4fc;border-color:rgba(165,180,252,.35)">💼 Franquicias</button><button class="g hide" id="bSnd">🔔 Sonido</button><button class="g hide" id="bPortal">Mi portal</button><button class="g" id="bAdmin">Admin</button><button class="g" id="bRegister">Registrarse</button><button id="bLogin">Ingresar</button><button class="g hide" id="bOut">Salir</button></div></header>
 <main id="app"></main>
 
 <dialog id="dlg"><div id="dlgBody"></div><div class="row" style="margin-top:12px"><button class="g" onclick="dlg.close()">Cerrar</button></div></dialog>
 <dialog id="facetDlg" class="facet-dialog"></dialog>
 <dialog id="checkoutDlg" class="checkout-modal"></dialog>
 <dialog id="invoiceDlg" class="invoice-dialog"></dialog>
+<dialog id="franchiseDlg" class="checkout-modal"></dialog>
 
 <script src="/config.js"></script>
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg'), invoiceDlg = $('#invoiceDlg');
+const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg'), invoiceDlg = $('#invoiceDlg'), franchiseDlg = $('#franchiseDlg');
 const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}, franchise:null};
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -881,6 +902,7 @@ $('#bAdmin').onclick = () => { if(S.isAdmin) admin('finanzas'); else adminLoginD
 $('#bOut').onclick = async()=>{ await sb.auth.signOut(); sessionStorage.removeItem('gtk'); home(); };
 $('#bLogin').onclick = () => loginDlg('login');
 $('#bRegister').onclick = () => loginDlg('register');
+if($('#bFranchise')) $('#bFranchise').onclick = () => openFranchiseModal();
 
 // ---------- TIENDA ----------
 const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Servicio'};
@@ -990,6 +1012,14 @@ function home(){
         <div style="margin-top:6px">¿Incidencias o reporte de irregularidad? <a href="mailto:emprendimientogregoryizquierdo@gmail.com?subject=Reporte%20Franquicia%20${esc(S.franchise.subdominio)}" style="color:var(--c);text-decoration:underline">Reportar a Central</a></div>
       </div>
     ` : `
+      <div class="franchise-recruit-banner" onclick="openFranchiseModal()">
+        <div>
+          <span class="frb-pill">💼 Oportunidad de Negocio</span>
+          <div class="frb-title">¿Quieres tener tu propia Tienda de Streaming con tu Marca?</div>
+          <div class="frb-desc">Obtén tu plataforma tecnológica SaaS, cobros 100% directos a tu Pago Móvil/Binance y catálogo mayorista.</div>
+        </div>
+        <button type="button" class="frb-btn">Conviértete en Franquiciado ➔</button>
+      </div>
       <div>Soporte: ${esc(S.settings.negocio?.telefono||'')} · ${esc(S.settings.negocio?.correo||'')}</div>
     `}
   </footer>
@@ -1683,6 +1713,182 @@ async function buyDlg(id){
   renderCheckout();
   if(!checkoutDlg.open) checkoutDlg.showModal();
 }
+
+// ---------- SOLICITUD DE FRANQUICIA & CONVERSION WHATSAPP ----------
+function openFranchiseModal(){
+  const fqDlg = $('#franchiseDlg');
+  if(!fqDlg) return;
+
+  const renderForm = () => {
+    fqDlg.innerHTML = `
+      <div class="checkout-card" style="max-width:540px">
+        <div class="checkout-top-bar" style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:1.3rem">💼</span>
+            <div>
+              <div style="font-size:1.05rem;font-weight:800;color:#fff">Solicitud de Franquicia Oficial</div>
+              <div style="font-size:.72rem;color:#818cf8;font-weight:700">RED DE FRANQUICIADOS ELITE</div>
+            </div>
+          </div>
+          <button class="checkout-close-btn" id="fqCloseBtn" type="button">✕</button>
+        </div>
+
+        <div style="font-size:.82rem;color:var(--mut);line-height:1.45;margin-bottom:12px">
+          Expande tu negocio de streaming con nuestra infraestructura SaaS, precios preferenciales y cobros 100% directos a tus cuentas.
+        </div>
+
+        <div class="fq-grid-cards">
+          <div class="fq-feature-box">
+            <h4><span>🛡️</span> Plataforma Propia</h4>
+            <p>Panel administrativo exclusivo para gestionar perfiles, clientes y cuotas.</p>
+          </div>
+          <div class="fq-feature-box">
+            <h4><span>⚡</span> Cobros 100% Tuyos</h4>
+            <p>Los pagos de tus clientes por Pago Móvil o Binance caen directo en tus cuentas.</p>
+          </div>
+        </div>
+
+        <form id="fqForm" style="display:flex;flex-direction:column;gap:11px">
+          <div>
+            <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Nombre del Negocio / Marca *</label>
+            <input id="fqBusiness" required placeholder="Ej: StreamPlus Venezuela" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+          </div>
+          <div>
+            <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Nombre del Titular / Propietario *</label>
+            <input id="fqOwner" required placeholder="Tu nombre completo" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">WhatsApp / Teléfono *</label>
+              <input id="fqPhone" required type="tel" placeholder="+58 412 1234567" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+            </div>
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Correo Electrónico *</label>
+              <input id="fqEmail" required type="email" placeholder="correo@ejemplo.com" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Usuario de Telegram (Opcional)</label>
+            <input id="fqTg" placeholder="@tu_usuario" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+          </div>
+          <div>
+            <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Experiencia o notas sobre tu negocio (Opcional)</label>
+            <textarea id="fqNotes" rows="2" placeholder="Ej: Vendo por WhatsApp y busco automatizar mis entregas..." class="search" style="text-align:left;padding:10px 14px;font-size:.84rem;width:100%;border-radius:12px;resize:vertical"></textarea>
+          </div>
+
+          <!-- Opcion 2: Asesoria previa por WhatsApp -->
+          <a href="https://wa.me/584241983648?text=${encodeURIComponent('¡Hola Gregory! 👋 Tengo preguntas y dudas sobre cómo funciona la Franquicia de Streaming antes de postularme en el formulario.')}" target="_blank" rel="noopener noreferrer" class="fq-wa-inquiry-btn">
+            <svg style="width:18px;height:18px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <span>¿Dudas antes de postularte? Chatea en WhatsApp</span>
+          </a>
+
+          <button id="fqSubmitBtn" type="submit" class="cta" style="width:100%;padding:13px;font-size:.95rem;margin-top:4px">
+            🚀 Enviar Solicitud y Agilizar Activación
+          </button>
+        </form>
+      </div>
+    `;
+
+    $('#fqCloseBtn').onclick = () => fqDlg.close();
+
+    $('#fqForm').onsubmit = async e => {
+      e.preventDefault();
+      const btn = $('#fqSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Enviando postulación...';
+
+      const payload = {
+        businessName: $('#fqBusiness').value.trim(),
+        ownerName: $('#fqOwner').value.trim(),
+        phone: $('#fqPhone').value.trim(),
+        email: $('#fqEmail').value.trim(),
+        telegramUser: $('#fqTg').value.trim(),
+        notes: $('#fqNotes').value.trim()
+      };
+
+      let waUrl = `https://wa.me/584241983648?text=${encodeURIComponent('¡Hola Gregory! 👋 Acabo de postularme para la Franquicia Oficial con ' + payload.businessName + ' (' + payload.ownerName + ').')}`;
+
+      try {
+        const res = await fetch('/api/solicitud-franquicia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if(data.whatsappUrl) waUrl = data.whatsappUrl;
+      } catch (err) {
+        console.error('Error enviando al endpoint:', err);
+        try {
+          await sb.from('franchise_applications').insert([{
+            business_name: payload.businessName,
+            owner_name: payload.ownerName,
+            phone: payload.phone,
+            email: payload.email,
+            telegram_user: payload.telegramUser,
+            notes: payload.notes
+          }]);
+        } catch(sbErr){}
+      }
+
+      if(window.confetti) {
+        window.confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+      }
+
+      renderSuccess(payload, waUrl);
+    };
+  };
+
+  const renderSuccess = (payload, waUrl) => {
+    let secondsLeft = 3;
+    let timer = null;
+
+    fqDlg.innerHTML = `
+      <div class="checkout-card" style="max-width:500px;text-align:center;padding:32px 24px">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(16,185,129,.15);border:2px solid #10b981;display:grid;place-items:center;margin:0 auto 16px;box-shadow:0 0 20px rgba(16,185,129,.35)">
+          <svg style="width:34px;height:34px;color:#10b981" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <span class="frb-pill" style="margin-bottom:8px">🎉 ¡SOLICITUD ENVIADA CON ÉXITO!</span>
+        <h2 style="font-size:1.45rem;font-weight:800;color:#fff;margin:6px 0 8px">¡Felicidades, ${esc(payload.ownerName.split(' ')[0] || payload.ownerName)}!</h2>
+        <p style="font-size:.85rem;color:#cbd5e1;line-height:1.45;margin:0 0 16px">
+          Hemos recibido tu solicitud para <b>${esc(payload.businessName)}</b> y notificado a la central en tiempo real. Para completar tu activación y coordinar la entrega de tu tienda, contacta a Gregory directamente por WhatsApp:
+        </p>
+
+        <!-- Boton estelar con redireccion automatica regresiva (Opcion 1) -->
+        <a id="fqWaDirectBtn" href="${waUrl}" target="_blank" rel="noopener noreferrer" class="fq-wa-success-btn">
+          <svg style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span>Abrir WhatsApp Oficial (<b id="fqCountdown">${secondsLeft}</b>s)</span>
+        </a>
+
+        <div style="font-size:.72rem;color:#64748b;margin-bottom:14px">
+          Si la ventana no se abre automáticamente, pulsa el botón verde superior.
+        </div>
+
+        <button id="fqFinishBtn" type="button" class="g" style="width:100%;padding:10px;border-radius:12px;font-size:.84rem">
+          Cerrar y volver a la tienda
+        </button>
+      </div>
+    `;
+
+    const countdownEl = $('#fqCountdown');
+    timer = setInterval(() => {
+      secondsLeft--;
+      if(countdownEl) countdownEl.textContent = String(secondsLeft);
+      if(secondsLeft <= 0) {
+        clearInterval(timer);
+        window.open(waUrl, '_blank');
+      }
+    }, 1000);
+
+    $('#fqFinishBtn').onclick = () => {
+      if(timer) clearInterval(timer);
+      fqDlg.close();
+    };
+  };
+
+  renderForm();
+  if(!fqDlg.open) fqDlg.showModal();
+}
+
 // ---------- AUTH (ESTILO GEMA FACETADA FUTURISTA) ----------
 function renderFacetShell({title, subtitle, contentHtml, linksHtml='', closable=true}){
   return `
@@ -3173,5 +3379,13 @@ $('#bInstall').onclick=()=>{ const apk=S.settings.app?.apk_url||'', ios=/iphone|
   if($('#ip')) $('#ip').onclick=async()=>{_dip.prompt();await _dip.userChoice;dlg.close();}; };
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 init();
+if(location.hash === '#franquicia' || location.hash === '#solicitud-franquicia' || location.pathname.includes('solicitud-franquicia')){
+  setTimeout(() => openFranchiseModal(), 450);
+}
+window.addEventListener('hashchange', () => {
+  if(location.hash === '#franquicia' || location.hash === '#solicitud-franquicia'){
+    openFranchiseModal();
+  }
+});
 </script>
 <script src="/admin-extra.js"></script></body></html>
