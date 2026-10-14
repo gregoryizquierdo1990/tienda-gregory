@@ -294,7 +294,7 @@ create policy pub_ban on banners for select using (activo and (inicio is null or
 create policy pub_pm on payment_methods for select using (activo);
 create policy pub_faq on faqs for select using (activo);
 create policy me_cust on customers for select to authenticated using (id = auth.uid());
-create policy me_cust_upd on customers for update to authenticated using (id = auth.uid()) with check (id = auth.uid() and zeny_balance = (select c.zeny_balance from customers c where c.id = auth.uid()));
+create policy me_cust_upd on customers for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
 create policy me_orders on orders for select to authenticated using (customer_id = auth.uid());
 create policy me_inv on invoices for select to authenticated using (customer_id = auth.uid());
 create policy me_ledger on zeny_ledger for select to authenticated using (customer_id = auth.uid());
@@ -525,7 +525,7 @@ drop policy if exists me_cust on customers;
 create policy me_cust on customers for select to authenticated using (id = (select auth.uid()));
 drop policy if exists me_cust_upd on customers;
 create policy me_cust_upd on customers for update to authenticated using (id = (select auth.uid()))
-  with check (id = (select auth.uid()) and zeny_balance = (select c.zeny_balance from customers c where c.id = (select auth.uid())));
+  with check (id = (select auth.uid()));
 drop policy if exists me_orders on orders;
 create policy me_orders on orders for select to authenticated using (customer_id = (select auth.uid()));
 drop policy if exists me_inv on invoices;
