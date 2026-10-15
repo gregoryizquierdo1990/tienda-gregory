@@ -1376,7 +1376,13 @@ async function buyDlg(id){
   const [{data: rawPmList}, {data: h}, {data: userCard}] = await Promise.all([
     sb.from('payment_methods').select('*').eq('activo', true).order('orden'),
     sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente'),
-    Promise.resolve(sb.from('my_zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle()).catch(()=>sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle()).catch(()=>({data:null}))
+    (async () => {
+      try {
+        const r1 = await sb.from('my_zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle();
+        if (r1?.data) return r1;
+        return await sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle();
+      } catch(e) { return { data: null }; }
+    })()
   ]);
   const pmList = (rawPmList && rawPmList.length > 0) ? rawPmList : DEFAULT_PAYMENT_METHODS;
 
@@ -2912,7 +2918,7 @@ function loginDlg(mode = 'login'){
 
       // Si tenemos sesion inmediata y telefono, guardarlo en customers
       if(data?.user?.id && telVal){
-        await sb.from('customers').update({telefono: telVal, nombre: nombreVal}).eq('id', data.user.id).catch(()=>{});
+        try { await sb.from('customers').update({telefono: telVal, nombre: nombreVal}).eq('id', data.user.id); } catch(e){}
       }
 
       // Notificar nuevo registro a Telegram
@@ -4821,7 +4827,7 @@ async function admin(t){
         const curCats = S.settings?.expenses_categories || [];
         if(!curCats.includes(catVal)){
           curCats.push(catVal);
-          await sb.from('settings').upsert({ key: 'expenses_categories', value: curCats }).catch(()=>{});
+          try { await sb.from('settings').upsert({ key: 'expenses_categories', value: curCats }); } catch(e){}
           if(S.settings) S.settings.expenses_categories = curCats;
         }
         toast(`Concepto "${catVal}" agregado al menú desplegable.`);
@@ -4916,7 +4922,7 @@ async function admin(t){
       }
       if(!e && t === 'purchases' && o.mother_id && o.monto_usd != null){
         const costUsd = parseFloat(o.monto_usd) || 0;
-        await sb.from('mother_accounts').update({ costo_usd: costUsd }).eq('id', o.mother_id).catch(()=>{});
+        try { await sb.from('mother_accounts').update({ costo_usd: costUsd }).eq('id', o.mother_id); } catch(e){}
       }
       e?toast(e.message):(dlg.close(),admin(t));};};
   if($('#add')) $('#add').onclick=()=>form(null);

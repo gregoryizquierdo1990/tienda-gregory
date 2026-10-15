@@ -584,8 +584,10 @@ async function openTransferModal({ profileId, orderId, done } = {}) {
           // Obtener credenciales reveladas
           let revealedPass = chosenTarget?.mother_accounts?.clave || '';
           if (revealedPass.startsWith('enc:')) {
-            const { data: rev } = await sb.rpc('reveal_secret', { p: revealedPass }).catch(() => ({}));
-            if (rev) revealedPass = rev;
+            try {
+              const { data: rev } = await sb.rpc('reveal_secret', { p: revealedPass });
+              if (rev) revealedPass = rev;
+            } catch(e) {}
           }
 
           // Pantalla de éxito con botón para enviar por WhatsApp
@@ -4239,8 +4241,9 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             // Guardar copia directa dentro de la clave 'negocio' para que cualquier teléfono móvil lo lea de inmediato
             const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
             const negVal = negRow?.value || {};
-            negVal.mesa_cambio_config = newCfg;
-            await sb.from('settings').upsert({ key: 'negocio', value: negVal }).catch(()=>{});
+            try {
+              await sb.from('settings').upsert({ key: 'negocio', value: negVal });
+            } catch(e) {}
 
             S.settings.mesa_cambio_config = newCfg;
             if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = newCfg;
@@ -4315,22 +4318,24 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           cfg.fondo_caja_usdt = newFloat;
 
           // Sincronizar en settings
-          await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: cfg }).catch(()=>{});
-          const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
-          const negVal = negRow?.value || {};
-          negVal.mesa_cambio_config = cfg;
-          await sb.from('settings').upsert({ key: 'negocio', value: negVal }).catch(()=>{});
-          S.settings.mesa_cambio_config = cfg;
-          if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = cfg;
+          try {
+            await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: cfg });
+            const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
+            const negVal = negRow?.value || {};
+            negVal.mesa_cambio_config = cfg;
+            await sb.from('settings').upsert({ key: 'negocio', value: negVal });
+            S.settings.mesa_cambio_config = cfg;
+            if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = cfg;
 
-          // Registrar egreso en mesa_cambio_caja
-          await sb.from('mesa_cambio_caja').insert({
-            tipo: 'egreso_despacho',
-            monto_usdt: usdt,
-            saldo_posterior_usdt: newFloat,
-            operacion_id: opId,
-            notas: `Despacho completado a ${nom} (${dest})`
-          }).catch(()=>{});
+            // Registrar egreso en mesa_cambio_caja
+            await sb.from('mesa_cambio_caja').insert({
+              tipo: 'egreso_despacho',
+              monto_usdt: usdt,
+              saldo_posterior_usdt: newFloat,
+              operacion_id: opId,
+              notas: `Despacho completado a ${nom} (${dest})`
+            });
+          } catch(e) { console.warn('Error registrando egreso caja:', e); }
 
           // Actualizar en memoria local
           const f = operaciones.find(o => o.id === opId);
@@ -6092,8 +6097,11 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               }
 
               try {
-                const { data: codeData } = await sb.rpc('get_next_customer_code', { p_es_revendedor: true }).catch(() => ({ data: null }));
-                const rvdCode = codeData || 'RVD:1005';
+                let rvdCode = 'RVD:1005';
+                try {
+                  const { data: codeData } = await sb.rpc('get_next_customer_code', { p_es_revendedor: true });
+                  if (codeData) rvdCode = codeData;
+                } catch(e) {}
 
                 const { data: inserted, error: insErr } = await sb.from('customers').insert({
                   nombre: nom,
@@ -6223,8 +6231,12 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             const cleanTel = tel.replace(/\D/g, '');
             const pass = cleanTel.length >= 6 ? cleanTel.slice(-6) : '123456';
             if (!confirm(`¿Restablecer contraseña para "${nom}"?\n\n• Clave temporal: ${pass}\n• Al ingresar al portal se le pedirá cambiarla.`)) return;
-            const { error } = await sb.rpc('resetear_clave_cliente', { p_customer_id: sellerId }).catch(e => ({ error: e }));
-            if (error) return toast('Error: ' + error.message);
+            let resetErr = null;
+            try {
+              const { error } = await sb.rpc('resetear_clave_cliente', { p_customer_id: sellerId });
+              resetErr = error;
+            } catch(e) { resetErr = e; }
+            if (resetErr) return toast('Error: ' + resetErr.message);
             toast(`Contraseña restablecida a "${pass}" para ${nom}`);
           };
         });

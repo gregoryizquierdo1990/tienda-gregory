@@ -264,12 +264,12 @@ begin
        or lower(trim(nombre)) like lower(r.plataforma || '%')
     order by (lower(trim(nombre)) = lower(trim(r.producto_nombre))) desc limit 1;
 
-    -- C. Localizar perfil activo en profiles_inventory
+    -- C. Localizar perfil activo en profiles_inventory con coincidencia flexible
     v_prof_id := null;
     select pi.id into v_prof_id
     from profiles_inventory pi
     join mother_accounts m on m.id = pi.mother_id
-    where m.plataforma = r.plataforma
+    where (m.plataforma ilike '%' || r.plataforma || '%' or r.plataforma ilike '%' || m.plataforma || '%')
       and lower(trim(pi.nombre_perfil)) like lower(r.perfil_busqueda)
     order by (pi.assigned_customer_id = v_cust_id) desc, pi.id limit 1;
 
@@ -282,15 +282,19 @@ begin
         estado = 'vendido',
         vence = greatest(coalesce(vence, r.fecha_limite), r.fecha_limite)
       where id = v_prof_id;
+    end if;
 
+    if v_cust_id is not null then
       -- D. Localizar o crear orden a crédito
       v_order_id := null;
       select id into v_order_id from orders
-      where profile_id = v_prof_id and customer_id = v_cust_id
-      order by created_at desc limit 1;
+      where customer_id = v_cust_id
+      order by (profile_id = v_prof_id) desc, created_at desc limit 1;
 
       if v_order_id is not null then
         update orders set
+          profile_id = coalesce(v_prof_id, profile_id),
+          product_id = coalesce(v_prod_id, product_id),
           vendedor_id = v_pablo_id,
           total_usd = r.monto_deuda,
           tasa_bs = v_rate,
@@ -298,7 +302,7 @@ begin
           estado = 'entregado',
           proximo_pago = r.fecha_limite,
           vence = greatest(coalesce(vence, r.fecha_limite), r.fecha_limite),
-          referencia = '[CRÉDITO] Vence ' || to_char(r.fecha_limite, 'YYYY-MM-DD') || ' ($' || r.monto_deuda || ' USD) · Pablo Gonzalez'
+          referencia = '[CRÉDITO PABLO GONZALEZ] ' || r.cliente_nombre || ' - ' || r.producto_nombre || ' ($' || r.monto_deuda || ' USD)'
         where id = v_order_id;
       else
         insert into orders (
@@ -306,22 +310,31 @@ begin
           referencia, estado, vendedor_id, inicia, vence, proximo_pago
         ) values (
           v_cust_id, v_prod_id, v_prof_id, r.monto_deuda, v_rate, round(r.monto_deuda * v_rate, 2),
-          '[CRÉDITO] Vence ' || to_char(r.fecha_limite, 'YYYY-MM-DD') || ' ($' || r.monto_deuda || ' USD) · Pablo Gonzalez',
+          '[CRÉDITO PABLO GONZALEZ] ' || r.cliente_nombre || ' - ' || r.producto_nombre || ' ($' || r.monto_deuda || ' USD)',
           'entregado', v_pablo_id, current_date, r.fecha_limite, r.fecha_limite
         ) returning id into v_order_id;
       end if;
 
       -- E. Localizar o crear cuota en installments
-      select id into v_inst_id from installments where order_id = v_order_id limit 1;
+      v_inst_id := null;
+      select id into v_inst_id from installments
+      where customer_id = v_cust_id
+         or order_id = v_order_id
+         or lower(referencia) like lower('%' || r.cliente_nombre || '%')
+      limit 1;
 
       if v_inst_id is not null then
         update installments set
+          order_id = v_order_id,
+          customer_id = v_cust_id,
+          numero_cuota = 1,
+          total_cuotas = 1,
           monto_usd = r.monto_deuda,
           monto_bs = round(r.monto_deuda * v_rate, 2),
           tasa_bs = v_rate,
           fecha_vencimiento = r.fecha_limite,
           estado = 'pendiente',
-          referencia = '[CRÉDITO PABLO GONZALEZ] Vence 30/10/2026 ($' || r.monto_deuda || ' USD)'
+          referencia = '[CRÉDITO PABLO GONZALEZ] ' || r.cliente_nombre || ' - ' || r.producto_nombre || ' ($' || r.monto_deuda || ' USD)'
         where id = v_inst_id;
       else
         insert into installments (
@@ -334,7 +347,6 @@ begin
           '[CRÉDITO PABLO GONZALEZ] ' || r.cliente_nombre || ' - ' || r.producto_nombre || ' ($' || r.monto_deuda || ' USD)'
         );
       end if;
-
     end if;
   end loop;
 
