@@ -32,14 +32,15 @@ const GCal = {
   },
 
   connect() {
+    sessionStorage.setItem('oauth_dest', 'admin');
     return sb.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: location.origin + '/?app=admin#admin',
+        redirectTo: location.origin + '/',
         scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/spreadsheets',
         queryParams: {
           access_type: 'offline',
-          prompt: 'consent'
+          prompt: 'select_account consent'
         }
       }
     });

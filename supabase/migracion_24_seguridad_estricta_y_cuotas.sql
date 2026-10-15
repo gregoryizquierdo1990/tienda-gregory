@@ -17,16 +17,17 @@ language sql stable security definer set search_path = public as $$
   select exists(
     select 1 from admins
     where lower(admins.email) = lower(auth.jwt()->>'email')
-  )
-  and (
-    coalesce(auth.jwt()->'app_metadata'->>'provider', '') = 'google'
-    or exists(select 1 from jsonb_array_elements(coalesce(auth.jwt()->'amr','[]'::jsonb)) a where a->>'method' in ('oauth', 'google'))
-    or coalesce(auth.jwt()->>'iss', '') like '%google%'
   );
 $$;
 
 revoke execute on function is_admin() from public, anon;
 grant execute on function is_admin() to authenticated;
+
+alter table admins enable row level security;
+drop policy if exists admin_read on admins;
+create policy admin_read on admins for select to authenticated using (true);
+drop policy if exists admin_manage on admins;
+create policy admin_manage on admins for all to authenticated using (is_admin()) with check (is_admin());
 
 
 -- ------------------------------------------------------------------------------
