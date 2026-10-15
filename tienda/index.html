@@ -1387,6 +1387,12 @@ async function buyDlg(id){
   let payPlan = 'contado'; // 'contado' o 'cuotas'
   let selectedMethodId = (pmList && pmList.length > 0) ? pmList[0].id : null;
   let appliedZeny = 0;
+  let paySplit = 'unico'; // 'unico' o 'mixto'
+  let splitM1Id = (pmList && pmList.length > 0) ? pmList[0].id : null;
+  let splitM2Id = (pmList && pmList.length > 1) ? pmList[1].id : splitM1Id;
+  let splitM1Amount = 0;
+  let splitRef1 = '';
+  let splitRef2 = '';
 
   // Variables y sincronización de datos de recarga (Gaming y Telefonía)
   let rechargeData = { player_id: '', servidor: '', nickname: '', operadora: 'Movistar', telefono: '' };
@@ -1514,6 +1520,18 @@ async function buyDlg(id){
     const restBs = restUsd * (S.rate || 0);
     const isFullZeny = restUsd <= 0;
 
+    const m1 = (pmList || []).find(m => m.id === splitM1Id) || (pmList || [])[0];
+    const m2 = (pmList || []).find(m => m.id === splitM2Id) || (pmList && pmList.length > 1 ? pmList[1] : (pmList || [])[0]);
+    const m1Fields = parseMethodFields(m1);
+    const m2Fields = parseMethodFields(m2);
+
+    if (splitM1Amount <= 0 || splitM1Amount >= restUsd) {
+      splitM1Amount = Math.max(0.01, Math.round((restUsd / 2) * 100) / 100);
+    }
+    const diffUsd = Math.max(0, Math.round((restUsd - splitM1Amount) * 100) / 100);
+    const diffBs = diffUsd * (S.rate || 0);
+    const m1Bs = splitM1Amount * (S.rate || 0);
+
     // PASO 1: SELECCIÓN DEL MÉTODO DE PAGO
     if(currentStep === 'method'){
       const methodsHtml = (pmList || []).map(m => {
@@ -1561,6 +1579,18 @@ async function buyDlg(id){
                 <button class="paymode-tab ${payPlan === 'cuotas' ? 'active' : ''}" id="pmPlanCuotas" type="button">
                   <span>📅 En 2 Cuotas</span>
                   <span class="bnpl-badge" style="font-size:.65rem">Inicial $${cuotaInicialUsd}</span>
+                </button>
+              </div>
+            ` : ''}
+
+            <!-- Selector de Método Único vs Pago Mixto (Combinado) -->
+            ${!isFullZeny ? `
+              <div style="display:flex;gap:6px;margin:12px 0 14px;background:rgba(255,255,255,.05);padding:4px;border-radius:10px">
+                <button type="button" id="btnPaySplitUnico" class="paymode-tab ${paySplit === 'unico' ? 'active' : ''}" style="flex:1;padding:8px;font-size:.78rem;font-weight:800">
+                  <span>💳 Método Único</span>
+                </button>
+                <button type="button" id="btnPaySplitMixto" class="paymode-tab ${paySplit === 'mixto' ? 'active' : ''}" style="flex:1;padding:8px;font-size:.78rem;font-weight:800">
+                  <span>🔀 Pago Mixto (Combinado)</span>
                 </button>
               </div>
             ` : ''}
@@ -1690,7 +1720,7 @@ async function buyDlg(id){
             </div>
 
             <!-- Metodos de pago -->
-            ${!isFullZeny ? `
+            ${!isFullZeny ? (paySplit === 'unico' ? `
               <div class="checkout-methods-title">
                 <span>¿Cómo vas a pagar?</span>
                 <span style="font-size:.75rem;color:var(--mut);font-weight:500">Selecciona tu método</span>
@@ -1699,6 +1729,75 @@ async function buyDlg(id){
                 ${methodsHtml || '<p class="mut">No hay métodos activos en este momento.</p>'}
               </div>
             ` : `
+              <div style="background:linear-gradient(135deg,rgba(15,23,42,.95),rgba(30,41,59,.9));border:1.5px solid rgba(56,189,248,.35);border-radius:14px;padding:14px;margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                  <span style="font-size:1.3rem">🔀</span>
+                  <div>
+                    <div style="font-size:.88rem;font-weight:800;color:#38bdf8">Configurar Pago Mixto</div>
+                    <div class="mut" style="font-size:.72rem">Combina dos métodos de pago y el sistema calcula el diferencial en vivo</div>
+                  </div>
+                </div>
+
+                <!-- Método 1 -->
+                <div style="background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;margin-bottom:12px">
+                  <label class="mut" style="font-size:.74rem;font-weight:700;display:block;margin-bottom:4px">1. Primer Método de Pago *</label>
+                  <select id="selSplitM1" class="checkout-input" style="font-size:.84rem;padding:7px;margin-bottom:8px">
+                    ${(pmList || []).map(m => `<option value="${m.id}" ${m.id === m1.id ? 'selected' : ''}>${esc(m.nombre)}</option>`).join('')}
+                  </select>
+
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;margin-bottom:8px">
+                    <div>
+                      <label class="mut" style="font-size:.72rem;display:block;margin-bottom:2px">Monto Método 1 ($ USD):</label>
+                      <input id="inputSplitM1Amt" type="number" step="0.01" min="0.01" max="${restUsd}" value="${splitM1Amount}" style="font-size:.95rem;font-weight:800;padding:6px;width:100%">
+                    </div>
+                    <div>
+                      <span class="mut" style="font-size:.72rem;display:block;margin-bottom:2px">Equivalente en Bs:</span>
+                      <span style="font-size:.86rem;font-weight:800;color:#0284c7">≈ Bs. ${m1Bs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                    </div>
+                  </div>
+
+                  <!-- Datos Método 1 -->
+                  <div style="font-size:.74rem;background:rgba(255,255,255,.03);padding:8px;border-radius:8px;margin-bottom:8px">
+                    <div style="font-weight:700;color:#94a3b8;margin-bottom:3px">Datos bancarios de ${esc(m1?.nombre || '')}:</div>
+                    ${m1Fields.map(f => `<div><b>${esc(f.label)}:</b> <code>${esc(f.value)}</code></div>`).join('')}
+                  </div>
+
+                  <label class="mut" style="font-size:.72rem;display:block;margin-bottom:2px">Referencia del Pago 1 *</label>
+                  <input id="inputSplitRef1" class="checkout-input" placeholder="Referencia / Comprobante Método 1" value="${esc(splitRef1)}" style="font-size:.84rem;padding:7px">
+                </div>
+
+                <!-- Método 2: Diferencial Restante -->
+                <div style="background:rgba(0,245,160,.08);border:1.5px solid rgba(0,245,160,.35);border-radius:10px;padding:12px;margin-bottom:12px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <span style="font-size:.74rem;font-weight:800;color:#00f5a0;text-transform:uppercase">2. Segundo Método (Diferencial Restante)</span>
+                    <span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.2);color:#00f5a0;font-weight:800">
+                      Resta: $${diffUsd.toFixed(2)} USD
+                    </span>
+                  </div>
+                  <div style="font-size:.8rem;color:#bbf7d0;margin-bottom:8px">
+                    Monto restante exacto a transferir: <b>$${diffUsd.toFixed(2)} USD</b> ${S.rate ? `(≈ <b>Bs. ${diffBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</b>)` : ''}
+                  </div>
+
+                  <label class="mut" style="font-size:.74rem;font-weight:700;display:block;margin-bottom:4px">Selecciona el Método para cubrir el resto *</label>
+                  <select id="selSplitM2" class="checkout-input" style="font-size:.84rem;padding:7px;margin-bottom:8px">
+                    ${(pmList || []).map(m => `<option value="${m.id}" ${m.id === m2.id ? 'selected' : ''}>${esc(m.nombre)}</option>`).join('')}
+                  </select>
+
+                  <!-- Datos Método 2 -->
+                  <div style="font-size:.74rem;background:rgba(255,255,255,.03);padding:8px;border-radius:8px;margin-bottom:8px">
+                    <div style="font-weight:700;color:#94a3b8;margin-bottom:3px">Datos bancarios de ${esc(m2?.nombre || '')}:</div>
+                    ${m2Fields.map(f => `<div><b>${esc(f.label)}:</b> <code>${esc(f.value)}</code></div>`).join('')}
+                  </div>
+
+                  <label class="mut" style="font-size:.72rem;display:block;margin-bottom:2px">Referencia del Pago 2 *</label>
+                  <input id="inputSplitRef2" class="checkout-input" placeholder="Referencia / Comprobante Método 2" value="${esc(splitRef2)}" style="font-size:.84rem;padding:7px">
+                </div>
+
+                <button id="coSubmitMixedBtn" class="checkout-submit-btn" style="width:100%" type="button">
+                  Confirmar Pago Mixto ($${splitM1Amount.toFixed(2)} + $${diffUsd.toFixed(2)} = $${restUsd.toFixed(2)} USD)
+                </button>
+              </div>
+            `) : `
               <div class="checkout-bank-details" style="background:rgba(0,245,160,.1);border:1px solid rgba(0,245,160,.3);padding:12px;border-radius:14px">
                 <h4 style="color:var(--a);margin:0 0 6px">✅ Pago cubierto totalmente con Zeny</h4>
                 <p class="mut" style="color:#baffe4;font-size:.8rem;margin:0">
@@ -1714,6 +1813,88 @@ async function buyDlg(id){
       `;
 
       $('#coCloseBtn').onclick = () => checkoutDlg.close();
+
+      const btnSplitUnico = $('#btnPaySplitUnico');
+      if (btnSplitUnico) btnSplitUnico.onclick = () => { paySplit = 'unico'; renderCheckout(); };
+      const btnSplitMixto = $('#btnPaySplitMixto');
+      if (btnSplitMixto) btnSplitMixto.onclick = () => { paySplit = 'mixto'; renderCheckout(); };
+
+      const selM1 = $('#selSplitM1');
+      if (selM1) selM1.onchange = (e) => { splitM1Id = e.target.value; renderCheckout(); };
+      const selM2 = $('#selSplitM2');
+      if (selM2) selM2.onchange = (e) => { splitM2Id = e.target.value; renderCheckout(); };
+      const inpM1Amt = $('#inputSplitM1Amt');
+      if (inpM1Amt) inpM1Amt.onchange = (e) => {
+        const val = parseFloat(e.target.value);
+        if (!isNaN(val) && val > 0 && val < restUsd) {
+          splitM1Amount = val;
+          renderCheckout();
+        }
+      };
+      const inpRef1 = $('#inputSplitRef1');
+      if (inpRef1) inpRef1.oninput = (e) => { splitRef1 = e.target.value.trim(); };
+      const inpRef2 = $('#inputSplitRef2');
+      if (inpRef2) inpRef2.oninput = (e) => { splitRef2 = e.target.value.trim(); };
+
+      const subMixedBtn = $('#coSubmitMixedBtn');
+      if (subMixedBtn) {
+        subMixedBtn.onclick = async () => {
+          if (isRechargeService && !validateRecharge()) return;
+          const ref1 = $('#inputSplitRef1')?.value?.trim() || splitRef1;
+          const ref2 = $('#inputSplitRef2')?.value?.trim() || splitRef2;
+          if (!ref1 || !ref2) return toast('Por favor ingresa la referencia de ambos métodos de pago.');
+          if (splitM1Amount <= 0 || diffUsd <= 0) return toast('Ambos montos del pago mixto deben ser mayores a 0.');
+
+          subMixedBtn.disabled = true;
+          const combinedRef = (payPlan === 'cuotas' ? '[Cuotas 1/2] ' : '') + `[PAGO MIXTO] M1: ${m1.nombre} ($${splitM1Amount.toFixed(2)} - Ref: ${ref1}) | M2: ${m2.nombre} ($${diffUsd.toFixed(2)} / Bs. ${diffBs.toFixed(2)} - Ref: ${ref2})`;
+
+          const { data: ordId, error } = await sb.rpc('create_order', {
+            p_product: id,
+            p_metodo: m1.id,
+            p_ref: combinedRef,
+            p_zeny: appliedZeny,
+            p_datos_recarga: isRechargeService ? rechargeData : {},
+            p_es_cuotas: payPlan === 'cuotas'
+          });
+
+          if (error) {
+            subMixedBtn.disabled = false;
+            return toast(error.message.includes('Agotado') ? 'Este servicio se agotó. Elige otro.' : error.message);
+          }
+
+          if (payPlan === 'cuotas' && ordId) {
+            await sb.from('installments').insert([
+              { order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: 2, monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', referencia: combinedRef },
+              { order_id: ordId, customer_id: S.user.id, numero_cuota: 2, total_cuotas: 2, monto_usd: cuotaDosUsd, fecha_vencimiento: d2Str, estado: 'pendiente' }
+            ]).catch(()=>{});
+          }
+
+          // Notificar evento
+          fetch('/api/notify-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'compra_servicio',
+              data: {
+                producto: p?.nombre || 'Servicio Digital',
+                cliente: S.user?.user_metadata?.nombre || S.me?.nombre || S.user?.email || 'Cliente',
+                email: S.user?.email,
+                telefono: S.me?.telefono || (isRechargeService ? rechargeData.telefono : ''),
+                total_usd: restUsd,
+                metodo: `Pago Mixto (${m1.nombre} + ${m2.nombre})`,
+                referencia: combinedRef,
+                order_id: ordId,
+                es_cuotas: payPlan === 'cuotas'
+              }
+            })
+          }).catch(()=>{});
+
+          checkoutDlg.close();
+          await loadPublic();
+          toast(payPlan === 'cuotas' ? `Pago mixto de inicial enviado. Cuota 2 registrada para el ${d2Str}.` : 'Pedido con Pago Mixto enviado para conciliación.');
+          portal();
+        };
+      }
 
       if(isRechargeService){
         const elPlayer = $('#recPlayerId'); if(elPlayer) elPlayer.oninput = () => rechargeData.player_id = elPlayer.value.trim();
@@ -2279,6 +2460,8 @@ function openMesaCambioModal(){
     const totalBs = usdtAmount * tasa;
     const clientName = S.me?.nombre || S.user?.user_metadata?.nombre || '';
     const clientTel = S.me?.telefono || '';
+    const fondoCaja = Number(cfg.fondo_caja_usdt != null ? cfg.fondo_caja_usdt : 50.00);
+    const isLiquidezCritica = (fondoCaja < 5.00) || (usdtAmount > fondoCaja);
 
     mcDlg.innerHTML = `
       <div class="checkout-card" style="max-width:560px">
@@ -2335,6 +2518,14 @@ function openMesaCambioModal(){
             <button type="button" id="btnNoticeWA" style="background:#25d366;color:#052e16;border:none;border-radius:6px;padding:4px 10px;font-size:.74rem;font-weight:800;cursor:pointer">
               📲 Informar por WhatsApp
             </button>
+          </div>
+
+          <!-- ALERTA DE NIVEL CRÍTICO DE LIQUIDEZ / COLA DE ESPERA ~30 MIN -->
+          <div id="mcLiquidityNotice" style="display:${isLiquidezCritica ? 'flex' : 'none'};margin-top:10px;background:rgba(234,179,8,.15);border:1.5px solid #fde047;border-radius:10px;padding:10px 12px;font-size:.78rem;color:#fef08a;align-items:flex-start;gap:8px">
+            <span style="font-size:1.25rem;line-height:1">⏳</span>
+            <div style="line-height:1.45">
+              <b>Mesa en proceso de reposición de liquidez:</b> Tu orden será aprobada y enviada en un tiempo estimado de <b>aprox. 30 minutos</b> (quedará registrada en cola prioritaria).
+            </div>
           </div>
         </div>
 
@@ -2460,6 +2651,8 @@ function openMesaCambioModal(){
         if(subBtn) subBtn.innerHTML = `<span>🚀 Solicitar $${val.toFixed(2)} USDT (Bs. ${bs.toLocaleString('es-VE',{maximumFractionDigits:0})})</span>`;
         const notice = $('#mcSuperiorNotice');
         if(notice) notice.style.display = val > 20 ? 'flex' : 'none';
+        const liqNotice = $('#mcLiquidityNotice');
+        if(liqNotice) liqNotice.style.display = ((fondoCaja < 5.00) || (val > fondoCaja)) ? 'flex' : 'none';
       }
     };
 
@@ -4553,11 +4746,24 @@ async function admin(t){
         'products.category_id':'Categoría',
         'products.orden':'Orden de visualización',
         'products.activo':'¿Activo en catálogo?',
-        'expenses.categoria':'Categoría del Gasto'
+        'expenses.categoria':'Categoría / Concepto del Gasto',
+        'expenses.monto_usd':'Monto en Dólares ($ USD)',
+        'expenses.monto_bs':'Monto en Bolívares (Bs)',
+        'purchases.monto_usd':'Costo de Compra en Dólares ($ USD)',
+        'purchases.monto_bs':'Costo de Compra en Bolívares (Bs)',
+        'purchases.monto_usdt':'Costo de Compra en USDT'
       };
       return m[t+'.'+c]||c;
     };
     const inp=c=>{const v=row?row[c]:''; const ro=(READONLY[t]||[]).includes(c)&&row;
+      if(t==='expenses'&&c==='categoria'){
+        return `
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+            <select data-c="${c}" style="flex:1">${(ENUM['expenses.categoria']||[]).map(o=>`<option ${v===o?'selected':''}>${esc(o)}</option>`).join('')}</select>
+            <button type="button" class="g" id="btnAddNewExpenseCategory" style="padding:6px 10px;font-size:.76rem;color:#00f5a0;border-color:rgba(0,245,160,.4);white-space:nowrap;font-weight:700" title="Agregar nuevo concepto de gasto">+ Concepto</button>
+          </div>
+        `;
+      }
       if(fks[c]) return `<select data-c="${c}"><option value="">—</option>${fks[c].map(o=>`<option value="${o.id}" ${row&&row[c]===o.id?'selected':''}>${esc(o[FK[c][1]])}</option>`).join('')}</select>`;
       if(ENUM[t+'.'+c]) return `<select data-c="${c}">${ENUM[t+'.'+c].map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('')}</select>`;
       if(BOOL.includes(c)) return `<select data-c="${c}"><option value="true" ${v!==false?'selected':''}>Sí</option><option value="false" ${v===false?'selected':''}>No</option></select>`;
@@ -4591,8 +4797,90 @@ async function admin(t){
           </div>
         `;
       }
-      return `<input data-c="${c}" ${ro?'disabled':''} value="${esc(v&&typeof v==='object'?JSON.stringify(v):v)}" ${['precio_usd','precio_binance_usd','precio_revendedor_usd'].includes(c)?'type="number" step="0.01" min="0" placeholder="0.00"':''}>`+extraHtml;};
+      return `<input data-c="${c}" ${ro?'disabled':''} value="${esc(v&&typeof v==='object'?JSON.stringify(v):v)}" ${['precio_usd','precio_binance_usd','precio_revendedor_usd','monto_usd','monto_bs','monto_usdt'].includes(c)?'type="number" step="0.01" min="0" placeholder="0.00"':''}>`+extraHtml;};
     $('#dlgBody').innerHTML=`<h3>${row?'Editar':'Agregar'} ${t}</h3><div style="max-height:62vh;overflow:auto">`+cols.map(c=>`<label class="mut" style="font-size:.78rem;font-weight:600">${labelFor(c)}</label>${inp(c)}`).join('')+'</div><button id="save" style="margin-top:10px;width:100%">Guardar</button>'; dlg.showModal();
+
+    // Agregar nuevo concepto de gasto al vuelo
+    const btnNewExpenseCat = $('#btnAddNewExpenseCategory');
+    if(btnNewExpenseCat){
+      btnNewExpenseCat.onclick = async () => {
+        const nuevo = prompt('Ingresa el nuevo concepto de gasto para agregarlo al menú desplegable:');
+        if(!nuevo || !nuevo.trim()) return;
+        const catVal = nuevo.trim();
+        if(!ENUM['expenses.categoria'].includes(catVal)){
+          ENUM['expenses.categoria'].push(catVal);
+        }
+        const sel = dlg.querySelector('[data-c="categoria"]');
+        if(sel){
+          const opt = document.createElement('option');
+          opt.value = catVal;
+          opt.textContent = catVal;
+          opt.selected = true;
+          sel.appendChild(opt);
+        }
+        const curCats = S.settings?.expenses_categories || [];
+        if(!curCats.includes(catVal)){
+          curCats.push(catVal);
+          await sb.from('settings').upsert({ key: 'expenses_categories', value: curCats }).catch(()=>{});
+          if(S.settings) S.settings.expenses_categories = curCats;
+        }
+        toast(`Concepto "${catVal}" agregado al menú desplegable.`);
+      };
+    }
+
+    // Conversión bimoneda en tiempo real para Gastos (Bs a USD y viceversa)
+    if(t === 'expenses'){
+      const inpBs = dlg.querySelector('[data-c="monto_bs"]');
+      const inpUsd = dlg.querySelector('[data-c="monto_usd"]');
+      const curRate = Number(S.rate || 50.00);
+      if(inpBs && inpUsd){
+        inpBs.oninput = () => {
+          const valBs = parseFloat(inpBs.value);
+          if(!isNaN(valBs) && curRate > 0){
+            inpUsd.value = (valBs / curRate).toFixed(2);
+          }
+        };
+        inpUsd.oninput = () => {
+          const valUsd = parseFloat(inpUsd.value);
+          if(!isNaN(valUsd) && curRate > 0){
+            inpBs.value = (valUsd * curRate).toFixed(2);
+          }
+        };
+      }
+    }
+
+    // Conversión bimoneda y actualización dinámica de costo para Compras
+    if(t === 'purchases'){
+      const inpBs = dlg.querySelector('[data-c="monto_bs"]');
+      const inpUsd = dlg.querySelector('[data-c="monto_usd"]');
+      const inpUsdt = dlg.querySelector('[data-c="monto_usdt"]');
+      const curRate = Number(S.rate || 50.00);
+      if(inpBs && inpUsd && inpUsdt){
+        inpBs.oninput = () => {
+          const valBs = parseFloat(inpBs.value);
+          if(!isNaN(valBs) && curRate > 0){
+            const usd = (valBs / curRate).toFixed(2);
+            inpUsd.value = usd;
+            inpUsdt.value = usd;
+          }
+        };
+        inpUsdt.oninput = () => {
+          const valUsdt = parseFloat(inpUsdt.value);
+          if(!isNaN(valUsdt)){
+            inpUsd.value = valUsdt.toFixed(2);
+            if(curRate > 0) inpBs.value = (valUsdt * curRate).toFixed(2);
+          }
+        };
+        inpUsd.oninput = () => {
+          const valUsd = parseFloat(inpUsd.value);
+          if(!isNaN(valUsd)){
+            inpUsdt.value = valUsd.toFixed(2);
+            if(curRate > 0) inpBs.value = (valUsd * curRate).toFixed(2);
+          }
+        };
+      }
+    }
+
     const btnCalc = $('#btnCalcBinanceDiff');
     if(btnCalc){
       btnCalc.onclick = () => {
@@ -4621,10 +4909,14 @@ async function admin(t){
         const retry = await (row?sb.from(t).update(oFallback).eq(pk,row[pk]):sb.from(t).insert(oFallback));
         if(!retry.error){
           dlg.close();
-          toast('Producto guardado. ⚠️ Ejecuta la migración 15 en Supabase SQL Editor para activar la casilla de cuotas.');
+          toast('Producto guardado.');
           return admin(t);
         }
         e = retry.error;
+      }
+      if(!e && t === 'purchases' && o.mother_id && o.monto_usd != null){
+        const costUsd = parseFloat(o.monto_usd) || 0;
+        await sb.from('mother_accounts').update({ costo_usd: costUsd }).eq('id', o.mother_id).catch(()=>{});
       }
       e?toast(e.message):(dlg.close(),admin(t));};};
   if($('#add')) $('#add').onclick=()=>form(null);

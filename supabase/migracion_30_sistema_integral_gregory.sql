@@ -9,6 +9,54 @@
 -- 7. Aplicación oficial de los 3 Créditos (Evert, Fernisbel, Tony Massimo al 30/10/2026)
 -- ==============================================================================
 
+-- 1. Garantizar columnas necesarias en customers
+alter table customers add column if not exists es_revendedor boolean default false;
+alter table customers add column if not exists codigo_identificacion text;
+alter table customers add column if not exists limite_credito numeric(12,2) default 0.00;
+alter table customers add column if not exists vendedor_id uuid;
+alter table customers add column if not exists vendedor_nombre text;
+alter table customers alter column limite_credito set default 0.00;
+
+-- 2. Garantizar columnas en products
+alter table products add column if not exists permite_cuotas boolean default false;
+alter table products add column if not exists precio_binance_usd numeric(10,2);
+alter table products add column if not exists precio_revendedor_usd numeric(10,2);
+
+-- 3. Función get_next_customer_code autocontenida
+create or replace function get_next_customer_code(p_es_revendedor boolean)
+returns text language plpgsql security definer set search_path = public as $fn$
+declare
+  prefix text;
+  start_num int;
+  candidate int;
+  code_candidate text;
+  exists_code boolean;
+begin
+  if p_es_revendedor then
+    prefix := 'RVD';
+    start_num := 1001;
+  else
+    prefix := 'CLT';
+    start_num := 1;
+  end if;
+
+  candidate := start_num;
+  loop
+    if p_es_revendedor then
+      code_candidate := prefix || ':' || candidate::text;
+    else
+      code_candidate := prefix || ':' || lpad(candidate::text, 3, '0');
+    end if;
+
+    select exists(select 1 from customers where codigo_identificacion = code_candidate) into exists_code;
+    if not exists_code then
+      return code_candidate;
+    end if;
+    candidate := candidate + 1;
+  end loop;
+end;
+$fn$;
+
 -- A. Limpieza de Tarjetas en Circulación (Regla: CERO tarjetas hasta que se soliciten)
 delete from zeny_cards;
 
@@ -56,6 +104,9 @@ begin
   -- 1. Obtener tasa oficial del día
   select bs_por_usd into v_rate from exchange_rates order by fecha desc limit 1;
   v_rate := coalesce(v_rate, 50.00);
+
+  -- 1.1 Establecer límite de crédito inicial en $0.00 para todos (Cero crédito hasta solicitud o asignación oficial)
+  update customers set limite_credito = 0.00;
 
   -- 2. Consolidar a Pablo Gonzalez como Revendedor Oficial (RVD:1001)
   select id into v_pablo_id from customers
@@ -202,8 +253,7 @@ begin
       update customers set
         vendedor_id = v_pablo_id,
         vendedor_nombre = 'Pablo Gonzalez',
-        limite_credito = greatest(coalesce(limite_credito, 0.00), r.monto_deuda),
-        permite_cuotas = true
+        limite_credito = greatest(coalesce(limite_credito, 0.00), r.monto_deuda)
       where id = v_cust_id;
     end if;
 

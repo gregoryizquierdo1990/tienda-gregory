@@ -1415,14 +1415,83 @@ Cobrar antes de ${fVenceCred}`;
     });
   },
   async finanzas(box) {
-    const { data, error } = await sb.rpc('finanzas', { p_meses: 12 });
+    const [{ data, error }, mcOpsRes, mcCfgRow] = await Promise.all([
+      sb.rpc('finanzas', { p_meses: 12 }),
+      sb.from('mesa_cambio_operaciones').select('*').eq('estado', 'completado_enviado').catch(()=>({data:[]})),
+      sb.from('settings').select('value').eq('key', 'mesa_cambio_config').maybeSingle().catch(()=>({data:null}))
+    ]);
     if (error) return box.innerHTML = '<p>' + esc(error.message) + '</p>';
     const m = data[0] || {}, f = n => (n < 0 ? '-$' : '$') + Math.abs(Number(n || 0)).toFixed(2), cards = [['Ventas', m.ventas], ['Devoluciones', m.devoluciones], ['Gastos', m.gastos], ['Compras', m.compras]];
-    box.innerHTML = `<div class="grid"><div class="card"><div class="mut">Ganancia de ${esc(String(m.mes || '').slice(0, 7))}</div><div class="price" style="color:${m.ganancia < 0 ? '#f87171' : 'var(--a)'}">${f(m.ganancia)}</div></div>${cards.map(([n, v]) => `<div class="card"><div class="mut">${n}</div><div class="price">${f(v)}</div></div>`).join('')}</div>
-    <p class="mut">Ganancia = ventas − devoluciones − gastos − compras (USD). Las ventas cuentan al confirmar el pago; las devoluciones, el día que las registras. Las recargas Zeny no son venta hasta que se usan. Las cuentas madre con costo se anotan solas como compra.</p>
-    <div class="row"><button class="g" id="g1">+ Gasto</button><button class="g" id="g2">+ Compra</button><button class="g" id="g3">Ver devoluciones</button></div>
-    <div class="wrap" style="margin-top:12px"><table><tr><th>Mes</th><th>Ventas</th><th>Devol.</th><th>Gastos</th><th>Compras</th><th>Ganancia</th></tr>${data.map(r => `<tr><td>${esc(String(r.mes).slice(0, 7))}</td><td>${f(r.ventas)}</td><td>${f(r.devoluciones)}</td><td>${f(r.gastos)}</td><td>${f(r.compras)}</td><td><b>${f(r.ganancia)}</b></td></tr>`).join('')}</table></div>`;
+
+    // Métricas de Mesa de Cambio USDT
+    const mcCfg = mcCfgRow?.data?.value || S.settings?.mesa_cambio_config || {};
+    const ops = mcOpsRes?.data || [];
+    const mcTotalUsdt = ops.reduce((a, o) => a + Number(o.monto_usdt || 0), 0);
+    const mcTotalBs = ops.reduce((a, o) => a + Number(o.total_bs || 0), 0);
+    const costRate = mcCfg.tasa_adquisicion_bs || 0;
+    const mcProfitBs = ops.reduce((a, o) => {
+      const cr = costRate || (Number(o.tasa_bs || 0) * 0.98);
+      return a + Math.max(0, (Number(o.tasa_bs || 0) - cr) * Number(o.monto_usdt || 0));
+    }, 0);
+    const mcProfitUsd = ops.reduce((a, o) => {
+      const cr = costRate || (Number(o.tasa_bs || 0) * 0.98);
+      const diffBs = Math.max(0, (Number(o.tasa_bs || 0) - cr) * Number(o.monto_usdt || 0));
+      return a + (Number(o.tasa_bs || 0) > 0 ? (diffBs / Number(o.tasa_bs)) : 0);
+    }, 0);
+    const mcFloat = Number(mcCfg.fondo_caja_usdt || 0);
+
+    box.innerHTML = `
+      <div class="grid">
+        <div class="card"><div class="mut">Ganancia de ${esc(String(m.mes || '').slice(0, 7))}</div><div class="price" style="color:${m.ganancia < 0 ? '#f87171' : 'var(--a)'}">${f(m.ganancia)}</div></div>
+        ${cards.map(([n, v]) => `<div class="card"><div class="mut">${n}</div><div class="price">${f(v)}</div></div>`).join('')}
+      </div>
+
+      <!-- PANEL FINANCIERO MESA DE CAMBIO USDT -->
+      <div style="margin-top:16px;background:linear-gradient(135deg,rgba(15,23,42,.95),rgba(30,41,59,.9));border:1.5px solid rgba(253,224,71,.35);border-radius:16px;padding:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:1.4rem">💱</span>
+            <div>
+              <h4 style="margin:0;color:#fde047;font-size:1.05rem">Rendimiento Mesa de Cambio USDT</h4>
+              <div class="mut" style="font-size:.74rem">Operaciones de venta de USDT y spread cambiario</div>
+            </div>
+          </div>
+          <button type="button" class="g" id="btnGoMesaFromFin" style="background:#fde047;color:#0f172a;font-weight:800;border:none;padding:6px 14px;font-size:.78rem">
+            ⚙️ Gestionar Mesa de Cambio
+          </button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+          <div style="background:rgba(0,0,0,.3);padding:10px 12px;border-radius:12px;border:1px solid rgba(0,245,160,.25)">
+            <span class="mut" style="font-size:.7rem;display:block">💼 Saldo Liquidez (Fondo de Caja)</span>
+            <div style="font-size:1.35rem;font-weight:900;color:${mcFloat < 5 ? '#f87171' : '#00f5a0'}">$${mcFloat.toFixed(2)} USDT</div>
+            <span class="mut" style="font-size:.68rem">${mcFloat < 5 ? '⚠️ Nivel Crítico (< $5)' : '🟢 Liquidez activa'}</span>
+          </div>
+          <div style="background:rgba(0,0,0,.3);padding:10px 12px;border-radius:12px;border:1px solid rgba(56,189,248,.25)">
+            <span class="mut" style="font-size:.7rem;display:block">🚀 USDT Despachados</span>
+            <div style="font-size:1.35rem;font-weight:900;color:#38bdf8">$${mcTotalUsdt.toFixed(2)} USDT</div>
+            <span class="mut" style="font-size:.68rem">${ops.length} órdenes aprobadas</span>
+          </div>
+          <div style="background:rgba(0,0,0,.3);padding:10px 12px;border-radius:12px;border:1px solid rgba(168,85,247,.25)">
+            <span class="mut" style="font-size:.7rem;display:block">💵 Bolívares Recibidos</span>
+            <div style="font-size:1.2rem;font-weight:900;color:#c084fc">Bs. ${mcTotalBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+            <span class="mut" style="font-size:.68rem">Abonados en cuenta BNC</span>
+          </div>
+          <div style="background:rgba(0,0,0,.3);padding:10px 12px;border-radius:12px;border:1px solid rgba(34,197,94,.25)">
+            <span class="mut" style="font-size:.7rem;display:block">📈 Ganancia Neta Estimada (Spread)</span>
+            <div style="font-size:1.35rem;font-weight:900;color:#4ade80">+$${mcProfitUsd.toFixed(2)} USD</div>
+            <span class="mut" style="font-size:.68rem">≈ Bs. ${mcProfitBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="mut" style="margin-top:14px">Ganancia = ventas − devoluciones − gastos − compras (USD). Las ventas cuentan al confirmar el pago; las devoluciones, el día que las registras. Las recargas Zeny no son venta hasta que se usan. Las cuentas madre con costo se anotan solas como compra.</p>
+      <div class="row"><button class="g" id="g1">+ Gasto</button><button class="g" id="g2">+ Compra</button><button class="g" id="g3">Ver devoluciones</button></div>
+      <div class="wrap" style="margin-top:12px"><table><tr><th>Mes</th><th>Ventas</th><th>Devol.</th><th>Gastos</th><th>Compras</th><th>Ganancia</th></tr>${data.map(r => `<tr><td>${esc(String(r.mes).slice(0, 7))}</td><td>${f(r.ventas)}</td><td>${f(r.devoluciones)}</td><td>${f(r.gastos)}</td><td>${f(r.compras)}</td><td><b>${f(r.ganancia)}</b></td></tr>`).join('')}</table></div>
+    `;
     $('#g1').onclick = () => admin('expenses'); $('#g2').onclick = () => admin('purchases'); $('#g3').onclick = () => admin('refunds');
+    const bGoMesa = $('#btnGoMesaFromFin');
+    if (bGoMesa) bGoMesa.onclick = () => admin('mesa_cambio');
   },
   async google(box) {
     const { data: gi } = await sb.from('google_integrations').select('*');
@@ -3555,13 +3624,15 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
   },
 
   async mesa_cambio(box) {
-    box.innerHTML = '<div style="padding:30px;text-align:center"><div class="sk" style="height:120px;max-width:500px;margin:auto"></div><p class="mut" style="margin-top:12px">Cargando Mesa de Cambio USDT…</p></div>';
+    box.innerHTML = '<div style="padding:30px;text-align:center"><div class="sk" style="height:120px;max-width:500px;margin:auto"></div><p class="mut" style="margin-top:12px">Cargando Mesa de Cambio USDT y tasa Al Cambio en vivo…</p></div>';
 
     // 1. Cargar Configuración de Mesa de Cambio desde settings
     let cfg = S.settings?.mesa_cambio_config || {
       activo: true,
-      tasa_usdt_bs: 52.50,
-      min_usdt: 5,
+      tasa_usdt_bs: 1020.00,
+      tasa_adquisicion_bs: 1004.43,
+      fondo_caja_usdt: 50.00,
+      min_usdt: 1,
       max_usdt: 500,
       metodo_pago: 'Pago Móvil (BNC)',
       banco: 'BNC (0191)',
@@ -3570,8 +3641,65 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       titular: 'Gregory Izquierdo',
       mensaje_aviso: '⚠️ IMPORTANTE: Por favor verifica cuidadosamente tu ID de Binance Pay o Correo electrónico antes de enviar la solicitud. No nos hacemos responsables ni realizaremos reembolsos por mala identificación de sus datos.'
     };
+    cfg.fondo_caja_usdt = Number(cfg.fondo_caja_usdt != null ? cfg.fondo_caja_usdt : 50.00);
+    cfg.tasa_adquisicion_bs = Number(cfg.tasa_adquisicion_bs || 1004.43);
 
-    // 2. Cargar operaciones desde mesa_cambio_operaciones con fallback a settings si la tabla no existe
+    // 2. Consultar tasa oficial en vivo de Al Cambio (GraphQL de Binance P2P oficial)
+    let alCambioData = null;
+    const fetchAlCambioLive = async () => {
+      try {
+        const acRes = await fetch('https://api.alcambio.app/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: 'query getBinanceP2PAverages { getBinanceP2PAverages { sellAverage buyAverage sellChangePct buyChangePct totalChangePct pagesUsed asset updatedAt } }'
+          })
+        });
+        const acJson = await acRes.json();
+        const d = acJson?.data?.getBinanceP2PAverages;
+        if (d && d.sellAverage) {
+          alCambioData = {
+            sellAverage: Number(d.sellAverage),
+            buyAverage: Number(d.buyAverage),
+            totalChangePct: Number(d.totalChangePct || 0),
+            updatedAt: d.updatedAt ? new Date(d.updatedAt) : new Date(),
+            fuente: 'Al Cambio (Binance P2P)'
+          };
+        }
+      } catch (e) {
+        console.warn('Error consultando AlCambio en vivo:', e);
+      }
+      if (!alCambioData) {
+        try {
+          const r2 = await fetch('https://ve.dolarapi.com/v1/dolares/paralelo');
+          const j2 = await r2.json();
+          alCambioData = {
+            sellAverage: Number(j2.promedio || j2.venta || 1005.00),
+            buyAverage: Number(j2.promedio || j2.compra || 1005.00),
+            totalChangePct: 0,
+            updatedAt: j2.fechaActualizacion ? new Date(j2.fechaActualizacion) : new Date(),
+            fuente: 'DolarApi (Paralelo Referencial)'
+          };
+        } catch(e2){}
+      }
+    };
+    await fetchAlCambioLive();
+
+    // 3. Determinar sesión de corte de mercado en Venezuela (9:00 AM, 1:00 PM, 6:00 PM)
+    const getMarketSession = () => {
+      const d = new Date();
+      const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+      const veDate = new Date(utc - (4 * 3600000));
+      const h = veDate.getHours();
+      const m = veDate.getMinutes();
+      const timeNum = h + m / 60;
+      if (timeNum < 9) return { id: 'pre', name: 'Pre-Apertura', next: '09:00 AM', currentCorte: 'Cierre Previo (6:00 PM)' };
+      if (timeNum < 13) return { id: '9am', name: 'Apertura de la Mañana (9:00 AM)', next: '01:00 PM', currentCorte: '09:00 AM' };
+      if (timeNum < 18) return { id: '1pm', name: 'Ronda de Mediodía (1:00 PM)', next: '06:00 PM', currentCorte: '01:00 PM' };
+      return { id: '6pm', name: 'Cierre de la Tarde (6:00 PM)', next: '09:00 AM (Mañana)', currentCorte: '06:00 PM' };
+    };
+
+    // 4. Cargar operaciones desde mesa_cambio_operaciones con fallback a settings si la tabla no existe
     let operaciones = [];
     let tableError = false;
     try {
@@ -3595,6 +3723,11 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     let searchQuery = '';
 
     const render = () => {
+      const session = getMarketSession();
+      const liveAcRate = alCambioData?.sellAverage || 1004.43;
+      const liveBuyRate = alCambioData?.buyAverage || 1007.12;
+      const liveVar = alCambioData?.totalChangePct || 0;
+
       // Filtrar operaciones
       const filtered = operaciones.filter(op => {
         if (filterEstado !== 'todos' && op.estado !== filterEstado) return false;
@@ -3614,11 +3747,25 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const totalUsdtDespachado = completados.reduce((acc, o) => acc + Number(o.monto_usdt || 0), 0);
       const totalBsRecaudado = completados.reduce((acc, o) => acc + Number(o.total_bs || 0), 0);
 
+      // Ganancia neta estimada de Mesa de Cambio
+      const totalProfitBs = completados.reduce((acc, o) => {
+        const costRate = cfg.tasa_adquisicion_bs || (o.tasa_bs * 0.98);
+        return acc + Math.max(0, (o.tasa_bs - costRate) * Number(o.monto_usdt || 0));
+      }, 0);
+      const totalProfitUsd = completados.reduce((acc, o) => {
+        const costRate = cfg.tasa_adquisicion_bs || (o.tasa_bs * 0.98);
+        const diffBs = Math.max(0, (o.tasa_bs - costRate) * Number(o.monto_usdt || 0));
+        return acc + (o.tasa_bs > 0 ? (diffBs / o.tasa_bs) : 0);
+      }, 0);
+
+      const isFloatLow = cfg.fondo_caja_usdt < 5.00;
+
       box.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:20px">
           
-          <!-- TARJETA CABECERA DE CONFIGURACIÓN DE TASA USDT EXCLUSIVA -->
-          <div style="background:linear-gradient(135deg,rgba(15,23,42,.95),rgba(30,41,59,.9));border:1.5px solid rgba(253,224,71,.3);border-radius:16px;padding:22px;box-shadow:0 8px 30px rgba(0,0,0,.35)">
+          <!-- TARJETA CABECERA: WIDGET AL CAMBIO EN TIEMPO REAL & CONFIGURACIÓN DE TASA PRIVADA -->
+          <div style="background:linear-gradient(135deg,rgba(15,23,42,.98),rgba(30,41,59,.92));border:1.5px solid rgba(253,224,71,.35);border-radius:16px;padding:22px;box-shadow:0 8px 30px rgba(0,0,0,.4)">
+            
             <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px">
               <div>
                 <div style="display:flex;align-items:center;gap:10px">
@@ -3639,27 +3786,90 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               </div>
             </div>
 
-            <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
-              <span style="font-size:1.4rem">📌</span>
-              <div style="font-size:.82rem;color:#fef08a;line-height:1.4">
-                <b>Regla de Aislamiento Estricto:</b> La tasa manual que configures en esta casilla aplica <b>únicamente</b> para la Mesa de Cambio USDT (<code>Total Bs = USDT × Tasa</code>). No modifica la Tasa Oficial BCV de la tienda, ni los precios de suscripciones ni el saldo Zeny.
+            <!-- APARTADO EN VIVO: TASA OFICIAL AL CAMBIO & CORTES DE MERCADO VENEZUELA -->
+            <div style="background:linear-gradient(135deg,rgba(14,165,233,.12),rgba(3,105,161,.08));border:1.5px solid rgba(56,189,248,.35);border-radius:14px;padding:16px;margin-bottom:18px">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="pill" style="background:#0284c7;color:#fff;font-weight:800;font-size:.76rem">
+                    ⚡ Tasa USDT en Vivo: Al Cambio
+                  </span>
+                  <span style="font-size:.76rem;color:#94a3b8">
+                    Fuente: <b>Binance P2P Oficial</b> · ${alCambioData?.updatedAt ? new Date(alCambioData.updatedAt).toLocaleTimeString('es-VE', {timeZone:'America/Caracas', hour:'2-digit', minute:'2-digit'}) : 'Actualizado'}
+                  </span>
+                </div>
+                <button type="button" class="g" id="btnRefreshAlCambio" style="padding:4px 10px;font-size:.74rem;background:rgba(56,189,248,.15);color:#38bdf8;border-color:rgba(56,189,248,.4);font-weight:700">
+                  🔄 Refrescar Al Cambio
+                </button>
+              </div>
+
+              <!-- Píldoras de Cortes Oficiales: 9:00 AM, 1:00 PM y 6:00 PM -->
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+                <span class="mut" style="font-size:.72rem;font-weight:700">Horarios del Mercado:</span>
+                <span class="pill" style="font-size:.72rem;${session.id==='9am'?'background:rgba(0,245,160,.2);color:#00f5a0;border-color:#00f5a0;font-weight:800':'background:rgba(255,255,255,.05);color:#94a3b8'}">
+                  🌅 9:00 AM ${session.id==='9am'?'(Activo)':''}
+                </span>
+                <span class="pill" style="font-size:.72rem;${session.id==='1pm'?'background:rgba(0,245,160,.2);color:#00f5a0;border-color:#00f5a0;font-weight:800':'background:rgba(255,255,255,.05);color:#94a3b8'}">
+                  ☀️ 1:00 PM ${session.id==='1pm'?'(Activo)':''}
+                </span>
+                <span class="pill" style="font-size:.72rem;${session.id==='6pm'?'background:rgba(0,245,160,.2);color:#00f5a0;border-color:#00f5a0;font-weight:800':'background:rgba(255,255,255,.05);color:#94a3b8'}">
+                  🌆 6:00 PM ${session.id==='6pm'?'(Activo)':''}
+                </span>
+                <span class="mut" style="font-size:.72rem;margin-left:auto">
+                  Próxima actualización: <b style="color:#fde047">${session.next}</b>
+                </span>
+              </div>
+
+              <!-- Tasas Promedio Al Cambio y Botones de Acción Rápida -->
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;background:rgba(0,0,0,.3);border-radius:12px;padding:12px;align-items:center">
+                <div>
+                  <div class="mut" style="font-size:.72rem;text-transform:uppercase">Tasa Venta Promedio (Al Cambio)</div>
+                  <div style="font-size:1.6rem;font-weight:900;color:#38bdf8">
+                    Bs. ${liveAcRate.toFixed(2)}
+                    <span style="font-size:.75rem;font-weight:700;color:${liveVar>=0?'#4ade80':'#f87171'};margin-left:6px">
+                      ${liveVar >= 0 ? '+' : ''}${liveVar.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div class="mut" style="font-size:.7rem">Compra: Bs. ${liveBuyRate.toFixed(2)} / USDT</div>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div class="mut" style="font-size:.72rem;font-weight:700">Asignar a tu Tasa Privada:</div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    <button type="button" class="g" id="btnApplyAcDirect" style="padding:5px 10px;font-size:.74rem;background:#0284c7;color:#fff;font-weight:800;border:none" title="Asignar exactamente la tasa de Al Cambio">
+                      ⚡ Aplicar Directa (Bs. ${liveAcRate.toFixed(2)})
+                    </button>
+                    <button type="button" class="g" data-mc-margin="1" style="padding:5px 8px;font-size:.72rem;font-weight:700" title="Sumar 1% de margen">
+                      +1%
+                    </button>
+                    <button type="button" class="g" data-mc-margin="2" style="padding:5px 8px;font-size:.72rem;font-weight:700" title="Sumar 2% de margen">
+                      +2%
+                    </button>
+                    <button type="button" class="g" data-mc-margin="3" style="padding:5px 8px;font-size:.72rem;font-weight:700" title="Sumar 3% de margen">
+                      +3%
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- FORMULARIO DE TASA Y CONDICIONES -->
+            <!-- FORMULARIO DE TASA PRIVADA Y CONDICIONES (MANUAL Y EDITABLE) -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px">
-              <div style="background:rgba(0,0,0,.25);padding:12px;border-radius:12px;border:1px solid rgba(253,224,71,.25)">
-                <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px;color:#fde047;font-weight:700">Tasa de Venta USDT (Bs/USDT) *</label>
+              <div style="background:rgba(0,0,0,.25);padding:12px;border-radius:12px;border:1px solid rgba(253,224,71,.35)">
+                <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px;color:#fde047;font-weight:700">
+                  Tu Tasa Privada de Venta USDT (Bs/USDT) *
+                </label>
                 <div style="display:flex;align-items:center;gap:6px">
                   <span style="font-weight:800;font-size:1.1rem;color:#fde047">Bs.</span>
-                  <input id="mcTasaBs" type="number" step="0.01" value="${cfg.tasa_usdt_bs || 52.50}" style="font-size:1.2rem;font-weight:800;color:#fde047;background:rgba(255,255,255,.07);border:1px solid rgba(253,224,71,.4);border-radius:8px;padding:6px 10px;width:100%" required>
+                  <input id="mcTasaBs" type="number" step="0.01" value="${cfg.tasa_usdt_bs || liveAcRate || 1020.00}" style="font-size:1.2rem;font-weight:800;color:#fde047;background:rgba(255,255,255,.07);border:1px solid rgba(253,224,71,.4);border-radius:8px;padding:6px 10px;width:100%" required>
                 </div>
-                <span class="mut" style="font-size:.72rem;display:block;margin-top:4px">Ejemplo: Si el cliente pide 10 USDT, pagará Bs. ${((cfg.tasa_usdt_bs||52.5)*10).toLocaleString('es-VE',{minimumFractionDigits:2})}</span>
+                <span class="mut" style="font-size:.72rem;display:block;margin-top:4px">
+                  Puedes editarla manualmente en cualquier momento o usar los botones de Al Cambio arriba.
+                </span>
               </div>
 
               <div style="background:rgba(0,0,0,.25);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
                 <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Mínimo de Compra (USDT)</label>
-                <input id="mcMinUsdt" type="number" step="1" value="${cfg.min_usdt || 5}" style="font-size:1rem;font-weight:700;padding:7px 10px;width:100%">
+                <input id="mcMinUsdt" type="number" step="1" value="${cfg.min_usdt || 1}" style="font-size:1rem;font-weight:700;padding:7px 10px;width:100%">
                 <span class="mut" style="font-size:.72rem;display:block;margin-top:4px">Límite mínimo por transacción</span>
               </div>
 
@@ -3708,30 +3918,58 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             </div>
           </div>
 
-          ${tableError ? `
-            <div style="background:rgba(239,68,68,.12);border:1px solid #ef4444;border-radius:12px;padding:14px;color:#fca5a5;font-size:.85rem">
-              ⚠️ <b>Nota técnica:</b> La tabla <code>mesa_cambio_operaciones</code> aún no está ejecutada en tu Supabase SQL Editor. Las operaciones se están guardando provisionalmente en ajustes. Ejecuta el archivo <code>supabase/migracion_21_mesa_de_cambio.sql</code> para habilitar la tabla oficial.
+          <!-- TARJETAS DE ESTADÍSTICAS Y FONDO DE CAJA USDT (LIQUIDEZ) -->
+          <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px">
+            <!-- 1. Fondo de Caja USDT Disponible -->
+            <div class="card" style="padding:16px;background:rgba(15,23,42,.6);border:1.5px solid ${isFloatLow ? '#ef4444' : 'rgba(0,245,160,.3)'}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">💼 Fondo de Caja (Liquidez USDT)</div>
+                <span class="pill" style="${isFloatLow ? 'background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800' : 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3);font-weight:700'}">
+                  ${isFloatLow ? '⚠️ Liquidez Crítica (< $5)' : '🟢 Liquidez Óptima'}
+                </span>
+              </div>
+              <div style="font-size:1.8rem;font-weight:900;color:${isFloatLow ? '#f87171' : '#00f5a0'};margin:6px 0">
+                $${cfg.fondo_caja_usdt.toFixed(2)} USDT
+              </div>
+              <div class="mut" style="font-size:.74rem;margin-bottom:10px">
+                Saldo rotativo para despachos inmediatos a clientes
+              </div>
+              <div style="display:flex;gap:6px">
+                <button type="button" id="btnAddFloatUsdt" class="g" style="padding:5px 10px;font-size:.74rem;background:rgba(0,245,160,.15);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:800">
+                  ➕ Inyectar Liquidez
+                </button>
+                <button type="button" id="btnEditFloatDirect" class="g" style="padding:5px 8px;font-size:.74rem">
+                  ✏️ Ajustar
+                </button>
+              </div>
             </div>
-          ` : ''}
 
-          <!-- TARJETAS DE ESTADÍSTICAS -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px">
-            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px">
-              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">Solicitudes Pendientes</div>
+            <!-- 2. Solicitudes Pendientes -->
+            <div class="card" style="padding:16px;background:rgba(15,23,42,.6);border:1px solid rgba(253,224,71,.25)">
+              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">⏳ Solicitudes Pendientes</div>
               <div style="font-size:1.8rem;font-weight:900;color:#fde047;margin:6px 0">${pendientes.length}</div>
-              <div class="mut" style="font-size:.75rem">Requieren revisión de pago y envío a Binance</div>
+              <div class="mut" style="font-size:.74rem">En espera de verificación y transferencia</div>
             </div>
 
-            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px">
-              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">Total USDT Despachados</div>
-              <div style="font-size:1.8rem;font-weight:900;color:#00f5a0;margin:6px 0">$${totalUsdtDespachado.toFixed(2)} USDT</div>
-              <div class="mut" style="font-size:.75rem">Enviados a clientes a través de Binance Pay</div>
+            <!-- 3. Total USDT Despachados -->
+            <div class="card" style="padding:16px;background:rgba(15,23,42,.6);border:1px solid rgba(56,189,248,.25)">
+              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">🚀 USDT Despachados</div>
+              <div style="font-size:1.8rem;font-weight:900;color:#38bdf8;margin:6px 0">$${totalUsdtDespachado.toFixed(2)} USDT</div>
+              <div class="mut" style="font-size:.74rem">Volumen total operado a través de Binance Pay</div>
             </div>
 
-            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px">
-              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">Total Bolívares Recibidos</div>
-              <div style="font-size:1.8rem;font-weight:900;color:#38bdf8;margin:6px 0">Bs. ${totalBsRecaudado.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-              <div class="mut" style="font-size:.75rem">Ingresados a tus cuentas bancarias</div>
+            <!-- 4. Total Bolívares Recibidos -->
+            <div class="card" style="padding:16px;background:rgba(15,23,42,.6);border:1px solid rgba(168,85,247,.25)">
+              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">💵 Total Bolívares Recibidos</div>
+              <div style="font-size:1.6rem;font-weight:900;color:#c084fc;margin:6px 0">Bs. ${totalBsRecaudado.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+              <div class="mut" style="font-size:.74rem">Ingresados en cuentas bancarias</div>
+            </div>
+
+            <!-- 5. Ganancia Estimada de Mesa de Cambio -->
+            <div class="card" style="padding:16px;background:rgba(15,23,42,.6);border:1px solid rgba(34,197,94,.25)">
+              <div style="font-size:.76rem;color:#94a3b8;font-weight:700;text-transform:uppercase">📈 Ganancia Estimada Mesa</div>
+              <div style="font-size:1.6rem;font-weight:900;color:#4ade80;margin:6px 0">+$${totalProfitUsd.toFixed(2)} USD</div>
+              <div class="mut" style="font-size:.74rem">Bs. ${totalProfitBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})} (Spread neto acumulado)</div>
             </div>
           </div>
 
@@ -3847,6 +4085,115 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         </div>
       `;
 
+      // Eventos: Refrescar Al Cambio
+      const btnRefresh = $('#btnRefreshAlCambio');
+      if (btnRefresh) {
+        btnRefresh.onclick = async () => {
+          btnRefresh.disabled = true;
+          btnRefresh.textContent = '⏳ Consultando...';
+          alCambioData = await fetchAlCambioData();
+          toast('✅ Tasa Al Cambio actualizada en tiempo real.');
+          render();
+        };
+      }
+
+      // Eventos: Aplicar Tasa Al Cambio Directa
+      const btnAcDirect = $('#btnApplyAcDirect');
+      if (btnAcDirect) {
+        btnAcDirect.onclick = () => {
+          const inp = $('#mcTasaBs');
+          if (inp) {
+            inp.value = liveAcRate.toFixed(2);
+            toast(`⚡ Tasa Al Cambio (Bs. ${liveAcRate.toFixed(2)}) asignada en el campo. Haz clic en "Guardar Tasa" para activarla.`);
+          }
+        };
+      }
+
+      // Eventos: Aplicar Margen (+1%, +2%, +3%)
+      box.querySelectorAll('[data-mc-margin]').forEach(btn => {
+        btn.onclick = () => {
+          const marginPct = parseFloat(btn.dataset.mcMargin) || 0;
+          const inp = $('#mcTasaBs');
+          if (inp) {
+            const margined = liveAcRate * (1 + marginPct / 100);
+            inp.value = margined.toFixed(2);
+            toast(`➕ Margen +${marginPct}% aplicado: Bs. ${margined.toFixed(2)}. Haz clic en "Guardar Tasa" para activarla.`);
+          }
+        };
+      });
+
+      // Eventos: Inyectar Liquidez USDT al Fondo de Caja
+      const btnAddFloat = $('#btnAddFloatUsdt');
+      if (btnAddFloat) {
+        btnAddFloat.onclick = async () => {
+          const pAmt = prompt('¿Cuántos USDT deseas inyectar a tu Fondo de Caja (Liquidez)?', '50.00');
+          if (pAmt === null) return;
+          const addAmt = parseFloat(pAmt);
+          if (isNaN(addAmt) || addAmt <= 0) return toast('Ingresa una cantidad válida mayor a 0.');
+
+          const pRate = prompt(`¿A qué tasa en Bolívares compraste estos ${addAmt} USDT? (Opcional, para contabilidad de margen):`, (liveAcRate || cfg.tasa_usdt_bs || 50.00).toFixed(2));
+          const buyRate = parseFloat(pRate) || null;
+          const costBs = buyRate ? (addAmt * buyRate) : null;
+
+          const newSaldo = (Number(cfg.fondo_caja_usdt) || 0) + addAmt;
+          cfg.fondo_caja_usdt = newSaldo;
+          if (buyRate) cfg.tasa_adquisicion_bs = buyRate;
+
+          // Guardar en settings
+          await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: cfg }).catch(()=>{});
+          const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
+          const negVal = negRow?.value || {};
+          negVal.mesa_cambio_config = cfg;
+          await sb.from('settings').upsert({ key: 'negocio', value: negVal }).catch(()=>{});
+          S.settings.mesa_cambio_config = cfg;
+          if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = cfg;
+
+          // Registrar en mesa_cambio_caja
+          await sb.from('mesa_cambio_caja').insert({
+            tipo: 'ingreso_liquidez',
+            monto_usdt: addAmt,
+            tasa_compra_bs: buyRate,
+            costo_total_bs: costBs,
+            saldo_posterior_usdt: newSaldo,
+            notas: 'Inyección manual de liquidez USDT'
+          }).catch(()=>{});
+
+          toast(`✅ Liquidez inyectada: +${addAmt.toFixed(2)} USDT. Nuevo saldo de caja: $${newSaldo.toFixed(2)} USDT`);
+          render();
+        };
+      }
+
+      // Eventos: Ajustar Fondo de Caja Directamente
+      const btnEditFloat = $('#btnEditFloatDirect');
+      if (btnEditFloat) {
+        btnEditFloat.onclick = async () => {
+          const curVal = (Number(cfg.fondo_caja_usdt) || 0).toFixed(2);
+          const pVal = prompt('Ajustar el saldo del Fondo de Caja USDT directamente a:', curVal);
+          if (pVal === null) return;
+          const newVal = parseFloat(pVal);
+          if (isNaN(newVal) || newVal < 0) return toast('Ingresa un valor válido mayor o igual a 0.');
+
+          cfg.fondo_caja_usdt = newVal;
+          await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: cfg }).catch(()=>{});
+          const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
+          const negVal = negRow?.value || {};
+          negVal.mesa_cambio_config = cfg;
+          await sb.from('settings').upsert({ key: 'negocio', value: negVal }).catch(()=>{});
+          S.settings.mesa_cambio_config = cfg;
+          if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = cfg;
+
+          await sb.from('mesa_cambio_caja').insert({
+            tipo: 'ajuste_manual',
+            monto_usdt: newVal,
+            saldo_posterior_usdt: newVal,
+            notas: `Ajuste manual de saldo de caja a $${newVal.toFixed(2)} USDT`
+          }).catch(()=>{});
+
+          toast(`✅ Fondo de Caja actualizado a $${newVal.toFixed(2)} USDT`);
+          render();
+        };
+      }
+
       // Eventos: Guardar Configuración
       const btnSave = $('#btnSaveMesaCfg');
       if (btnSave) {
@@ -3855,6 +4202,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           if (isNaN(tasa) || tasa <= 0) return toast('Ingresa una tasa de cambio válida (mayor a 0).');
 
           const newCfg = {
+            ...cfg,
             activo: $('#mcActivo').checked,
             tasa_usdt_bs: tasa,
             min_usdt: parseFloat($('#mcMinUsdt').value) || 1,
@@ -3926,17 +4274,17 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         };
       }
 
-      // Marcar Enviado (Abono completado)
+      // Marcar Enviado (Abono completado y descuento automático del fondo de caja)
       box.querySelectorAll('[data-mc-send]').forEach(b => {
         b.onclick = async () => {
           const opId = b.dataset.mcSend;
-          const usdt = b.dataset.usdt;
+          const usdt = parseFloat(b.dataset.usdt) || 0;
           const dest = b.dataset.dest;
           const destTipo = b.dataset.destTipo === 'binance_email' ? 'Correo de Binance' : 'Binance Pay ID';
           const nom = b.dataset.nom;
           const tel = (b.dataset.tel || '').replace(/\D/g, '');
 
-          if (!confirm(`¿Confirmas que ya enviaste ${usdt} USDT a ${destTipo} ${dest} (${nom})?`)) return;
+          if (!confirm(`¿Confirmas que ya enviaste ${usdt} USDT a ${destTipo} ${dest} (${nom})?\n\n• Se descontarán automáticamente ${usdt} USDT del Fondo de Caja.`)) return;
 
           const now = new Date().toISOString();
           let err = null;
@@ -3946,6 +4294,29 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           }
 
           if (err) return toast('Error al actualizar: ' + err.message);
+
+          // Descontar automáticamente del fondo de caja USDT
+          const prevFloat = Number(cfg.fondo_caja_usdt) || 0;
+          const newFloat = Math.max(0, prevFloat - usdt);
+          cfg.fondo_caja_usdt = newFloat;
+
+          // Sincronizar en settings
+          await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: cfg }).catch(()=>{});
+          const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
+          const negVal = negRow?.value || {};
+          negVal.mesa_cambio_config = cfg;
+          await sb.from('settings').upsert({ key: 'negocio', value: negVal }).catch(()=>{});
+          S.settings.mesa_cambio_config = cfg;
+          if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = cfg;
+
+          // Registrar egreso en mesa_cambio_caja
+          await sb.from('mesa_cambio_caja').insert({
+            tipo: 'egreso_despacho',
+            monto_usdt: usdt,
+            saldo_posterior_usdt: newFloat,
+            operacion_id: opId,
+            notas: `Despacho completado a ${nom} (${dest})`
+          }).catch(()=>{});
 
           // Actualizar en memoria local
           const f = operaciones.find(o => o.id === opId);
@@ -3963,7 +4334,10 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             <div style="text-align:center;padding:12px 0">
               <span style="font-size:2.5rem">⚡</span>
               <h3 style="margin:10px 0 6px">¡Operación Marcada como Enviada!</h3>
-              <p class="mut" style="font-size:.85rem;margin:0 0 16px">Se registraron los ${usdt} USDT como despachados para <b>${esc(nom)}</b> (${esc(dest)}).</p>
+              <p class="mut" style="font-size:.85rem;margin:0 0 10px">Se registraron los ${usdt} USDT como despachados para <b>${esc(nom)}</b> (${esc(dest)}).</p>
+              <div style="background:rgba(0,245,160,.1);border:1px solid rgba(0,245,160,.3);border-radius:10px;padding:8px;margin-bottom:14px;font-size:.8rem;color:#00f5a0">
+                💼 Fondo de Caja restante: <b>$${newFloat.toFixed(2)} USDT</b>
+              </div>
               ${tel ? `
                 <a href="https://wa.me/${tel}?text=${waMsg}" target="_blank" rel="noopener noreferrer" style="background:#25D366;color:#fff;padding:12px;border-radius:12px;text-decoration:none;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">
                   <span>💬 Enviar Notificación de Abono por WhatsApp</span>

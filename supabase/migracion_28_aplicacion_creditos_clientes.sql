@@ -75,8 +75,7 @@ begin
       update customers set
         vendedor_id = v_pablo_id,
         vendedor_nombre = 'Pablo Gonzalez',
-        limite_credito = greatest(coalesce(limite_credito, 0.00), r.monto_deuda),
-        permite_cuotas = true
+        limite_credito = greatest(coalesce(limite_credito, 0.00), r.monto_deuda)
       where id = v_cust_id;
     end if;
 
