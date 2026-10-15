@@ -3142,7 +3142,7 @@ async function portal(){
           const d = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
           return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
         })();
-    const cardState = cardData?.estado || 'activa';
+    const cardState = cardData ? cardData.estado : 'sin_tarjeta';
 
     app.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
@@ -3192,7 +3192,7 @@ async function portal(){
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <span class="mut" style="font-size:.82rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fde047">💳 Tarjeta TDC Zeny</span>
           <span class="pill" style="font-size:.7rem;${cardState==='activa'?'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.35)':'background:rgba(245,158,11,.15);color:#fde047;border-color:rgba(245,158,11,.35)'}">
-            ${cardState==='activa'?'🟢 Activa':(cardData ? '🟡 Por Activar' : '🟢 Digital')}
+            ${cardState==='activa'?'🟢 Activa':(cardData ? '🟡 Por Activar' : '⚪ Sin Solicitar')}
           </span>
         </div>
 
@@ -3221,7 +3221,7 @@ async function portal(){
                   <span style="font-size:.58rem;color:#fde047;font-weight:800">CVV / CÓDIGO</span>
                 </div>
                 <div class="zeny-card-cvv-box">
-                  <span class="zeny-card-cvv-text">${cardState === 'activa' ? esc(cardData?.codigo_activacion || '***') : '🔒 Código Secreto'}</span>
+                  <span class="zeny-card-cvv-text">${cardState === 'activa' ? esc(cardData?.codigo_activacion || '***') : (cardData ? '🔒 Por Activar' : '🔒 Sin Solicitar')}</span>
                 </div>
                 <div style="font-size:.58rem;color:#94a3b8;line-height:1.2;text-align:center">
                   Emprendimiento Gregory Izquierdo J-50639379-4
@@ -3245,11 +3245,15 @@ async function portal(){
           </div>
         </div>
 
-        ${cardData && cardData.estado !== 'activa' ? `
-          <button class="zeny-card-btn-act" id="btnActCard" style="margin-top:8px;padding:8px;font-size:.78rem">
+        ${!cardData ? `
+          <button class="zeny-card-btn-act" id="btnReqCard" style="margin-top:10px;padding:9px 12px;font-size:.82rem;background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none;border-radius:10px;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:6px">
+            💳 Solicitar Tarjeta Zeny
+          </button>
+        ` : (cardData.estado !== 'activa' ? `
+          <button class="zeny-card-btn-act" id="btnActCard" style="margin-top:10px;padding:9px 12px;font-size:.82rem;width:100%">
             ⚡ Activar Tarjeta con mi Código
           </button>
-        ` : ''}
+        ` : '')}
       </div>
     </div>
 
@@ -3587,6 +3591,68 @@ async function portal(){
               }
             })
           }).catch(()=>{});
+        };
+      }
+    };
+  }
+
+  // Solicitar Tarjeta Zeny
+  const reqBtn = $('#btnReqCard');
+  if(reqBtn){
+    reqBtn.onclick = () => {
+      const bizTel = (S.settings?.negocio?.telefono || '+584241983648').replace(/\D/g, '');
+      const reqMsg = encodeURIComponent(`¡Hola Gregory! 👋 Soy ${S.me?.nombre || S.user.email || 'Cliente'} (ID: ${userCode}, Tel: ${S.me?.telefono || ''}).\n\n💳 Deseo solicitar mi Tarjeta Digital Zeny oficial para acceder al 5% de descuento en mis compras.`);
+
+      $('#dlgBody').innerHTML = `
+        <div style="text-align:center;margin-bottom:12px">
+          <span style="font-size:2.2rem">💳</span>
+          <h3 style="margin:4px 0">Solicitar Tarjeta Digital Zeny</h3>
+          <p class="mut" style="font-size:.82rem;margin:0 0 14px">
+            Obtén tu Tarjeta Digital Zeny oficial y disfruta de <b>5% de descuento</b> en cada compra y acceso a financiamiento.
+          </p>
+        </div>
+        <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span class="mut" style="font-size:.8rem">Nombre del Titular:</span>
+            <b>${esc(cardHolderName)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span class="mut" style="font-size:.8rem">Código de Identificación:</span>
+            <code>${esc(userCode)}</code>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span class="mut" style="font-size:.8rem">Teléfono / WhatsApp:</span>
+            <b>${esc(S.me?.telefono || 'No registrado')}</b>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="g" onclick="dlg.close()">Cancelar</button>
+          <a href="https://wa.me/${bizTel}?text=${reqMsg}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
+            <button id="btnSendCardReqWA" style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none;border-radius:10px;padding:9px 16px;cursor:pointer">
+              💬 Solicitar a Gregory por WhatsApp
+            </button>
+          </a>
+        </div>
+      `;
+      dlg.showModal();
+
+      const bSend = $('#btnSendCardReqWA');
+      if(bSend){
+        bSend.onclick = () => {
+          fetch('/api/notify-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'solicitud_tarjeta_zeny',
+              data: {
+                cliente: S.me?.nombre || S.user.email,
+                telefono: S.me?.telefono || '',
+                email: S.user.email,
+                codigo: userCode
+              }
+            })
+          }).catch(()=>{});
+          setTimeout(() => dlg.close(), 500);
         };
       }
     };

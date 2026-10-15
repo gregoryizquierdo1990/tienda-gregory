@@ -66,20 +66,16 @@ begin
   end if;
 
   insert into customers(id, nombre, email, telefono, es_revendedor, codigo_identificacion, limite_credito, nivel_credito, debe_cambiar_password)
-  values (v_uid, 'Pablo Gonzalez', 'pacun1989@gmail.com', '584129130080', true, 'RVD:1001', 100.00, 'Oro', true)
+  values (v_uid, 'Pablo Gonzalez', 'pacun1989@gmail.com', '584129130080', true, 'RVD:1001', 0.00, 'Oro', true)
   on conflict (id) do update set
     nombre = 'Pablo Gonzalez',
     email = 'pacun1989@gmail.com',
     telefono = '584129130080',
     es_revendedor = true,
-    limite_credito = coalesce(customers.limite_credito, 100.00),
+    limite_credito = coalesce(customers.limite_credito, 0.00),
     nivel_credito = coalesce(customers.nivel_credito, 'Oro'),
     debe_cambiar_password = coalesce(customers.debe_cambiar_password, true),
     codigo_identificacion = coalesce(customers.codigo_identificacion, 'RVD:1001');
-
-  insert into zeny_cards(customer_id, numero_tarjeta, nombre_titular, fecha_vencimiento, codigo_activacion, estado)
-  values (v_uid, '4532 9801 0080 3456', 'PABLO GONZALEZ', '10/28', '130080', 'activa')
-  on conflict do nothing;
 
 
   -- 2. LEANDRO PERDOMO (584122952044, perdomoleandro39@gmail.com, clave temporal: 952044)
@@ -94,20 +90,16 @@ begin
   end if;
 
   insert into customers(id, nombre, email, telefono, es_revendedor, codigo_identificacion, limite_credito, nivel_credito, debe_cambiar_password)
-  values (v_uid, 'Leandro Perdomo', 'perdomoleandro39@gmail.com', '584122952044', true, 'RVD:1002', 100.00, 'Oro', true)
+  values (v_uid, 'Leandro Perdomo', 'perdomoleandro39@gmail.com', '584122952044', true, 'RVD:1002', 0.00, 'Oro', true)
   on conflict (id) do update set
     nombre = 'Leandro Perdomo',
     email = 'perdomoleandro39@gmail.com',
     telefono = '584122952044',
     es_revendedor = true,
-    limite_credito = coalesce(customers.limite_credito, 100.00),
+    limite_credito = coalesce(customers.limite_credito, 0.00),
     nivel_credito = coalesce(customers.nivel_credito, 'Oro'),
     debe_cambiar_password = coalesce(customers.debe_cambiar_password, true),
     codigo_identificacion = coalesce(customers.codigo_identificacion, 'RVD:1002');
-
-  insert into zeny_cards(customer_id, numero_tarjeta, nombre_titular, fecha_vencimiento, codigo_activacion, estado)
-  values (v_uid, '4532 9802 2044 3456', 'LEANDRO PERDOMO', '10/28', '952044', 'activa')
-  on conflict do nothing;
 
 
   -- 3. NELSON BUSTAMANTE (584120266710, clave temporal: 266710)
@@ -122,19 +114,15 @@ begin
   end if;
 
   insert into customers(id, nombre, email, telefono, es_revendedor, codigo_identificacion, limite_credito, nivel_credito, debe_cambiar_password)
-  values (v_uid, 'Nelson Bustamante', '584120266710@cliente.gregoryizquierdo.xyz', '584120266710', true, 'RVD:1003', 100.00, 'Oro', true)
+  values (v_uid, 'Nelson Bustamante', '584120266710@cliente.gregoryizquierdo.xyz', '584120266710', true, 'RVD:1003', 0.00, 'Oro', true)
   on conflict (id) do update set
     nombre = 'Nelson Bustamante',
     telefono = '584120266710',
     es_revendedor = true,
-    limite_credito = coalesce(customers.limite_credito, 100.00),
+    limite_credito = coalesce(customers.limite_credito, 0.00),
     nivel_credito = coalesce(customers.nivel_credito, 'Oro'),
     debe_cambiar_password = coalesce(customers.debe_cambiar_password, true),
     codigo_identificacion = coalesce(customers.codigo_identificacion, 'RVD:1003');
-
-  insert into zeny_cards(customer_id, numero_tarjeta, nombre_titular, fecha_vencimiento, codigo_activacion, estado)
-  values (v_uid, '4532 9803 6710 3456', 'NELSON BUSTAMANTE', '10/28', '266710', 'activa')
-  on conflict do nothing;
 
 
   -- 4. JOSUANNY (584129939848, clave temporal: 939848)
@@ -149,19 +137,15 @@ begin
   end if;
 
   insert into customers(id, nombre, email, telefono, es_revendedor, codigo_identificacion, limite_credito, nivel_credito, debe_cambiar_password)
-  values (v_uid, 'Josuanny', '584129939848@cliente.gregoryizquierdo.xyz', '584129939848', true, 'RVD:1004', 100.00, 'Oro', true)
+  values (v_uid, 'Josuanny', '584129939848@cliente.gregoryizquierdo.xyz', '584129939848', true, 'RVD:1004', 0.00, 'Oro', true)
   on conflict (id) do update set
     nombre = 'Josuanny',
     telefono = '584129939848',
     es_revendedor = true,
-    limite_credito = coalesce(customers.limite_credito, 100.00),
+    limite_credito = coalesce(customers.limite_credito, 0.00),
     nivel_credito = coalesce(customers.nivel_credito, 'Oro'),
     debe_cambiar_password = coalesce(customers.debe_cambiar_password, true),
     codigo_identificacion = coalesce(customers.codigo_identificacion, 'RVD:1004');
-
-  insert into zeny_cards(customer_id, numero_tarjeta, nombre_titular, fecha_vencimiento, codigo_activacion, estado)
-  values (v_uid, '4532 9804 9848 3456', 'JOSUANNY', '10/28', '939848', 'activa')
-  on conflict do nothing;
 end $$;
 
 
