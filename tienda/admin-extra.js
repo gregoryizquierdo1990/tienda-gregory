@@ -1679,6 +1679,7 @@ grant execute on function approve_installment(uuid) to authenticated;`;
             const statusLabel = isVencida ? 'Vencida' : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente'));
             const tel = (c.customers?.telefono || '').replace(/\D/g, '');
             const nom = c.customers?.nombre || c.customers?.email || 'Cliente';
+            const prod = c.orders?.products?.nombre || c.orders?.referencia || c.referencia || 'Servicio Digital';
             const rawMsg = formatMessageTemplate('cobro_cuota', {
               cliente: nom,
               producto: prod,
