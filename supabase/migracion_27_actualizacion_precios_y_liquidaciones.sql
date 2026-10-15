@@ -20,12 +20,12 @@ begin
   -- 1. Identificar o consolidar el registro OFICIAL de Pablo Gonzalez (pacun1989@gmail.com)
   select id into v_pablo_id from customers
   where lower(trim(email)) = 'pacun1989@gmail.com'
-  order by created_at asc limit 1;
+  order by creado asc limit 1;
 
   if v_pablo_id is null then
     select id into v_pablo_id from customers
     where lower(trim(nombre)) like '%pablo gonzalez%' or lower(trim(nombre)) = 'pablo'
-    order by (email is not null and email like '%@%') desc, created_at asc limit 1;
+    order by (email is not null and email like '%@%') desc, creado asc limit 1;
   end if;
 
   if v_pablo_id is not null then
@@ -34,7 +34,7 @@ begin
       email = 'pacun1989@gmail.com',
       telefono = '584129130080',
       es_revendedor = true,
-      codigo_identificacion = '130080'
+      codigo_identificacion = 'RVD:1001'
     where id = v_pablo_id;
 
     -- Reasignar cualquier cliente, orden, perfil o comisión que apunte al registro duplicado 'PABLO'
@@ -59,10 +59,37 @@ begin
     end loop;
   end if;
 
-  -- 2. Asegurar a los demás revendedores oficiales
-  select id into v_nelson_id from customers where lower(email) in ('584120266710@cliente.gregoryizquierdo.xyz') or lower(nombre) like '%nelson%' limit 1;
-  select id into v_josuanny_id from customers where lower(email) in ('584129939848@cliente.gregoryizquierdo.xyz') or lower(nombre) like '%josuanny%' limit 1;
+  -- 2. Asegurar a los demás revendedores oficiales con sus códigos RVD
   select id into v_leandro_id from customers where lower(email) in ('perdomoleandro39@gmail.com', '584122952044@cliente.gregoryizquierdo.xyz') or lower(nombre) like '%leandro%' limit 1;
+  if v_leandro_id is not null then
+    update customers set
+      nombre = 'Leandro Perdomo',
+      email = coalesce(email, 'perdomoleandro39@gmail.com'),
+      telefono = coalesce(telefono, '584122952044'),
+      es_revendedor = true,
+      codigo_identificacion = 'RVD:1002'
+    where id = v_leandro_id;
+  end if;
+
+  select id into v_nelson_id from customers where lower(email) in ('584120266710@cliente.gregoryizquierdo.xyz') or lower(nombre) like '%nelson%' limit 1;
+  if v_nelson_id is not null then
+    update customers set
+      nombre = 'Nelson Bustamante',
+      telefono = coalesce(telefono, '584120266710'),
+      es_revendedor = true,
+      codigo_identificacion = 'RVD:1003'
+    where id = v_nelson_id;
+  end if;
+
+  select id into v_josuanny_id from customers where lower(email) in ('584129939848@cliente.gregoryizquierdo.xyz') or lower(nombre) like '%josuanny%' limit 1;
+  if v_josuanny_id is not null then
+    update customers set
+      nombre = 'Josuanny',
+      telefono = coalesce(telefono, '584129939848'),
+      es_revendedor = true,
+      codigo_identificacion = 'RVD:1004'
+    where id = v_josuanny_id;
+  end if;
 
   -- 3. Asignación estricta de Vendedores a Clientes según desglose oficial:
   -- Pablo Gonzalez (27 clientes):
@@ -373,7 +400,7 @@ begin
   select id into v_pablo_id from customers
   where lower(trim(email)) in ('pacun1989@gmail.com', 'pablo@gregoryizquierdo.xyz')
      or (lower(trim(nombre)) like '%pablo%' and es_revendedor = true)
-  order by created_at asc limit 1;
+  order by creado asc limit 1;
 
   -- 2. Identificar el vendedor asociado
   v_seller_id := v_ord.vendedor_id;

@@ -25,7 +25,7 @@ begin
   select id into v_pablo_id from customers
   where lower(trim(email)) in ('pacun1989@gmail.com', 'pablo@gregoryizquierdo.xyz')
      or (lower(trim(nombre)) like '%pablo gonzalez%' and es_revendedor = true)
-  order by created_at asc limit 1;
+  order by creado asc limit 1;
 
   if v_pablo_id is null then
     select id into v_pablo_id from customers where es_revendedor = true and lower(trim(nombre)) like '%pablo%' limit 1;

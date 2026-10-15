@@ -5435,6 +5435,491 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     };
 
     render();
+  },
+
+  async resellers(box) {
+    box.innerHTML = '<p class="mut">Cargando red de revendedores…</p>';
+
+    try {
+      // 1. Consultar revendedores, clientes asignados y perfiles activos
+      const [resellersRes, clientsRes, profilesRes] = await Promise.all([
+        sb.from('customers').select('*').eq('es_revendedor', true).order('codigo_identificacion'),
+        sb.from('customers').select('id, nombre, email, telefono, vendedor_id, vendedor_nombre, limite_credito').not('vendedor_id', 'is', null),
+        sb.from('profiles_inventory').select('id, nombre_perfil, pin, vendedor_id, vendedor, estado, vence, assigned_customer_id, products(nombre), mother_accounts(plataforma, correo)').eq('estado', 'vendido')
+      ]);
+
+      const resellers = resellersRes.data || [];
+      const allAssignedClients = clientsRes.data || [];
+      const allAssignedProfiles = profilesRes.data || [];
+
+      // Mapear clientes por revendedor
+      const clientsBySeller = {};
+      allAssignedClients.forEach(c => {
+        if (c.vendedor_id) {
+          clientsBySeller[c.vendedor_id] = clientsBySeller[c.vendedor_id] || [];
+          clientsBySeller[c.vendedor_id].push(c);
+        }
+      });
+
+      // Mapear perfiles por revendedor
+      const profilesBySeller = {};
+      allAssignedProfiles.forEach(p => {
+        if (p.vendedor_id) {
+          profilesBySeller[p.vendedor_id] = profilesBySeller[p.vendedor_id] || [];
+          profilesBySeller[p.vendedor_id].push(p);
+        }
+      });
+
+      // Totales para KPIs
+      const totalResellers = resellers.length;
+      const totalClients = allAssignedClients.length;
+      const totalProfiles = allAssignedProfiles.length;
+      const totalCredit = resellers.reduce((sum, r) => sum + Number(r.limite_credito || 0), 0);
+
+      const render = (filterQuery = '') => {
+        const q = filterQuery.toLowerCase().trim();
+        const filtered = resellers.filter(r => {
+          if (!q) return true;
+          return (r.nombre || '').toLowerCase().includes(q) ||
+                 (r.email || '').toLowerCase().includes(q) ||
+                 (r.telefono || '').toLowerCase().includes(q) ||
+                 (r.codigo_identificacion || '').toLowerCase().includes(q);
+        });
+
+        box.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+            <div>
+              <h3 style="margin:0 0 4px;font-size:1.18rem;display:flex;align-items:center;gap:8px">
+                🤝 Red Oficial de Revendedores
+                <span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.15);color:#38bdf8;border-color:rgba(56,189,248,.3)">
+                  ${totalResellers} Registrados
+                </span>
+              </h3>
+              <p class="mut" style="margin:0;font-size:.82rem">
+                Gestión exclusiva de socios comerciales con código oficial <b>RVD:100x</b>, líneas de crédito mayorista y carteras de clientes.
+              </p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button id="btnSyncRvdCodes" class="g" style="background:rgba(56,189,248,.12);border-color:#38bdf8;color:#38bdf8;font-weight:700">
+                ⚡ Sincronizar Códigos RVD
+              </button>
+              <button id="btnNewReseller" style="background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#03121c;font-weight:800;border:none">
+                + Nuevo Revendedor
+              </button>
+            </div>
+          </div>
+
+          <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:20px">
+            <div class="card" style="padding:14px;background:rgba(15,23,42,.6);border:1px solid rgba(56,189,248,.25)">
+              <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">🤝 Revendedores Activos</div>
+              <div style="font-size:1.5rem;font-weight:800;color:#38bdf8;margin-top:4px">${totalResellers}</div>
+              <div class="mut" style="font-size:.72rem;margin-top:2px">Socios mayoristas registrados</div>
+            </div>
+            <div class="card" style="padding:14px;background:rgba(15,23,42,.6);border:1px solid rgba(168,85,247,.25)">
+              <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">👥 Clientes en Red</div>
+              <div style="font-size:1.5rem;font-weight:800;color:#c084fc;margin-top:4px">${totalClients}</div>
+              <div class="mut" style="font-size:.72rem;margin-top:2px">Asignados a revendedores</div>
+            </div>
+            <div class="card" style="padding:14px;background:rgba(15,23,42,.6);border:1px solid rgba(34,197,94,.25)">
+              <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">👤 Perfiles Gestionados</div>
+              <div style="font-size:1.5rem;font-weight:800;color:#4ade80;margin-top:4px">${totalProfiles}</div>
+              <div class="mut" style="font-size:.72rem;margin-top:2px">Pantallas activas en red</div>
+            </div>
+            <div class="card" style="padding:14px;background:rgba(15,23,42,.6);border:1px solid rgba(245,158,11,.25)">
+              <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">💳 Crédito Mayorista Global</div>
+              <div style="font-size:1.5rem;font-weight:800;color:#fbbf24;margin-top:4px">$${totalCredit.toFixed(2)} USD</div>
+              <div class="mut" style="font-size:.72rem;margin-top:2px">Límite rotativo total otorgado</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:14px;display:flex;gap:10px;align-items:center">
+            <input id="resellerSearch" placeholder="🔍 Buscar por nombre, código RVD (ej: RVD:1001), email o teléfono..." 
+                   value="${esc(filterQuery)}" 
+                   style="flex:1;padding:8px 14px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:.85rem">
+            ${filterQuery ? `<button class="g" id="btnClearResellerSearch" style="padding:8px 12px">✕ Limpiar</button>` : ''}
+          </div>
+
+          <div class="wrap card" style="padding:0;overflow:hidden">
+            <table style="width:100%;margin:0;border-collapse:collapse">
+              <thead>
+                <tr style="background:rgba(255,255,255,.04);text-align:left;border-bottom:1px solid var(--line)">
+                  <th style="padding:10px 14px">Código</th>
+                  <th style="padding:10px 14px">Revendedor</th>
+                  <th style="padding:10px 14px">Contacto WA</th>
+                  <th style="padding:10px 14px">Cartera Asignada</th>
+                  <th style="padding:10px 14px">Límite Crédito</th>
+                  <th style="padding:10px 14px">Saldo Zeny</th>
+                  <th style="padding:10px 14px;text-align:right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filtered.length === 0 ? `
+                  <tr><td colspan="7" style="padding:32px;text-align:center" class="mut">No se encontraron revendedores con el criterio de búsqueda.</td></tr>
+                ` : filtered.map(r => {
+                  const cList = clientsBySeller[r.id] || [];
+                  const pList = profilesBySeller[r.id] || [];
+                  const cleanPhone = (r.telefono || '').replace(/\D/g, '');
+                  const waUrl = cleanPhone ? `https://wa.me/${cleanPhone.startsWith('58') ? cleanPhone : ('58' + cleanPhone.replace(/^0+/, ''))}` : '';
+                  const code = r.codigo_identificacion || 'RVD:1001';
+                  return `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+                      <td style="padding:10px 14px">
+                        <span class="pill" style="font-family:monospace;font-weight:800;font-size:.82rem;background:rgba(0,212,255,.15);color:#00d4ff;border-color:rgba(0,212,255,.4)">
+                          ${esc(code)}
+                        </span>
+                      </td>
+                      <td style="padding:10px 14px">
+                        <b style="font-size:.9rem;color:#fff">${esc(r.nombre || 'Sin nombre')}</b>
+                        <div class="mut" style="font-size:.76rem">${esc(r.email || 'Sin correo')}</div>
+                      </td>
+                      <td style="padding:10px 14px">
+                        ${cleanPhone ? `
+                          <a href="${waUrl}" target="_blank" class="g" style="padding:4px 8px;font-size:.74rem;display:inline-flex;align-items:center;gap:4px;text-decoration:none;border-radius:6px;background:rgba(37,211,102,.12);color:#25d366;border-color:rgba(37,211,102,.3)">
+                            📱 ${esc(r.telefono)}
+                          </a>
+                        ` : '<span class="mut" style="font-size:.76rem">—</span>'}
+                      </td>
+                      <td style="padding:10px 14px">
+                        <div style="display:flex;gap:6px;flex-wrap:wrap">
+                          <span class="pill" style="font-size:.74rem;background:rgba(168,85,247,.12);color:#c084fc;border-color:rgba(168,85,247,.3);font-weight:700">
+                            👥 ${cList.length} clientes
+                          </span>
+                          <span class="pill" style="font-size:.74rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3);font-weight:700">
+                            👤 ${pList.length} perfiles
+                          </span>
+                        </div>
+                      </td>
+                      <td style="padding:10px 14px">
+                        <b style="color:#fbbf24">$${Number(r.limite_credito || 0).toFixed(2)} USD</b>
+                      </td>
+                      <td style="padding:10px 14px">
+                        <b style="color:#00f5a0">${Number(r.zeny_balance || 0).toFixed(2)} pts</b>
+                      </td>
+                      <td style="padding:10px 14px;text-align:right">
+                        <div class="row" style="justify-content:flex-end;gap:4px">
+                          <button class="g" data-view-portfolio="${esc(r.id)}" data-nom="${esc(r.nombre)}" data-code="${esc(code)}" style="padding:4px 8px;font-size:.74rem" title="Ver clientes y perfiles">
+                            👥 Cartera
+                          </button>
+                          <button class="g" data-reseller-credit="${esc(r.id)}" data-cur="${r.limite_credito || 0}" data-nom="${esc(r.nombre)}" style="padding:4px 8px;font-size:.74rem" title="Ajustar límite de crédito">
+                            💳 Crédito
+                          </button>
+                          <button class="g" data-reseller-pw="${esc(r.id)}" data-nom="${esc(r.nombre)}" data-tel="${esc(r.telefono || '')}" style="padding:4px 8px;font-size:.74rem" title="Restablecer clave">
+                            🔑 Clave
+                          </button>
+                          <button class="g" data-reseller-edit="${esc(r.id)}" style="padding:4px 8px;font-size:.74rem" title="Editar datos">
+                            ✏️
+                          </button>
+                          <button class="d" data-reseller-demote="${esc(r.id)}" data-nom="${esc(r.nombre)}" style="padding:4px 8px;font-size:.74rem" title="Revertir a cliente estándar CLT">
+                            Revertir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        // Event listeners
+        const searchInput = $('#resellerSearch');
+        if (searchInput) {
+          searchInput.oninput = e => render(e.target.value);
+          if (filterQuery) {
+            searchInput.focus();
+            searchInput.setSelectionRange(filterQuery.length, filterQuery.length);
+          }
+        }
+        if ($('#btnClearResellerSearch')) {
+          $('#btnClearResellerSearch').onclick = () => render('');
+        }
+
+        if ($('#btnSyncRvdCodes')) {
+          $('#btnSyncRvdCodes').onclick = async () => {
+            if (!confirm('¿Sincronizar y corregir códigos de todos los revendedores registrados a sus códigos oficiales RVD:1001..RVD:1004?')) return;
+            try {
+              await sb.from('customers').update({ es_revendedor: true, codigo_identificacion: 'RVD:1001', nombre: 'Pablo Gonzalez' })
+                .or('email.ilike.pacun1989@gmail.com,nombre.ilike.%pablo gonzalez%');
+              await sb.from('customers').update({ es_revendedor: true, codigo_identificacion: 'RVD:1002', nombre: 'Leandro Perdomo' })
+                .or('email.ilike.perdomoleandro39@gmail.com,nombre.ilike.%leandro%');
+              await sb.from('customers').update({ es_revendedor: true, codigo_identificacion: 'RVD:1003', nombre: 'Nelson Bustamante' })
+                .or('email.ilike.584120266710@cliente.gregoryizquierdo.xyz,nombre.ilike.%nelson%');
+              await sb.from('customers').update({ es_revendedor: true, codigo_identificacion: 'RVD:1004', nombre: 'Josuanny' })
+                .or('email.ilike.584129939848@cliente.gregoryizquierdo.xyz,nombre.ilike.%josuanny%');
+
+              toast('✅ Códigos oficiales RVD sincronizados con éxito.');
+              EXTRA.resellers(box);
+            } catch (e) {
+              toast('Error al sincronizar: ' + e.message);
+            }
+          };
+        }
+
+        if ($('#btnNewReseller')) {
+          $('#btnNewReseller').onclick = () => {
+            $('#dlgBody').innerHTML = `
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                <h3 style="margin:0">🤝 Registrar Nuevo Revendedor Oficial</h3>
+                <button class="g" onclick="dlg.close()" style="padding:4px 8px">✕</button>
+              </div>
+              <p class="mut" style="font-size:.84rem;margin:0 0 14px;line-height:1.4">
+                Se registrará el revendedor en la red oficial, se le asignará el código consecutivo <b>RVD</b> y tendrá acceso mayorista al portal.
+              </p>
+              <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
+                <div>
+                  <label class="mut" style="display:block;font-size:.76rem;margin-bottom:4px">Nombre y Apellido *</label>
+                  <input id="inputNewResellerName" placeholder="Ej: Pedro Pérez" style="width:100%">
+                </div>
+                <div>
+                  <label class="mut" style="display:block;font-size:.76rem;margin-bottom:4px">Correo Electrónico *</label>
+                  <input id="inputNewResellerEmail" type="email" placeholder="Ej: pedro@gmail.com" style="width:100%">
+                </div>
+                <div>
+                  <label class="mut" style="display:block;font-size:.76rem;margin-bottom:4px">Teléfono WhatsApp *</label>
+                  <input id="inputNewResellerPhone" placeholder="Ej: 04121234567" style="width:100%">
+                </div>
+                <div>
+                  <label class="mut" style="display:block;font-size:.76rem;margin-bottom:4px">Límite de Crédito Mayorista Inicial (USD)</label>
+                  <input id="inputNewResellerCredit" type="number" step="0.5" value="0.00" style="width:100%">
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:flex-end">
+                <button class="g" onclick="dlg.close()">Cancelar</button>
+                <button id="btnSubmitNewReseller" style="background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#03121c;font-weight:800;border:none">
+                  💾 Registrar Revendedor
+                </button>
+              </div>
+            `;
+            dlg.showModal();
+
+            $('#btnSubmitNewReseller').onclick = async () => {
+              const nom = ($('#inputNewResellerName')?.value || '').trim();
+              const email = ($('#inputNewResellerEmail')?.value || '').trim().toLowerCase();
+              const tel = ($('#inputNewResellerPhone')?.value || '').trim();
+              const credit = parseFloat($('#inputNewResellerCredit')?.value || '0') || 0;
+
+              if (!nom || !email || !tel) {
+                return toast('Completa nombre, email y teléfono');
+              }
+
+              try {
+                const { data: codeData } = await sb.rpc('get_next_customer_code', { p_es_revendedor: true }).catch(() => ({ data: null }));
+                const rvdCode = codeData || 'RVD:1005';
+
+                const { data: inserted, error: insErr } = await sb.from('customers').insert({
+                  nombre: nom,
+                  email: email,
+                  telefono: tel,
+                  es_revendedor: true,
+                  codigo_identificacion: rvdCode,
+                  limite_credito: credit,
+                  permite_cuotas: true
+                }).select('id').single();
+
+                if (insErr) throw insErr;
+
+                toast(`✅ Revendedor ${nom} registrado con código ${rvdCode}`);
+                dlg.close();
+                EXTRA.resellers(box);
+              } catch (e) {
+                toast('Error al registrar: ' + e.message);
+              }
+            };
+          };
+        }
+
+        box.querySelectorAll('[data-view-portfolio]').forEach(b => {
+          b.onclick = () => {
+            const sellerId = b.dataset.viewPortfolio;
+            const sellerNom = b.dataset.nom;
+            const sellerCode = b.dataset.code;
+            const cList = clientsBySeller[sellerId] || [];
+            const pList = profilesBySeller[sellerId] || [];
+
+            $('#dlgBody').innerHTML = `
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                <div>
+                  <h3 style="margin:0 0 2px">👥 Cartera: ${esc(sellerNom)}</h3>
+                  <span class="pill" style="font-family:monospace;font-size:.76rem;background:rgba(0,212,255,.15);color:#00d4ff;border-color:rgba(0,212,255,.4)">
+                    ${esc(sellerCode)}
+                  </span>
+                </div>
+                <button class="g" onclick="dlg.close()" style="padding:4px 8px">✕</button>
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:16px">
+                <span class="pill" style="font-size:.76rem;background:rgba(168,85,247,.15);color:#c084fc;font-weight:700">
+                  👥 ${cList.length} Clientes Asignados
+                </span>
+                <span class="pill" style="font-size:.76rem;background:rgba(56,189,248,.15);color:#38bdf8;font-weight:700">
+                  👤 ${pList.length} Perfiles Activos
+                </span>
+              </div>
+              <div style="max-height:420px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px">
+                ${cList.length === 0 ? `
+                  <p class="mut" style="text-align:center;padding:20px">No hay clientes asignados actualmente a este revendedor.</p>
+                ` : `
+                  <table style="width:100%;font-size:.82rem;border-collapse:collapse">
+                    <thead>
+                      <tr style="border-bottom:1px solid var(--line);text-align:left">
+                        <th style="padding:6px 8px">Cliente</th>
+                        <th style="padding:6px 8px">Teléfono</th>
+                        <th style="padding:6px 8px">Perfiles</th>
+                        <th style="padding:6px 8px;text-align:right">WA</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${cList.map(c => {
+                        const clientProfiles = pList.filter(p => p.assigned_customer_id === c.id);
+                        const cleanTel = (c.telefono || '').replace(/\D/g, '');
+                        const waUrl = cleanTel ? `https://wa.me/${cleanTel.startsWith('58') ? cleanTel : ('58' + cleanTel.replace(/^0+/, ''))}` : '';
+                        return `
+                          <tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+                            <td style="padding:8px">
+                              <b>${esc(c.nombre || 'Cliente')}</b>
+                              <div class="mut" style="font-size:.72rem">${esc(c.email || '')}</div>
+                            </td>
+                            <td style="padding:8px">${esc(c.telefono || '—')}</td>
+                            <td style="padding:8px">
+                              ${clientProfiles.length ? clientProfiles.map(p => `
+                                <span class="pill" style="font-size:.68rem;background:rgba(56,189,248,.1);color:#38bdf8;margin:2px">
+                                  ${esc(p.mother_accounts?.plataforma || '')}: ${esc(p.nombre_perfil || '')}
+                                </span>
+                              `).join('') : '<span class="mut" style="font-size:.72rem">Sin perfil activo</span>'}
+                            </td>
+                            <td style="padding:8px;text-align:right">
+                              ${cleanTel ? `
+                                <a href="${waUrl}" target="_blank" class="g" style="padding:3px 7px;font-size:.7rem;text-decoration:none;border-radius:6px;background:rgba(37,211,102,.12);color:#25d366">
+                                  💬
+                                </a>
+                              ` : '—'}
+                            </td>
+                          </tr>
+                        `;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                `}
+              </div>
+              <div style="margin-top:16px;text-align:right">
+                <button class="g" onclick="dlg.close()">Cerrar</button>
+              </div>
+            `;
+            dlg.showModal();
+          };
+        });
+
+        box.querySelectorAll('[data-reseller-credit]').forEach(b => {
+          b.onclick = () => {
+            const sellerId = b.dataset.resellerCredit;
+            const nom = b.dataset.nom;
+            const cur = parseFloat(b.dataset.cur || '0');
+            const val = prompt(`Límite de crédito mayorista para "${nom}" (en USD):`, cur.toString());
+            if (val === null) return;
+            const num = parseFloat(val);
+            if (isNaN(num) || num < 0) return toast('Monto inválido');
+            sb.from('customers').update({ limite_credito: num }).eq('id', sellerId)
+              .then(({ error }) => {
+                if (error) return toast('Error: ' + error.message);
+                toast(`Límite de crédito actualizado a $${num.toFixed(2)} USD para ${nom}`);
+                EXTRA.resellers(box);
+              });
+          };
+        });
+
+        box.querySelectorAll('[data-reseller-pw]').forEach(b => {
+          b.onclick = async () => {
+            const sellerId = b.dataset.resellerPw;
+            const nom = b.dataset.nom;
+            const tel = (b.dataset.tel || '').trim();
+            const cleanTel = tel.replace(/\D/g, '');
+            const pass = cleanTel.length >= 6 ? cleanTel.slice(-6) : '123456';
+            if (!confirm(`¿Restablecer contraseña para "${nom}"?\n\n• Clave temporal: ${pass}\n• Al ingresar al portal se le pedirá cambiarla.`)) return;
+            const { error } = await sb.rpc('resetear_clave_cliente', { p_customer_id: sellerId }).catch(e => ({ error: e }));
+            if (error) return toast('Error: ' + error.message);
+            toast(`Contraseña restablecida a "${pass}" para ${nom}`);
+          };
+        });
+
+        box.querySelectorAll('[data-reseller-edit]').forEach(b => {
+          b.onclick = () => {
+            const seller = resellers.find(r => r.id === b.dataset.resellerEdit);
+            if (!seller) return;
+            $('#dlgBody').innerHTML = `
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                <h3 style="margin:0">✏️ Editar Revendedor: ${esc(seller.nombre)}</h3>
+                <button class="g" onclick="dlg.close()" style="padding:4px 8px">✕</button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
+                <div>
+                  <label class="mut" style="display:block;font-size:.76rem;margin-bottom:4px">Código Identificación (RVD)</label>
+                  <input id="editResellerCode" value="${esc(seller.codigo_identificacion || '')}" style="width:100%">
+                </div>
+                <div>
+                  <label class="mut" style="display:block;font-size:.76rem;margin-bottom:4px">Nombre y Apellido</label>
+                  <input id="editResellerName" value="${esc(seller.nombre || '')}" style="width:100%">
+                </div>
+                <div>
+                  <label class="mut" style="display:block;font-size:.76rem;margin-bottom:4px">Correo Electrónico</label>
+                  <input id="editResellerEmail" type="email" value="${esc(seller.email || '')}" style="width:100%">
+                </div>
+                <div>
+                  <label class="mut" style="display:block;font-size:.76rem;margin-bottom:4px">Teléfono WhatsApp</label>
+                  <input id="editResellerPhone" value="${esc(seller.telefono || '')}" style="width:100%">
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:flex-end">
+                <button class="g" onclick="dlg.close()">Cancelar</button>
+                <button id="btnSaveResellerEdit" style="background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#03121c;font-weight:800;border:none">
+                  💾 Guardar Cambios
+                </button>
+              </div>
+            `;
+            dlg.showModal();
+
+            $('#btnSaveResellerEdit').onclick = async () => {
+              const newCode = ($('#editResellerCode')?.value || '').trim();
+              const newNom = ($('#editResellerName')?.value || '').trim();
+              const newEmail = ($('#editResellerEmail')?.value || '').trim().toLowerCase();
+              const newTel = ($('#editResellerPhone')?.value || '').trim();
+
+              const { error: updErr } = await sb.from('customers').update({
+                codigo_identificacion: newCode,
+                nombre: newNom,
+                email: newEmail,
+                telefono: newTel
+              }).eq('id', seller.id);
+
+              if (updErr) return toast('Error al actualizar: ' + updErr.message);
+              toast('Revendedor actualizado con éxito');
+              dlg.close();
+              EXTRA.resellers(box);
+            };
+          };
+        });
+
+        box.querySelectorAll('[data-reseller-demote]').forEach(b => {
+          b.onclick = async () => {
+            const sellerId = b.dataset.resellerDemote;
+            const nom = b.dataset.nom;
+            if (!confirm(`¿Revertir a "${nom}" a cliente estándar?\n\n• Su código cambiará a formato CLT:xxx.\n• Dejará de tener acceso a precios de revendedor.`)) return;
+            try {
+              const { data: newCode, error } = await sb.rpc('switch_customer_role', { p_customer_id: sellerId, p_make_reseller: false });
+              if (error) throw error;
+              toast(`${nom} revertido a cliente final con código ${newCode || 'CLT'}`);
+              EXTRA.resellers(box);
+            } catch (e) {
+              toast('Error: ' + e.message);
+            }
+          };
+        });
+      };
+
+      render();
+    } catch (err) {
+      console.error('Error cargando módulo resellers:', err);
+      box.innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:20px;text-align:center"><h3 style="color:#f87171">Error al cargar red de revendedores</h3><p class="mut">${esc(err.message)}</p></div>`;
+    }
   }
 };
 
