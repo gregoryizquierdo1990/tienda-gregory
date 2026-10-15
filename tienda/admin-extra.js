@@ -4138,12 +4138,11 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                 <th>Socio Responsable</th>
                 <th>Cliente</th>
                 <th>Servicio</th>
-                <th>PVP Cobrado</th>
-                <th>Mayorista</th>
-                <th>Costo Prov.</th>
+                <th>Vía Pago</th>
+                <th>Cobrado</th>
                 <th>Comisión Socio</th>
-                <th>Gregory (70%)</th>
-                <th>Fondo (30%)</th>
+                <th>Gregory</th>
+                <th>Negocio (Fondo)</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -4152,18 +4151,24 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                 const sNom = c.vendedor?.nombre || 'Socio';
                 const cNom = c.customers?.nombre || c.customers?.email || 'Cliente';
                 const isPend = c.estado === 'pendiente';
+                const isBin = c.metodo_origen === 'binance';
                 return `
                   <tr>
                     <td style="font-size:.76rem;color:#94a3b8">${(c.created_at || '').slice(0, 10)}</td>
                     <td><b>${esc(sNom)}</b></td>
                     <td>${esc(cNom)}</td>
                     <td><b>${esc(c.servicio_nombre)}</b></td>
+                    <td>
+                      <span class="pill" style="font-size:.68rem;${isBin ? 'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)' : 'background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)'}">
+                        ${isBin ? '🟡 Binance' : '🇻🇪 Bolívares'}
+                      </span>
+                    </td>
                     <td>$${Number(c.monto_cobrado_usd).toFixed(2)}</td>
-                    <td style="color:#94a3b8">$${Number(c.precio_revendedor_usd).toFixed(2)}</td>
-                    <td style="color:#ef4444">$${Number(c.costo_proveedor_usd).toFixed(2)}</td>
                     <td style="color:#fde047;font-weight:800">
                       +$${Number(c.ganancia_vendedor_usd).toFixed(2)}
-                      <div style="font-size:.72rem;color:#94a3b8;font-weight:400">Bs. ${Number(c.ganancia_vendedor_bs).toFixed(2)}</div>
+                      <div style="font-size:.72rem;color:${isBin ? '#fde047' : '#94a3b8'};font-weight:400">
+                        ${isBin ? 'USDT' : 'Bs. ' + Number(c.ganancia_vendedor_bs).toFixed(2)}
+                      </div>
                     </td>
                     <td style="color:#00f5a0;font-weight:700">+$${Number(c.ganancia_gregory_usd).toFixed(2)}</td>
                     <td style="color:#38bdf8">+$${Number(c.ganancia_negocio_usd).toFixed(2)}</td>
@@ -4176,7 +4181,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                 `;
               }).join('') : `
                 <tr>
-                  <td colspan="11" style="text-align:center;padding:24px" class="mut">
+                  <td colspan="10" style="text-align:center;padding:24px" class="mut">
                     No hay comisiones registradas con los filtros seleccionados.
                   </td>
                 </tr>
@@ -4200,18 +4205,23 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           if (!targetSeller) return toast('No se encontró ningún revendedor registrado.');
 
           const sComms = allComms.filter(c => c.vendedor_id === targetSeller.id && c.estado === 'pendiente');
-          const sTotUsd = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
-          const sTotBs = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+          const commsBs = sComms.filter(c => c.metodo_origen !== 'binance');
+          const commsBin = sComms.filter(c => c.metodo_origen === 'binance');
+
+          const totUsd = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+          const totBs = commsBs.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+          const totUsdt = commsBin.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
 
           const fechaHoy = new Date().toLocaleDateString('es-VE');
-          const itemsTxt = sComms.slice(0, 15).map((x, i) => `  ${i + 1}. ${x.servicio_nombre} (${x.customers?.nombre || 'Cliente'}): +$${Number(x.ganancia_vendedor_usd).toFixed(2)}`).join('\n');
+          const itemsTxt = sComms.slice(0, 15).map((x, i) => `  ${i + 1}. ${x.servicio_nombre} (${x.customers?.nombre || 'Cliente'}): +$${Number(x.ganancia_vendedor_usd).toFixed(2)} [${x.metodo_origen === 'binance' ? 'Binance USDT' : 'Bs.'}]`).join('\n');
 
           const msg = `¡Hola ${targetSeller.nombre || 'Socio'}! 👋 Te comparto tu *Corte de Liquidación de Comisiones* al ${fechaHoy}:\n\n` +
             `🛒 *Ventas Autogestionadas Pendientes:* ${sComms.length}\n` +
             (itemsTxt ? `${itemsTxt}\n\n` : '') +
-            `💵 *Total Comisiones a Transferirte:* $${sTotUsd.toFixed(2)} USD\n` +
-            `🇻🇪 *Equivalente en Bolívares:* Bs. ${sTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (Tasa BCV: ${curRate.toFixed(2)})\n\n` +
-            `Avísame para coordinar el pago por Pago Móvil o Binance Pay. ¡Seguimos creciendo socio! 🚀`;
+            (commsBs.length ? `🇻🇪 *Por Transferir en Bolívares (Pago Móvil):* Bs. ${totBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (Tasa BCV: ${curRate.toFixed(2)})\n` : '') +
+            (commsBin.length ? `🟡 *Por Transferir en Binance Pay (USDT):* $${totUsdt.toFixed(2)} USDT\n` : '') +
+            `💵 *Total Consolidado en Dólares:* $${totUsd.toFixed(2)} USD\n\n` +
+            `Avísame para coordinar el pago. ¡Seguimos creciendo socio! 🚀`;
 
           navigator.clipboard.writeText(msg).catch(() => {});
 
