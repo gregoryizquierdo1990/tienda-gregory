@@ -4059,6 +4059,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const totPendBs = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
       const totGregUsd = filtered.reduce((a, c) => a + Number(c.ganancia_gregory_usd || 0), 0);
       const totNegUsd = filtered.reduce((a, c) => a + Number(c.ganancia_negocio_usd || 0), 0);
+      const totReservaUsd = filtered.reduce((a, c) => a + Number(c.reserva_estrategica_usd || (c.ganancia_negocio_usd * 0.10) || 0), 0);
+      const totCajaUsd = filtered.reduce((a, c) => a + Number(c.caja_negocio_usd || (c.ganancia_negocio_usd * 0.90) || 0), 0);
       const totLiqUsd = filtered.filter(c => c.estado === 'liquidada').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
 
       const curSellerObj = (resellers || []).find(r => r.id === filterSeller) || (resellers || [])[0];
@@ -4071,7 +4073,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               <span class="pill" style="font-size:.74rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">Tasa BCV: Bs. ${curRate.toFixed(2)}</span>
             </h3>
             <p class="mut" style="font-size:.84rem;margin:4px 0 0">
-              División matemática transparente de cada venta autogestionada entre el Socio/Revendedor (Pablo), Gregory y el Fondo de Reserva.
+              Modelo financiero oficial de autogestión, compras mayoristas, liquidación en Bolívares / Binance y Reserva Estratégica.
             </p>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -4084,27 +4086,32 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           </div>
         </div>
 
-        <!-- Tarjetas de Métricas Globales -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:12px;margin-bottom:20px">
+        <!-- Tarjetas de Métricas Globales con Reserva Estratégica (10%) -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(185px, 1fr));gap:12px;margin-bottom:20px">
           <div class="card" style="border-color:rgba(255,183,3,.4);background:rgba(255,183,3,.04)">
-            <div class="mut" style="font-size:.78rem;text-transform:uppercase;color:#fde047;font-weight:700">Comisión Socio (Pablo)</div>
-            <div style="font-size:1.65rem;font-weight:800;color:#fde047;margin:6px 0 2px">$${totPendUsd.toFixed(2)}</div>
-            <div class="mut" style="font-size:.78rem">Equiv: <b>Bs. ${totPendBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b></div>
+            <div class="mut" style="font-size:.76rem;text-transform:uppercase;color:#fde047;font-weight:700">Comisión Socio (Pablo)</div>
+            <div style="font-size:1.55rem;font-weight:800;color:#fde047;margin:6px 0 2px">$${totPendUsd.toFixed(2)}</div>
+            <div class="mut" style="font-size:.76rem">Equiv: <b>Bs. ${totPendBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b></div>
           </div>
           <div class="card" style="border-color:rgba(0,245,160,.4);background:rgba(0,245,160,.04)">
-            <div class="mut" style="font-size:.78rem;text-transform:uppercase;color:#00f5a0;font-weight:700">Ganancia Gregory (Operativa)</div>
-            <div style="font-size:1.65rem;font-weight:800;color:#00f5a0;margin:6px 0 2px">$${totGregUsd.toFixed(2)}</div>
-            <div class="mut" style="font-size:.78rem">70% margen mayorista plataforma</div>
+            <div class="mut" style="font-size:.76rem;text-transform:uppercase;color:#00f5a0;font-weight:700">Ganancia Gregory</div>
+            <div style="font-size:1.55rem;font-weight:800;color:#00f5a0;margin:6px 0 2px">$${totGregUsd.toFixed(2)}</div>
+            <div class="mut" style="font-size:.76rem">Honorarios operativos tienda</div>
           </div>
           <div class="card" style="border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.04)">
-            <div class="mut" style="font-size:.78rem;text-transform:uppercase;color:#38bdf8;font-weight:700">Fondo Reserva Negocio</div>
-            <div style="font-size:1.65rem;font-weight:800;color:#38bdf8;margin:6px 0 2px">$${totNegUsd.toFixed(2)}</div>
-            <div class="mut" style="font-size:.78rem">30% compras cuentas madre y saldo</div>
+            <div class="mut" style="font-size:.76rem;text-transform:uppercase;color:#38bdf8;font-weight:700">Caja Negocio (90%)</div>
+            <div style="font-size:1.55rem;font-weight:800;color:#38bdf8;margin:6px 0 2px">$${totCajaUsd.toFixed(2)}</div>
+            <div class="mut" style="font-size:.76rem">Utilidad operativa disponible</div>
+          </div>
+          <div class="card" style="border-color:rgba(244,63,94,.4);background:rgba(244,63,94,.06)">
+            <div class="mut" style="font-size:.76rem;text-transform:uppercase;color:#fb7185;font-weight:800">🛡️ Reserva Estratégica (10%)</div>
+            <div style="font-size:1.55rem;font-weight:800;color:#fb7185;margin:6px 0 2px">$${totReservaUsd.toFixed(2)}</div>
+            <div class="mut" style="font-size:.76rem">Fondo caídas y reposiciones</div>
           </div>
           <div class="card">
-            <div class="mut" style="font-size:.78rem;text-transform:uppercase;font-weight:700">Total Ya Liquidado / Pagado</div>
-            <div style="font-size:1.65rem;font-weight:800;color:#94a3b8;margin:6px 0 2px">$${totLiqUsd.toFixed(2)}</div>
-            <div class="mut" style="font-size:.78rem">Historial de cortes cerrados</div>
+            <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">Total Ya Liquidado</div>
+            <div style="font-size:1.55rem;font-weight:800;color:#94a3b8;margin:6px 0 2px">$${totLiqUsd.toFixed(2)}</div>
+            <div class="mut" style="font-size:.76rem">Historial de cortes cerrados</div>
           </div>
         </div>
 
@@ -4142,7 +4149,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                 <th>Cobrado</th>
                 <th>Comisión Socio</th>
                 <th>Gregory</th>
-                <th>Negocio (Fondo)</th>
+                <th>Caja Neg. (90%)</th>
+                <th>🛡️ Reserva (10%)</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -4152,6 +4160,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                 const cNom = c.customers?.nombre || c.customers?.email || 'Cliente';
                 const isPend = c.estado === 'pendiente';
                 const isBin = c.metodo_origen === 'binance';
+                const cCaja = Number(c.caja_negocio_usd || (Number(c.ganancia_negocio_usd || 0) * 0.90));
+                const cRes = Number(c.reserva_estrategica_usd || (Number(c.ganancia_negocio_usd || 0) * 0.10));
                 return `
                   <tr>
                     <td style="font-size:.76rem;color:#94a3b8">${(c.created_at || '').slice(0, 10)}</td>
@@ -4171,7 +4181,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                       </div>
                     </td>
                     <td style="color:#00f5a0;font-weight:700">+$${Number(c.ganancia_gregory_usd).toFixed(2)}</td>
-                    <td style="color:#38bdf8">+$${Number(c.ganancia_negocio_usd).toFixed(2)}</td>
+                    <td style="color:#38bdf8;font-weight:600">+$${cCaja.toFixed(2)}</td>
+                    <td style="color:#fb7185;font-weight:700">+$${cRes.toFixed(2)}</td>
                     <td>
                       <span class="pill" style="font-size:.7rem;${isPend ? 'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)' : 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">
                         ${isPend ? '🟡 Pendiente' : '🟢 Liquidada'}
@@ -4181,7 +4192,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                 `;
               }).join('') : `
                 <tr>
-                  <td colspan="10" style="text-align:center;padding:24px" class="mut">
+                  <td colspan="11" style="text-align:center;padding:24px" class="mut">
                     No hay comisiones registradas con los filtros seleccionados.
                   </td>
                 </tr>

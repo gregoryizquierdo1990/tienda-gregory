@@ -3038,15 +3038,15 @@ async function portal(){
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <div>
             <div style="display:flex;align-items:center;gap:8px">
-              <h3 style="margin:0;color:#ffb703">👥 Mis Clientes & Perfiles Asignados</h3>
-              <span class="pill" style="font-size:.74rem;background:rgba(255,183,3,.15);color:#ffb703;border-color:rgba(255,183,3,.3)">${rcList.length} registros</span>
+              <h3 style="margin:0;color:#ffb703">${S.isAdmin ? '🛒 Clientes Directo Tienda (Autogestión)' : '👥 Mis Clientes & Perfiles Asignados'}</h3>
+              <span class="pill" style="font-size:.74rem;background:rgba(255,183,3,.15);color:#ffb703;border-color:rgba(255,183,3,.3)">${rcList.length} ${rcList.length === 1 ? 'perfil' : 'perfiles'}</span>
             </div>
             <p class="mut" style="font-size:.82rem;margin:4px 0 0">
-              Datos de acceso, claves y fechas de vencimiento de tus clientes para soporte y reenvío directo.
+              ${S.isAdmin ? 'Perfiles y suscripciones de clientes autogestionados directamente en la tienda central (sin revendedor intermediario).' : 'Datos de acceso, claves y fechas de vencimiento de tus clientes para soporte y reenvío directo.'}
             </p>
           </div>
           <div style="font-size:.78rem;color:#fde047;background:rgba(253,224,71,.08);padding:4px 10px;border-radius:8px;border:1px solid rgba(253,224,71,.2)">
-            ⭐ Aliado Comercial Autorizado
+            ${S.isAdmin ? '👑 Administración Central' : '⭐ Aliado Comercial Autorizado'}
           </div>
         </div>
         ${rcList.length ? `
