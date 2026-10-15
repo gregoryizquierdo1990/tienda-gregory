@@ -5,11 +5,19 @@
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
--- 1. COLUMNAS DE VINCULACIÓN EN CUSTOMERS, PROFILES_INVENTORY Y ORDERS
+-- 1. GARANTIZAR COLUMNAS EN CUSTOMERS, PROFILES_INVENTORY, ORDERS Y TABLA ZENY_CARDS
 -- ------------------------------------------------------------------------------
+alter table customers add column if not exists debe_cambiar_password boolean default false;
+alter table customers add column if not exists nivel_credito text not null default 'Bronce';
+alter table customers add column if not exists codigo_identificacion text;
+alter table customers add column if not exists limite_credito numeric(10,2) default 0.00;
+alter table customers add column if not exists zeny_balance numeric(10,2) default 0.00;
+alter table customers add column if not exists es_revendedor boolean default false;
+alter table customers add column if not exists es_franquicia boolean default false;
 alter table customers add column if not exists vendedor_id uuid references customers(id) on delete set null;
 alter table customers add column if not exists vendedor_nombre text;
 
+alter table profiles_inventory add column if not exists vendedor text;
 alter table profiles_inventory add column if not exists vendedor_id uuid references customers(id) on delete set null;
 alter table profiles_inventory add column if not exists assigned_customer_id uuid references customers(id) on delete set null;
 
@@ -19,6 +27,23 @@ create index if not exists idx_customers_vendedor on customers(vendedor_id);
 create index if not exists idx_profiles_vendedor on profiles_inventory(vendedor_id);
 create index if not exists idx_profiles_assigned_cust on profiles_inventory(assigned_customer_id);
 create index if not exists idx_orders_vendedor on orders(vendedor_id);
+
+-- Asegurar estructura de zeny_cards por si no fue creada previamente
+create table if not exists zeny_cards (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references customers(id) on delete cascade unique,
+  numero_tarjeta text not null unique,
+  nombre_titular text not null,
+  codigo_activacion text not null,
+  fecha_vencimiento text not null default '12/31',
+  estado text not null default 'activa' check (estado in ('activa', 'por_activar', 'bloqueada', 'vencida')),
+  descuento_porcentaje numeric(5,2) not null default 5.00,
+  activada_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_zeny_cards_customer on zeny_cards(customer_id);
+create index if not exists idx_zeny_cards_numero on zeny_cards(numero_tarjeta);
 
 
 -- ------------------------------------------------------------------------------
@@ -47,11 +72,14 @@ begin
     email = 'pacun1989@gmail.com',
     telefono = '584129130080',
     es_revendedor = true,
+    limite_credito = coalesce(customers.limite_credito, 100.00),
+    nivel_credito = coalesce(customers.nivel_credito, 'Oro'),
+    debe_cambiar_password = coalesce(customers.debe_cambiar_password, true),
     codigo_identificacion = coalesce(customers.codigo_identificacion, 'RVD:1001');
 
   insert into zeny_cards(customer_id, numero_tarjeta, nombre_titular, fecha_vencimiento, codigo_activacion, estado)
   values (v_uid, '4532 9801 0080 3456', 'PABLO GONZALEZ', '10/28', '130080', 'activa')
-  on conflict (customer_id) do nothing;
+  on conflict do nothing;
 
 
   -- 2. LEANDRO PERDOMO (584122952044, perdomoleandro39@gmail.com, clave temporal: 952044)
@@ -72,11 +100,14 @@ begin
     email = 'perdomoleandro39@gmail.com',
     telefono = '584122952044',
     es_revendedor = true,
+    limite_credito = coalesce(customers.limite_credito, 100.00),
+    nivel_credito = coalesce(customers.nivel_credito, 'Oro'),
+    debe_cambiar_password = coalesce(customers.debe_cambiar_password, true),
     codigo_identificacion = coalesce(customers.codigo_identificacion, 'RVD:1002');
 
   insert into zeny_cards(customer_id, numero_tarjeta, nombre_titular, fecha_vencimiento, codigo_activacion, estado)
   values (v_uid, '4532 9802 2044 3456', 'LEANDRO PERDOMO', '10/28', '952044', 'activa')
-  on conflict (customer_id) do nothing;
+  on conflict do nothing;
 
 
   -- 3. NELSON BUSTAMANTE (584120266710, clave temporal: 266710)
@@ -96,11 +127,14 @@ begin
     nombre = 'Nelson Bustamante',
     telefono = '584120266710',
     es_revendedor = true,
+    limite_credito = coalesce(customers.limite_credito, 100.00),
+    nivel_credito = coalesce(customers.nivel_credito, 'Oro'),
+    debe_cambiar_password = coalesce(customers.debe_cambiar_password, true),
     codigo_identificacion = coalesce(customers.codigo_identificacion, 'RVD:1003');
 
   insert into zeny_cards(customer_id, numero_tarjeta, nombre_titular, fecha_vencimiento, codigo_activacion, estado)
   values (v_uid, '4532 9803 6710 3456', 'NELSON BUSTAMANTE', '10/28', '266710', 'activa')
-  on conflict (customer_id) do nothing;
+  on conflict do nothing;
 
 
   -- 4. JOSUANNY (584129939848, clave temporal: 939848)
@@ -120,11 +154,14 @@ begin
     nombre = 'Josuanny',
     telefono = '584129939848',
     es_revendedor = true,
+    limite_credito = coalesce(customers.limite_credito, 100.00),
+    nivel_credito = coalesce(customers.nivel_credito, 'Oro'),
+    debe_cambiar_password = coalesce(customers.debe_cambiar_password, true),
     codigo_identificacion = coalesce(customers.codigo_identificacion, 'RVD:1004');
 
   insert into zeny_cards(customer_id, numero_tarjeta, nombre_titular, fecha_vencimiento, codigo_activacion, estado)
   values (v_uid, '4532 9804 9848 3456', 'JOSUANNY', '10/28', '939848', 'activa')
-  on conflict (customer_id) do nothing;
+  on conflict do nothing;
 end $$;
 
 
