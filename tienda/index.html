@@ -2995,7 +2995,7 @@ async function portal(){
   try {
     const q = async fn => { try { return await fn(); } catch(e) { return { data: null, error: e }; } };
 
-    const [o,i,l,inc,cr,inst,zcard,mcOps] = await Promise.all([
+    const [o,i,l,inc,cr,inst,zcard,mcOps,resellerClients] = await Promise.all([
       q(() => sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
       q(() => sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false})),
       q(() => sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
@@ -3003,7 +3003,8 @@ async function portal(){
       q(() => sb.rpc('my_credentials')),
       q(() => sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true})),
       q(() => sb.from('my_zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle().then(r => r.error ? sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle() : r)),
-      q(() => sb.from('mesa_cambio_operaciones').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}))
+      q(() => sb.from('mesa_cambio_operaciones').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
+      q(() => (S.me?.es_revendedor || S.isAdmin) ? sb.rpc('my_reseller_clients') : Promise.resolve({ data: [] }))
     ]);
 
     const cardData = zcard?.data || null;
@@ -3023,6 +3024,104 @@ async function portal(){
     const next = (o?.data||[]).filter(x=>x.estado==='entregado'||x.estado==='pagado').map(x=>x.proximo_pago).filter(Boolean).sort()[0];
     const hold=(l?.data||[]).filter(x=>x.tipo==='compra'&&x.estado==='pendiente').reduce((a,x)=>a-Number(x.monto || 0),0);
     const T=(h,rows)=>`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+
+    const rcList = resellerClients?.data || [];
+    const showResellerBlock = isReseller || rcList.length > 0;
+    let resellerBlockHtml = '';
+    if(showResellerBlock){
+      resellerBlockHtml = `
+      <div style="margin:28px 0;background:rgba(255,255,255,.02);border:1px solid rgba(255,183,3,.25);border-radius:16px;padding:20px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <h3 style="margin:0;color:#ffb703">👥 Mis Clientes & Perfiles Asignados</h3>
+              <span class="pill" style="font-size:.74rem;background:rgba(255,183,3,.15);color:#ffb703;border-color:rgba(255,183,3,.3)">${rcList.length} registros</span>
+            </div>
+            <p class="mut" style="font-size:.82rem;margin:4px 0 0">
+              Datos de acceso, claves y fechas de vencimiento de tus clientes para soporte y reenvío directo.
+            </p>
+          </div>
+          <div style="font-size:.78rem;color:#fde047;background:rgba(253,224,71,.08);padding:4px 10px;border-radius:8px;border:1px solid rgba(253,224,71,.2)">
+            ⭐ Aliado Comercial Autorizado
+          </div>
+        </div>
+        ${rcList.length ? `
+          <div class="wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente / WhatsApp</th>
+                  <th>Servicio</th>
+                  <th>Perfil / PIN</th>
+                  <th>Correo & Clave</th>
+                  <th>Vencimiento</th>
+                  <th>Acciones Rápidas</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rcList.map(rc => {
+                  const cleanPhone = (rc.cliente_telefono || '').replace(/\D/g, '');
+                  const waTarget = cleanPhone.startsWith('58') ? cleanPhone : (cleanPhone ? '58' + cleanPhone.replace(/^0+/, '') : '');
+                  const cleanMsg = formatMessageTemplate('datos_limpios_revendedor', {
+                    servicio: rc.servicio || rc.plataforma || 'Servicio Digital',
+                    correo: rc.correo,
+                    clave: rc.clave,
+                    perfil: rc.nombre_perfil || 'Perfil 1',
+                    pin: rc.pin || 'Sin PIN',
+                    vence: rc.vence || '30 días'
+                  });
+                  const waUrl = waTarget ? `https://wa.me/${waTarget}?text=${encodeURIComponent(cleanMsg)}` : '';
+                  const isExp = rc.vence && rc.vence < new Date().toISOString().slice(0, 10);
+
+                  return `
+                    <tr>
+                      <td>
+                        <b>${esc(rc.cliente_nombre || 'Cliente')}</b>
+                        ${rc.cliente_telefono ? `<div style="font-size:.76rem;color:#38bdf8;margin-top:2px">📱 ${esc(rc.cliente_telefono)}</div>` : ''}
+                        ${rc.cliente_email && !rc.cliente_email.includes('@cliente.gregoryizquierdo.xyz') ? `<div class="mut" style="font-size:.72rem">${esc(rc.cliente_email)}</div>` : ''}
+                      </td>
+                      <td>
+                        <b>${esc(rc.servicio || rc.plataforma)}</b>
+                        <div class="mut" style="font-size:.72rem">${esc(rc.plataforma || '')}</div>
+                      </td>
+                      <td>
+                        <div><b>${esc(rc.nombre_perfil || '—')}</b></div>
+                        <div style="font-size:.75rem;margin-top:2px">PIN: <code style="color:#00f5a0">${esc(rc.pin || 'Sin PIN')}</code></div>
+                      </td>
+                      <td>
+                        <div style="font-size:.8rem">✉️ ${esc(rc.correo)}</div>
+                        <div style="font-size:.78rem;margin-top:2px">🔑 <code>${esc(rc.clave)}</code></div>
+                      </td>
+                      <td>
+                        <b>${esc(rc.vence || '—')}</b>
+                        <div style="font-size:.7rem;margin-top:2px">
+                          ${isExp ? '<span style="color:#f87171;font-weight:700">⚠️ Vencido</span>' : '<span style="color:#00f5a0;font-weight:700">🟢 Activo</span>'}
+                        </div>
+                      </td>
+                      <td>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap">
+                          <button class="clean-copy-btn" data-clean-copy="${esc(cleanMsg)}" title="Copiar datos limpios para reenviar a tu cliente">
+                            📋 Copiar
+                          </button>
+                          ${waUrl ? `
+                            <a href="${waUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
+                              <button class="g" style="padding:6px 10px;font-size:.76rem;color:#00f5a0;border-color:rgba(0,245,160,.35)">
+                                💬 WA
+                              </button>
+                            </a>
+                          ` : ''}
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : '<p class="mut" style="margin:0;font-size:.85rem">Aún no tienes clientes o perfiles asignados a tu cuenta. Cuando Gregory te vincule clientes o realices compras para tus usuarios aparecerán aquí detallados.</p>'}
+      </div>
+      `;
+    }
 
     const realCardNum = (cardData?.numero_tarjeta || '').trim();
     let displayCardNum = realCardNum;
@@ -3223,6 +3322,7 @@ async function portal(){
       </table>
     </div>
   ` : '<p class="mut">Aquí verás tus accesos cuando tu pedido sea entregado.</p>'}
+  ${resellerBlockHtml}
   <div style="display:flex;justify-content:space-between;align-items:center;margin:28px 0 10px">
     <h3 style="margin:0">Mis compras y pedidos</h3>
     <span class="mut" style="font-size:.8rem">${(o.data||[]).length} pedidos</span>
@@ -3704,7 +3804,7 @@ const TABLES = {
  payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
  profiles_inventory:['mother_id','product_id','nombre_perfil','pin','vendedor','inicia','vence','estado'],
-  customers:['codigo_identificacion','nombre','email','telefono','es_revendedor','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
+  customers:['codigo_identificacion','nombre','email','telefono','vendedor_nombre','es_revendedor','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
   bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
   exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','notas'], purchases:['fecha','proveedor','plataforma','mother_id','monto_usd','notas'],
   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
@@ -3713,7 +3813,7 @@ const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo']};
 const BOOL=['activo','activa','enabled','es_revendedor','permite_cuotas','es_exclusivo_central'], READONLY={customers:['zeny_balance']};
 const NOADD=['refunds','transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Asignar Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Resetear Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 Acceso WA</button>`:''}`:t==='profiles_inventory'&&r.estado==='vendido'?`<button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}`:t==='profiles_inventory'&&r.estado==='vendido'?`<button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -3724,7 +3824,9 @@ const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) r
     const copyVal=d.player_id||d.telefono||'';
     return `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem"><b>${esc(info)}</b><button type="button" class="g" style="padding:2px 6px;font-size:.7rem" data-clean-copy="${esc(copyVal)}" title="Copiar dato">📋</button></div>`;
   }
-  if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):''); return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
+  if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):'');
+  if(c==='vendedor_nombre') return v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 ${esc(v)}</span>` : '<span class="mut" style="font-size:.75rem">Directo Tienda</span>';
+  return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
 const ADMIN_MENU = [
   {
     group: 'Operaciones Tienda Central',
@@ -3967,6 +4069,67 @@ async function admin(t){
   app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));
   app.querySelectorAll('[data-tr-prof]').forEach(b=>b.onclick=()=>openTransferModal({profileId:b.dataset.trProf,done:()=>admin(t)}));
   app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
+  app.querySelectorAll('[data-assign-seller]').forEach(b => b.onclick = async () => {
+    const custId = b.dataset.assignSeller;
+    const nom = b.dataset.nom || 'Cliente';
+    const curVendedorId = b.dataset.cur || '';
+    const curVendedorNom = b.dataset.curnom || '';
+
+    const { data: resellers, error } = await sb.from('customers')
+      .select('id, nombre, email, telefono, codigo_identificacion')
+      .eq('es_revendedor', true)
+      .order('nombre');
+
+    if(error) return toast('Error al consultar revendedores: ' + error.message);
+
+    const options = (resellers || []).map(r => {
+      const isSelected = r.id === curVendedorId ? 'selected' : '';
+      const label = `${r.nombre || r.email} (${r.codigo_identificacion || 'RVD'}) ${r.telefono ? '· ' + r.telefono : ''}`;
+      return `<option value="${r.id}" ${isSelected}>${esc(label)}</option>`;
+    }).join('');
+
+    $('#dlgBody').innerHTML = `
+      <h3>🤝 Asignar Vendedor / Revendedor</h3>
+      <p class="mut" style="font-size:.85rem;margin:0 0 14px">
+        Asigna el cliente <b>${esc(nom)}</b> a un vendedor. El vendedor podrá visualizar y dar soporte a los accesos y cuentas de este cliente en su portal.
+      </p>
+      <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
+        <div style="margin-bottom:10px">
+          <span class="mut" style="font-size:.82rem">Vendedor actual: </span>
+          <b style="color:var(--c)">${esc(curVendedorNom || 'Sin vendedor asignado (Venta Directa Tienda)')}</b>
+        </div>
+        <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Seleccionar Vendedor Responsable:</label>
+        <select id="selectAssignSeller" style="width:100%;font-size:.95rem;padding:8px;background:rgba(3,8,18,.8);border-radius:8px">
+          <option value="">— Ninguno (Venta Directa Tienda) —</option>
+          ${options}
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="g" onclick="dlg.close()">Cancelar</button>
+        <button id="btnConfirmAssignSeller">💾 Guardar Asignación</button>
+      </div>
+    `;
+    dlg.showModal();
+
+    $('#btnConfirmAssignSeller').onclick = async () => {
+      const btn = $('#btnConfirmAssignSeller');
+      btn.disabled = true;
+      btn.textContent = '⏳ Guardando...';
+      const sellerId = $('#selectAssignSeller').value || null;
+      const { error: rpcErr } = await sb.rpc('asignar_cliente_a_vendedor', {
+        p_cliente_id: custId,
+        p_vendedor_id: sellerId
+      });
+      if(rpcErr){
+        btn.disabled = false;
+        btn.textContent = '💾 Guardar Asignación';
+        return toast('Error al asignar vendedor: ' + rpcErr.message);
+      }
+      toast(`Vendedor asignado correctamente a ${nom}`);
+      dlg.close();
+      if(S.view === 'admin') admin(t);
+    };
+  });
   app.querySelectorAll('[data-set-credit]').forEach(b=>b.onclick=()=>{
     const uid=b.dataset.setCredit, nom=b.dataset.nom, cur=Number(b.dataset.cur||0).toFixed(2);
     $('#dlgBody').innerHTML=`
