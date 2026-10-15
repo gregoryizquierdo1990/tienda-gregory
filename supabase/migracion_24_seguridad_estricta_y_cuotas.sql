@@ -6,10 +6,23 @@
 -- ------------------------------------------------------------------------------
 -- 1. VERIFICACIÓN ESTRICTA DE SESIÓN GOOGLE PARA ADMINISTRADORES
 -- ------------------------------------------------------------------------------
+create table if not exists admins (email text primary key);
+insert into admins (email) values
+  ('emprendimientogregoryizquierdo@gmail.com'),
+  ('gregoryizquierdo1990@gmail.com')
+on conflict (email) do nothing;
+
 create or replace function is_admin() returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists(select 1 from admins where lower(email) = lower(auth.jwt()->>'email'))
-     and coalesce(auth.jwt()->'app_metadata'->>'provider', '') = 'google';
+  select exists(
+    select 1 from admins
+    where lower(admins.email) = lower(auth.jwt()->>'email')
+  )
+  and (
+    coalesce(auth.jwt()->'app_metadata'->>'provider', '') = 'google'
+    or exists(select 1 from jsonb_array_elements(coalesce(auth.jwt()->'amr','[]'::jsonb)) a where a->>'method' in ('oauth', 'google'))
+    or coalesce(auth.jwt()->>'iss', '') like '%google%'
+  );
 $$;
 
 revoke execute on function is_admin() from public, anon;

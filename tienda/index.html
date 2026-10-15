@@ -789,15 +789,33 @@ function detectSubdomain(){
 
 async function init(){
   app.innerHTML=skeleton();
-  const {data:{session}} = await sb.auth.getSession(); await onSession(session);
-  sb.auth.onAuthStateChange((_e,s)=>onSession(s));
   await loadPublic();
+
+  // 1. Escuchar cambios de autenticación (OAuth callback o refresh de sesión)
+  sb.auth.onAuthStateChange(async (_e,s)=>{
+    if(s) await onSession(s);
+    const isAdminRoute = location.hash.startsWith('#admin') || new URLSearchParams(location.search).get('app') === 'admin';
+    if(isAdminRoute && S.isAdmin){
+      if(facetDlg && facetDlg.open) facetDlg.close();
+      let tab = 'finanzas';
+      const cleanHash = location.hash.replace(/^#admin\/?/, '');
+      if(cleanHash && (TABLES[cleanHash] || EXTRA[cleanHash])) tab = cleanHash;
+      admin(tab);
+    }
+  });
+
+  // 2. Obtener sesión actual
+  const {data:{session}} = await sb.auth.getSession();
+  await onSession(session);
   
-  // Detección de ruta Admin directa (URL con ?app=admin o #admin para acceso/app del administrador)
+  // 3. Detección de ruta Admin directa (URL con ?app=admin o #admin para acceso/app del administrador)
   const isAdminRoute = location.hash.startsWith('#admin') || new URLSearchParams(location.search).get('app') === 'admin';
   if (isAdminRoute) {
     if (S.isAdmin) {
-      const subTab = location.hash.replace(/^#admin\/?/, '') || 'finanzas';
+      if(facetDlg && facetDlg.open) facetDlg.close();
+      let subTab = 'finanzas';
+      const cleanHash = location.hash.replace(/^#admin\/?/, '');
+      if(cleanHash && (TABLES[cleanHash] || EXTRA[cleanHash])) subTab = cleanHash;
       admin(subTab);
     } else {
       adminLoginDlg();
@@ -888,8 +906,12 @@ async function onSession(session){
   } else {
     if(!isSameUser) S.isAdmin = false;
     const email = (S.user.email||'').toLowerCase();
-    const isGoogle = S.user.app_metadata?.provider === 'google' || (S.user.identities||[]).some(x=>x.provider==='google');
-    const isKnown = email === 'emprendimientogregoryizquierdo@gmail.com' || (S.settings.negocio?.correo && email === String(S.settings.negocio.correo).toLowerCase());
+    const isGoogle = S.user.app_metadata?.provider === 'google' 
+      || (S.user.identities||[]).some(x=>x.provider==='google')
+      || (S.user.app_metadata?.providers||[]).includes('google');
+    const isKnown = email === 'emprendimientogregoryizquierdo@gmail.com' 
+      || email === 'gregoryizquierdo1990@gmail.com'
+      || (S.settings.negocio?.correo && email === String(S.settings.negocio.correo).toLowerCase());
     try {
       const [m, a, rpc] = await Promise.all([
         sb.from('customers').select('*').eq('id',S.user.id).maybeSingle(),
@@ -898,12 +920,14 @@ async function onSession(session){
       ]);
       S.me = m?.data || S.me;
       S.isAdmin = Boolean(rpc?.data === true || a?.data || (isKnown && isGoogle));
+      if(S.isAdmin && facetDlg && facetDlg.open) facetDlg.close();
       sb.from('login_log').insert({customer_id:S.user.id,email:S.user.email,user_agent:navigator.userAgent}).then(()=>{});
       if(S.me?.debe_cambiar_password === true && !S.isAdmin){
         setTimeout(() => forceChangePasswordDlg(), 250);
       }
     } catch(err) {
       if(isKnown && isGoogle) S.isAdmin = true;
+      if(S.isAdmin && facetDlg && facetDlg.open) facetDlg.close();
     }
   }
   $('#bLogin').classList.toggle('hide',!!S.user);
@@ -2795,28 +2819,42 @@ function forceChangePasswordDlg(){
 function adminLoginDlg(){
   const title = 'ADMIN';
   const subtitle = 'Acceso de Administrador';
+  const curUserEmail = S.user?.email || '';
+  const isLoggedNonAdmin = !!S.user && !S.isAdmin;
+
   const contentHtml = `
     <p class="mut" style="text-align:center;font-size:.82rem;margin:0 0 16px;line-height:1.4">
       El acceso al panel administrativo está reservado para el correo oficial mediante Google con permisos de sincronización bidireccional (Calendar, Drive, Contactos y Sheets).
     </p>
+    ${isLoggedNonAdmin ? `
+      <div style="background:rgba(239,68,68,.12);border:1px solid #ef4444;border-radius:12px;padding:12px;margin-bottom:14px;text-align:center;font-size:.8rem;color:#fca5a5">
+        ⚠️ Has iniciado sesión con <b>${esc(curUserEmail)}</b>, pero este correo no tiene permisos de administrador.<br>
+        <span style="font-size:.74rem;color:#cbd5e1">Accede con tu cuenta oficial (emprendimientogregoryizquierdo@gmail.com o gregoryizquierdo1990@gmail.com).</span>
+      </div>
+    ` : ''}
     <button id="facetAdminGoogle" class="facet-btn" style="min-width:210px;padding:12px 24px" type="button">
-      ACCEDER CON GOOGLE
+      ${isLoggedNonAdmin ? '🔄 CAMBIAR Y ACCEDER CON OTRA CUENTA GOOGLE' : 'ACCEDER CON GOOGLE'}
     </button>
   `;
 
   facetDlg.innerHTML = renderFacetShell({title, subtitle, contentHtml});
   $('#facetCloseBtn').onclick = () => facetDlg.close();
-  $('#facetAdminGoogle').onclick = () => sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: location.origin + '/?app=admin#admin',
-      scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/spreadsheets',
-      queryParams: {
-        access_type: 'offline',
-        prompt: 'consent'
-      }
+  $('#facetAdminGoogle').onclick = async () => {
+    if(isLoggedNonAdmin){
+      await sb.auth.signOut().catch(()=>{});
     }
-  });
+    sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: location.origin + '/?app=admin#admin',
+        scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/spreadsheets',
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'select_account consent'
+        }
+      }
+    });
+  };
 
   if(!facetDlg.open) facetDlg.showModal();
 }
@@ -3717,10 +3755,12 @@ async function ensureAdminSession(){
 }
 
 async function admin(t){
+  if(!t || (!TABLES[t] && !EXTRA[t])) t = 'finanzas';
   if(!S.isAdmin){
     const ok = await ensureAdminSession();
     if(!ok) return toast('Acceso solo para el administrador');
   }
+  if(facetDlg && facetDlg.open) facetDlg.close();
   document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
   const tabs=[...Object.keys(TABLES),...Object.keys(EXTRA)];
   const tabInfo=getTabInfo(t), sideHtml=renderAdminSidebar(t,tabs);
