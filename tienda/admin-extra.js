@@ -318,7 +318,7 @@ const EXTRA = {
 
     box.innerHTML = '<p class="mut">Cargando calendario de vencimientos y Google Calendar…</p>';
 
-    // Consultamos pedidos entregados/activos, cuentas madre y eventos de Google Calendar en paralelo
+    // Consultamos pedidos entregados/activos, cuentas madre, inventario de perfiles y eventos de Google Calendar en paralelo
     const pms = [
       sb.from('orders')
         .select('id,customer_id,product_id,profile_id,total_usd,referencia,inicia,vence,gcal_event_id,estado,customers(nombre,email,telefono),products(nombre)')
@@ -327,6 +327,12 @@ const EXTRA = {
         .lte('vence', endMonth),
       sb.from('mother_accounts')
         .select('id,plataforma,correo,vence,activa,proveedor')
+        .not('vence', 'is', null)
+        .gte('vence', startMonth)
+        .lte('vence', endMonth),
+      sb.from('profiles_inventory')
+        .select('id,nombre_perfil,vence,vendedor,pin,estado,product_id,mother_id,products(nombre),mother_accounts(plataforma,correo)')
+        .eq('estado', 'vendido')
         .not('vence', 'is', null)
         .gte('vence', startMonth)
         .lte('vence', endMonth)
@@ -339,13 +345,14 @@ const EXTRA = {
       }));
     }
 
-    const [resOrd, resMoth, resGcal] = await Promise.all(pms);
+    const [resOrd, resMoth, resProf, resGcal] = await Promise.all(pms);
     const orders = resOrd?.data || [];
     const mothers = resMoth?.data || [];
+    const profiles = resProf?.data || [];
     const gcalEvents = Array.isArray(resGcal) ? resGcal : [];
 
-    if (resOrd?.error || resMoth?.error) {
-      return box.innerHTML = `<p class="mut">Error al cargar datos: ${esc((resOrd?.error || resMoth?.error).message)}</p>`;
+    if (resOrd?.error || resMoth?.error || resProf?.error) {
+      return box.innerHTML = `<p class="mut">Error al cargar datos: ${esc((resOrd?.error || resMoth?.error || resProf?.error).message)}</p>`;
     }
 
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -356,13 +363,18 @@ const EXTRA = {
     const eventsByDate = {};
     orders.forEach(o => {
       const d = o.vence;
-      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], gcal: [] };
+      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], profiles: [], gcal: [] };
       eventsByDate[d].orders.push(o);
     });
     mothers.forEach(m => {
       const d = m.vence;
-      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], gcal: [] };
+      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], profiles: [], gcal: [] };
       eventsByDate[d].mothers.push(m);
+    });
+    profiles.forEach(p => {
+      const d = p.vence;
+      if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], profiles: [], gcal: [] };
+      eventsByDate[d].profiles.push(p);
     });
     gcalEvents.forEach(g => {
       g._isLinked = linkedGcalIds.has(g.id);
@@ -371,16 +383,17 @@ const EXTRA = {
       }
       const d = GCal.getEventDate(g);
       if (d) {
-        if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], gcal: [] };
+        if (!eventsByDate[d]) eventsByDate[d] = { orders: [], mothers: [], profiles: [], gcal: [] };
         eventsByDate[d].gcal.push(g);
       }
     });
 
     const totalOrdersMonth = orders.length;
     const totalMothersMonth = mothers.length;
+    const totalProfilesMonth = profiles.length;
     const totalGcalMonth = gcalEvents.length;
-    const todayEvents = eventsByDate[todayStr] || { orders: [], mothers: [], gcal: [] };
-    const todayTotal = todayEvents.orders.length + todayEvents.mothers.length + (todayEvents.gcal || []).filter(g => !g._isLinked).length;
+    const todayEvents = eventsByDate[todayStr] || { orders: [], mothers: [], profiles: [], gcal: [] };
+    const todayTotal = todayEvents.orders.length + todayEvents.mothers.length + (todayEvents.profiles?.length || 0) + (todayEvents.gcal || []).filter(g => !g._isLinked).length;
 
     // Calculo de celdas de calendario estilo Hoja de Calculo Google Sheets
     const firstDayIndex = new Date(state.year, state.month, 1).getDay(); // Domingo = 0
@@ -402,11 +415,13 @@ const EXTRA = {
       const isToday = dStr === todayStr;
       const isSel = dStr === state.selectedDate;
       const numOrd = ev?.orders?.length || 0;
+      const numProf = ev?.profiles?.length || 0;
+      const totalCli = numOrd + numProf;
       const numMoth = ev?.mothers?.length || 0;
       const numGcalUnlinked = (ev?.gcal || []).filter(g => !g._isLinked).length;
 
       let itemsHtml = '';
-      if (numOrd > 0) itemsHtml += `<div class="cal-item-pill order" title="${numOrd} clientes">👤 ${numOrd} servicio${numOrd > 1 ? 's' : ''}</div>`;
+      if (totalCli > 0) itemsHtml += `<div class="cal-item-pill order" title="${totalCli} clientes/perfiles">👤 ${totalCli} cliente${totalCli > 1 ? 's' : ''}</div>`;
       if (numMoth > 0) itemsHtml += `<div class="cal-item-pill mother" title="${numMoth} cuentas madre">🔑 ${numMoth} cuenta${numMoth > 1 ? 's' : ''}</div>`;
       if (numGcalUnlinked > 0) itemsHtml += `<div class="cal-item-pill gcal" style="background:#e8f0fe;color:#1a73e8;border-left:3px solid #1a73e8" title="${numGcalUnlinked} eventos en Google Calendar">📅 ${numGcalUnlinked} Calendar</div>`;
 
@@ -426,8 +441,8 @@ const EXTRA = {
 
     // Detalle del día seleccionado
     const selDate = state.selectedDate || todayStr;
-    const selEvents = eventsByDate[selDate] || { orders: [], mothers: [], gcal: [] };
-    const selTotal = selEvents.orders.length + selEvents.mothers.length + (selEvents.gcal || []).filter(g => !g._isLinked).length;
+    const selEvents = eventsByDate[selDate] || { orders: [], mothers: [], profiles: [], gcal: [] };
+    const selTotal = (selEvents.orders?.length || 0) + (selEvents.mothers?.length || 0) + (selEvents.profiles?.length || 0) + (selEvents.gcal || []).filter(g => !g._isLinked).length;
 
     let detailHtml = `
       <div class="cal-detail">
@@ -440,9 +455,45 @@ const EXTRA = {
     if (selTotal === 0 && (!selEvents.gcal || selEvents.gcal.length === 0)) {
       detailHtml += '<p class="mut" style="margin:0">No hay servicios ni cuentas madre programados para vencer en esta fecha.</p>';
     } else {
+      if (selEvents.profiles && selEvents.profiles.length > 0) {
+        detailHtml += `
+          <h5 style="margin:8px 0 6px;color:#00f5a0;display:flex;align-items:center;justify-content:space-between">
+            <span>👤 Perfiles y Clientes Activos (${selEvents.profiles.length})</span>
+            <span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.12);color:#00f5a0;border:1px solid rgba(0,245,160,.3)">Inventario en Uso</span>
+          </h5>
+          <div class="wrap" style="margin-bottom:12px">
+            <table>
+              <tr><th>Cliente / Perfil</th><th>Servicio</th><th>Cuenta Madre</th><th>PIN</th><th>Vendedor</th><th>Vence</th><th>Acciones</th></tr>
+              ${selEvents.profiles.map(p => {
+                const srvName = p.products?.nombre || p.mother_accounts?.plataforma || 'Servicio';
+                const motherMail = p.mother_accounts?.correo || '—';
+                const clientName = p.nombre_perfil || 'Cliente';
+                const waText = encodeURIComponent(`Hola ${clientName}! 👋 Te recordamos de Emprendimiento Gregory Izquierdo que tu servicio de ${srvName} tiene fecha de cobro/vencimiento el día de hoy (${p.vence}). Por favor indícanos si deseas renovar para mantener tu perfil activo.`);
+                return `
+                <tr>
+                  <td><b>${esc(clientName)}</b></td>
+                  <td><b style="color:var(--c)">${esc(srvName)}</b></td>
+                  <td><small>${esc(motherMail)}</small></td>
+                  <td><code>${esc(p.pin || '—')}</code></td>
+                  <td><span class="pill" style="font-size:.7rem">${esc(p.vendedor || 'ADMIN')}</span></td>
+                  <td><b style="color:#f59e0b">${esc(p.vence)}</b></td>
+                  <td class="row" style="gap:5px">
+                    <button class="g" data-cal-edit-prof-date="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem" title="Modificar fecha de vencimiento">
+                      ✏️ Fecha
+                    </button>
+                    <a href="https://api.whatsapp.com/send?text=${waText}" target="_blank" rel="noopener noreferrer" class="cal-sheet-btn" style="text-decoration:none;padding:4px 8px;font-size:.73rem;background:rgba(0,245,160,.15);color:#00f5a0;border-radius:6px;border:1px solid rgba(0,245,160,.3)" title="Enviar recordatorio por WhatsApp">
+                      💬 Recordar WA
+                    </a>
+                  </td>
+                </tr>
+              `;}).join('')}
+            </table>
+          </div>
+        `;
+      }
       if (selEvents.orders.length > 0) {
         detailHtml += `
-          <h5 style="margin:8px 0 6px;color:var(--c)">Servicios de Clientes (${selEvents.orders.length})</h5>
+          <h5 style="margin:8px 0 6px;color:var(--c)">Servicios de Clientes Web (${selEvents.orders.length})</h5>
           <div class="wrap" style="margin-bottom:12px">
             <table>
               <tr><th>Pedido</th><th>Cliente</th><th>Servicio</th><th>Contacto</th><th>Estado</th><th>Google Calendar</th><th>Acciones</th></tr>
@@ -832,6 +883,44 @@ Fecha Vencimiento: ${newDate}`;
               toast(`✅ Vencimiento cambiado a ${newDate} en la plataforma (Google Calendar no conectado).`);
             }
 
+            EXTRA.vencimientos(box);
+          } catch(err) {
+            toast('Error al actualizar fecha: ' + err.message);
+          }
+        };
+      };
+    });
+
+    // Acción: Modificar Fecha de Vencimiento de Perfil de Inventario
+    box.querySelectorAll('[data-cal-edit-prof-date]').forEach(btn => {
+      btn.onclick = () => {
+        const profId = btn.dataset.calEditProfDate;
+        const curDate = btn.dataset.curDate;
+        const custNom = btn.dataset.nom;
+        const srvNom = btn.dataset.srv;
+
+        $('#dlgBody').innerHTML = `
+          <h3>📅 Modificar Vencimiento de Perfil</h3>
+          <p class="mut" style="font-size:.82rem;margin:0 0 12px">Cliente/Perfil: <b>${esc(custNom)}</b> · Servicio: <b>${esc(srvNom)}</b></p>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <label class="mut" style="font-size:.76rem">Nueva Fecha de Vencimiento:</label>
+            <input type="date" id="dlgNewProfDate" value="${curDate}" required style="font-size:1rem;padding:8px 12px">
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnSaveProfDate" style="background:var(--grad);color:#03121c;font-weight:800">💾 Guardar Fecha</button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnSaveProfDate').onclick = async () => {
+          const newDate = $('#dlgNewProfDate').value;
+          if (!newDate) return toast('Ingresa una fecha válida.');
+          try {
+            const { error } = await sb.from('profiles_inventory').update({ vence: newDate }).eq('id', profId);
+            if (error) throw error;
+            dlg.close();
+            toast('✅ Vencimiento de perfil actualizado correctamente.');
             EXTRA.vencimientos(box);
           } catch(err) {
             toast('Error al actualizar fecha: ' + err.message);

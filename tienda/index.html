@@ -62,18 +62,25 @@ dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border
 .banner-promo-title{font-size:clamp(1.2rem,3.5vw,1.6rem);font-weight:800;margin:0 0 4px;background:linear-gradient(135deg,#ffffff 0%,#ecf6ff 60%,#00d4ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.3px}
 .banner-promo-sub{margin:0;font-size:.92rem;font-weight:600;color:#00d4ff;letter-spacing:1px;text-shadow:0 0 12px rgba(0,212,255,.4)}
 .banner-promo-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:70%;background:radial-gradient(circle,rgba(0,212,255,.18) 0%,transparent 70%);filter:blur(30px);pointer-events:none}
-.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px}
-.pc{position:relative;display:flex;flex-direction:column;border-radius:24px;overflow:hidden;background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(8,14,28,.97));border:1.5px solid rgba(148,163,184,.14);box-shadow:0 8px 24px -6px rgba(0,0,0,.6);transition:transform .22s cubic-bezier(.4,0,.2,1),border-color .22s ease,box-shadow .22s ease}
-.pc:hover{transform:translateY(-2px);border-color:rgba(99,102,241,.45);box-shadow:0 16px 36px -8px rgba(0,0,0,.75),0 0 20px -5px rgba(99,102,241,.25)}
-.pc-brand-indicator{position:absolute;top:10px;right:10px;z-index:2;display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:.66rem;font-weight:800;letter-spacing:.4px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);box-shadow:0 4px 12px rgba(0,0,0,.45)}
-.pc-brand-dot{width:7px;height:7px;border-radius:50%;display:inline-block;box-shadow:0 0 6px currentColor}
-.pc img,.ph{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}.ph{display:grid;place-items:center;font-size:3rem;font-weight:800;color:#03121c;background:var(--grad)}
-.pb{display:flex;flex-direction:column;gap:6px;padding:14px 16px 16px;flex:1}.pb h3{margin:0;font-size:1.05rem}.pb p{margin:0;min-height:1.2em}
-.tag{align-self:flex-start;font-size:.68rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:3px 9px;border-radius:99px;color:#03121c;background:var(--grad)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:22px}
+.pc{position:relative;display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:linear-gradient(180deg,#0f2442 0%,#08152a 100%);border:1.5px solid rgba(0,212,255,.26);box-shadow:0 12px 32px -8px rgba(0,0,0,.75),inset 0 1px 0 rgba(255,255,255,.1);transition:transform .22s cubic-bezier(.4,0,.2,1),border-color .22s ease,box-shadow .22s ease}
+.pc:hover{transform:translateY(-3px);border-color:#00d4ff;box-shadow:0 18px 42px -10px rgba(0,212,255,.35),0 0 24px -6px rgba(0,245,160,.25)}
+.pc-brand-indicator{position:absolute;top:10px;right:10px;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:99px;font-size:.68rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.25);box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.pc-brand-dot{width:8px;height:8px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor}
+.pc img,.ph{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+.ph{display:grid;place-items:center;padding:12px;text-align:center;background:radial-gradient(circle at 50% 35%,#1c385f 0%,#091629 100%);border-bottom:1px solid rgba(0,212,255,.2)}
+.pb{display:flex;flex-direction:column;gap:8px;padding:16px 18px 18px;flex:1;background:transparent}
+.pb h3{margin:0;font-size:1.15rem;font-weight:800;color:#ffffff;letter-spacing:.2px;line-height:1.25}
+.pb p.mut{margin:0;display:inline-flex;align-items:center;width:fit-content;font-size:.74rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:3px 10px;border-radius:6px;background:rgba(0,212,255,.12);color:#38bdf8;border:1px solid rgba(0,212,255,.28);box-shadow:0 2px 8px rgba(0,212,255,.1)}
+.tag{align-self:flex-start;font-size:.68rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:3px 10px;border-radius:99px;color:#03121c;background:var(--grad)}
 .t-cuenta_completa .tag{background:linear-gradient(135deg,#00d4ff,#2563ff);color:#fff}.t-servicio .tag{background:linear-gradient(135deg,#00f5a0,#00d4ff)}
-.meta{display:flex;gap:12px;font-size:.78rem;color:var(--mut)}.buy{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-top:8px}.sub{font-size:.74rem;color:var(--mut)}
-.cta{padding:9px 18px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border-radius:12px;font-weight:800;border:none;box-shadow:0 4px 16px rgba(79,70,229,.4);transition:transform .15s ease,box-shadow .2s ease}
-.cta:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.6);filter:brightness(1.08)}
+.meta{display:flex;gap:8px;font-size:.76rem;color:#94a3b8;font-weight:600;flex-wrap:wrap}
+.meta span{background:rgba(255,255,255,.05);padding:3px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.08)}
+.buy{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06)}
+.price{font-size:1.6rem;font-weight:800;color:#00f5a0;text-shadow:0 0 14px rgba(0,245,160,.35)}
+.sub{font-size:.74rem;color:#94a3b8;font-weight:600;margin-top:2px}
+.cta{padding:10px 18px;background:linear-gradient(135deg,#00f5a0 0%,#00d4ff 100%);color:#03121c;border-radius:12px;font-weight:800;border:none;box-shadow:0 4px 18px rgba(0,245,160,.4);transition:transform .15s ease,box-shadow .2s ease,filter .2s ease}
+.cta:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,212,255,.6);filter:brightness(1.08)}
 .empty{padding:40px 10px;text-align:center;grid-column:1/-1}
 .sk{border-radius:24px;min-height:280px;background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(0,212,255,.10) 50%,rgba(255,255,255,.04) 70%);background-size:200% 100%;animation:sh 1.4s infinite linear;border:1px solid var(--line)}@keyframes sh{to{background-position:-200% 0}}
 .float-acts{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:6;display:flex;align-items:center;gap:10px}
@@ -953,17 +960,21 @@ function getBrandInfo(nombre = ''){
   if(n.includes('cantv')) return { name: 'CANTV', color: '#0284C7', bg: 'rgba(2,132,199,0.2)' };
 
   // Streaming
-  if(n.includes('netflix')) return { name: 'Netflix', color: '#E50914', bg: 'rgba(229,9,20,0.2)' };
-  if(n.includes('disney')) return { name: 'Disney+', color: '#38BDF8', bg: 'rgba(56,189,248,0.2)' };
-  if(n.includes('max') || n.includes('hbo')) return { name: 'Max', color: '#818CF8', bg: 'rgba(129,140,248,0.2)' };
-  if(n.includes('prime') || n.includes('amazon')) return { name: 'Prime Video', color: '#00A8E1', bg: 'rgba(0,168,225,0.2)' };
-  if(n.includes('spotify')) return { name: 'Spotify', color: '#10B981', bg: 'rgba(16,185,129,0.2)' };
-  if(n.includes('youtube')) return { name: 'YouTube', color: '#EF4444', bg: 'rgba(239,68,68,0.2)' };
-  if(n.includes('magis') || n.includes('iptv')) return { name: 'Magis TV', color: '#F59E0B', bg: 'rgba(245,158,11,0.2)' };
-  if(n.includes('paramount')) return { name: 'Paramount+', color: '#60A5FA', bg: 'rgba(96,165,250,0.2)' };
-  if(n.includes('apple')) return { name: 'Apple TV', color: '#94A3B8', bg: 'rgba(148,163,184,0.2)' };
-  if(n.includes('crunchyroll')) return { name: 'Crunchyroll', color: '#FB923C', bg: 'rgba(251,146,60,0.2)' };
-  return { name: 'Oficial', color: '#6366F1', bg: 'rgba(99,102,241,0.18)' };
+  if(n.includes('perfil extra')) return { name: 'Netflix Extra', color: '#E50914', bg: 'rgba(229,9,20,0.25)' };
+  if(n.includes('netflix')) return { name: 'Netflix', color: '#E50914', bg: 'rgba(229,9,20,0.25)' };
+  if(n.includes('disney')) return { name: 'Disney+', color: '#38BDF8', bg: 'rgba(56,189,248,0.25)' };
+  if(n.includes('max') || n.includes('hbo')) return { name: 'Max', color: '#818CF8', bg: 'rgba(129,140,248,0.25)' };
+  if(n.includes('prime') || n.includes('amazon')) return { name: 'Prime Video', color: '#00A8E1', bg: 'rgba(0,168,225,0.25)' };
+  if(n.includes('spotify')) return { name: 'Spotify', color: '#10B981', bg: 'rgba(16,185,129,0.25)' };
+  if(n.includes('youtube')) return { name: 'YouTube', color: '#EF4444', bg: 'rgba(239,68,68,0.25)' };
+  if(n.includes('vix')) return { name: 'ViX', color: '#FF5E00', bg: 'rgba(255,94,0,0.25)' };
+  if(n.includes('telelatino')) return { name: 'Telelatino', color: '#10B981', bg: 'rgba(16,185,129,0.25)' };
+  if(n.includes('flujo')) return { name: 'Flujo TV', color: '#00D4FF', bg: 'rgba(0,212,255,0.25)' };
+  if(n.includes('magis') || n.includes('iptv')) return { name: 'Magis TV', color: '#F59E0B', bg: 'rgba(245,158,11,0.25)' };
+  if(n.includes('paramount')) return { name: 'Paramount+', color: '#60A5FA', bg: 'rgba(96,165,250,0.25)' };
+  if(n.includes('apple')) return { name: 'Apple TV', color: '#94A3B8', bg: 'rgba(148,163,184,0.25)' };
+  if(n.includes('crunchyroll') || n.includes('crunchy')) return { name: 'Crunchyroll', color: '#FB923C', bg: 'rgba(251,146,60,0.25)' };
+  return { name: 'Oficial', color: '#00d4ff', bg: 'rgba(0,212,255,0.2)' };
 }
 function skeleton(){ return '<div class="hero"><div class="sk" style="min-height:120px;border:0"></div></div><div class="pgrid">'+'<div class="sk"></div>'.repeat(6)+'</div>'; }
 function productCard(p){
@@ -978,20 +989,27 @@ function productCard(p){
 
   const out=!(S.stock[p.id]>0||p.tipo==='servicio'||p.tipo==='gaming'||p.tipo==='recarga_telefonica'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(effectivePrice*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
   
+  const imgHtml = p.imagen_url
+    ? `<img src="${esc(p.imagen_url)}" alt="${esc(p.nombre)}" loading="lazy" decoding="async">`
+    : `<div class="ph" aria-hidden="true" style="background:radial-gradient(circle at 50% 30%, ${brand.bg.replace('0.25','0.45')} 0%, #071324 100%)">
+        <span style="font-size:1.65rem;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:${brand.color};text-shadow:0 0 20px ${brand.color}88,0 4px 10px rgba(0,0,0,.8)">${esc(brand.name)}</span>
+       </div>`;
+
   return `<article class="pc t-${esc(p.tipo)}">
-    <div class="pc-brand-indicator" style="background:${brand.bg};color:${brand.color};border-color:${brand.color}66">
+    <div class="pc-brand-indicator" style="background:${brand.bg};color:${brand.color};border-color:${brand.color}88">
       <span class="pc-brand-dot" style="background:${brand.color}"></span>
       <span>${esc(brand.name)}</span>
     </div>
-    ${p.imagen_url?`<img src="${esc(p.imagen_url)}" alt="" loading="lazy" decoding="async">`:`<div class="ph" aria-hidden="true">${esc((p.nombre||'?').slice(0,1).toUpperCase())}</div>`}
+    ${imgHtml}
    <div class="pb">
      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
        <span class="tag">${esc(TL[p.tipo]||p.tipo)}</span>
        ${hasResellerSpecial ? '<span class="reseller-badge">Precio Revendedor</span>' : ''}
        ${hasBinanceSpecial ? `<span class="pill" style="font-size:.65rem;background:rgba(240,185,11,.15);color:#f0b90b;border:1px solid rgba(240,185,11,.3);font-weight:700" title="Precio especial con Binance Pay">🟡 Binance: $${Number(p.precio_binance_usd).toFixed(2)} USDT</span>` : ''}
-       ${hasCuotas ? `<span class="pill" style="font-size:.65rem;background:rgba(0,212,255,.12);color:#00d4ff;border:1px solid rgba(0,212,255,.3);font-weight:700" title="Plan financiado en cuotas quincenales">💳 Disponible en Cuotas</span>` : ''}
+       ${hasCuotas ? `<span class="pill" style="font-size:.65rem;background:rgba(0,212,255,.12);color:#00d4ff;border:1px solid rgba(0,212,255,.3);font-weight:700" title="Plan financiado en cuotas quincenales">💳 En Cuotas</span>` : ''}
      </div>
-     <h3>${esc(p.nombre)}</h3><p class="mut">${esc(p.descripcion)}</p>
+     <h3>${esc(p.nombre)}</h3>
+     ${p.descripcion ? `<p class="mut">${esc(p.descripcion)}</p>` : ''}
      <div class="meta"><span>⏱ ${p.duracion_dias} días</span><span>🛡 Garantía ${p.garantia_dias||0} días</span></div>
      <div class="buy">
        <div>
@@ -1002,7 +1020,7 @@ function productCard(p){
          </div>
          ${bs}
        </div>
-       ${out?'<span class="pill off">Agotado</span>':`<button class="cta" data-buy="${p.id}">${(p.tipo === 'gaming' || p.tipo === 'recarga_telefonica') ? '⚡ Recargar' : 'Comprar'}</button>`}
+       ${out?'<span class="pill off" style="padding:6px 12px;font-size:.78rem">Agotado</span>':`<button class="cta" data-buy="${p.id}">${(p.tipo === 'gaming' || p.tipo === 'recarga_telefonica') ? '⚡ Recargar' : 'Comprar'}</button>`}
      </div>
    </div></article>`;
 }
