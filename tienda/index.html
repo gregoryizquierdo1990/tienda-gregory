@@ -2865,8 +2865,8 @@ function adminLoginDlg(){
     </p>
     ${isLoggedNonAdmin ? `
       <div style="background:rgba(239,68,68,.12);border:1px solid #ef4444;border-radius:12px;padding:12px;margin-bottom:14px;text-align:center;font-size:.8rem;color:#fca5a5">
-        ⚠️ Has iniciado sesión con <b>${esc(curUserEmail)}</b>, pero este correo no tiene permisos de administrador.<br>
-        <span style="font-size:.74rem;color:#cbd5e1">Accede con tu cuenta oficial (emprendimientogregoryizquierdo@gmail.com o gregoryizquierdo1990@gmail.com).</span>
+        ⚠️ Has iniciado sesión con <b>${esc(curUserEmail)}</b>, pero este usuario no tiene permisos de administrador.<br>
+        <span style="font-size:.74rem;color:#cbd5e1">Accede con tu cuenta autorizada de administrador.</span>
       </div>
     ` : ''}
     <button id="facetAdminGoogle" class="facet-btn" style="min-width:210px;padding:12px 24px;width:100%" type="button">
@@ -2875,10 +2875,10 @@ function adminLoginDlg(){
     </button>
     <div style="text-align:center;margin:18px 0 12px;font-size:.74rem;color:var(--mut);letter-spacing:.5px;font-weight:700">— O ACCEDER CON CORREO Y CONTRASEÑA —</div>
     <div class="facet-input-wrap" style="margin-bottom:8px">
-      <input id="facetAdminEmail" class="facet-input" type="email" placeholder="CORREO OFICIAL ADMIN" value="${isLoggedNonAdmin ? '' : (curUserEmail || 'emprendimientogregoryizquierdo@gmail.com')}">
+      <input id="facetAdminEmail" class="facet-input" type="email" placeholder="CORREO ELECTRÓNICO" autocomplete="username">
     </div>
     <div class="facet-input-wrap" style="margin-bottom:12px">
-      <input id="facetAdminPw" class="facet-input" type="password" placeholder="CONTRASEÑA ADMINISTRADOR">
+      <input id="facetAdminPw" class="facet-input" type="password" placeholder="CONTRASEÑA ADMINISTRADOR" autocomplete="current-password">
     </div>
     <button id="facetAdminPwBtn" class="facet-alt-btn" style="width:100%;padding:11px;font-weight:700;font-size:.85rem" type="button">
       🔑 ENTRAR CON CONTRASEÑA
