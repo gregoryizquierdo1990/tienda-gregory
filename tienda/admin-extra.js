@@ -4022,6 +4022,292 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     render();
   },
 
+  async liquidaciones(box) {
+    box.innerHTML = '<div style="padding:30px;text-align:center"><div class="sk" style="height:120px;max-width:500px;margin:auto"></div><p class="mut" style="margin-top:12px">Cargando módulo de Liquidación de Socios y Comisiones…</p></div>';
+
+    // 1. Cargar comisiones, revendedores y tasa actual
+    const [{ data: coms, error: comsErr }, { data: resellers }, { data: exRate }] = await Promise.all([
+      sb.from('partner_commissions')
+        .select('*, customers!customer_id(nombre,telefono,email), vendedor:customers!vendedor_id(nombre,telefono,email,codigo_identificacion)')
+        .order('created_at', { ascending: false }),
+      sb.from('customers').select('id,nombre,email,telefono,codigo_identificacion').eq('es_revendedor', true),
+      sb.from('exchange_rates').select('bs_por_usd').order('fecha', { ascending: false }).limit(1).maybeSingle()
+    ]);
+
+    if (comsErr) {
+      console.error('Error cargando partner_commissions:', comsErr);
+      box.innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:24px;border-radius:14px;max-width:640px;margin:20px auto;text-align:center">
+        <h3 style="color:#f87171;margin:0 0 8px">⚠️ No se pudieron cargar las liquidaciones</h3>
+        <p class="mut" style="margin:0 0 14px">${esc(comsErr.message)}</p>
+        <p class="mut" style="font-size:.82rem">Asegúrate de ejecutar la <b>Migración 27</b> en el SQL Editor de Supabase para activar las tablas y cálculos.</p>
+        <button class="g" onclick="EXTRA.liquidaciones(box)">🔄 Reintentar</button>
+      </div>`;
+      return;
+    }
+
+    const curRate = Number(exRate?.bs_por_usd || 50.00);
+    const allComms = coms || [];
+    let filterSeller = '';
+    let filterStatus = 'pendiente';
+
+    const render = () => {
+      let filtered = allComms;
+      if (filterSeller) filtered = filtered.filter(c => c.vendedor_id === filterSeller);
+      if (filterStatus !== 'todos') filtered = filtered.filter(c => c.estado === filterStatus);
+
+      const totPendUsd = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+      const totPendBs = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+      const totGregUsd = filtered.reduce((a, c) => a + Number(c.ganancia_gregory_usd || 0), 0);
+      const totNegUsd = filtered.reduce((a, c) => a + Number(c.ganancia_negocio_usd || 0), 0);
+      const totLiqUsd = filtered.filter(c => c.estado === 'liquidada').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+
+      const curSellerObj = (resellers || []).find(r => r.id === filterSeller) || (resellers || [])[0];
+
+      box.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+          <div>
+            <h3 style="margin:0;display:flex;align-items:center;gap:8px">
+              <span>💼 Liquidación de Ganancias & Socios</span>
+              <span class="pill" style="font-size:.74rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">Tasa BCV: Bs. ${curRate.toFixed(2)}</span>
+            </h3>
+            <p class="mut" style="font-size:.84rem;margin:4px 0 0">
+              División matemática transparente de cada venta autogestionada entre el Socio/Revendedor (Pablo), Gregory y el Fondo de Reserva.
+            </p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="g" id="btnWAComms" style="background:rgba(37,211,102,.12);border-color:#25d366;color:#25d366;font-weight:700">
+              💬 Enviar Estado a Socio por WhatsApp
+            </button>
+            <button id="btnDoLiquidation" style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none">
+              ✅ Liquidar Comisiones Pendientes
+            </button>
+          </div>
+        </div>
+
+        <!-- Tarjetas de Métricas Globales -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:12px;margin-bottom:20px">
+          <div class="card" style="border-color:rgba(255,183,3,.4);background:rgba(255,183,3,.04)">
+            <div class="mut" style="font-size:.78rem;text-transform:uppercase;color:#fde047;font-weight:700">Comisión Socio (Pablo)</div>
+            <div style="font-size:1.65rem;font-weight:800;color:#fde047;margin:6px 0 2px">$${totPendUsd.toFixed(2)}</div>
+            <div class="mut" style="font-size:.78rem">Equiv: <b>Bs. ${totPendBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b></div>
+          </div>
+          <div class="card" style="border-color:rgba(0,245,160,.4);background:rgba(0,245,160,.04)">
+            <div class="mut" style="font-size:.78rem;text-transform:uppercase;color:#00f5a0;font-weight:700">Ganancia Gregory (Operativa)</div>
+            <div style="font-size:1.65rem;font-weight:800;color:#00f5a0;margin:6px 0 2px">$${totGregUsd.toFixed(2)}</div>
+            <div class="mut" style="font-size:.78rem">70% margen mayorista plataforma</div>
+          </div>
+          <div class="card" style="border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.04)">
+            <div class="mut" style="font-size:.78rem;text-transform:uppercase;color:#38bdf8;font-weight:700">Fondo Reserva Negocio</div>
+            <div style="font-size:1.65rem;font-weight:800;color:#38bdf8;margin:6px 0 2px">$${totNegUsd.toFixed(2)}</div>
+            <div class="mut" style="font-size:.78rem">30% compras cuentas madre y saldo</div>
+          </div>
+          <div class="card">
+            <div class="mut" style="font-size:.78rem;text-transform:uppercase;font-weight:700">Total Ya Liquidado / Pagado</div>
+            <div style="font-size:1.65rem;font-weight:800;color:#94a3b8;margin:6px 0 2px">$${totLiqUsd.toFixed(2)}</div>
+            <div class="mut" style="font-size:.78rem">Historial de cortes cerrados</div>
+          </div>
+        </div>
+
+        <!-- Filtros Rápidos -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;background:rgba(255,255,255,.02);padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06)">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <label class="mut" style="font-size:.8rem">Filtrar por Socio:</label>
+            <select id="selFilterSeller" style="padding:6px 10px;font-size:.82rem;background:rgba(3,8,18,.8);border-radius:8px">
+              <option value="">— Todos los Socios / Revendedores —</option>
+              ${(resellers || []).map(r => `<option value="${r.id}" ${filterSeller === r.id ? 'selected' : ''}>${esc(r.nombre || r.email)} (${esc(r.codigo_identificacion || 'RVD')})</option>`).join('')}
+            </select>
+
+            <label class="mut" style="font-size:.8rem;margin-left:8px">Estado:</label>
+            <select id="selFilterStatus" style="padding:6px 10px;font-size:.82rem;background:rgba(3,8,18,.8);border-radius:8px">
+              <option value="todos" ${filterStatus === 'todos' ? 'selected' : ''}>Todos los Estados</option>
+              <option value="pendiente" ${filterStatus === 'pendiente' ? 'selected' : ''}>🟡 Solo Pendientes</option>
+              <option value="liquidada" ${filterStatus === 'liquidada' ? 'selected' : ''}>🟢 Solo Liquidadas</option>
+            </select>
+          </div>
+          <div class="mut" style="font-size:.8rem">
+            Mostrando <b>${filtered.length}</b> registros de comisión
+          </div>
+        </div>
+
+        <!-- Tabla Detallada -->
+        <div class="wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Socio Responsable</th>
+                <th>Cliente</th>
+                <th>Servicio</th>
+                <th>PVP Cobrado</th>
+                <th>Mayorista</th>
+                <th>Costo Prov.</th>
+                <th>Comisión Socio</th>
+                <th>Gregory (70%)</th>
+                <th>Fondo (30%)</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.length ? filtered.map(c => {
+                const sNom = c.vendedor?.nombre || 'Socio';
+                const cNom = c.customers?.nombre || c.customers?.email || 'Cliente';
+                const isPend = c.estado === 'pendiente';
+                return `
+                  <tr>
+                    <td style="font-size:.76rem;color:#94a3b8">${(c.created_at || '').slice(0, 10)}</td>
+                    <td><b>${esc(sNom)}</b></td>
+                    <td>${esc(cNom)}</td>
+                    <td><b>${esc(c.servicio_nombre)}</b></td>
+                    <td>$${Number(c.monto_cobrado_usd).toFixed(2)}</td>
+                    <td style="color:#94a3b8">$${Number(c.precio_revendedor_usd).toFixed(2)}</td>
+                    <td style="color:#ef4444">$${Number(c.costo_proveedor_usd).toFixed(2)}</td>
+                    <td style="color:#fde047;font-weight:800">
+                      +$${Number(c.ganancia_vendedor_usd).toFixed(2)}
+                      <div style="font-size:.72rem;color:#94a3b8;font-weight:400">Bs. ${Number(c.ganancia_vendedor_bs).toFixed(2)}</div>
+                    </td>
+                    <td style="color:#00f5a0;font-weight:700">+$${Number(c.ganancia_gregory_usd).toFixed(2)}</td>
+                    <td style="color:#38bdf8">+$${Number(c.ganancia_negocio_usd).toFixed(2)}</td>
+                    <td>
+                      <span class="pill" style="font-size:.7rem;${isPend ? 'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)' : 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">
+                        ${isPend ? '🟡 Pendiente' : '🟢 Liquidada'}
+                      </span>
+                    </td>
+                  </tr>
+                `;
+              }).join('') : `
+                <tr>
+                  <td colspan="11" style="text-align:center;padding:24px" class="mut">
+                    No hay comisiones registradas con los filtros seleccionados.
+                  </td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      // Eventos de Filtro
+      const sSel = $('#selFilterSeller');
+      if (sSel) sSel.onchange = (e) => { filterSeller = e.target.value; render(); };
+      const stSel = $('#selFilterStatus');
+      if (stSel) stSel.onchange = (e) => { filterStatus = e.target.value; render(); };
+
+      // Enviar Estado a WhatsApp
+      const bWA = $('#btnWAComms');
+      if (bWA) {
+        bWA.onclick = () => {
+          const targetSeller = (resellers || []).find(r => r.id === filterSeller) || (resellers || [])[0];
+          if (!targetSeller) return toast('No se encontró ningún revendedor registrado.');
+
+          const sComms = allComms.filter(c => c.vendedor_id === targetSeller.id && c.estado === 'pendiente');
+          const sTotUsd = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+          const sTotBs = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+
+          const fechaHoy = new Date().toLocaleDateString('es-VE');
+          const itemsTxt = sComms.slice(0, 15).map((x, i) => `  ${i + 1}. ${x.servicio_nombre} (${x.customers?.nombre || 'Cliente'}): +$${Number(x.ganancia_vendedor_usd).toFixed(2)}`).join('\n');
+
+          const msg = `¡Hola ${targetSeller.nombre || 'Socio'}! 👋 Te comparto tu *Corte de Liquidación de Comisiones* al ${fechaHoy}:\n\n` +
+            `🛒 *Ventas Autogestionadas Pendientes:* ${sComms.length}\n` +
+            (itemsTxt ? `${itemsTxt}\n\n` : '') +
+            `💵 *Total Comisiones a Transferirte:* $${sTotUsd.toFixed(2)} USD\n` +
+            `🇻🇪 *Equivalente en Bolívares:* Bs. ${sTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (Tasa BCV: ${curRate.toFixed(2)})\n\n` +
+            `Avísame para coordinar el pago por Pago Móvil o Binance Pay. ¡Seguimos creciendo socio! 🚀`;
+
+          navigator.clipboard.writeText(msg).catch(() => {});
+
+          const cleanTel = (targetSeller.telefono || '').replace(/\D/g, '');
+          if (cleanTel) {
+            const waUrl = `https://wa.me/${cleanTel.startsWith('58') ? cleanTel : ('58' + cleanTel.replace(/^0+/, ''))}?text=${encodeURIComponent(msg)}`;
+            window.open(waUrl, '_blank');
+          } else {
+            toast('Comprobante copiado al portapapeles (el socio no tiene WhatsApp registrado).');
+          }
+        };
+      }
+
+      // Modal para Registrar Liquidación
+      const bDo = $('#btnDoLiquidation');
+      if (bDo) {
+        bDo.onclick = () => {
+          const targetSeller = (resellers || []).find(r => r.id === filterSeller) || (resellers || [])[0];
+          if (!targetSeller) return toast('No se encontró ningún revendedor registrado.');
+
+          const sComms = allComms.filter(c => c.vendedor_id === targetSeller.id && c.estado === 'pendiente');
+          const sTotUsd = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+          const sTotBs = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+
+          if (!sComms.length) {
+            return toast(`El socio ${targetSeller.nombre} no tiene comisiones pendientes por liquidar.`);
+          }
+
+          $('#dlgBody').innerHTML = `
+            <h3>✅ Registrar Liquidación y Pago a Socio</h3>
+            <p class="mut" style="font-size:.84rem;margin:0 0 14px">
+              Cierra el corte actual de comisiones pendientes y regístralo como pagado.
+            </p>
+            <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                <span class="mut" style="font-size:.82rem">Socio / Revendedor:</span>
+                <b>${esc(targetSeller.nombre)}</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                <span class="mut" style="font-size:.82rem">Comisiones a Liquidar:</span>
+                <b>${sComms.length} ventas</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                <span class="mut" style="font-size:.82rem">Total en Dólares ($):</span>
+                <b style="color:#fde047;font-size:1.1rem">$${sTotUsd.toFixed(2)} USD</b>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span class="mut" style="font-size:.82rem">Total en Bolívares (Bs):</span>
+                <b style="color:#00f5a0;font-size:1.1rem">Bs. ${sTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b>
+              </div>
+            </div>
+            <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Referencia de Pago / Transferencia:</label>
+            <input id="inpLiqRef" placeholder="Ej: Pago Móvil 928374 / Binance Pay ID" style="width:100%;margin-bottom:12px" required>
+            <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Notas u Observaciones (opcional):</label>
+            <input id="inpLiqNotas" placeholder="Ej: Pago quincenal de comisiones tienda web" style="width:100%;margin-bottom:14px">
+            <div style="display:flex;gap:10px;justify-content:flex-end">
+              <button class="g" onclick="dlg.close()">Cancelar</button>
+              <button id="btnConfirmLiquidation" style="background:linear-gradient(135deg,#00f5a0,#00d98b);color:#000;font-weight:800;border:none">
+                💾 Confirmar Liquidación Pagada
+              </button>
+            </div>
+          `;
+          dlg.showModal();
+
+          $('#btnConfirmLiquidation').onclick = async () => {
+            const ref = $('#inpLiqRef').value.trim();
+            if (!ref) return toast('Ingresa el número de referencia bancaria o comprobante.');
+
+            const notas = $('#inpLiqNotas').value.trim();
+            const btn = $('#btnConfirmLiquidation');
+            btn.disabled = true;
+            btn.textContent = '⏳ Procesando...';
+
+            const { data: res, error: rpcErr } = await sb.rpc('liquidar_comisiones_socio', {
+              p_vendedor_id: targetSeller.id,
+              p_referencia: ref,
+              p_notas: notas
+            });
+
+            if (rpcErr) {
+              btn.disabled = false;
+              btn.textContent = '💾 Confirmar Liquidación Pagada';
+              return toast('Error al liquidar comisiones: ' + rpcErr.message);
+            }
+
+            toast(`Liquidación registrada con éxito. Se marcaron pagadas ${res?.comisiones_liquidadas || sComms.length} comisiones.`);
+            dlg.close();
+            EXTRA.liquidaciones(box);
+          };
+        };
+      }
+    };
+
+    render();
+  },
+
   async gemini(box) {
     if (!box._chatHistory) {
       box._chatHistory = [];

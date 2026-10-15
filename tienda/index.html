@@ -2995,7 +2995,7 @@ async function portal(){
   try {
     const q = async fn => { try { return await fn(); } catch(e) { return { data: null, error: e }; } };
 
-    const [o,i,l,inc,cr,inst,zcard,mcOps,resellerClients] = await Promise.all([
+    const [o,i,l,inc,cr,inst,zcard,mcOps,resellerClients,resellerCommissions] = await Promise.all([
       q(() => sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
       q(() => sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false})),
       q(() => sb.from('zeny_ledger').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
@@ -3004,7 +3004,8 @@ async function portal(){
       q(() => sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true})),
       q(() => sb.from('my_zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle().then(r => r.error ? sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle() : r)),
       q(() => sb.from('mesa_cambio_operaciones').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
-      q(() => (S.me?.es_revendedor || S.isAdmin) ? sb.rpc('my_reseller_clients') : Promise.resolve({ data: [] }))
+      q(() => (S.me?.es_revendedor || S.isAdmin) ? sb.rpc('my_reseller_clients') : Promise.resolve({ data: [] })),
+      q(() => (S.me?.es_revendedor || S.isAdmin) ? sb.from('partner_commissions').select('*').eq('vendedor_id', S.user.id).order('created_at',{ascending:false}) : Promise.resolve({ data: [] }))
     ]);
 
     const cardData = zcard?.data || null;
@@ -3026,7 +3027,10 @@ async function portal(){
     const T=(h,rows)=>`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
 
     const rcList = resellerClients?.data || [];
-    const showResellerBlock = isReseller || rcList.length > 0;
+    const myComms = resellerCommissions?.data || [];
+    const totMyPendUsd = myComms.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+    const totMyPendBs = myComms.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_bs || 0), 0);
+    const showResellerBlock = isReseller || rcList.length > 0 || myComms.length > 0;
     let resellerBlockHtml = '';
     if(showResellerBlock){
       resellerBlockHtml = `
@@ -3119,6 +3123,64 @@ async function portal(){
             </table>
           </div>
         ` : '<p class="mut" style="margin:0;font-size:.85rem">Aún no tienes clientes o perfiles asignados a tu cuenta. Cuando Gregory te vincule clientes o realices compras para tus usuarios aparecerán aquí detallados.</p>'}
+
+        <!-- Enlace de Referido Oficial -->
+        <div style="background:rgba(255,183,3,.06);border:1px dashed rgba(255,183,3,.35);padding:12px 14px;border-radius:12px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-size:.82rem;color:#fde047;font-weight:700">🔗 Tu Enlace de Referido Oficial (Autogestión de Clientes)</div>
+            <div class="mut" style="font-size:.76rem;margin-top:2px">Comparte este enlace con tus clientes. Las compras que hagan directamente en la web se te acreditarán en comisiones de forma automática.</div>
+            <code style="color:#38bdf8;font-size:.82rem;display:inline-block;margin-top:4px">${window.location.origin}/?ref=${encodeURIComponent(S.me?.codigo_identificacion || 'PABLO')}</code>
+          </div>
+          <button class="g" style="padding:6px 12px;font-size:.78rem;font-weight:700" data-clean-copy="${window.location.origin}/?ref=${encodeURIComponent(S.me?.codigo_identificacion || 'PABLO')}">
+            📋 Copiar mi Enlace
+          </button>
+        </div>
+
+        <!-- Mis Comisiones por Autogestión -->
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+            <h4 style="margin:0;color:#00f5a0;display:flex;align-items:center;gap:6px">
+              <span>💵 Mis Comisiones por Autogestión</span>
+              <span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.12);color:#00f5a0">${myComms.length} ventas</span>
+            </h4>
+            <div style="font-size:.82rem">
+              Pendiente por cobrar: <b style="color:#fde047;font-size:1.05rem">$${totMyPendUsd.toFixed(2)} USD</b>
+              <span class="mut" style="font-size:.76rem">(Bs. ${totMyPendBs.toFixed(2)})</span>
+            </div>
+          </div>
+          ${myComms.length ? `
+            <div class="wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Servicio</th>
+                    <th>PVP Tienda</th>
+                    <th>Tu Comisión ($)</th>
+                    <th>Tu Comisión (Bs)</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${myComms.map(mc => `
+                    <tr>
+                      <td style="font-size:.76rem;color:#94a3b8">${(mc.created_at || '').slice(0, 10)}</td>
+                      <td><b>${esc(mc.servicio_nombre)}</b></td>
+                      <td>$${Number(mc.monto_cobrado_usd).toFixed(2)}</td>
+                      <td style="color:#fde047;font-weight:800">+$${Number(mc.ganancia_vendedor_usd).toFixed(2)}</td>
+                      <td style="color:#38bdf8">Bs. ${Number(mc.ganancia_vendedor_bs).toFixed(2)}</td>
+                      <td>
+                        <span class="pill" style="font-size:.7rem;${mc.estado === 'pendiente' ? 'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)' : 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">
+                          ${mc.estado === 'pendiente' ? '🟡 Por Cobrar' : '🟢 Pagada'}
+                        </span>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : '<p class="mut" style="margin:0;font-size:.82rem">Cuando tus clientes compren o renueven directamente en la plataforma, tus comisiones aparecerán reflejadas aquí en tiempo real.</p>'}
+        </div>
       </div>
       `;
     }
@@ -3910,6 +3972,7 @@ const ADMIN_MENU = [
   {
     group: 'Unidades de Negocio & Redes',
     items: [
+      { id: 'liquidaciones', label: 'Liquidación de Socios', icon: '💼' },
       { id: 'franquicias', label: 'Franquicias SaaS (Tiendas Web)', icon: '🏢' },
       { id: 'recargas247', label: 'Puntos Recargas247', icon: '📱' },
       { id: 'mesa_cambio', label: 'Mesa de Cambio USDT', icon: '💱' }
