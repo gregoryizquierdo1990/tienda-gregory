@@ -52,16 +52,20 @@ dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border
 .ban{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin-bottom:16px;scrollbar-width:none}.ban::-webkit-scrollbar{display:none}
 .ban a,.ban div{flex:0 0 100%;scroll-snap-align:start;border-radius:20px;min-height:170px;padding:22px;background:linear-gradient(135deg,#0a3b4a,#12307a) center/cover;color:#fff;text-decoration:none;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid rgba(0,212,255,.25)}.ban h3{margin:0 0 4px;font-size:1.3rem}.ban p{margin:0;opacity:.92}
 
-/* Banner Destacado Superior Tarjeta */
-.banner-promo-card{position:relative;overflow:hidden;border-radius:24px;margin-bottom:20px;border:1.5px solid rgba(0,212,255,.35);background:radial-gradient(ellipse at top,#0c2340 0%,#030914 70%);box-shadow:0 16px 45px -10px rgba(0,0,0,.7),0 0 30px -5px rgba(0,212,255,.25)}
-.banner-promo-wrap{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px 24px;text-align:center}
-.banner-promo-img-box{position:relative;max-width:440px;width:100%;margin:0 auto 16px;border-radius:18px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.85),0 0 20px rgba(0,245,160,.2);display:flex;justify-content:center;align-items:center;background:#050d1a}
-.banner-promo-img{width:100%;height:auto;max-height:260px;object-fit:contain;object-position:center;display:block;transition:transform .3s ease}
-.banner-promo-card:hover .banner-promo-img{transform:scale(1.02)}
-.banner-promo-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;background:linear-gradient(135deg,rgba(0,245,160,.2),rgba(0,212,255,.2));color:#00f5a0;border:1px solid rgba(0,245,160,.4);margin-bottom:8px}
-.banner-promo-title{font-size:clamp(1.2rem,3.5vw,1.6rem);font-weight:800;margin:0 0 4px;background:linear-gradient(135deg,#ffffff 0%,#ecf6ff 60%,#00d4ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.3px}
-.banner-promo-sub{margin:0;font-size:.92rem;font-weight:600;color:#00d4ff;letter-spacing:1px;text-shadow:0 0 12px rgba(0,212,255,.4)}
-.banner-promo-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:70%;background:radial-gradient(circle,rgba(0,212,255,.18) 0%,transparent 70%);filter:blur(30px);pointer-events:none}
+/* Banner Superior Showcase Tarjeta Zeny */
+.banner-top-container{margin:0 auto 22px;max-width:540px;width:100%}
+.banner-card-showcase{position:relative;border-radius:24px;overflow:hidden;background:radial-gradient(ellipse at top,#0c2340 0%,#030914 85%);border:1.5px solid rgba(0,212,255,.35);box-shadow:0 16px 45px -10px rgba(0,0,0,.85),0 0 30px -5px rgba(0,212,255,.25);transition:all .25s cubic-bezier(.4,0,.2,1);cursor:pointer}
+.banner-card-showcase:hover{transform:translateY(-2px);border-color:#00d4ff;box-shadow:0 22px 55px -10px rgba(0,0,0,.9),0 0 40px -5px rgba(0,212,255,.4)}
+.banner-card-glow{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);width:75%;height:75%;background:radial-gradient(circle,rgba(0,212,255,.16) 0%,transparent 70%);filter:blur(30px);pointer-events:none}
+.banner-card-body{position:relative;z-index:1;padding:22px 18px 18px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.banner-card-media-box{position:relative;width:100%;max-width:480px;margin:0 auto 14px;border-radius:18px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.9),0 0 24px rgba(0,245,160,.22);border:1px solid rgba(255,255,255,.14);background:#050d1a;line-height:0}
+.banner-card-media{width:100%;height:auto;aspect-ratio:4/3;object-fit:contain;display:block;transition:transform .3s ease}
+.banner-card-showcase:hover .banner-card-media{transform:scale(1.02)}
+.banner-card-caption{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}
+.banner-card-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:99px;font-size:.76rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;background:linear-gradient(135deg,rgba(0,245,160,.2),rgba(0,212,255,.2));color:#00f5a0;border:1px solid rgba(0,245,160,.4)}
+.banner-card-desc{margin:0;font-size:.92rem;font-weight:600;color:#cceeff;letter-spacing:.3px}
+.banner-card-cta{margin-top:4px;padding:9px 20px;border-radius:12px;background:var(--grad);color:#03121c;font-size:.84rem;font-weight:800;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,245,160,.3);transition:all .18s ease}
+.banner-card-cta:hover{transform:scale(1.03);filter:brightness(1.1);box-shadow:0 6px 20px rgba(0,245,160,.45)}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:22px}
 .pc{position:relative;display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:linear-gradient(180deg,#0f2442 0%,#08152a 100%);border:1.5px solid rgba(0,212,255,.26);box-shadow:0 12px 32px -8px rgba(0,0,0,.75),inset 0 1px 0 rgba(255,255,255,.1);transition:transform .22s cubic-bezier(.4,0,.2,1),border-color .22s ease,box-shadow .22s ease}
 .pc:hover{transform:translateY(-3px);border-color:#00d4ff;box-shadow:0 18px 42px -10px rgba(0,212,255,.35),0 0 24px -6px rgba(0,245,160,.25)}
@@ -810,7 +814,7 @@ async function loadPublic(){
   const sub = detectSubdomain();
   if(sub){
     try {
-      const { data: fq } = await sb.from('franchises').select('*').eq('subdominio', sub).maybeSingle();
+      const { data: fq } = await sb.from('public_franchises').select('*').eq('subdominio', sub).maybeSingle();
       if(fq){
         S.franchise = fq;
         // Kill-Switch Preventivo / Suspensión por Mora o Fraude
@@ -1055,7 +1059,44 @@ function home(){
   const waMsg = encodeURIComponent('Hola! deseo contartarme con ustedes para solicitar informacion');
   const tgBot = (S.settings.bot?.username || S.settings.negocio?.telegram || '').replace(/^@/,'');
   app.innerHTML = `
-  ${S.banners.length?`<div class="ban">${S.banners.map(b=>{const t=`<h3>${esc(b.titulo)}</h3><p>${esc(b.texto)}</p>`,st=b.imagen_url?` style="background-image:linear-gradient(#0008,#000a),url('${esc(b.imagen_url)}')"`:'';return /^https?:\/\//.test(b.enlace||'')?`<a href="${esc(b.enlace)}" target="_blank" rel="noopener noreferrer"${st}>${t}</a>`:`<div${st}>${t}</div>`;}).join('')}</div>`:''}
+  ${S.banners.length ? `
+    <div class="banner-top-container">
+      ${S.banners.map(b => {
+        const isImg = !!b.imagen_url;
+        const isStorageUrl = (b.enlace || '').includes('storage/v1/object/public/');
+        const actionLink = (!isStorageUrl && /^https?:\/\//.test(b.enlace || '')) ? b.enlace : null;
+        if (isImg) {
+          return `
+            <div class="banner-card-showcase" ${actionLink ? `onclick="window.open('${esc(actionLink)}','_blank')"` : ''}>
+              <div class="banner-card-glow"></div>
+              <div class="banner-card-body">
+                <div class="banner-card-media-box">
+                  <img src="${esc(b.imagen_url)}" alt="${esc(b.titulo || 'Tarjeta Zeny')}" class="banner-card-media" loading="eager">
+                </div>
+                <div class="banner-card-caption">
+                  <span class="banner-card-pill">💳 ${esc(b.titulo || 'Tarjeta Exclusiva Zeny')}</span>
+                  ${b.texto ? `<p class="banner-card-desc">${esc(b.texto)}</p>` : ''}
+                  <button type="button" class="banner-card-cta" onclick="event.stopPropagation();${S.user ? 'portal()' : 'openFacetModal(true)'}">
+                    ${S.user ? '✨ Ver mi Tarjeta en el Portal' : '⚡ Obtén tu Tarjeta Zeny'} ➔
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="ban">
+              <div>
+                <h3>${esc(b.titulo)}</h3>
+                <p>${esc(b.texto)}</p>
+                ${actionLink ? `<a href="${esc(actionLink)}" target="_blank" rel="noopener noreferrer" style="margin-top:8px" class="g">Ver más</a>` : ''}
+              </div>
+            </div>
+          `;
+        }
+      }).join('')}
+    </div>
+  ` : ''}
   <section class="hero">
     <h2>Perfiles, Cuentas Completas y Aplicaciones en un solo lugar</h2>
     <p>Pantallas, cuentas completas y servicios con Garantía y Soporte</p>
@@ -1274,7 +1315,7 @@ async function buyDlg(id){
   const [{data: rawPmList}, {data: h}, {data: userCard}] = await Promise.all([
     sb.from('payment_methods').select('*').eq('activo', true).order('orden'),
     sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente'),
-    Promise.resolve(sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle()).catch(()=>({data:null}))
+    Promise.resolve(sb.from('my_zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle()).catch(()=>sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle()).catch(()=>({data:null}))
   ]);
   const pmList = (rawPmList && rawPmList.length > 0) ? rawPmList : DEFAULT_PAYMENT_METHODS;
 
@@ -1871,7 +1912,8 @@ async function buyDlg(id){
         p_metodo: selectedMethodId,
         p_ref: orderRef,
         p_zeny: appliedZeny,
-        p_datos_recarga: isRechargeService ? rechargeData : {}
+        p_datos_recarga: isRechargeService ? rechargeData : {},
+        p_es_cuotas: payPlan === 'cuotas'
       });
 
       if(error){
@@ -1894,18 +1936,11 @@ async function buyDlg(id){
             total_bs: restBs,
             metodo: displayMethodName,
             referencia: orderRef,
-            order_id: ordId
+            order_id: ordId,
+            es_cuotas: payPlan === 'cuotas'
           }
         })
       }).catch(()=>{});
-
-      if(payPlan === 'cuotas' && ordId){
-        // Crear las cuotas correspondientes en la tabla installments
-        await sb.from('installments').insert([
-          { order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: 2, monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', metodo_id: selectedMethodId, referencia: refVal },
-          { order_id: ordId, customer_id: S.user.id, numero_cuota: 2, total_cuotas: 2, monto_usd: cuotaDosUsd, fecha_vencimiento: d2Str, estado: 'pendiente' }
-        ]).catch(()=>{});
-      }
 
       checkoutDlg.close();
       await loadPublic();
@@ -2804,7 +2839,7 @@ async function portal(){
       q(() => sb.from('incidents').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
       q(() => sb.rpc('my_credentials')),
       q(() => sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true})),
-      q(() => sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle()),
+      q(() => sb.from('my_zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle().then(r => r.error ? sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle() : r)),
       q(() => sb.from('mesa_cambio_operaciones').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false}))
     ]);
 
@@ -2924,7 +2959,7 @@ async function portal(){
                   <span style="font-size:.58rem;color:#fde047;font-weight:800">CVV / CÓDIGO</span>
                 </div>
                 <div class="zeny-card-cvv-box">
-                  <span class="zeny-card-cvv-text">${esc(cardData?.codigo_activacion || '849')}</span>
+                  <span class="zeny-card-cvv-text">${cardState === 'activa' ? esc(cardData?.codigo_activacion || '***') : '🔒 Código Secreto'}</span>
                 </div>
                 <div style="font-size:.58rem;color:#94a3b8;line-height:1.2;text-align:center">
                   Emprendimiento Gregory Izquierdo J-50639379-4
@@ -3301,12 +3336,12 @@ async function portal(){
       $('#dlgBody').innerHTML = `
         <h3>⚡ Activar Tarjeta de Crédito Digital Zeny</h3>
         <p class="mut" style="font-size:.82rem;margin:0 0 12px">
-          Ingresa el código secreto de activación que aparece en el <b>reverso</b> de tu tarjeta (toca la tarjeta para voltearla).
+          Ingresa el código secreto de activación proporcionado por Gregory Izquierdo tras la entrega o emisión de tu tarjeta.
         </p>
         <label class="mut" style="font-size:.75rem">Número de Tarjeta:</label>
         <input id="actCardNum" value="${esc(cardData.numero_tarjeta)}" readonly style="background:rgba(3,8,18,.8);margin-bottom:10px">
-        <label class="mut" style="font-size:.75rem">Código de Activación (Reverso):</label>
-        <input id="actCardCode" placeholder="Ej: 849" maxlength="6" style="font-family:monospace;font-size:1.1rem;letter-spacing:2px" required>
+        <label class="mut" style="font-size:.75rem">Código Secreto de Activación:</label>
+        <input id="actCardCode" placeholder="Ej: 849" maxlength="10" style="font-family:monospace;font-size:1.1rem;letter-spacing:2px" required>
         <button id="actCardSubmit" style="margin-top:14px;width:100%">Confirmar y Activar Tarjeta</button>
       `;
       dlg.showModal();
