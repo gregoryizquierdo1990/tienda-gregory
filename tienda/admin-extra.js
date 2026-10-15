@@ -865,6 +865,9 @@ const EXTRA = {
                     <button class="g" data-cal-tr-prof="${p.id}" style="padding:4px 8px;font-size:.73rem;background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)" title="Trasladar o reponer pantalla caída">
                       🔀 Reponer
                     </button>
+                    <button class="g" data-cal-renov-30d-prof="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
+                      🔄 Renovar (+30d)
+                    </button>
                     <button class="g" data-cal-edit-prof-date="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem" title="Modificar fecha de vencimiento">
                       ✏️ Fecha
                     </button>
@@ -895,6 +898,9 @@ const EXTRA = {
                     ${o.gcal_event_id ? '<span class="pill" style="font-size:.68rem;background:rgba(0,245,160,.12);color:#00f5a0;border:1px solid rgba(0,245,160,.3)" title="Sincronizado con Google Calendar">🟢 En Calendar</span>' : '<span class="pill off" style="font-size:.68rem" title="Pendiente de sincronizar">⏳ No sync</span>'}
                   </td>
                   <td class="row" style="gap:5px">
+                    <button class="g" data-cal-renov-30d-order="${o.id}" data-cur-date="${o.vence}" data-nom="${esc(o.customers?.nombre || o.customers?.email || 'Cliente')}" data-prod="${esc(o.products?.nombre || 'Servicio')}" data-gcal-id="${esc(o.gcal_event_id || '')}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
+                      🔄 Renovar (+30d)
+                    </button>
                     <button class="g" data-cal-edit-date="${o.id}" data-cur-date="${o.vence}" data-prod="${esc(o.products?.nombre || 'Servicio')}" data-nom="${esc(o.customers?.nombre || o.customers?.email || 'Cliente')}" data-gcal-id="${esc(o.gcal_event_id || '')}" style="padding:4px 8px;font-size:.73rem" title="Modificar fecha y sincronizar con Calendar">
                       ✏️ Cambiar Fecha
                     </button>
@@ -1316,6 +1322,119 @@ Fecha Vencimiento: ${newDate}`;
             toast('Error al actualizar fecha: ' + err.message);
           }
         };
+      };
+    });
+
+    // Acción: Renovar Suscripción de Perfil sumando 30 días exactos desde la fecha agendada
+    box.querySelectorAll('[data-cal-renov-30d-prof]').forEach(btn => {
+      btn.onclick = async () => {
+        const profId = btn.dataset.calRenov30dProf;
+        const curDate = btn.dataset.curDate;
+        const custNom = btn.dataset.nom;
+        const srvNom = btn.dataset.srv;
+
+        if (!curDate) return toast('El perfil no tiene una fecha agendada válida.');
+
+        // Calcular +30 días exactos desde la fecha agendada
+        const [y, m, d] = curDate.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        dt.setUTCDate(dt.getUTCDate() + 30);
+        const nextDateStr = dt.toISOString().slice(0, 10);
+
+        const ok = confirm(
+          `🔄 RENOVAR CICLO DE SUSCRIPCIÓN (+30 DÍAS)\n\n` +
+          `• Cliente / Perfil: ${custNom}\n` +
+          `• Servicio: ${srvNom}\n` +
+          `• Vencimiento agendado: ${curDate}\n` +
+          `• Nuevo vencimiento (+30 días): ${nextDateStr}\n\n` +
+          `¿Confirmas la renovación del servicio a partir de la fecha agendada?`
+        );
+        if (!ok) return;
+
+        btn.disabled = true;
+        btn.textContent = '⏳...';
+
+        try {
+          // 1. Actualizar profiles_inventory
+          const { error: pErr } = await sb.from('profiles_inventory').update({
+            vence: nextDateStr,
+            estado: 'vendido'
+          }).eq('id', profId);
+          if (pErr) throw pErr;
+
+          // 2. Sincronizar en orders vinculadas a este profile_id
+          try {
+            await sb.from('orders').update({
+              vence: nextDateStr,
+              proximo_pago: nextDateStr
+            }).eq('profile_id', profId);
+          } catch(e) {}
+
+          toast(`✅ Renovación exitosa. "${custNom}" extendido hasta el ${nextDateStr} (+30 días).`);
+          EXTRA.vencimientos(box);
+        } catch(err) {
+          toast('Error al renovar: ' + err.message);
+          btn.disabled = false;
+          btn.textContent = '🔄 Renovar (+30d)';
+        }
+      };
+    });
+
+    // Acción: Renovar Orden Web sumando 30 días exactos desde la fecha agendada
+    box.querySelectorAll('[data-cal-renov-30d-order]').forEach(btn => {
+      btn.onclick = async () => {
+        const orderId = btn.dataset.calRenov30dOrder;
+        const curDate = btn.dataset.curDate;
+        const custNom = btn.dataset.nom;
+        const prodNom = btn.dataset.prod;
+        const gcalId = btn.dataset.gcalId;
+
+        if (!curDate) return toast('La orden no tiene una fecha agendada válida.');
+
+        const [y, m, d] = curDate.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        dt.setUTCDate(dt.getUTCDate() + 30);
+        const nextDateStr = dt.toISOString().slice(0, 10);
+
+        const ok = confirm(
+          `🔄 RENOVAR CICLO DE SUSCRIPCIÓN (+30 DÍAS)\n\n` +
+          `• Cliente: ${custNom}\n` +
+          `• Servicio: ${prodNom}\n` +
+          `• Vencimiento agendado: ${curDate}\n` +
+          `• Nuevo vencimiento (+30 días): ${nextDateStr}\n\n` +
+          `¿Confirmas la renovación del servicio a partir de la fecha agendada?`
+        );
+        if (!ok) return;
+
+        btn.disabled = true;
+        btn.textContent = '⏳...';
+
+        try {
+          const { data: oRow, error: oErr } = await sb.from('orders').update({
+            vence: nextDateStr,
+            proximo_pago: nextDateStr
+          }).eq('id', orderId).select('profile_id').single();
+          if (oErr) throw oErr;
+
+          if (oRow?.profile_id) {
+            try {
+              await sb.from('profiles_inventory').update({ vence: nextDateStr, estado: 'vendido' }).eq('id', oRow.profile_id);
+            } catch(e) {}
+          }
+
+          if (gcalId && typeof GCal !== 'undefined' && GCal.isAuthenticated && GCal.isAuthenticated()) {
+            try {
+              await GCal.updateEvent(gcalId, { date: nextDateStr, summary: `Vence: ${prodNom} · ${custNom}` });
+            } catch(e) {}
+          }
+
+          toast(`✅ Renovación exitosa. "${custNom}" extendido hasta el ${nextDateStr} (+30 días).`);
+          EXTRA.vencimientos(box);
+        } catch(err) {
+          toast('Error al renovar: ' + err.message);
+          btn.disabled = false;
+          btn.textContent = '🔄 Renovar (+30d)';
+        }
       };
     });
 
@@ -4419,12 +4538,15 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
   async liquidaciones(box) {
     box.innerHTML = '<div style="padding:30px;text-align:center"><div class="sk" style="height:120px;max-width:500px;margin:auto"></div><p class="mut" style="margin-top:12px">Cargando módulo de Liquidación de Socios y Comisiones…</p></div>';
 
-    // 1. Cargar comisiones, revendedores y tasa actual
-    const [{ data: coms, error: comsErr }, { data: resellers }, { data: exRate }] = await Promise.all([
+    // 1. Cargar comisiones, datos del socio oficial Pablo Gonzalez y tasa actual
+    const [{ data: coms, error: comsErr }, { data: pabloData }, { data: exRate }] = await Promise.all([
       sb.from('partner_commissions')
         .select('*, customers!customer_id(nombre,telefono,email), vendedor:customers!vendedor_id(nombre,telefono,email,codigo_identificacion)')
         .order('created_at', { ascending: false }),
-      sb.from('customers').select('id,nombre,email,telefono,codigo_identificacion').eq('es_revendedor', true),
+      sb.from('customers').select('id,nombre,email,telefono,codigo_identificacion')
+        .or('codigo_identificacion.eq.RVD:1001,nombre.ilike.%Pablo Gonzalez%')
+        .limit(1)
+        .maybeSingle(),
       sb.from('exchange_rates').select('bs_por_usd').order('fecha', { ascending: false }).limit(1).maybeSingle()
     ]);
 
@@ -4439,14 +4561,22 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       return;
     }
 
+    // Exclusividad estricta: Únicamente Pablo Gonzalez es Socio Oficial con liquidación de ganancias y sociedad.
+    // Nelson, Josuanny, Leandro y nuevos revendedores operan por margen de compra mayorista, NO en liquidaciones de socios.
+    const pabloSocio = pabloData || {
+      id: null,
+      nombre: 'Pablo Gonzalez',
+      codigo_identificacion: 'RVD:1001',
+      telefono: '584120000000'
+    };
+
     const curRate = Number(exRate?.bs_por_usd || 50.00);
-    const allComms = coms || [];
-    let filterSeller = '';
+    // Filtrar comisiones exclusivamente para el socio oficial Pablo Gonzalez
+    const allComms = (coms || []).filter(c => !pabloSocio.id || c.vendedor_id === pabloSocio.id);
     let filterStatus = 'pendiente';
 
     const render = () => {
       let filtered = allComms;
-      if (filterSeller) filtered = filtered.filter(c => c.vendedor_id === filterSeller);
       if (filterStatus !== 'todos') filtered = filtered.filter(c => c.estado === filterStatus);
 
       const totPendUsd = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
@@ -4456,8 +4586,6 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const totReservaUsd = filtered.reduce((a, c) => a + Number(c.reserva_estrategica_usd || (c.ganancia_negocio_usd * 0.10) || 0), 0);
       const totCajaUsd = filtered.reduce((a, c) => a + Number(c.caja_negocio_usd || (c.ganancia_negocio_usd * 0.90) || 0), 0);
       const totLiqUsd = filtered.filter(c => c.estado === 'liquidada').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
-
-      const curSellerObj = (resellers || []).find(r => r.id === filterSeller) || (resellers || [])[0];
 
       box.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
@@ -4472,7 +4600,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="g" id="btnWAComms" style="background:rgba(37,211,102,.12);border-color:#25d366;color:#25d366;font-weight:700">
-              💬 Enviar Estado a Socio por WhatsApp
+              💬 Enviar Estado a Pablo por WhatsApp
             </button>
             <button id="btnDoLiquidation" style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none">
               ✅ Liquidar Comisiones Pendientes
@@ -4512,10 +4640,9 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         <!-- Filtros Rápidos -->
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;background:rgba(255,255,255,.02);padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06)">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <label class="mut" style="font-size:.8rem">Filtrar por Socio:</label>
-            <select id="selFilterSeller" style="padding:6px 10px;font-size:.82rem;background:rgba(3,8,18,.8);border-radius:8px">
-              <option value="">— Todos los Socios / Revendedores —</option>
-              ${(resellers || []).map(r => `<option value="${r.id}" ${filterSeller === r.id ? 'selected' : ''}>${esc(r.nombre || r.email)} (${esc(r.codigo_identificacion || 'RVD')})</option>`).join('')}
+            <label class="mut" style="font-size:.8rem">Socio Oficial:</label>
+            <select id="selFilterSeller" style="padding:6px 12px;font-size:.82rem;background:rgba(3,8,18,.8);border-radius:8px;border:1px solid rgba(255,183,3,.4);color:#fde047;font-weight:700" disabled>
+              <option value="${pabloSocio.id || ''}">💼 ${esc(pabloSocio.nombre || 'Pablo Gonzalez')} (Socio Oficial - ${esc(pabloSocio.codigo_identificacion || 'RVD:1001')})</option>
             </select>
 
             <label class="mut" style="font-size:.8rem;margin-left:8px">Estado:</label>
@@ -4526,7 +4653,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             </select>
           </div>
           <div class="mut" style="font-size:.8rem">
-            Mostrando <b>${filtered.length}</b> registros de comisión
+            Mostrando <b>${filtered.length}</b> registros de comisión de Pablo Gonzalez
           </div>
         </div>
 
@@ -4550,7 +4677,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             </thead>
             <tbody>
               ${filtered.length ? filtered.map(c => {
-                const sNom = c.vendedor?.nombre || 'Socio';
+                const sNom = c.vendedor?.nombre || pabloSocio.nombre || 'Pablo Gonzalez';
                 const cNom = c.customers?.nombre || c.customers?.email || 'Cliente';
                 const isPend = c.estado === 'pendiente';
                 const isBin = c.metodo_origen === 'binance';
@@ -4597,8 +4724,6 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       `;
 
       // Eventos de Filtro
-      const sSel = $('#selFilterSeller');
-      if (sSel) sSel.onchange = (e) => { filterSeller = e.target.value; render(); };
       const stSel = $('#selFilterStatus');
       if (stSel) stSel.onchange = (e) => { filterStatus = e.target.value; render(); };
 
@@ -4606,10 +4731,10 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const bWA = $('#btnWAComms');
       if (bWA) {
         bWA.onclick = () => {
-          const targetSeller = (resellers || []).find(r => r.id === filterSeller) || (resellers || [])[0];
-          if (!targetSeller) return toast('No se encontró ningún revendedor registrado.');
+          const targetSeller = pabloSocio;
+          if (!targetSeller || !targetSeller.id) return toast('No se encontró el registro de Pablo Gonzalez.');
 
-          const sComms = allComms.filter(c => c.vendedor_id === targetSeller.id && c.estado === 'pendiente');
+          const sComms = allComms.filter(c => c.estado === 'pendiente');
           const commsBs = sComms.filter(c => c.metodo_origen !== 'binance');
           const commsBin = sComms.filter(c => c.metodo_origen === 'binance');
 
@@ -4620,7 +4745,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           const fechaHoy = new Date().toLocaleDateString('es-VE');
           const itemsTxt = sComms.slice(0, 15).map((x, i) => `  ${i + 1}. ${x.servicio_nombre} (${x.customers?.nombre || 'Cliente'}): +$${Number(x.ganancia_vendedor_usd).toFixed(2)} [${x.metodo_origen === 'binance' ? 'Binance USDT' : 'Bs.'}]`).join('\n');
 
-          const msg = `¡Hola ${targetSeller.nombre || 'Socio'}! 👋 Te comparto tu *Corte de Liquidación de Comisiones* al ${fechaHoy}:\n\n` +
+          const msg = `¡Hola ${targetSeller.nombre || 'Pablo'}! 👋 Te comparto tu *Corte de Liquidación de Comisiones* al ${fechaHoy}:\n\n` +
             `🛒 *Ventas Autogestionadas Pendientes:* ${sComms.length}\n` +
             (itemsTxt ? `${itemsTxt}\n\n` : '') +
             (commsBs.length ? `🇻🇪 *Por Transferir en Bolívares (Pago Móvil):* Bs. ${totBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (Tasa BCV: ${curRate.toFixed(2)})\n` : '') +
@@ -4644,15 +4769,15 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const bDo = $('#btnDoLiquidation');
       if (bDo) {
         bDo.onclick = () => {
-          const targetSeller = (resellers || []).find(r => r.id === filterSeller) || (resellers || [])[0];
-          if (!targetSeller) return toast('No se encontró ningún revendedor registrado.');
+          const targetSeller = pabloSocio;
+          if (!targetSeller || !targetSeller.id) return toast('No se encontró el registro de Pablo Gonzalez.');
 
-          const sComms = allComms.filter(c => c.vendedor_id === targetSeller.id && c.estado === 'pendiente');
+          const sComms = allComms.filter(c => c.estado === 'pendiente');
           const sTotUsd = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
           const sTotBs = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
 
           if (!sComms.length) {
-            return toast(`El socio ${targetSeller.nombre} no tiene comisiones pendientes por liquidar.`);
+            return toast(`El socio Pablo Gonzalez no tiene comisiones pendientes por liquidar.`);
           }
 
           $('#dlgBody').innerHTML = `
@@ -4662,7 +4787,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             </p>
             <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
               <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-                <span class="mut" style="font-size:.82rem">Socio / Revendedor:</span>
+                <span class="mut" style="font-size:.82rem">Socio Oficial:</span>
                 <b>${esc(targetSeller.nombre)}</b>
               </div>
               <div style="display:flex;justify-content:space-between;margin-bottom:8px">
