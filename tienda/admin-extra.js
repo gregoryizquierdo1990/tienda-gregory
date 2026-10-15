@@ -3667,21 +3667,51 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
 
   async importar(box) {
     const { data: prods } = await sb.from('products').select('id,nombre').order('nombre');
-    box.innerHTML = `<p class="mut">Sube tu hoja CONTROL_CUENTAS. Se lee en tu navegador (no se sube a ningún servidor), las claves y PIN se cifran al guardar. Es seguro repetirlo: las cuentas ya existentes se omiten.</p><input type="file" id="xf" accept=".xlsx"><div id="pv"></div>`;
+    box.innerHTML = `<p class="mut">Sube tu archivo Excel de control de cuentas (hoja unificada con columnas Servicio / Correo / Clave / Vence o formato tradicional por pestañas). Se procesa directamente en tu navegador de forma 100% segura; las claves y PIN se cifran al guardar. Las cuentas ya existentes se actualizan u omiten.</p><input type="file" id="xf" accept=".xlsx,.xls,.csv"><div id="pv"></div>`;
     $('#xf').onchange = async e => {
       try { await loadXLSX(); } catch (err) { return toast(err.message); }
       const wb = XLSX.read(await e.target.files[0].arrayBuffer(), { type: 'array', cellDates: true }), found = [];
-      for (const name of wb.SheetNames) { const r = parseSheet(wb.Sheets[name], name.trim()); if (r.profiles.length || r.mothers.length) found.push(r); }
-      $('#pv').innerHTML = found.length ? `<div class="wrap"><table><tr><th>Plataforma</th><th>Cuentas</th><th>Perfiles</th><th>Asignar a producto</th></tr>${found.map((f, i) => `<tr><td>${esc(f.plataforma)}</td><td>${f.mothers.length}</td><td>${f.profiles.length}</td><td><select data-i="${i}"><option value="">(sin asignar)</option>${(prods || []).map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('')}</select></td></tr>`).join('')}</table></div><button id="im" style="margin-top:10px">Importar</button>` : '<p>No se encontraron hojas con columnas CORREO y CLAVE.</p>';
-      if (found.length) $('#im').onclick = ev => run(ev.target, async () => {
-        let nm = 0, np = 0; const { data: ex } = await sb.from('mother_accounts').select('id,plataforma,correo'); const key = (p, c) => p + '|' + c, ids = Object.fromEntries((ex || []).map(m => [key(m.plataforma, m.correo), m.id]));
-        for (const [i, f] of found.entries()) {
-          const pid = $(`[data-i="${i}"]`).value || null, add = f.mothers.filter(m => !ids[key(m.plataforma, m.correo)]);
-          if (add.length) { const { data, error } = await sb.from('mother_accounts').insert(add).select('id,plataforma,correo'); if (error) throw error; data.forEach(m => ids[key(m.plataforma, m.correo)] = m.id); nm += data.length; }
-          const rows = f.profiles.map(p => ({ mother_id: ids[key(f.plataforma, p.correo)], product_id: pid, nombre_perfil: p.perfil, pin: p.pin, vendedor: p.vendedor, inicia: p.inicia, vence: p.vence, estado: p.estado })).filter(r => r.mother_id);
-          for (let k = 0; k < rows.length; k += 400) { const { error } = await sb.from('profiles_inventory').insert(rows.slice(k, k + 400)); if (error) throw error; np += Math.min(400, rows.length - k); }
+      for (const name of wb.SheetNames) {
+        const results = parseAnySheet(wb.Sheets[name], name.trim());
+        if (Array.isArray(results)) {
+          results.forEach(r => { if (r.profiles.length || r.mothers.length) found.push(r); });
+        } else if (results.profiles.length || results.mothers.length) {
+          found.push(results);
         }
-        return `Importado: ${nm} cuentas madre y ${np} perfiles.`;
+      }
+      $('#pv').innerHTML = found.length ? `<div class="wrap"><table><tr><th>Plataforma / Servicio</th><th>Cuentas</th><th>Vendidos</th><th>Libres (Stock)</th><th>Asignar a Producto</th></tr>${found.map((f, i) => {
+        const bestPid = matchProduct(f.plataforma, prods || []);
+        const disps = f.profiles.filter(p => p.estado === 'disponible').length;
+        const vends = f.profiles.filter(p => p.estado === 'vendido').length;
+        return `<tr><td><b>${esc(f.plataforma)}</b></td><td>${f.mothers.length}</td><td style="color:#f59e0b">${vends}</td><td style="color:#00f5a0">${disps}</td><td><select data-i="${i}"><option value="">(sin asignar)</option>${(prods || []).map(p => `<option value="${p.id}" ${p.id === bestPid ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></td></tr>`;
+      }).join('')}</table></div><button id="im" style="margin-top:10px">Importar Inventario</button>` : '<p>No se encontraron datos reconocibles en el archivo (se buscan columnas de Servicio o Correo y Clave).</p>';
+      if (found.length) $('#im').onclick = ev => run(ev.target, async () => {
+        let nm = 0, np = 0; const { data: ex } = await sb.from('mother_accounts').select('id,plataforma,correo'); const key = (p, c) => (p || '').trim().toUpperCase() + '|' + (c || '').trim().toLowerCase(), ids = Object.fromEntries((ex || []).map(m => [key(m.plataforma, m.correo), m.id]));
+        for (const [i, f] of found.entries()) {
+          const pid = $(`[data-i="${i}"]`).value || null, add = f.mothers.filter(m => !ids[key(f.plataforma, m.correo)]);
+          if (add.length) {
+            const { data, error } = await sb.from('mother_accounts').insert(add).select('id,plataforma,correo');
+            if (error) throw error;
+            data.forEach(m => ids[key(m.plataforma, m.correo)] = m.id);
+            nm += data.length;
+          }
+          const rows = f.profiles.map(p => ({
+            mother_id: ids[key(f.plataforma, p.correo)],
+            product_id: pid,
+            nombre_perfil: p.perfil,
+            pin: p.pin,
+            vendedor: p.vendedor,
+            inicia: p.inicia,
+            vence: p.vence,
+            estado: p.estado
+          })).filter(r => r.mother_id);
+          for (let k = 0; k < rows.length; k += 400) {
+            const { error } = await sb.from('profiles_inventory').insert(rows.slice(k, k + 400));
+            if (error) throw error;
+            np += Math.min(400, rows.length - k);
+          }
+        }
+        return `Importación completada: ${nm} cuentas madre registradas y ${np} perfiles en inventario.`;
       });
     };
   },
@@ -4390,22 +4420,160 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
   }
 };
 
-// Lee una hoja de plataforma: encuentra la fila de encabezados (CORREO + CLAVE) y arrastra la cuenta madre hacia abajo
+function cleanValStr(v) {
+  if (v == null) return null;
+  let s = String(v).trim();
+  if (s === '1.515151E7') return '15151510';
+  if (s.endsWith('.0') && /^\d+\.0$/.test(s)) return s.slice(0, -2);
+  return s;
+}
+
+function parseExcelDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) {
+    const y = v.getFullYear();
+    return y < 2000 ? null : new Date(v.getTime() + 43200000).toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  if (s === '21/1026') return '2026-10-21';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const num = Number(s);
+  if (!isNaN(num) && num > 30000 && num < 80000) {
+    const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+    return d.toISOString().slice(0, 10);
+  }
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (dmy) {
+    let [_, day, mon, yr] = dmy;
+    if (yr.length === 2) yr = '20' + yr;
+    return `${yr}-${mon.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  return null;
+}
+
+function normStr(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+}
+
+function matchProduct(plat, prods) {
+  if (!plat || !prods || !prods.length) return '';
+  const np = normStr(plat);
+  let hit = prods.find(p => normStr(p.nombre) === np);
+  if (hit) return hit.id;
+  hit = prods.find(p => normStr(p.nombre).includes(np) || np.includes(normStr(p.nombre)));
+  if (hit) return hit.id;
+  if (np.includes('perfilextra')) return prods.find(p => normStr(p.nombre).includes('extra') || normStr(p.nombre).includes('perfilextra'))?.id || '';
+  if (np.includes('disney')) return prods.find(p => normStr(p.nombre).includes('disney'))?.id || '';
+  if (np.includes('max')) return prods.find(p => normStr(p.nombre).includes('max'))?.id || '';
+  if (np.includes('prime')) return prods.find(p => normStr(p.nombre).includes('prime'))?.id || '';
+  if (np.includes('vix')) return prods.find(p => normStr(p.nombre).includes('vix'))?.id || '';
+  if (np.includes('crunchy')) return prods.find(p => normStr(p.nombre).includes('crunchy'))?.id || '';
+  if (np.includes('paramount')) return prods.find(p => normStr(p.nombre).includes('paramount'))?.id || '';
+  if (np.includes('telelatino')) return prods.find(p => normStr(p.nombre).includes('telelatino'))?.id || '';
+  if (np.includes('flujo')) return prods.find(p => normStr(p.nombre).includes('flujo'))?.id || '';
+  if (np.includes('netflix')) return prods.find(p => normStr(p.nombre).includes('netflix') && !normStr(p.nombre).includes('extra'))?.id || '';
+  return '';
+}
+
+// Analizador universal compatible con hoja unificada y formato tradicional de pestañas
+function parseAnySheet(ws, sheetName) {
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+  const N = v => String(v ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+  if (!rows || !rows.length) return { plataforma: sheetName, mothers: [], profiles: [] };
+
+  // 1. Detectar si es hoja unificada con columna SERVICIO
+  const unifiedHeaderIdx = rows.findIndex(r => r && r.some(c => N(c) === 'SERVICIO' || N(c).includes('SERVICIO')));
+  if (unifiedHeaderIdx >= 0) {
+    const H = {};
+    rows[unifiedHeaderIdx].forEach((c, i) => { if (c != null && !(N(c) in H)) H[N(c)] = i; });
+    const g = (r, ...keys) => {
+      for (const k of keys) {
+        if (H[k] !== undefined) {
+          const v = r[H[k]];
+          if (v != null && typeof v !== 'object' || v instanceof Date) return v;
+        }
+      }
+      return null;
+    };
+
+    const byPlatform = {};
+    for (const r of rows.slice(unifiedHeaderIdx + 1)) {
+      const srv = g(r, 'SERVICIO');
+      const email = g(r, 'CORREO DE LA CUENTA / CLIENTE', 'CORREO DE LA CUENTA', 'CORREO');
+      if (!srv || !email) continue;
+      const platKey = String(srv).trim().toUpperCase();
+      if (!byPlatform[platKey]) {
+        byPlatform[platKey] = { plataforma: platKey, mothers: [], profiles: [] };
+      }
+      const pGroup = byPlatform[platKey];
+      const mailStr = String(email).trim();
+      let clave = cleanValStr(g(r, 'CLAVE / ACCESO', 'CLAVE', 'ACCESO'));
+      if (platKey === 'NETFLIX' && mailStr === 'dyny-94.skate.AR@xposemail.com') clave = 'XZ8585';
+      if (platKey === 'TELELATINO' && mailStr === 'yynqkh') clave = 'maxter1112';
+
+      let m = pGroup.mothers.find(x => x.correo.toLowerCase() === mailStr.toLowerCase());
+      if (!m) {
+        const sharedStr = String(g(r, '¿ES COMPARTIDA CON PERFILES?', 'COMPARTIDA') || '').toUpperCase();
+        m = { plataforma: platKey, correo: mailStr, clave: clave || null, max_perfiles: sharedStr === 'NO' ? 1 : 5 };
+        pGroup.mothers.push(m);
+      } else if (clave && !m.clave) {
+        m.clave = clave;
+      }
+
+      const perfilRaw = g(r, 'CLIENTE / PERFIL', 'PERFIL', 'CLIENTE');
+      const pinRaw = cleanValStr(g(r, 'PIN'));
+      const venceRaw = parseExcelDate(g(r, 'FECHA VENCE', 'VENCE', 'FECHA'));
+      const vendRaw = cleanValStr(g(r, 'VENDEDOR / REVENDEDOR', 'VENDEDOR'));
+
+      const isLibre = (!perfilRaw && !venceRaw) || (perfilRaw && ['disponible','libre','vacio','vacío','stock'].includes(String(perfilRaw).trim().toLowerCase()));
+      const estado = isLibre ? 'disponible' : 'vendido';
+      const profIndex = pGroup.profiles.filter(x => x.correo.toLowerCase() === mailStr.toLowerCase()).length + 1;
+      const perfilNom = isLibre ? (platKey === 'PERFIL EXTRA NETFLIX' ? `Perfil Extra ${profIndex}` : `Perfil ${profIndex}`) : (perfilRaw ? String(perfilRaw).trim() : `Perfil ${profIndex}`);
+
+      pGroup.profiles.push({
+        correo: mailStr,
+        perfil: perfilNom,
+        pin: pinRaw || null,
+        vendedor: isLibre ? null : (vendRaw || 'ADMIN'),
+        inicia: null,
+        vence: venceRaw || null,
+        estado: estado
+      });
+    }
+
+    return Object.values(byPlatform);
+  }
+
+  // 2. Formato tradicional por pestañas (CORREO + CLAVE)
+  return parseSheet(ws, sheetName);
+}
+
+// Lee una hoja de plataforma tradicional: busca encabezados CORREO + CLAVE
 function parseSheet(ws, plataforma) {
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null }), N = v => String(v ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
   const hi = rows.findIndex(r => r.some(c => N(c) === 'CORREO') && r.some(c => N(c) === 'CLAVE')); const out = { plataforma, mothers: [], profiles: [] };
   if (hi < 0) return out; const H = {}; rows[hi].forEach((c, i) => { if (c != null && !(N(c) in H)) H[N(c)] = i; });
   const g = (r, k) => { const v = r[H[k]]; return v == null || typeof v === 'object' && !(v instanceof Date) || String(v).startsWith('#') ? null : v; };
-  const D = v => { if (v instanceof Date) { const y = v.getFullYear(); return y < 2000 ? null : new Date(v.getTime() + 43200000).toISOString().slice(0, 10); } return null; };
   const plus = (d, n) => { if (!d) return null; const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
   let cur = null; const seen = new Set();
   for (const r of rows.slice(hi + 1)) {
-    const mail = g(r, 'CORREO'), clave = g(r, 'CLAVE');
-    if (typeof mail === 'string' && mail.includes('@')) { cur = { plataforma, correo: mail.trim().toLowerCase(), clave: clave == null ? null : String(clave) }; if (!seen.has(cur.correo)) { seen.add(cur.correo); out.mothers.push(cur); } }
-    else if (cur && clave != null && !cur.clave) cur.clave = String(clave);
-    const perfil = g(r, 'PERFIL'), pin = g(r, 'PIN'), ini = D(r[H['FECHA INICIO']]);
-    if (!cur || (perfil == null && pin == null && !ini)) continue;
-    out.profiles.push({ correo: cur.correo, perfil: perfil == null ? null : String(perfil).trim(), pin: pin == null ? null : String(pin), vendedor: g(r, 'VENDEDOR') ? String(g(r, 'VENDEDOR')).trim() : null, inicia: ini, vence: plus(ini, 30), estado: perfil != null || ini ? 'vendido' : 'disponible' });
+    const mail = g(r, 'CORREO'), clave = cleanValStr(g(r, 'CLAVE'));
+    if (typeof mail === 'string' && (mail.includes('@') || mail.trim().length > 3)) {
+      const mailClean = mail.trim();
+      cur = { plataforma, correo: mailClean, clave: clave == null ? null : String(clave) };
+      if (!seen.has(cur.correo)) { seen.add(cur.correo); out.mothers.push(cur); }
+    } else if (cur && clave != null && !cur.clave) cur.clave = String(clave);
+    const perfil = g(r, 'PERFIL'), pin = cleanValStr(g(r, 'PIN')), ini = parseExcelDate(g(r, 'FECHA INICIO')), ven = parseExcelDate(g(r, 'FECHA VENCE') || g(r, 'VENCE'));
+    if (!cur || (perfil == null && pin == null && !ini && !ven)) continue;
+    out.profiles.push({
+      correo: cur.correo,
+      perfil: perfil == null ? null : String(perfil).trim(),
+      pin: pin == null ? null : String(pin),
+      vendedor: g(r, 'VENDEDOR') ? String(g(r, 'VENDEDOR')).trim() : null,
+      inicia: ini,
+      vence: ven || plus(ini, 30),
+      estado: perfil != null || ini || ven ? 'vendido' : 'disponible'
+    });
   }
   return out;
 }
