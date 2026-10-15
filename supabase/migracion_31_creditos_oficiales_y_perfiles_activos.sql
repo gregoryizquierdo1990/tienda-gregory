@@ -285,12 +285,11 @@ begin
       update customers set
         vendedor_id = v_pablo_id,
         vendedor_nombre = 'Pablo Gonzalez',
-        limite_credito = r.monto_deuda,
-        permite_cuotas = true
+        limite_credito = r.monto_deuda
       where id = v_cust_id;
     else
-      insert into customers (nombre, email, telefono, es_revendedor, vendedor_id, vendedor_nombre, limite_credito, permite_cuotas)
-      values (r.cliente_nombre, r.email, split_part(r.email, '@', 1), false, v_pablo_id, 'Pablo Gonzalez', r.monto_deuda, true)
+      insert into customers (nombre, email, telefono, es_revendedor, vendedor_id, vendedor_nombre, limite_credito)
+      values (r.cliente_nombre, r.email, split_part(r.email, '@', 1), false, v_pablo_id, 'Pablo Gonzalez', r.monto_deuda)
       returning id into v_cust_id;
     end if;
 
