@@ -284,7 +284,7 @@ async function openTransferModal({ profileId, orderId, done } = {}) {
         .eq('estado', 'disponible')
         .order('nombre_perfil'),
       sb.from('orders')
-        .select('id,referencia,profile_id,inicia,vence,estado,customers(id,nombre,email,telefono),products(nombre)')
+        .select('id,referencia,profile_id,inicia,vence,estado,customers!customer_id(id,nombre,email,telefono),products(nombre)')
         .in('estado', ['entregado', 'pagado'])
     ]);
 
@@ -703,7 +703,7 @@ const EXTRA = {
     // Consultamos pedidos entregados/activos, cuentas madre, inventario de perfiles y eventos de Google Calendar en paralelo
     const pms = [
       sb.from('orders')
-        .select('id,customer_id,product_id,profile_id,total_usd,referencia,inicia,vence,gcal_event_id,estado,customers(nombre,email,telefono),products(nombre)')
+        .select('id,customer_id,product_id,profile_id,total_usd,referencia,inicia,vence,gcal_event_id,estado,customers!customer_id(nombre,email,telefono),products(nombre)')
         .not('vence', 'is', null)
         .gte('vence', startMonth)
         .lte('vence', endMonth),
@@ -1036,12 +1036,12 @@ const EXTRA = {
         // 2. Traer todos los pedidos del mes y los vinculados a Google Calendar
         const [{ data: curOrders, error: curErr }, { data: linkedOrders }] = await Promise.all([
           sb.from('orders')
-            .select('id,customer_id,product_id,profile_id,inicia,vence,gcal_event_id,estado,customers(nombre,email,telefono),products(nombre)')
+            .select('id,customer_id,product_id,profile_id,inicia,vence,gcal_event_id,estado,customers!customer_id(nombre,email,telefono),products(nombre)')
             .not('vence', 'is', null)
             .gte('vence', startMonth)
             .lte('vence', endMonth),
           sb.from('orders')
-            .select('id,customer_id,product_id,profile_id,inicia,vence,gcal_event_id,estado,customers(nombre,email,telefono),products(nombre)')
+            .select('id,customer_id,product_id,profile_id,inicia,vence,gcal_event_id,estado,customers!customer_id(nombre,email,telefono),products(nombre)')
             .not('gcal_event_id', 'is', null)
         ]);
         if (curErr) throw curErr;
@@ -1434,7 +1434,7 @@ Cobrar antes de ${fVenceCred}`;
     box.querySelectorAll('[data-sv]').forEach(c => c.onchange = async () => { await sb.from('google_integrations').update({ enabled: c.checked, updated_at: new Date().toISOString() }).eq('service', c.dataset.sv); EXTRA.google(box); });
     const jobs = {
       async calendar() {
-        const { data } = await sb.from('orders').select('id,vence,products(nombre),customers(nombre)').in('estado', ['pagado', 'entregado']).gte('vence', today()).is('gcal_event_id', null); let n = 0;
+        const { data } = await sb.from('orders').select('id,vence,products(nombre),customers!customer_id(nombre)').in('estado', ['pagado', 'entregado']).gte('vence', today()).is('gcal_event_id', null); let n = 0;
         for (const o of data || []) { const ev = await G('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify({ summary: `Vence: ${o.products?.nombre || ''} · ${o.customers?.nombre || ''}`, start: { date: o.vence }, end: { date: addDay(o.vence) } }) }); await sb.from('orders').update({ gcal_event_id: ev.id }).eq('id', o.id); n++; }
         const { data: rf } = await sb.from('orders').select('id,gcal_event_id').eq('estado', 'reembolsado').not('gcal_event_id', 'is', null); let d = 0;
         for (const o of rf || []) { await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events/' + o.gcal_event_id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + sessionStorage.getItem('gtk') } }); await sb.from('orders').update({ gcal_event_id: null }).eq('id', o.id); d++; }

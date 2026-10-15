@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
     // 2. Consultar pedidos entregados, perfiles vendidos, cuentas madre y cuotas vencidas
     const [ordersRes, profilesRes, mothersRes, instRes] = await Promise.all([
-      sbRest(`orders?estado=in.(entregado,pagado)&vence=eq.${hoy}&select=id,inicia,vence,referencia,customers(nombre,email,telefono),products(nombre)`).catch(() => []),
+      sbRest(`orders?estado=in.(entregado,pagado)&vence=eq.${hoy}&select=id,inicia,vence,referencia,customers!customer_id(nombre,email,telefono),products(nombre)`).catch(() => []),
       sbRest(`profiles_inventory?estado=eq.vendido&vence=eq.${hoy}&select=id,nombre_perfil,pin,vence,mother_accounts(plataforma,correo)`).catch(() => []),
       sbRest(`mother_accounts?activa=eq.true&vence=eq.${hoy}&select=id,plataforma,correo,vence,max_perfiles`).catch(() => []),
       sbRest(`installments?estado=in.(pendiente,vencida)&fecha_vencimiento=lte.${hoy}&select=id,numero_cuota,total_cuotas,monto_usd,fecha_vencimiento,estado,customers(nombre,telefono),orders(products(nombre))`).catch(() => [])
