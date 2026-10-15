@@ -260,16 +260,397 @@ function refundDlg(id, total, done) {
 }
 
 async function transferDlg(orderId, done) {
-  const { data: o } = await sb.from('orders').select('profile_id,products(nombre),profiles_inventory(nombre_perfil,mother_accounts(plataforma,correo))').eq('id', orderId).single();
-  const pl = o?.profiles_inventory?.mother_accounts?.plataforma;
-  const { data: libres } = await sb.from('profiles_inventory').select('id,nombre_perfil,mother_accounts(plataforma,correo)').eq('estado', 'disponible');
-  const opts = (libres || []).filter(p => p.mother_accounts?.plataforma === pl);
-  $('#dlgBody').innerHTML = `<h3>Trasladar cliente</h3><p class="mut">Actual: ${esc(pl)} · ${esc(o?.profiles_inventory?.mother_accounts?.correo)} · ${esc(o?.profiles_inventory?.nombre_perfil)}. Conserva los días que le quedan.</p>
-  <select id="tp">${opts.length ? opts.map(p => `<option value="${p.id}">${esc(p.mother_accounts.correo)} · ${esc(p.nombre_perfil)}</option>`).join('') : '<option value="">No hay perfiles libres en esa plataforma</option>'}</select>
-  <input id="tm" placeholder="Motivo (ej. cuenta con falla, cambio solicitado)" style="margin-top:8px">
-  <select id="tl" style="margin-top:8px"><option value="true">Perfil anterior: liberarlo (vuelve a disponible)</option><option value="false">Perfil anterior: suspenderlo (la cuenta tiene fallas)</option></select>
-  <button id="tok" style="margin-top:10px;width:100%" ${opts.length ? '' : 'disabled'}>Confirmar traslado</button>`; dlg.showModal();
-  $('#tok').onclick = e => run(e.target, async () => { const { error } = await sb.rpc('transfer_order', { p_order: orderId, p_new_profile: $('#tp').value, p_motivo: $('#tm').value, p_liberar_anterior: $('#tl').value === 'true' }); if (error) throw error; done && done(); return 'Traslado registrado. El cliente ya ve sus nuevos accesos.'; });
+  return openTransferModal({ orderId, done });
+}
+
+async function openTransferModal({ profileId, orderId, done } = {}) {
+  $('#dlgBody').innerHTML = `
+    <div style="text-align:center;padding:24px">
+      <div style="font-size:2rem;margin-bottom:8px">⏳</div>
+      <p class="mut">Cargando inventario de perfiles y clientes...</p>
+    </div>
+  `;
+  dlg.showModal();
+
+  try {
+    const [profSoldRes, profFreeRes, ordersRes] = await Promise.all([
+      sb.from('profiles_inventory')
+        .select('id,nombre_perfil,pin,inicia,vence,estado,product_id,mother_id,mother_accounts(id,plataforma,correo,clave),products(nombre)')
+        .eq('estado', 'vendido')
+        .order('nombre_perfil'),
+      sb.from('profiles_inventory')
+        .select('id,nombre_perfil,pin,estado,product_id,mother_id,mother_accounts(id,plataforma,correo,clave),products(nombre)')
+        .eq('estado', 'disponible')
+        .order('nombre_perfil'),
+      sb.from('orders')
+        .select('id,referencia,profile_id,inicia,vence,estado,customers(id,nombre,email,telefono),products(nombre)')
+        .in('estado', ['entregado', 'pagado'])
+    ]);
+
+    const soldProfiles = profSoldRes.data || [];
+    const freeProfiles = profFreeRes.data || [];
+    const activeOrders = ordersRes.data || [];
+
+    if (!soldProfiles.length && !activeOrders.length) {
+      $('#dlgBody').innerHTML = `
+        <h3>🔀 Traslado / Reposición</h3>
+        <p class="mut">No se encontraron perfiles vendidos ni pedidos activos para trasladar.</p>
+        <div style="text-align:right;margin-top:14px"><button class="g" onclick="dlg.close()">Cerrar</button></div>
+      `;
+      return;
+    }
+
+    if (!freeProfiles.length) {
+      $('#dlgBody').innerHTML = `
+        <h3>🔀 Traslado / Reposición</h3>
+        <p class="mut" style="color:#f87171">⚠️ No hay ningún perfil con estado 'disponible' en el inventario para realizar la reposición.</p>
+        <p class="mut" style="font-size:.84rem">Agrega o genera nuevos perfiles libres en una cuenta madre antes de continuar.</p>
+        <div style="text-align:right;margin-top:14px"><button class="g" onclick="dlg.close()">Cerrar</button></div>
+      `;
+      return;
+    }
+
+    // Mapa de órdenes por profile_id
+    const orderByProfId = {};
+    activeOrders.forEach(o => {
+      if (o.profile_id) orderByProfId[o.profile_id] = o;
+    });
+
+    // Perfil origen inicial
+    let selectedProfId = profileId || '';
+    if (!selectedProfId && orderId) {
+      const ord = activeOrders.find(x => x.id === orderId);
+      if (ord?.profile_id) selectedProfId = ord.profile_id;
+    }
+    if (!selectedProfId && soldProfiles.length) {
+      selectedProfId = soldProfiles[0].id;
+    }
+
+    let modeDifferentPlat = false;
+    let daysCompensation = 0;
+
+    const renderModal = () => {
+      const curSource = soldProfiles.find(p => p.id === selectedProfId) || soldProfiles[0];
+      const curOrder = curSource ? orderByProfId[curSource.id] : null;
+      const curPlat = curSource?.mother_accounts?.plataforma || '';
+      const clientName = curOrder?.customers?.nombre || curOrder?.customers?.email || 'Cliente sin registrar';
+      const clientPhone = curOrder?.customers?.telefono || '';
+
+      // Filtrar perfiles destino
+      let targetOptions = freeProfiles;
+      if (!modeDifferentPlat && curPlat) {
+        targetOptions = freeProfiles.filter(p => (p.mother_accounts?.plataforma || '').toLowerCase() === curPlat.toLowerCase());
+      }
+
+      // Calcular fecha de vencimiento proyectada
+      let originalVence = curSource?.vence || curOrder?.vence || new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      let calculatedVence = originalVence;
+      if (daysCompensation > 0) {
+        const d = new Date(originalVence + 'T12:00:00Z');
+        d.setUTCDate(d.getUTCDate() + daysCompensation);
+        calculatedVence = d.toISOString().slice(0, 10);
+      }
+
+      $('#dlgBody').innerHTML = `
+        <div style="max-height:80vh;overflow-y:auto;padding-right:4px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+            <div>
+              <h3 style="margin:0 0 4px;display:flex;align-items:center;gap:8px">
+                <span>🔀 Traslado / Reposición de Servicio</span>
+              </h3>
+              <p class="mut" style="font-size:.82rem;margin:0">
+                Reubica la pantalla por falla/caída en la misma plataforma o migra al cliente a otra cuenta.
+              </p>
+            </div>
+            <button class="g" type="button" onclick="dlg.close()" style="padding:4px 8px;font-size:.8rem">✕</button>
+          </div>
+
+          <!-- SECCIÓN 1: ORIGEN -->
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:14px">
+            <label class="mut" style="font-size:.76rem;font-weight:700;display:block;margin-bottom:6px;text-transform:uppercase;color:var(--c)">
+              1. Selecciona el perfil / cliente a reponer:
+            </label>
+            <select id="selSourceProf" style="width:100%;font-size:.88rem;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);color:#fff">
+              ${soldProfiles.map(p => {
+                const ord = orderByProfId[p.id];
+                const cli = ord?.customers?.nombre || ord?.customers?.email || 'Sin vincular';
+                const isSel = p.id === curSource?.id ? 'selected' : '';
+                return `<option value="${p.id}" ${isSel}>[${esc(p.mother_accounts?.plataforma || 'Servicio')}] ${esc(p.mother_accounts?.correo || '')} · ${esc(p.nombre_perfil)} (Vence: ${p.vence || '—'}) · ${esc(cli)}</option>`;
+              }).join('')}
+            </select>
+
+            <!-- FICHA DETALLE DEL ORIGEN -->
+            <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.78rem;background:rgba(0,0,0,.25);padding:10px;border-radius:8px;border-left:3px solid #38bdf8">
+              <div><b>Plataforma:</b> ${esc(curPlat || '—')}</div>
+              <div><b>Perfil Actual:</b> ${esc(curSource?.nombre_perfil || '—')}</div>
+              <div><b>Cuenta Madre:</b> <code>${esc(curSource?.mother_accounts?.correo || '—')}</code></div>
+              <div><b>Vence:</b> <b style="color:#00f5a0">${curSource?.vence || '—'}</b></div>
+              <div style="grid-column:1 / -1"><b>Cliente Vinculado:</b> ${esc(clientName)} ${clientPhone ? `(📱 ${esc(clientPhone)})` : ''}</div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 2: TIPO DE TRASLADO -->
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:14px">
+            <label class="mut" style="font-size:.76rem;font-weight:700;display:block;margin-bottom:8px;text-transform:uppercase;color:var(--c)">
+              2. Modalidad de Traslado / Reposición:
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <button type="button" id="btnModeSame" class="g" style="padding:10px;border-radius:10px;font-size:.8rem;text-align:left;${!modeDifferentPlat ? 'background:rgba(56,189,248,.15);border-color:#38bdf8;color:#38bdf8;font-weight:800' : ''}">
+                <div style="font-weight:800">🔵 Misma Plataforma</div>
+                <div class="mut" style="font-size:.72rem;margin-top:2px">Reposición por cuenta caída (ej: ${esc(curPlat || 'Netflix')} ➔ ${esc(curPlat || 'Netflix')})</div>
+              </button>
+              <button type="button" id="btnModeDiff" class="g" style="padding:10px;border-radius:10px;font-size:.8rem;text-align:left;${modeDifferentPlat ? 'background:rgba(168,85,247,.15);border-color:#a855f7;color:#c084fc;font-weight:800' : ''}">
+                <div style="font-weight:800">🟣 Otra Plataforma</div>
+                <div class="mut" style="font-size:.72rem;margin-top:2px">Migración a otro servicio (ej: Netflix ➔ Max / Disney+)</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 3: PERFIL DESTINO -->
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <label class="mut" style="font-size:.76rem;font-weight:700;text-transform:uppercase;color:var(--c)">
+                3. Selecciona el nuevo perfil disponible (Destino):
+              </label>
+              <span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.12);color:#00f5a0">
+                ${targetOptions.length} disponible(s)
+              </span>
+            </div>
+            ${targetOptions.length ? `
+              <select id="selTargetProf" style="width:100%;font-size:.88rem;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.4);border:1px solid rgba(0,245,160,.3);color:#fff">
+                ${targetOptions.map(p => `
+                  <option value="${p.id}">
+                    [${esc(p.mother_accounts?.plataforma || 'Servicio')}] ${esc(p.mother_accounts?.correo || '')} · ${esc(p.nombre_perfil)}${p.pin ? ` (PIN: ${esc(p.pin)})` : ''}
+                  </option>
+                `).join('')}
+              </select>
+            ` : `
+              <div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);padding:10px;border-radius:8px;font-size:.82rem;color:#fca5a5">
+                ⚠️ No hay perfiles libres en <b>${esc(curPlat)}</b>. Cambia a "🟣 Otra Plataforma" o agrega una cuenta nueva.
+              </div>
+            `}
+          </div>
+
+          <!-- SECCIÓN 4: ACCIÓN CON EL PERFIL ANTERIOR -->
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:14px">
+            <label class="mut" style="font-size:.76rem;font-weight:700;display:block;margin-bottom:6px;text-transform:uppercase;color:var(--c)">
+              4. ¿Qué hacer con el perfil anterior?
+            </label>
+            <select id="selOldAction" style="width:100%;font-size:.84rem;padding:8px 10px;border-radius:10px">
+              <option value="false" selected>🚫 Suspender perfil anterior (Recomendado: La cuenta tuvo falla / caída)</option>
+              <option value="true">🟢 Liberar perfil anterior (Devolverlo a disponible para la venta)</option>
+            </select>
+          </div>
+
+          <!-- SECCIÓN 5: MOTIVO DEL TRASLADO -->
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:14px">
+            <label class="mut" style="font-size:.76rem;font-weight:700;display:block;margin-bottom:6px;text-transform:uppercase;color:var(--c)">
+              5. Motivo del traslado / reposición:
+            </label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+              <button type="button" class="g tr-preset-btn" data-preset="⚠️ Pantalla caída / Falla de cuenta (Reposición)" style="padding:3px 8px;font-size:.72rem;border-radius:6px">⚠️ Pantalla caída</button>
+              <button type="button" class="g tr-preset-btn" data-preset="🏠 Hogar Netflix / Restricción de red" style="padding:3px 8px;font-size:.72rem;border-radius:6px">🏠 Hogar Netflix</button>
+              <button type="button" class="g tr-preset-btn" data-preset="🔄 Reposición preventiva por mantenimiento" style="padding:3px 8px;font-size:.72rem;border-radius:6px">🔄 Mantenimiento</button>
+              <button type="button" class="g tr-preset-btn" data-preset="🔀 Cambio de plataforma solicitado por cliente" style="padding:3px 8px;font-size:.72rem;border-radius:6px">🔀 Cambio de plataforma</button>
+            </div>
+            <input id="inputMotivo" value="⚠️ Pantalla caída / Falla de cuenta (Reposición)" placeholder="Escribe el motivo..." style="width:100%;font-size:.84rem;padding:7px 10px;border-radius:8px">
+          </div>
+
+          <!-- SECCIÓN 6: FECHA Y COMPENSACIÓN -->
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <label class="mut" style="font-size:.76rem;font-weight:700;text-transform:uppercase;color:var(--c)">
+                6. Vencimiento del cliente & Compensación:
+              </label>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+              <input type="date" id="inputVenceDate" value="${calculatedVence}" style="font-size:.9rem;padding:7px 10px;border-radius:8px;font-weight:700">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button type="button" class="g tr-comp-btn" data-add="0" style="padding:4px 8px;font-size:.72rem;border-radius:6px;${daysCompensation===0?'border-color:#38bdf8;color:#38bdf8;font-weight:700':''}">Exacto</button>
+                <button type="button" class="g tr-comp-btn" data-add="1" style="padding:4px 8px;font-size:.72rem;border-radius:6px;${daysCompensation===1?'border-color:#00f5a0;color:#00f5a0;font-weight:700':''}">+1 día cortesía</button>
+                <button type="button" class="g tr-comp-btn" data-add="3" style="padding:4px 8px;font-size:.72rem;border-radius:6px;${daysCompensation===3?'border-color:#00f5a0;color:#00f5a0;font-weight:700':''}">+3 días cortesía</button>
+                <button type="button" class="g tr-comp-btn" data-add="5" style="padding:4px 8px;font-size:.72rem;border-radius:6px;${daysCompensation===5?'border-color:#00f5a0;color:#00f5a0;font-weight:700':''}">+5 días cortesía</button>
+              </div>
+            </div>
+            <p class="mut" style="font-size:.76rem;margin:0">
+              El cliente conserva sus días intactos hasta el <b>${calculatedVence}</b>. Si la cuenta estuvo caída, puedes sumarle días de cortesía.
+            </p>
+          </div>
+
+          <!-- BOTÓN CONFIRMAR -->
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button type="button" class="g" onclick="dlg.close()">Cancelar</button>
+            <button type="button" id="btnSubmitTransfer" style="background:var(--grad);color:#03121c;font-weight:800;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:.92rem" ${!targetOptions.length ? 'disabled' : ''}>
+              🚀 Confirmar y Ejecutar Traslado
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Eventos del modal
+      $('#selSourceProf').onchange = e => {
+        selectedProfId = e.target.value;
+        renderModal();
+      };
+
+      $('#btnModeSame').onclick = () => {
+        modeDifferentPlat = false;
+        renderModal();
+      };
+      $('#btnModeDiff').onclick = () => {
+        modeDifferentPlat = true;
+        renderModal();
+      };
+
+      $('#dlgBody').querySelectorAll('.tr-preset-btn').forEach(btn => {
+        btn.onclick = () => {
+          $('#inputMotivo').value = btn.dataset.preset;
+        };
+      });
+
+      $('#dlgBody').querySelectorAll('.tr-comp-btn').forEach(btn => {
+        btn.onclick = () => {
+          daysCompensation = Number(btn.dataset.add);
+          renderModal();
+        };
+      });
+
+      $('#btnSubmitTransfer').onclick = async () => {
+        const btn = $('#btnSubmitTransfer');
+        const targetId = $('#selTargetProf')?.value;
+        if (!targetId) return toast('Selecciona un perfil destino disponible');
+
+        const motivoVal = $('#inputMotivo')?.value?.trim() || 'Reposición de servicio';
+        const liberarAnterior = $('#selOldAction')?.value === 'true';
+        const finalVence = $('#inputVenceDate')?.value || calculatedVence;
+
+        btn.disabled = true;
+        btn.textContent = '⏳ Ejecutando traslado...';
+
+        const chosenTarget = freeProfiles.find(p => p.id === targetId);
+
+        try {
+          // Intentar ejecutar mediante función SQL RPC
+          let rpcSuccess = false;
+          try {
+            const { data, error } = await sb.rpc('transfer_service', {
+              p_from_profile: curSource.id,
+              p_to_profile: targetId,
+              p_motivo: motivoVal,
+              p_liberar_anterior: liberarAnterior,
+              p_order: curOrder?.id || null,
+              p_nueva_fecha_vence: finalVence,
+              p_permitir_otra_plataforma: true
+            });
+            if (!error && data?.success) {
+              rpcSuccess = true;
+            }
+          } catch (rpcErr) {
+            console.warn('RPC transfer_service no disponible aún, usando ejecución directa:', rpcErr);
+          }
+
+          // Fallback directo en caso de que la migración SQL no se haya ejecutado aún
+          if (!rpcSuccess) {
+            await sb.from('profiles_inventory').update({
+              estado: 'vendido',
+              inicia: curSource.inicia || new Date().toISOString().slice(0, 10),
+              vence: finalVence
+            }).eq('id', targetId);
+
+            await sb.from('profiles_inventory').update({
+              estado: liberarAnterior ? 'disponible' : 'suspendido',
+              inicia: null,
+              vence: null
+            }).eq('id', curSource.id);
+
+            if (curOrder?.id) {
+              await sb.from('orders').update({
+                profile_id: targetId,
+                product_id: chosenTarget?.product_id || curOrder.product_id,
+                vence: finalVence
+              }).eq('id', curOrder.id);
+            }
+
+            await sb.from('transfers').insert({
+              order_id: curOrder?.id || null,
+              customer_id: curOrder?.customers?.id || null,
+              from_profile: curSource.id,
+              to_profile: targetId,
+              motivo: motivoVal
+            }).catch(() => {});
+          }
+
+          // Obtener credenciales reveladas
+          let revealedPass = chosenTarget?.mother_accounts?.clave || '';
+          if (revealedPass.startsWith('enc:')) {
+            const { data: rev } = await sb.rpc('reveal_secret', { p: revealedPass }).catch(() => ({}));
+            if (rev) revealedPass = rev;
+          }
+
+          // Pantalla de éxito con botón para enviar por WhatsApp
+          const newPlat = chosenTarget?.mother_accounts?.plataforma || curPlat;
+          const newMail = chosenTarget?.mother_accounts?.correo || '';
+          const newProf = chosenTarget?.nombre_perfil || '';
+          const newPin = chosenTarget?.pin || '';
+
+          const waMsg = encodeURIComponent(
+            `¡Hola ${clientName}! 👋 Te enviamos la reposición de tu servicio *${newPlat}*:\n\n` +
+            `📧 *Correo:* ${newMail}\n` +
+            `🔑 *Contraseña:* ${revealedPass}\n` +
+            `👤 *Perfil:* ${newProf}\n` +
+            (newPin ? `🔢 *PIN:* ${newPin}\n` : '') +
+            `📅 *Tu servicio continúa activo hasta el:* ${finalVence}\n\n` +
+            `¡Cualquier detalle o duda estamos a tu orden por aquí!`
+          );
+
+          const waUrl = clientPhone ? `https://wa.me/${clientPhone.replace(/\D/g, '')}?text=${waMsg}` : '';
+
+          $('#dlgBody').innerHTML = `
+            <div style="text-align:center;padding:14px 6px">
+              <div style="font-size:3rem;margin-bottom:8px">🎉</div>
+              <h3 style="margin:0 0 6px;color:#00f5a0">¡Traslado Realizado con Éxito!</h3>
+              <p class="mut" style="font-size:.85rem;margin:0 0 16px">
+                El perfil anterior ha sido ${liberarAnterior ? 'liberado' : 'suspendido por falla'} y el cliente ya cuenta con sus nuevos accesos activos.
+              </p>
+
+              <div style="background:rgba(0,0,0,.35);border:1px solid rgba(0,245,160,.3);border-radius:12px;padding:14px;text-align:left;font-size:.84rem;margin-bottom:18px">
+                <div style="font-size:.78rem;font-weight:800;color:#38bdf8;text-transform:uppercase;margin-bottom:6px">Nuevos Accesos Asignados:</div>
+                <div><b>Plataforma:</b> ${esc(newPlat)}</div>
+                <div><b>Correo:</b> <code>${esc(newMail)}</code></div>
+                <div><b>Contraseña:</b> <code>${esc(revealedPass)}</code></div>
+                <div><b>Perfil:</b> ${esc(newProf)}</div>
+                ${newPin ? `<div><b>PIN de Pantalla:</b> <code>${esc(newPin)}</code></div>` : ''}
+                <div><b>Vence:</b> <b style="color:#00f5a0">${finalVence}</b></div>
+              </div>
+
+              <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                ${waUrl ? `
+                  <a href="${waUrl}" target="_blank" rel="noopener noreferrer" style="background:#25D366;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:800;display:inline-flex;align-items:center;gap:6px">
+                    <span>💬 Enviar Nuevos Accesos por WhatsApp</span>
+                  </a>
+                ` : `
+                  <button type="button" class="g" onclick="navigator.clipboard.writeText(decodeURIComponent('${waMsg}')).then(()=>toast('Mensaje copiado'))">
+                    📋 Copiar Mensaje de Accesos
+                  </button>
+                `}
+                <button type="button" class="g" onclick="dlg.close()">Cerrar</button>
+              </div>
+            </div>
+          `;
+
+          done && done();
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = '🚀 Confirmar y Ejecutar Traslado';
+          toast('Error en traslado: ' + err.message);
+        }
+      };
+    };
+
+    renderModal();
+  } catch (err) {
+    $('#dlgBody').innerHTML = `<p class="mut" style="color:#f87171">Error cargando inventario: ${esc(err.message)}</p><button class="g" onclick="dlg.close()">Cerrar</button>`;
+  }
 }
 async function genDlg(motherId, done) {
   const { data: prods } = await sb.from('products').select('id,nombre,tipo').order('nombre');
@@ -478,6 +859,9 @@ const EXTRA = {
                   <td><span class="pill" style="font-size:.7rem">${esc(p.vendedor || 'ADMIN')}</span></td>
                   <td><b style="color:#f59e0b">${esc(p.vence)}</b></td>
                   <td class="row" style="gap:5px">
+                    <button class="g" data-cal-tr-prof="${p.id}" style="padding:4px 8px;font-size:.73rem;background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)" title="Trasladar o reponer pantalla caída">
+                      🔀 Reponer
+                    </button>
                     <button class="g" data-cal-edit-prof-date="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem" title="Modificar fecha de vencimiento">
                       ✏️ Fecha
                     </button>
@@ -581,6 +965,9 @@ const EXTRA = {
             <button class="cal-sheet-btn" id="calToday" type="button">Hoy</button>
             <button class="cal-sheet-btn" id="calNext" type="button">Siguiente ▶</button>
             <span style="border-left:1px solid rgba(255,255,255,.15);height:20px;margin:0 4px"></span>
+            <button class="cal-sheet-btn" id="calSendTelegram" type="button" style="background:rgba(0,136,204,.15);border-color:#0088cc;color:#38bdf8;font-weight:700" title="Enviar listado de vencimientos de hoy a Telegram">
+              ✈️ Enviar a Telegram
+            </button>
             ${calConnected ? `
               <button class="cal-sheet-btn" id="calSyncGCal" type="button" style="background:rgba(0,245,160,.12);border-color:#00f5a0;color:#00f5a0;font-weight:700" title="Sincronizar cambios en ambos sentidos con Google Calendar">
                 🔄 Sincronizar Google Calendar
@@ -989,6 +1376,41 @@ Cobrar antes de ${fVenceCred}`;
         EXTRA.vencimientos(box);
         return `Suscripción de ${nom} renovada +30 días a crédito (Cobrar antes de ${fVenceCred}).`;
       });
+    });
+
+    // Enviar listado de vencimientos del día a Telegram
+    if ($('#calSendTelegram')) {
+      $('#calSendTelegram').onclick = async e => {
+        const btn = e.target;
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = '⏳ Enviando...';
+        try {
+          const res = await fetch(`/api/vencimientos?fecha=${state.selectedDate || todayStr}`);
+          const data = await res.json();
+          if (data.ok) {
+            toast(`✅ Vencimientos enviados a Telegram (${data.itemsCount || 0} registros).`);
+          } else {
+            toast('⚠️ Aviso: ' + (data.error || 'No se pudo enviar'));
+          }
+        } catch (err) {
+          toast('Error enviando a Telegram: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = oldText;
+        }
+      };
+    }
+
+    // Reponer / trasladar perfil directamente desde el calendario
+    box.querySelectorAll('[data-cal-tr-prof]').forEach(btn => {
+      btn.onclick = () => {
+        const profId = btn.dataset.calTrProf;
+        openTransferModal({
+          profileId: profId,
+          done: () => EXTRA.vencimientos(box)
+        });
+      };
     });
   },
   async finanzas(box) {
@@ -2814,6 +3236,22 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             return toast('Error al registrar taquilla: ' + error.message);
           }
 
+          fetch('/api/notify-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'solicitud_taquilla',
+              data: {
+                nombre_punto: nomCom,
+                titular: `${nom} ${ape}`,
+                telefono: tel,
+                ubicacion: `${est}, ${pais}`,
+                usuario_247: mail,
+                canon_usd: canon
+              }
+            })
+          }).catch(()=>{});
+
           dlg.close();
 
           const waMsg = encodeURIComponent(
@@ -3418,7 +3856,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           const newCfg = {
             activo: $('#mcActivo').checked,
             tasa_usdt_bs: tasa,
-            min_usdt: parseFloat($('#mcMinUsdt').value) || 5,
+            min_usdt: parseFloat($('#mcMinUsdt').value) || 1,
             max_usdt: parseFloat($('#mcMaxUsdt').value) || 500,
             metodo_pago: $('#mcMetodo').value.trim() || 'Pago Móvil (BNC)',
             banco: $('#mcBanco').value.trim(),
@@ -3434,9 +3872,17 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           try {
             const { error } = await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: newCfg });
             if (error) throw error;
+
+            // Guardar copia directa dentro de la clave 'negocio' para que cualquier teléfono móvil lo lea de inmediato
+            const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
+            const negVal = negRow?.value || {};
+            negVal.mesa_cambio_config = newCfg;
+            await sb.from('settings').upsert({ key: 'negocio', value: negVal }).catch(()=>{});
+
             S.settings.mesa_cambio_config = newCfg;
+            if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = newCfg;
             cfg = newCfg;
-            toast('✅ Configuración de Mesa de Cambio guardada exitosamente. Tasa activa: Bs. ' + tasa.toFixed(2));
+            toast('✅ Configuración guardada. Tasa activa sincronizada con todos los clientes: Bs. ' + tasa.toFixed(2));
             render();
           } catch(err) {
             toast('Error al guardar: ' + err.message);
@@ -4503,6 +4949,181 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
 
       renderLevelForm();
       dlg.showModal();
+    };
+
+    render();
+  },
+
+  async transfers(box) {
+    box.innerHTML = '<div style="text-align:center;padding:30px"><p class="mut">Cargando Centro de Traslados y Reposiciones...</p></div>';
+
+    // Consultar historial de transferencias, perfiles libres e inventario
+    const [trRes, libresRes, prodsRes] = await Promise.all([
+      sb.from('transfers')
+        .select('*, customers(nombre,email,telefono), orders(referencia,vence)')
+        .order('created_at', { ascending: false })
+        .limit(100),
+      sb.from('profiles_inventory')
+        .select('id,estado,mother_accounts(plataforma)')
+        .eq('estado', 'disponible'),
+      sb.from('profiles_inventory')
+        .select('id,nombre_perfil,pin,mother_id,mother_accounts(plataforma,correo)')
+    ]);
+
+    const transfers = trRes.data || [];
+    const libres = libresRes.data || [];
+    const allProfiles = prodsRes.data || [];
+    const profById = Object.fromEntries(allProfiles.map(p => [p.id, p]));
+
+    const libresNetflix = libres.filter(p => (p.mother_accounts?.plataforma || '').toLowerCase().includes('netflix')).length;
+
+    let filterText = '';
+
+    const render = () => {
+      const filtered = transfers.filter(t => {
+        if (!filterText) return true;
+        const q = filterText.toLowerCase();
+        const cli = (t.customers?.nombre || t.customers?.email || '').toLowerCase();
+        const mot = (t.motivo || '').toLowerCase();
+        const fromP = profById[t.from_profile];
+        const toP = profById[t.to_profile];
+        const plat = (fromP?.mother_accounts?.plataforma || toP?.mother_accounts?.plataforma || '').toLowerCase();
+        return cli.includes(q) || mot.includes(q) || plat.includes(q);
+      });
+
+      box.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+          <div>
+            <h2 style="margin:0 0 6px;display:flex;align-items:center;gap:8px">
+              <span>🔀 Centro de Traslados & Reposiciones</span>
+              <span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.15);color:#38bdf8">Garantías & Reubicación</span>
+            </h2>
+            <p class="mut" style="font-size:.84rem;margin:0;max-width:680px">
+              Gestiona reposiciones inmediatas de cuentas caídas (Netflix, Max, Disney+, etc.) y migraciones entre servicios sin que el cliente pierda sus días contratados.
+            </p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="btnNewTransferAction" style="background:var(--grad);color:#03121c;font-weight:800;border:none;border-radius:10px;padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+              <span>➕ Realizar Traslado / Reposición</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TARJETAS DE ESTADÍSTICAS -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:20px">
+          <div class="card" style="padding:14px;border-radius:14px">
+            <div class="mut" style="font-size:.78rem">📊 Total Traslados Realizados</div>
+            <div class="price" style="font-size:1.75rem;margin:6px 0 2px">${transfers.length}</div>
+            <div class="mut" style="font-size:.72rem">Historial de reposiciones</div>
+          </div>
+          <div class="card" style="padding:14px;border-radius:14px;border-color:rgba(229,9,20,.35)">
+            <div class="mut" style="font-size:.78rem;color:#f87171">🔴 Stock Disponible Netflix</div>
+            <div class="price" style="font-size:1.75rem;margin:6px 0 2px;color:#f87171">${libresNetflix}</div>
+            <div class="mut" style="font-size:.72rem">Pantallas libres para reposición inmediata</div>
+          </div>
+          <div class="card" style="padding:14px;border-radius:14px;border-color:rgba(0,245,160,.3)">
+            <div class="mut" style="font-size:.78rem;color:#00f5a0">🟢 Stock Total Disponible</div>
+            <div class="price" style="font-size:1.75rem;margin:6px 0 2px;color:#00f5a0">${libres.length}</div>
+            <div class="mut" style="font-size:.72rem">En todas las 10 plataformas activas</div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+          <input id="inputFilterTransfers" placeholder="🔍 Filtrar por cliente, plataforma o motivo..." value="${esc(filterText)}" style="max-width:380px;font-size:.82rem;padding:8px 12px;border-radius:10px">
+          <span class="mut" style="font-size:.8rem">${filtered.length} registro(s)</span>
+        </div>
+
+        ${filtered.length ? `
+          <div class="wrap">
+            <table>
+              <tr>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Origen (Anterior)</th>
+                <th>Destino (Nuevo)</th>
+                <th>Motivo</th>
+                <th>Acción</th>
+              </tr>
+              ${filtered.map(t => {
+                const fP = profById[t.from_profile];
+                const tP = profById[t.to_profile];
+                const cliName = t.customers?.nombre || t.customers?.email || 'Cliente sin registrar';
+                const cliTel = t.customers?.telefono || '';
+                const fPlat = fP?.mother_accounts?.plataforma || 'Servicio';
+                const tPlat = tP?.mother_accounts?.plataforma || 'Servicio';
+                const fMail = fP?.mother_accounts?.correo || '—';
+                const tMail = tP?.mother_accounts?.correo || '—';
+
+                return `
+                  <tr>
+                    <td style="white-space:nowrap;font-size:.78rem">${new Date(t.created_at).toLocaleString('es-VE', { month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' })}</td>
+                    <td>
+                      <b>${esc(cliName)}</b>
+                      ${cliTel ? `<div style="font-size:.74rem;color:#38bdf8">📱 <a href="https://wa.me/${cliTel.replace(/\D/g,'')}" target="_blank" style="color:var(--c)">${esc(cliTel)}</a></div>` : ''}
+                    </td>
+                    <td>
+                      <span class="pill" style="font-size:.68rem">${esc(fPlat)}</span>
+                      <div style="font-size:.74rem;margin-top:2px"><code>${esc(fMail)}</code></div>
+                      <div class="mut" style="font-size:.72rem">${esc(fP?.nombre_perfil || '—')}</div>
+                    </td>
+                    <td>
+                      <span class="pill" style="font-size:.68rem;background:rgba(0,245,160,.12);color:#00f5a0">${esc(tPlat)}</span>
+                      <div style="font-size:.74rem;margin-top:2px"><code>${esc(tMail)}</code></div>
+                      <div class="mut" style="font-size:.72rem">${esc(tP?.nombre_perfil || '—')} ${tP?.pin ? `(PIN: ${esc(tP.pin)})` : ''}</div>
+                    </td>
+                    <td style="max-width:220px;font-size:.78rem">
+                      <i>${esc(t.motivo || '—')}</i>
+                    </td>
+                    <td>
+                      ${cliTel ? `
+                        <button class="g" data-wa-remind="${t.id}" data-tel="${esc(cliTel)}" data-nom="${esc(cliName)}" data-plat="${esc(tPlat)}" data-mail="${esc(tMail)}" data-prof="${esc(tP?.nombre_perfil||'')}" data-pin="${esc(tP?.pin||'')}" style="padding:4px 8px;font-size:.74rem">
+                          💬 Enviar WA
+                        </button>
+                      ` : '<span class="mut">—</span>'}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </table>
+          </div>
+        ` : `
+          <div class="card" style="padding:32px 20px;text-align:center;border-radius:14px;margin-top:10px">
+            <div style="font-size:2.5rem;margin-bottom:8px">🔀</div>
+            <h3 style="margin:0 0 6px">No hay traslados registrados todavía</h3>
+            <p class="mut" style="font-size:.85rem;max-width:520px;margin:0 auto 16px">
+              Cuando una pantalla compartida de Netflix u otra plataforma sufra una caída, pulsa el botón de abajo para asignarle al cliente un nuevo perfil de inmediato conservando sus días.
+            </p>
+            <button id="btnEmptyNewTransfer" style="background:var(--grad);color:#03121c;font-weight:800;border:none;border-radius:10px;padding:10px 18px;cursor:pointer">
+              ➕ Realizar Primer Traslado / Reposición
+            </button>
+          </div>
+        `}
+      `;
+
+      const btnNew = $('#btnNewTransferAction') || $('#btnEmptyNewTransfer');
+      if (btnNew) btnNew.onclick = () => openTransferModal({ done: () => EXTRA.transfers(box) });
+
+      const inpF = $('#inputFilterTransfers');
+      if (inpF) {
+        inpF.oninput = () => {
+          filterText = inpF.value.trim();
+          render();
+        };
+      }
+
+      box.querySelectorAll('[data-wa-remind]').forEach(b => {
+        b.onclick = () => {
+          const d = b.dataset;
+          const msg = encodeURIComponent(
+            `¡Hola ${d.nom}! 👋 Te recordamos tus accesos activos de *${d.plat}*:\n\n` +
+            `📧 *Correo:* ${d.mail}\n` +
+            `👤 *Perfil:* ${d.prof}\n` +
+            (d.pin ? `🔢 *PIN:* ${d.pin}\n\n` : '\n') +
+            `¡Cualquier detalle nos avisas por aquí!`
+          );
+          window.open(`https://wa.me/${d.tel.replace(/\D/g,'')}?text=${msg}`, '_blank');
+        };
+      });
     };
 
     render();

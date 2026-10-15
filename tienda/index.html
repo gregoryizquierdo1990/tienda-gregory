@@ -1055,16 +1055,6 @@ function home(){
   const waMsg = encodeURIComponent('Hola! deseo contartarme con ustedes para solicitar informacion');
   const tgBot = (S.settings.bot?.username || S.settings.negocio?.telegram || '').replace(/^@/,'');
   app.innerHTML = `
-  <section class="banner-promo-card">
-    <div class="banner-promo-glow"></div>
-    <div class="banner-promo-wrap">
-      <span class="banner-promo-pill">✨ Próximo lanzamiento</span>
-      <div class="banner-promo-img-box">
-        <img class="banner-promo-img" src="/banner-tarjeta.jpg" alt="Tarjeta Emprendimiento Gregory Izquierdo" loading="eager">
-      </div>
-      <h2 class="banner-promo-title">Tarjeta Exclusiva</h2>
-    </div>
-  </section>
   ${S.banners.length?`<div class="ban">${S.banners.map(b=>{const t=`<h3>${esc(b.titulo)}</h3><p>${esc(b.texto)}</p>`,st=b.imagen_url?` style="background-image:linear-gradient(#0008,#000a),url('${esc(b.imagen_url)}')"`:'';return /^https?:\/\//.test(b.enlace||'')?`<a href="${esc(b.enlace)}" target="_blank" rel="noopener noreferrer"${st}>${t}</a>`:`<div${st}>${t}</div>`;}).join('')}</div>`:''}
   <section class="hero">
     <h2>Perfiles, Cuentas Completas y Aplicaciones en un solo lugar</h2>
@@ -1889,6 +1879,26 @@ async function buyDlg(id){
         return toast(error.message.includes('Agotado') ? 'Este servicio se agotó. Elige otro.' : error.message);
       }
 
+      // Notificar de inmediato al bot de Telegram y push
+      fetch('/api/notify-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'compra_servicio',
+          data: {
+            producto: p?.nombre || 'Servicio Digital',
+            cliente: S.user?.user_metadata?.nombre || S.me?.nombre || S.user?.email || 'Cliente',
+            email: S.user?.email,
+            telefono: S.me?.telefono || (isRechargeService ? rechargeData.telefono : ''),
+            total_usd: restUsd,
+            total_bs: restBs,
+            metodo: displayMethodName,
+            referencia: orderRef,
+            order_id: ordId
+          }
+        })
+      }).catch(()=>{});
+
       if(payPlan === 'cuotas' && ordId){
         // Crear las cuotas correspondientes en la tabla installments
         await sb.from('installments').insert([
@@ -2088,10 +2098,10 @@ function openMesaCambioModal(){
   const mcDlg = $('#mesaCambioDlg');
   if(!mcDlg) return;
 
-  const cfg = S.settings?.mesa_cambio_config || {
+  const cfg = S.settings?.mesa_cambio_config || S.settings?.negocio?.mesa_cambio_config || {
     activo: true,
     tasa_usdt_bs: 52.50,
-    min_usdt: 5,
+    min_usdt: 1,
     max_usdt: 500,
     metodo_pago: 'Pago Móvil (BNC)',
     banco: 'BNC (0191)',
@@ -2125,7 +2135,7 @@ function openMesaCambioModal(){
   }
 
   let selectedDestTipo = 'binance_id'; // 'binance_id' o 'binance_email'
-  let usdtAmount = 20;
+  let usdtAmount = 5;
 
   const renderForm = () => {
     const tasa = Number(cfg.tasa_usdt_bs || 52.50);
@@ -2160,7 +2170,7 @@ function openMesaCambioModal(){
               <label class="mut" style="font-size:.74rem;display:block;margin-bottom:4px;font-weight:700">Monto USDT a Comprar:</label>
               <div style="display:flex;align-items:center;gap:6px">
                 <span style="font-size:1.1rem;font-weight:800;color:#00f5a0">$</span>
-                <input id="mcUsdtInput" type="number" step="1" min="${cfg.min_usdt || 5}" max="${cfg.max_usdt || 500}" value="${usdtAmount}" style="font-size:1.25rem;font-weight:900;color:#fff;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:8px 12px;width:100%">
+                <input id="mcUsdtInput" type="number" step="1" min="${cfg.min_usdt || 1}" max="${cfg.max_usdt || 500}" value="${usdtAmount}" style="font-size:1.25rem;font-weight:900;color:#fff;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:8px 12px;width:100%">
               </div>
             </div>
             <div>
@@ -2172,13 +2182,22 @@ function openMesaCambioModal(){
           </div>
 
           <!-- BOTONES RÁPIDOS DE USDT -->
-          <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+          <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;align-items:center">
             <span class="mut" style="font-size:.72rem;align-self:center;margin-right:2px">Montos rápidos:</span>
-            ${[5, 10, 20, 50, 100].map(amt => `
-              <button type="button" class="g mc-quick-btn" data-amt="${amt}" style="padding:4px 10px;font-size:.74rem;border-radius:8px;${usdtAmount === amt ? 'border-color:#fde047;color:#fde047;font-weight:800' : ''}">
+            ${[1, 3, 5, 10, 15].map(amt => `
+              <button type="button" class="g mc-quick-btn" data-amt="${amt}" style="padding:4px 9px;font-size:.74rem;border-radius:8px;${usdtAmount === amt ? 'border-color:#fde047;color:#fde047;font-weight:800' : ''}">
                 $${amt} USDT
               </button>
             `).join('')}
+            <button type="button" id="btnMcSuperior" class="g" style="padding:4px 10px;font-size:.74rem;border-radius:8px;background:rgba(37,211,102,.12);border:1px solid #25d366;color:#25d366;font-weight:700;display:inline-flex;align-items:center;gap:4px;cursor:pointer" title="Informar monto superior a 20 USDT por WhatsApp">
+              <span>💬 Más de 20 USDT</span>
+            </button>
+          </div>
+          <div id="mcSuperiorNotice" style="display:${usdtAmount > 20 ? 'flex' : 'none'};margin-top:10px;background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.35);border-radius:10px;padding:8px 12px;font-size:.76rem;color:#bbf7d0;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <span>💡 <b>Monto superior a 20 USDT:</b> Para montos superiores, por favor informa por WhatsApp para verificar disponibilidad de saldo.</span>
+            <button type="button" id="btnNoticeWA" style="background:#25d366;color:#052e16;border:none;border-radius:6px;padding:4px 10px;font-size:.74rem;font-weight:800;cursor:pointer">
+              📲 Informar por WhatsApp
+            </button>
           </div>
         </div>
 
@@ -2284,6 +2303,17 @@ function openMesaCambioModal(){
     const totDisplay = $('#mcTotalBsDisplay');
     const subBtn = $('#mcSubmitBtn');
 
+    const sendSuperiorWA = (monto) => {
+      const nom = S.me?.nombre || S.user?.user_metadata?.nombre || $('#mcNomCli')?.value || 'Cliente';
+      const tel = cfg.telefono || S.settings?.negocio?.telefono || '04242809333';
+      let cleanTel = tel.replace(/\D/g, '');
+      if(cleanTel.startsWith('0')) cleanTel = '58' + cleanTel.slice(1);
+      if(!cleanTel.startsWith('58')) cleanTel = '58' + cleanTel;
+      const amtText = monto && monto > 20 ? `$${monto} USDT` : 'un monto superior a $20 USDT';
+      const msg = `¡Hola Gregory! 👋 Mi nombre es ${nom}. Deseo solicitar la compra de ${amtText} en la Mesa de Cambio USDT. ¿Tienes disponibilidad de saldo y cuál sería la tasa para este volumen?`;
+      window.open(`https://wa.me/${cleanTel}?text=${encodeURIComponent(msg)}`, '_blank');
+    };
+
     const updateCalc = () => {
       const val = parseFloat(uInput.value);
       if(!isNaN(val) && val > 0){
@@ -2291,10 +2321,23 @@ function openMesaCambioModal(){
         const bs = val * tasa;
         if(totDisplay) totDisplay.textContent = 'Bs. ' + bs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2});
         if(subBtn) subBtn.innerHTML = `<span>🚀 Solicitar $${val.toFixed(2)} USDT (Bs. ${bs.toLocaleString('es-VE',{maximumFractionDigits:0})})</span>`;
+        const notice = $('#mcSuperiorNotice');
+        if(notice) notice.style.display = val > 20 ? 'flex' : 'none';
       }
     };
 
     if(uInput) uInput.oninput = updateCalc;
+
+    const btnSup = $('#btnMcSuperior');
+    if(btnSup) btnSup.onclick = () => {
+      const val = parseFloat(uInput.value) || 25;
+      sendSuperiorWA(val > 20 ? val : 25);
+    };
+    const btnNotWA = $('#btnNoticeWA');
+    if(btnNotWA) btnNotWA.onclick = () => {
+      const val = parseFloat(uInput.value) || 25;
+      sendSuperiorWA(val);
+    };
 
     // Quick buttons
     mcDlg.querySelectorAll('.mc-quick-btn').forEach(b => {
@@ -2320,7 +2363,7 @@ function openMesaCambioModal(){
       e.preventDefault();
 
       const usdt = parseFloat($('#mcUsdtInput').value);
-      const minU = Number(cfg.min_usdt || 5);
+      const minU = Number(cfg.min_usdt || 1);
       const maxU = Number(cfg.max_usdt || 500);
 
       if(isNaN(usdt) || usdt < minU || usdt > maxU){
@@ -2375,6 +2418,25 @@ function openMesaCambioModal(){
       } catch(err){
         console.warn('Fallback error:', err);
       }
+
+      // Notificación automática instantánea a Telegram al Administrador
+      fetch('/api/notify-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'compra_usdt',
+          data: {
+            cliente: nom,
+            telefono: tel,
+            monto_usdt: usdt,
+            total_bs: totalBsVal,
+            tasa: tasa,
+            destino_tipo: selectedDestTipo,
+            destino_valor: destVal,
+            referencia: ref
+          }
+        })
+      }).catch(()=>{});
 
       // Preparar enlace de WhatsApp a Gregory
       const destLabel = selectedDestTipo === 'binance_email' ? 'Correo de Binance' : 'ID Binance Pay';
@@ -2516,6 +2578,20 @@ function loginDlg(mode = 'login'){
       if(data?.user?.id && telVal){
         await sb.from('customers').update({telefono: telVal, nombre: nombreVal}).eq('id', data.user.id).catch(()=>{});
       }
+
+      // Notificar nuevo registro a Telegram
+      fetch('/api/notify-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'nuevo_cliente',
+          data: {
+            nombre: nombreVal,
+            email: inputId,
+            telefono: telVal
+          }
+        })
+      }).catch(()=>{});
 
       facetDlg.close();
       toast('Cuenta creada exitosamente. Revisa tu correo si requiere confirmación o inicia sesión.');
@@ -3176,7 +3252,7 @@ async function portal(){
             <p class="mut" style="font-size:.78rem;margin:0 0 10px">
               Al ascender a <b>Revendedor Mayorista VIP</b> obtienes de 15% a 25% de descuento, botón de reenvío limpio de credenciales y aprobación prioritaria de pedidos.
             </p>
-            <a href="https://wa.me/${bizTel}?text=${reqMsgReseller}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
+            <a id="btnReqResellerWA" href="https://wa.me/${bizTel}?text=${reqMsgReseller}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
               <button style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;padding:9px 16px;border:none;border-radius:10px;font-size:.82rem;cursor:pointer">
                 💬 Solicitar Ascenso a Revendedor por WhatsApp
               </button>
@@ -3195,6 +3271,26 @@ async function portal(){
         </div>
       `;
       dlg.showModal();
+
+      const btnResWA = $('#btnReqResellerWA');
+      if(btnResWA){
+        btnResWA.onclick = () => {
+          fetch('/api/notify-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'solicitud_revendedor',
+              data: {
+                nombre: S.me?.nombre || S.user.email || 'Cliente',
+                email: S.user.email,
+                telefono: S.me?.telefono || '',
+                pedidos_previos: (o?.data || []).length,
+                notas: 'Solicitó ascenso a Revendedor VIP desde el portal de clientes'
+              }
+            })
+          }).catch(()=>{});
+        };
+      }
     };
   }
 
@@ -3330,11 +3426,65 @@ async function portal(){
   });
 
   app.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('cancel_my_order',{p_order:b.dataset.cancel});error?toast(error.message):(await loadPublic(),portal());});
-  $('#rec').onclick=()=>{ $('#dlgBody').innerHTML='<h3>Recargar Zeny</h3><input id="m" type="number" min="1" placeholder="Monto en USD"><input id="r" placeholder="Referencia del pago" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Solicitar recarga</button>'; dlg.showModal();
-    $('#ok').onclick=async()=>{const {error}=await sb.from('zeny_ledger').insert({customer_id:S.user.id,tipo:'recarga',monto:+$('#m').value,referencia:$('#r').value,estado:'pendiente'});error?toast(error.message):(dlg.close(),portal());};};
-  $('#ni').onclick=()=>{ $('#dlgBody').innerHTML='<h3>Incidencia</h3><input id="a" placeholder="Asunto"><textarea id="d" placeholder="Detalle" style="margin-top:8px"></textarea><input id="f" type="file" accept="image/*" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Enviar</button>'; dlg.showModal();
-    $('#ok').onclick=async()=>{let url=null;const f=$('#f').files[0];if(f){const path=`${S.user.id}/${Date.now()}-${f.name}`;const u=await sb.storage.from('capturas').upload(path,f);if(!u.error)url=path;}
-      const {error}=await sb.from('incidents').insert({customer_id:S.user.id,asunto:$('#a').value,detalle:$('#d').value,captura_url:url});error?toast(error.message):(dlg.close(),portal());};};
+  $('#rec').onclick=()=>{
+    $('#dlgBody').innerHTML='<h3>Recargar Billetera Zeny</h3><input id="m" type="number" min="1" step="0.5" placeholder="Monto en USD (1 ZP = $1)"><input id="r" placeholder="Referencia del pago móvil o comprobante" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Solicitar recarga</button>'; dlg.showModal();
+    $('#ok').onclick=async()=>{
+      const montoVal = +$('#m').value;
+      const refVal = ($('#r').value||'').trim();
+      if(!montoVal || montoVal <= 0) return toast('Ingresa un monto válido.');
+      if(!refVal) return toast('Ingresa la referencia del pago.');
+      const {error}=await sb.from('zeny_ledger').insert({customer_id:S.user.id,tipo:'recarga',monto:montoVal,referencia:refVal,estado:'pendiente'});
+      if(error) return toast(error.message);
+      fetch('/api/notify-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'recarga_zeny',
+          data: {
+            cliente: S.user?.user_metadata?.nombre || S.me?.nombre || S.user?.email || 'Cliente',
+            email: S.user?.email,
+            telefono: S.me?.telefono || '',
+            monto_usd: montoVal,
+            referencia: refVal
+          }
+        })
+      }).catch(()=>{});
+      dlg.close();
+      toast('Solicitud de recarga enviada. Se notificó al administrador.');
+      portal();
+    };
+  };
+
+  $('#ni').onclick=()=>{
+    $('#dlgBody').innerHTML='<h3>Reportar Incidencia o Falla</h3><input id="a" placeholder="Asunto o Servicio afectado (ej: Pantalla caída)"><textarea id="d" placeholder="Describe detalladamente qué problema presenta..." style="margin-top:8px"></textarea><input id="f" type="file" accept="image/*" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Enviar Reporte</button>'; dlg.showModal();
+    $('#ok').onclick=async()=>{
+      const asuntoVal = ($('#a').value||'').trim();
+      const detalleVal = ($('#d').value||'').trim();
+      if(!asuntoVal) return toast('Por favor ingresa el asunto del reporte.');
+      let url=null;const f=$('#f').files[0];
+      if(f){const path=`${S.user.id}/${Date.now()}-${f.name}`;const u=await sb.storage.from('capturas').upload(path,f);if(!u.error)url=path;}
+      const {error}=await sb.from('incidents').insert({customer_id:S.user.id,asunto:asuntoVal,detalle:detalleVal,captura_url:url});
+      if(error) return toast(error.message);
+      fetch('/api/notify-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'reporte_falla',
+          data: {
+            cliente: S.user?.user_metadata?.nombre || S.me?.nombre || S.user?.email || 'Cliente',
+            email: S.user?.email,
+            telefono: S.me?.telefono || '',
+            servicio: asuntoVal,
+            descripcion: detalleVal,
+            motivo: 'Incidencia de soporte'
+          }
+        })
+      }).catch(()=>{});
+      dlg.close();
+      toast('Reporte enviado con éxito. Te contactaremos a la brevedad.');
+      portal();
+    };
+  };
   } catch(portalErr) {
     console.error('Error al cargar portal:', portalErr);
     app.innerHTML = `
@@ -3365,7 +3515,7 @@ const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo']};
 const BOOL=['activo','activa','enabled','es_revendedor','permite_cuotas','es_exclusivo_central'], READONLY={customers:['zeny_balance']};
 const NOADD=['refunds','transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Asignar Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Resetear Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 Acceso WA</button>`:''}`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Asignar Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Resetear Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 Acceso WA</button>`:''}`:t==='profiles_inventory'&&r.estado==='vendido'?`<button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -3615,6 +3765,7 @@ async function admin(t){
   app.querySelectorAll('[data-rej]').forEach(b=>b.onclick=async()=>{if(confirm('¿Rechazar pedido y liberar el perfil reservado?')){const {error:e}=await sb.rpc('reject_order',{p_order:b.dataset.rej});e?toast(e.message):admin(t);}});
   app.querySelectorAll('[data-ref]').forEach(b=>b.onclick=()=>refundDlg(b.dataset.ref,b.dataset.tot,()=>admin(t)));
   app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));
+  app.querySelectorAll('[data-tr-prof]').forEach(b=>b.onclick=()=>openTransferModal({profileId:b.dataset.trProf,done:()=>admin(t)}));
   app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
   app.querySelectorAll('[data-set-credit]').forEach(b=>b.onclick=()=>{
     const uid=b.dataset.setCredit, nom=b.dataset.nom, cur=Number(b.dataset.cur||0).toFixed(2);
