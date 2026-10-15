@@ -573,7 +573,7 @@ const EXTRA = {
       <div class="cal-sheet-container">
         <div class="cal-sheet-header">
           <div>
-            <div class="cal-sheet-title">Control de Vencimientos · Gregory Izquierdo</div>
+            <div class="cal-sheet-title">Control de Vencimientos - Administracion</div>
             <h2 class="cal-sheet-month">${monthNames[state.month]} de ${state.year}</h2>
           </div>
           <div class="cal-sheet-tools" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -2488,7 +2488,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px">
           <div>
             <h2 style="margin:0 0 6px;display:flex;align-items:center;gap:8px">
-              <span>📱 Red de Taquillas & Distribución</span>
+              <span>📱 Red de Distribuidores de Recargas</span>
               <span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)">Recargas247.net</span>
             </h2>
             <p class="mut" style="font-size:.84rem;margin:0;max-width:680px">
