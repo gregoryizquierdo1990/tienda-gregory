@@ -348,3 +348,19 @@ end;
 $fn$;
 
 grant execute on function activate_zeny_card(text, text) to authenticated;
+
+
+-- ------------------------------------------------------------------------------
+-- 8. MESA DE CAMBIO: EXCLUSIVA PARA USUARIOS REGISTRADOS Y AUTENTICADOS
+-- ------------------------------------------------------------------------------
+alter table if exists mesa_cambio_operaciones enable row level security;
+
+drop policy if exists mesa_cambio_customer_select on mesa_cambio_operaciones;
+create policy mesa_cambio_customer_select on mesa_cambio_operaciones
+  for select to authenticated
+  using (customer_id = auth.uid() or is_admin());
+
+drop policy if exists mesa_cambio_customer_insert on mesa_cambio_operaciones;
+create policy mesa_cambio_customer_insert on mesa_cambio_operaciones
+  for insert to authenticated
+  with check (customer_id = auth.uid() or is_admin());

@@ -2230,6 +2230,47 @@ function openMesaCambioModal(){
     return;
   }
 
+  // Control de Acceso: Habilitada exclusivamente para usuarios registrados en la plataforma
+  if(!S.user){
+    mcDlg.innerHTML = `
+      <div class="checkout-card" style="max-width:480px;text-align:center;padding:32px 22px">
+        <div style="width:70px;height:70px;margin:0 auto 16px;border-radius:50%;background:rgba(253,224,71,.12);border:2px solid rgba(253,224,71,.35);display:grid;place-items:center;font-size:2.2rem">
+          💱
+        </div>
+        <h3 style="margin:0 0 8px;color:#fde047;font-size:1.35rem">Mesa de Cambio USDT</h3>
+        <span class="pill" style="background:rgba(0,212,255,.12);border-color:rgba(0,212,255,.35);color:#00d4ff;font-size:.76rem;margin-bottom:14px;display:inline-block">
+          🔒 Exclusivo para Usuarios Registrados
+        </span>
+        <p class="mut" style="font-size:.85rem;line-height:1.5;margin-bottom:22px;color:#cbd5e1">
+          La compra de USDT con abono directo a Binance Pay está habilitada únicamente para clientes registrados en la plataforma. Por favor inicia sesión o crea tu cuenta para continuar.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+          <button id="mcBtnLogin" class="facet-btn" style="width:100%;padding:12px;font-size:.88rem" type="button">
+            🔑 INICIAR SESIÓN CON MI CUENTA
+          </button>
+          <button id="mcBtnRegister" class="facet-alt-btn" style="width:100%;padding:11px;font-size:.84rem;font-weight:700" type="button">
+            📝 CREAR CUENTA NUEVA
+          </button>
+        </div>
+        <button class="g" id="mcCloseGuest" type="button" style="width:100%">Volver a la Tienda</button>
+      </div>
+    `;
+    if(!mcDlg.open) mcDlg.showModal();
+    const cGuest = $('#mcCloseGuest');
+    if(cGuest) cGuest.onclick = () => mcDlg.close();
+    const bLog = $('#mcBtnLogin');
+    if(bLog) bLog.onclick = () => {
+      mcDlg.close();
+      loginDlg('login');
+    };
+    const bReg = $('#mcBtnRegister');
+    if(bReg) bReg.onclick = () => {
+      mcDlg.close();
+      loginDlg('register');
+    };
+    return;
+  }
+
   let selectedDestTipo = 'binance_id'; // 'binance_id' o 'binance_email'
   let usdtAmount = 5;
 
@@ -2457,6 +2498,12 @@ function openMesaCambioModal(){
     const mcForm = $('#mcForm');
     if(mcForm) mcForm.onsubmit = async (e) => {
       e.preventDefault();
+
+      if(!S.user){
+        mcDlg.close();
+        loginDlg('login');
+        return toast('Debes iniciar sesión con tu cuenta para procesar operaciones en la mesa de cambio.');
+      }
 
       const usdt = parseFloat($('#mcUsdtInput').value);
       const minU = Number(cfg.min_usdt || 1);
