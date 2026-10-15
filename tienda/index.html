@@ -4133,14 +4133,14 @@ const TABLES = {
  profiles_inventory:['mother_id','product_id','nombre_perfil','pin','vendedor','inicia','vence','estado'],
   customers:['codigo_identificacion','nombre','email','telefono','vendedor_nombre','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
   bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
-  exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','monto_bs','notas'], purchases:['fecha','proveedor','plataforma','mother_id','monto_usd','monto_bs','monto_usdt','notas'],
+  exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','monto_bs','notas'], purchases:['fecha','proveedor','plataforma','mother_id','es_credito','dias_credito','fecha_limite_pago','estado_pago','monto_usdt','monto_usd','monto_bs','notas'],
   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
 const SEL={orders:'*,customers!customer_id(nombre,email),products(nombre,tipo)',installments:'*,customers(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
-const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo']};
-const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central'], READONLY={customers:['zeny_balance']};
-const NOADD=['refunds','transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'&&r.estado==='vendido'?`<button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
+const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido']};
+const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
+const NOADD=['transfers'];
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'&&r.estado==='vendido'?`<button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -4153,6 +4153,15 @@ const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) r
   }
   if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):'');
   if(c==='vendedor_nombre') return v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 ${esc(v)}</span>` : '<span class="mut" style="font-size:.75rem">Directo Tienda</span>';
+  if(c==='es_credito') return `<span class="pill" style="font-size:.72rem;${r.es_credito?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">${r.es_credito?'💳 A Crédito':'💵 Contado'}</span>`;
+  if(c==='estado_pago') return `<span class="pill" style="font-size:.72rem;${r.estado_pago==='pendiente'?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':(r.estado_pago==='vencido'?'background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)')}">${r.estado_pago==='pendiente'?'🟡 Por Pagar':(r.estado_pago==='vencido'?'🔴 Vencido':'🟢 Pagado')}</span>`;
+  if(c==='fecha_limite_pago'){
+    if(!v) return '<span class="mut">—</span>';
+    const diff = Math.ceil((new Date(v+'T00:00:00') - new Date()) / 86400000);
+    const isP = r.estado_pago === 'pendiente';
+    return `<div style="font-size:.78rem"><b>${esc(v)}</b> ${isP ? (diff < 0 ? '<span class="pill" style="font-size:.65rem;background:rgba(239,68,68,.15);color:#f87171">🔴 Venció '+Math.abs(diff)+'d</span>' : '<span class="pill" style="font-size:.65rem;background:rgba(234,179,8,.15);color:#fde047">⏳ en '+diff+'d</span>') : ''}</div>`;
+  }
+  if(c==='monto_usdt') return v!=null ? `<b style="color:#fde047">$${Number(v).toFixed(2)} USDT</b>` : '<span class="mut">—</span>';
   return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
 const ADMIN_MENU = [
   {
@@ -4401,6 +4410,7 @@ async function admin(t){
   });
   app.querySelectorAll('[data-rej]').forEach(b=>b.onclick=async()=>{if(confirm('¿Rechazar pedido y liberar el perfil reservado?')){const {error:e}=await sb.rpc('reject_order',{p_order:b.dataset.rej});e?toast(e.message):admin(t);}});
   app.querySelectorAll('[data-ref]').forEach(b=>b.onclick=()=>refundDlg(b.dataset.ref,b.dataset.tot,()=>admin(t)));
+  app.querySelectorAll('[data-pay-purchase]').forEach(b=>b.onclick=()=>window.openPayPurchaseModal(b.dataset.payPurchase,b.dataset.prov,b.dataset.usdt,b.dataset.vence,()=>admin(t)));
   app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));
   app.querySelectorAll('[data-tr-prof]').forEach(b=>b.onclick=()=>openTransferModal({profileId:b.dataset.trProf,done:()=>admin(t)}));
   app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
@@ -4755,9 +4765,13 @@ async function admin(t){
         'expenses.categoria':'Categoría / Concepto del Gasto',
         'expenses.monto_usd':'Monto en Dólares ($ USD)',
         'expenses.monto_bs':'Monto en Bolívares (Bs)',
+        'purchases.es_credito':'¿Compra a Crédito con Proveedor?',
+        'purchases.dias_credito':'Días de Crédito acordados (ej: 15)',
+        'purchases.fecha_limite_pago':'Fecha Límite de Pago',
+        'purchases.estado_pago':'Estado del Pago al Proveedor',
+        'purchases.monto_usdt':'Costo de Compra en USDT (Base Deuda)',
         'purchases.monto_usd':'Costo de Compra en Dólares ($ USD)',
-        'purchases.monto_bs':'Costo de Compra en Bolívares (Bs)',
-        'purchases.monto_usdt':'Costo de Compra en USDT'
+        'purchases.monto_bs':'Costo de Compra en Bolívares (Bs)'
       };
       return m[t+'.'+c]||c;
     };
@@ -4855,12 +4869,37 @@ async function admin(t){
       }
     }
 
-    // Conversión bimoneda y actualización dinámica de costo para Compras
+    // Conversión bimoneda, cálculo de crédito y fecha límite para Compras
     if(t === 'purchases'){
       const inpBs = dlg.querySelector('[data-c="monto_bs"]');
       const inpUsd = dlg.querySelector('[data-c="monto_usd"]');
       const inpUsdt = dlg.querySelector('[data-c="monto_usdt"]');
+      const selCred = dlg.querySelector('[data-c="es_credito"]');
+      const inpDias = dlg.querySelector('[data-c="dias_credito"]');
+      const inpFecha = dlg.querySelector('[data-c="fecha"]');
+      const inpFechaLim = dlg.querySelector('[data-c="fecha_limite_pago"]');
+      const selEst = dlg.querySelector('[data-c="estado_pago"]');
       const curRate = Number(S.rate || 50.00);
+
+      const updateCreditFields = () => {
+        const isCred = selCred ? (selCred.value === 'true' || selCred.value === true) : false;
+        if(isCred){
+          if(selEst && !row) selEst.value = 'pendiente';
+          const dias = parseInt(inpDias?.value) || 0;
+          if(dias > 0 && inpFechaLim){
+            const baseD = inpFecha?.value ? new Date(inpFecha.value+'T00:00:00') : new Date();
+            baseD.setDate(baseD.getDate() + dias);
+            inpFechaLim.value = baseD.toISOString().slice(0, 10);
+          }
+        } else {
+          if(selEst && !row) selEst.value = 'pagado';
+        }
+      };
+
+      if(selCred) selCred.onchange = updateCreditFields;
+      if(inpDias) inpDias.oninput = updateCreditFields;
+      if(inpFecha) inpFecha.onchange = updateCreditFields;
+
       if(inpBs && inpUsd && inpUsdt){
         inpBs.oninput = () => {
           const valBs = parseFloat(inpBs.value);
@@ -4925,7 +4964,12 @@ async function admin(t){
         try { await sb.from('mother_accounts').update({ costo_usd: costUsd }).eq('id', o.mother_id); } catch(e){}
       }
       e?toast(e.message):(dlg.close(),admin(t));};};
-  if($('#add')) $('#add').onclick=()=>form(null);
+  if($('#add')) $('#add').onclick=()=>{
+    if(curTab==='refunds'){
+      return refundDlg(null, 0, ()=>admin(curTab));
+    }
+    form(null);
+  };
   app.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>form(data.find(r=>String(r[pk])===b.dataset.e)));
   app.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar registro?')){const {error:e}=await sb.from(t).delete().eq(pk,b.dataset.x);e?toast(e.message):admin(t);}});
 }

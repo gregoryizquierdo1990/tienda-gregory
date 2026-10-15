@@ -175,90 +175,333 @@ const GCal = {
 };
 window.GCal = GCal;
 
-function refundDlg(id, total, done) {
+async function refundDlg(id, total, done) {
+  let targetOrderId = id;
+  let targetTotal = total;
+  let orderObj = null;
+
   $('#dlgBody').innerHTML = `
-    <h3>💳 Procesar Devolución / Reembolso</h3>
-    <p class="mut" style="font-size:.82rem;margin:0 0 12px">Total original del pedido: <b>$${esc(total)} USD</b>. Si dejas el monto vacío se reembolsará la totalidad (liberando o suspendiendo el perfil y anulando la factura).</p>
-    
-    <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Monto a Devolver (USD):</label>
-    <input id="rm" type="number" step="0.01" min="0.01" max="${esc(total)}" placeholder="Monto USD (vacío = total: $${esc(total)})" style="width:100%;font-size:1rem;margin-bottom:10px">
-
-    <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Canal / Medio de Devolución:</label>
-    <select id="rd" style="width:100%;font-size:.88rem;margin-bottom:10px;padding:8px">
-      <option value="zeny">💎 Saldo Zeny (Wallet interna del cliente - automático)</option>
-      <option value="usdt">🟡 USDT (Binance Pay / Crypto)</option>
-      <option value="bolivares">🟢 Bolívares (Pago Móvil / Transferencia Bancaria)</option>
-      <option value="externo">🌐 Otra Plataforma (Zinli, Wally, Lead Bank EEUU, ApoloPay, etc.)</option>
-    </select>
-
-    <div id="refundExtraRefWrap" style="margin-bottom:10px">
-      <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Referencia / Comprobante de Pago:</label>
-      <input id="rRef" placeholder="Ej: Pago Móvil #123456, Binance Order ID #98765..." style="width:100%;font-size:.85rem">
+    <div style="padding:20px;text-align:center">
+      <div class="sk" style="height:60px"></div>
+      <p class="mut" style="margin-top:8px">Cargando datos del pedido...</p>
     </div>
-
-    <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Motivo de la Devolución:</label>
-    <input id="rr" placeholder="Ej: Cuenta con caída de proveedor, cliente cambió de plan..." style="width:100%;font-size:.85rem;margin-bottom:10px">
-
-    <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Destino del Perfil / Pantalla:</label>
-    <select id="rl" style="width:100%;font-size:.88rem;margin-bottom:16px;padding:8px">
-      <option value="true">Liberar el perfil (vuelve a estado Disponible en inventario)</option>
-      <option value="false">Suspender el perfil (revisar o cambiar credenciales antes)</option>
-    </select>
-
-    <button id="rok" class="d" style="width:100%;padding:10px;font-weight:700">Confirmar Devolución</button>
   `;
   dlg.showModal();
 
-  $('#rd').onchange = () => {
-    const isZeny = $('#rd').value === 'zeny';
-    const refWrap = $('#refundExtraRefWrap');
-    if (refWrap) refWrap.style.display = isZeny ? 'none' : 'block';
-  };
-  $('#rd').onchange();
+  // Si no se pasó un ID de pedido (ej: desde el botón "+ Registrar Devolución" de la pestaña Devoluciones),
+  // cargar los pedidos recientes pagados/entregados para que el usuario pueda seleccionar
+  let recentOrders = [];
+  if (!targetOrderId) {
+    const { data: ords } = await sb.from('orders')
+      .select('id,total_usd,total_bs,referencia,estado,created_at,customers(nombre,email,telefono),products(nombre)')
+      .in('estado', ['pagado', 'entregado', 'vencido'])
+      .order('created_at', { ascending: false })
+      .limit(60);
+    recentOrders = ords || [];
+    if (!recentOrders.length) {
+      $('#dlgBody').innerHTML = `
+        <h3>⚠️ No hay pedidos reembolsables</h3>
+        <p class="mut">No se encontraron pedidos con estado Pagado o Entregado para procesar una devolución.</p>
+        <button class="g" onclick="dlg.close()">Cerrar</button>
+      `;
+      return;
+    }
+    targetOrderId = recentOrders[0].id;
+    targetTotal = recentOrders[0].total_usd;
+    orderObj = recentOrders[0];
+  } else {
+    const { data: singleOrd } = await sb.from('orders')
+      .select('id,total_usd,total_bs,referencia,estado,customers(nombre,email,telefono),products(nombre)')
+      .eq('id', targetOrderId)
+      .maybeSingle();
+    orderObj = singleOrd;
+    if (orderObj) targetTotal = orderObj.total_usd;
+  }
 
-  $('#rok').onclick = e => run(e.target, async () => {
-    const rawDest = $('#rd').value;
-    const refTxt = ($('#rRef')?.value || '').trim();
-    const motivoBase = ($('#rr').value || '').trim();
-    const destLabel = rawDest === 'zeny' ? 'Saldo Zeny' : (rawDest === 'usdt' ? 'USDT Binance' : (rawDest === 'bolivares' ? 'Bolívares / Pago Móvil' : 'Plataforma Externa'));
-    
-    // Construir motivo estructurado incluyendo referencia de pago
-    let finalMotivo = motivoBase || 'Reembolso autorizado';
-    if (rawDest !== 'zeny') {
-      finalMotivo = `[Vía ${destLabel}${refTxt ? ' · Ref: ' + refTxt : ''}] ${finalMotivo}`;
+  const renderForm = () => {
+    const curCust = orderObj?.customers;
+    const custDesc = curCust ? `${curCust.nombre || curCust.email || 'Cliente'} (${curCust.telefono || 'Sin teléfono'})` : 'Cliente';
+    const prodDesc = orderObj?.products?.nombre || 'Servicio';
+
+    $('#dlgBody').innerHTML = `
+      <h3>🔄 Registrar Devolución / Reembolso</h3>
+      <p class="mut" style="font-size:.82rem;margin:0 0 14px">
+        Registra la devolución detallada con soporte de pago, destinatario y acción sobre el perfil en inventario.
+      </p>
+
+      ${!id && recentOrders.length ? `
+        <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Seleccionar Pedido a Reembolsar:</label>
+        <select id="rOrderSelect" style="width:100%;font-size:.85rem;margin-bottom:12px;padding:8px;background:rgba(3,8,18,.8);border-radius:8px">
+          ${recentOrders.map(o => `
+            <option value="${o.id}" ${o.id === targetOrderId ? 'selected' : ''}>
+              ${esc((o.created_at || '').slice(0, 10))} · ${esc(o.customers?.nombre || o.customers?.email || 'Cliente')} · ${esc(o.products?.nombre || 'Servicio')} ($${Number(o.total_usd).toFixed(2)})
+            </option>
+          `).join('')}
+        </select>
+      ` : `
+        <div style="background:rgba(255,255,255,.03);padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.08);margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:4px">
+            <span class="mut">Cliente:</span> <b>${esc(custDesc)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:4px">
+            <span class="mut">Servicio:</span> <b>${esc(prodDesc)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:.84rem">
+            <span class="mut">Total Pagado:</span> <b style="color:#00f5a0">$${Number(targetTotal).toFixed(2)} USD</b>
+          </div>
+        </div>
+      `}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Monto a Devolver (USD):</label>
+          <input id="rm" type="number" step="0.01" min="0.01" max="${esc(targetTotal)}" value="${esc(targetTotal)}" style="width:100%;font-size:.95rem;font-weight:700" required>
+        </div>
+        <div>
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Medio de Pago del Reembolso:</label>
+          <select id="rd" style="width:100%;font-size:.85rem;padding:7px">
+            <option value="zeny">💎 Saldo Zeny (Wallet interna cliente)</option>
+            <option value="binance">🟡 Binance Pay (USDT)</option>
+            <option value="pago_movil">🇻🇪 Bolívares (Pago Móvil / Bancario)</option>
+            <option value="efectivo">💵 Efectivo / Otra Vía</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Destinatario del Reverso:</label>
+          <input id="rDestinatario" placeholder="Nombre, Cédula, Teléfono Pago Móvil o Pay ID" value="${esc(orderObj?.customers?.telefono ? (orderObj.customers.nombre + ' · ' + orderObj.customers.telefono) : '')}" style="width:100%;font-size:.84rem">
+        </div>
+        <div>
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Referencia / Comprobante de Pago:</label>
+          <input id="rRef" placeholder="Ej: Pago Móvil #928374 / Binance TxID" style="width:100%;font-size:.84rem">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Acción sobre el Perfil en Inventario:</label>
+          <select id="rAccionPerfil" style="width:100%;font-size:.84rem;padding:7px">
+            <option value="liberar">🟢 Liberar Perfil (vuelve a Disponible)</option>
+            <option value="suspender">🔴 Suspender Perfil (bloqueado/revisión)</option>
+            <option value="trasladar">🔀 Trasladar Cliente a Otro Perfil</option>
+            <option value="mantener">⚪ Mantener Perfil como está</option>
+          </select>
+        </div>
+        <div>
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Diferencia de Precio ($ si hubo cambio):</label>
+          <input id="rDiferencia" type="number" step="0.01" value="0.00" placeholder="0.00 (opcional)" style="width:100%;font-size:.84rem">
+        </div>
+      </div>
+
+      <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Motivo / Razón de la Devolución:</label>
+      <input id="rr" placeholder="Ej: Cuenta con caída del proveedor, cliente solicitó anulación..." style="width:100%;font-size:.85rem;margin-bottom:14px">
+
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="g" onclick="dlg.close()">Cancelar</button>
+        <button id="rok" class="d" style="font-weight:800;padding:8px 16px">💾 Confirmar Devolución</button>
+      </div>
+    `;
+
+    // Cambio dinámico de orden si no venía preseleccionada
+    const selOrd = $('#rOrderSelect');
+    if (selOrd) {
+      selOrd.onchange = (e) => {
+        targetOrderId = e.target.value;
+        orderObj = recentOrders.find(x => x.id === targetOrderId) || recentOrders[0];
+        targetTotal = orderObj?.total_usd || 0;
+        renderForm();
+      };
     }
 
-    // Intentar pasar el destino directo; si la BD aún tiene el check antiguo, mapear a 'externo'
-    let err = null;
-    try {
-      const res = await sb.rpc('refund_order', {
-        p_order: id,
-        p_monto: $('#rm').value ? +$('#rm').value : null,
-        p_destino: rawDest,
-        p_motivo: finalMotivo,
-        p_liberar: $('#rl').value === 'true'
-      });
-      if (res.error) throw res.error;
-    } catch(rpcErr) {
-      if (rawDest !== 'zeny' && String(rpcErr.message).includes('Destino')) {
-        // Fallback para BD con restricción anterior ('zeny','externo')
-        const fallbackRes = await sb.rpc('refund_order', {
-          p_order: id,
-          p_monto: $('#rm').value ? +$('#rm').value : null,
-          p_destino: 'externo',
-          p_motivo: finalMotivo,
-          p_liberar: $('#rl').value === 'true'
-        });
-        if (fallbackRes.error) throw fallbackRes.error;
-      } else {
-        throw rpcErr;
+    $('#rok').onclick = e => run(e.target, async () => {
+      const montoVal = parseFloat($('#rm').value) || 0;
+      if (montoVal <= 0) throw new Error('El monto a devolver debe ser mayor a 0');
+
+      const rawDest = $('#rd').value;
+      const destinatarioTxt = ($('#rDestinatario').value || '').trim();
+      const refTxt = ($('#rRef')?.value || '').trim();
+      const accionPerfil = $('#rAccionPerfil').value;
+      const difUsd = parseFloat($('#rDiferencia')?.value) || 0;
+      const motivoBase = ($('#rr').value || '').trim() || 'Devolución autorizada';
+
+      const destLabel = rawDest === 'zeny' ? 'Saldo Zeny' : (rawDest === 'binance' ? 'Binance USDT' : (rawDest === 'pago_movil' ? 'Pago Móvil Bolívares' : 'Efectivo/Otro'));
+
+      let finalMotivo = `[Vía ${destLabel}${refTxt ? ' · Ref: ' + refTxt : ''}${destinatarioTxt ? ' · Para: ' + destinatarioTxt : ''}] ${motivoBase}`;
+      if (difUsd !== 0) {
+        finalMotivo += ` (Diferencia de precio: $${difUsd.toFixed(2)})`;
       }
+
+      // 1. Intentar llamar a registrar_devolucion_avanzada si la migración 32 está activa
+      let success = false;
+      try {
+        const { data: advRes, error: advErr } = await sb.rpc('registrar_devolucion_avanzada', {
+          p_order_id: targetOrderId,
+          p_monto_usd: montoVal,
+          p_metodo: rawDest,
+          p_motivo: finalMotivo,
+          p_referencia: refTxt,
+          p_destinatario: destinatarioTxt,
+          p_accion_perfil: accionPerfil,
+          p_diferencia_usd: difUsd
+        });
+        if (advErr) throw advErr;
+        success = true;
+      } catch (errAdv) {
+        console.warn('Fallback a refund_order:', errAdv.message);
+        // Fallback a refund_order estándar
+        const legacyDest = rawDest === 'zeny' ? 'zeny' : 'externo';
+        const { error: legErr } = await sb.rpc('refund_order', {
+          p_order: targetOrderId,
+          p_monto: montoVal,
+          p_destino: legacyDest,
+          p_motivo: finalMotivo,
+          p_liberar: accionPerfil === 'liberar'
+        });
+        if (legErr) throw legErr;
+        success = true;
+      }
+
+      // Si se seleccionó trasladar el perfil, abrir modal de traslado
+      if (accionPerfil === 'trasladar' && orderObj?.profile_id) {
+        setTimeout(() => openTransferModal({ profileId: orderObj.profile_id, done }), 400);
+      }
+
+      dlg.close();
+      done && done();
+      return `✅ Devolución de $${montoVal.toFixed(2)} USD registrada con éxito (${destLabel}).`;
+    });
+  };
+
+  renderForm();
+}
+
+window.openPayPurchaseModal = function(purchaseId, proveedor, montoUsdt, fechaVence, done) {
+  const curUsdt = parseFloat(montoUsdt) || 0;
+  const defRate = Number(S?.settings?.tasas?.usdt_ves || S?.rate || 50.00);
+
+  $('#dlgBody').innerHTML = `
+    <h3>💳 Registrar Pago de Compra a Proveedor</h3>
+    <p class="mut" style="font-size:.82rem;margin:0 0 14px">
+      Cancela la deuda contraída con el proveedor en USDT o en Bolívares calculados al cambio del momento.
+    </p>
+
+    <div style="background:rgba(255,255,255,.04);padding:12px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span class="mut" style="font-size:.82rem">Proveedor:</span>
+        <b>${esc(proveedor)}</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span class="mut" style="font-size:.82rem">Deuda Acordada (USDT):</span>
+        <b style="color:#fde047;font-size:1.1rem">$${curUsdt.toFixed(2)} USDT</b>
+      </div>
+      ${fechaVence ? `
+        <div style="display:flex;justify-content:space-between">
+          <span class="mut" style="font-size:.82rem">Fecha Límite:</span>
+          <b>${esc(fechaVence)}</b>
+        </div>
+      ` : ''}
+    </div>
+
+    <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Forma de Pago al Proveedor:</label>
+    <select id="selPayProvMethod" style="width:100%;font-size:.88rem;padding:8px;margin-bottom:12px">
+      <option value="usdt">🟡 Cancelar en USDT (Binance Pay / Crypto)</option>
+      <option value="bolivares">🇻🇪 Cancelar en Bolívares (Pago Móvil / Transferencia Bancaria)</option>
+      <option value="efectivo">💵 Efectivo / Otra Vía</option>
+    </select>
+
+    <div id="wrapBsProvCalc" style="display:none;background:rgba(0,245,160,.06);border:1px solid rgba(0,245,160,.25);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+        <div>
+          <label class="mut" style="font-size:.74rem;display:block;margin-bottom:4px">Tasa USDT / Cambio Actual:</label>
+          <input id="inpProvRate" type="number" step="0.01" value="${defRate.toFixed(2)}" style="width:100%;font-size:.88rem;font-weight:700">
+        </div>
+        <div>
+          <label class="mut" style="font-size:.74rem;display:block;margin-bottom:4px">Monto Total a Transferir (Bs):</label>
+          <div id="txtProvMontoBs" style="color:#00f5a0;font-size:1.15rem;font-weight:800;padding-top:4px">
+            Bs. ${(curUsdt * defRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+          </div>
+        </div>
+      </div>
+      <p class="mut" style="font-size:.72rem;margin:0">
+        Calculado automáticamente: <b>$${curUsdt.toFixed(2)} USDT</b> × Tasa USDT de Al Cambio / P2P.
+      </p>
+    </div>
+
+    <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Referencia / Comprobante de Pago:</label>
+    <input id="inpProvRef" placeholder="Ej: Pago Móvil #847291 / Binance Pay Order ID" style="width:100%;font-size:.86rem;margin-bottom:12px" required>
+
+    <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Notas u Observaciones (opcional):</label>
+    <input id="inpProvNotas" placeholder="Ej: Cancelado crédito de 15 días" style="width:100%;font-size:.86rem;margin-bottom:14px">
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="g" onclick="dlg.close()">Cancelar</button>
+      <button id="btnConfirmPayProv" style="background:linear-gradient(135deg,#00f5a0,#00d98b);color:#000;font-weight:800;border:none;padding:8px 16px">
+        💾 Confirmar Pago a Proveedor
+      </button>
+    </div>
+  `;
+  dlg.showModal();
+
+  const mSel = $('#selPayProvMethod');
+  const wBs = $('#wrapBsProvCalc');
+  const inpRate = $('#inpProvRate');
+  const txtBs = $('#txtProvMontoBs');
+
+  const updateBsCalc = () => {
+    const rateVal = parseFloat(inpRate?.value) || defRate;
+    const bsTotal = curUsdt * rateVal;
+    if (txtBs) txtBs.textContent = 'Bs. ' + bsTotal.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  };
+
+  if (mSel) {
+    mSel.onchange = () => {
+      if (wBs) wBs.style.display = mSel.value === 'bolivares' ? 'block' : 'none';
+      updateBsCalc();
+    };
+  }
+  if (inpRate) inpRate.oninput = updateBsCalc;
+
+  $('#btnConfirmPayProv').onclick = async () => {
+    const ref = ($('#inpProvRef').value || '').trim();
+    if (!ref) return toast('Ingresa el número de comprobante o referencia de pago.');
+
+    const m = mSel.value;
+    const rVal = parseFloat(inpRate?.value) || defRate;
+    const notas = ($('#inpProvNotas').value || '').trim();
+    const btn = $('#btnConfirmPayProv');
+    btn.disabled = true;
+    btn.textContent = '⏳ Procesando...';
+
+    try {
+      const { data: rpcRes, error: rpcErr } = await sb.rpc('pagar_compra_proveedor', {
+        p_purchase_id: purchaseId,
+        p_metodo: m,
+        p_tasa: m === 'bolivares' ? rVal : null,
+        p_comprobante: ref,
+        p_notas: notas
+      });
+      if (rpcErr) throw rpcErr;
+    } catch(err) {
+      console.warn('Fallback a update directo en purchases:', err.message);
+      const bsTot = m === 'bolivares' ? (curUsdt * rVal) : null;
+      await sb.from('purchases').update({
+        estado_pago: 'pagado',
+        pagado_at: new Date().toISOString(),
+        metodo_pago_proveedor: m,
+        tasa_usdt_pago: m === 'bolivares' ? rVal : null,
+        monto_pagado_bs: bsTot,
+        comprobante_pago: ref,
+        notas: notas ? notas : undefined
+      }).eq('id', purchaseId);
     }
 
+    toast(`Pago a ${proveedor} registrado con éxito.`);
+    dlg.close();
     done && done();
-    return `✅ Devolución registrada exitosamente (${destLabel}).`;
-  });
-}
+  };
+};
 
 async function transferDlg(orderId, done) {
   return openTransferModal({ orderId, done });
@@ -4571,13 +4814,22 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     };
 
     const curRate = Number(exRate?.bs_por_usd || 50.00);
-    // Filtrar comisiones exclusivamente para el socio oficial Pablo Gonzalez
-    const allComms = (coms || []).filter(c => !pabloSocio.id || c.vendedor_id === pabloSocio.id);
+    // En este módulo se registran todas las ventas del negocio (directas, por revendedores y Binance)
+    const allComms = coms || [];
+    let filterConcepto = 'todos';
     let filterStatus = 'pendiente';
+    const selectedIds = new Set();
 
     const render = () => {
       let filtered = allComms;
       if (filterStatus !== 'todos') filtered = filtered.filter(c => c.estado === filterStatus);
+      if (filterConcepto === 'autogestion_bs') {
+        filtered = filtered.filter(c => c.tipo_venta === 'autogestion_bs');
+      } else if (filterConcepto === 'otro_revendedor') {
+        filtered = filtered.filter(c => c.tipo_venta === 'otro_revendedor' || (c.vendedor_id && c.vendedor_id !== pabloSocio.id));
+      } else if (filterConcepto === 'binance_usdt') {
+        filtered = filtered.filter(c => c.tipo_venta === 'binance_usdt' || c.metodo_origen === 'binance');
+      }
 
       const totPendUsd = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
       const totPendBs = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
@@ -4587,6 +4839,10 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const totCajaUsd = filtered.reduce((a, c) => a + Number(c.caja_negocio_usd || (c.ganancia_negocio_usd * 0.90) || 0), 0);
       const totLiqUsd = filtered.filter(c => c.estado === 'liquidada').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
 
+      const selComms = allComms.filter(c => selectedIds.has(c.id));
+      const selTotUsd = selComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+      const selTotBs = selComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+
       box.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
           <div>
@@ -4595,7 +4851,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               <span class="pill" style="font-size:.74rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">Tasa BCV: Bs. ${curRate.toFixed(2)}</span>
             </h3>
             <p class="mut" style="font-size:.84rem;margin:4px 0 0">
-              Modelo financiero oficial de autogestión, compras mayoristas, liquidación en Bolívares / Binance y Reserva Estratégica.
+              Modelo oficial de autogestión, ventas por revendedores, Binance y Reserva Estratégica. Socio oficial: <b>Pablo Gonzalez</b>.
             </p>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -4603,7 +4859,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               💬 Enviar Estado a Pablo por WhatsApp
             </button>
             <button id="btnDoLiquidation" style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none">
-              ✅ Liquidar Comisiones Pendientes
+              ${selectedIds.size > 0 ? `✅ Liquidar Seleccionadas (${selectedIds.size})` : '✅ Liquidar Comisiones'}
             </button>
           </div>
         </div>
@@ -4637,12 +4893,38 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           </div>
         </div>
 
+        <!-- Barra Dinámica de Selección Parcial -->
+        ${selectedIds.size > 0 ? `
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:rgba(255,183,3,.1);border:1.5px solid rgba(255,183,3,.45);padding:10px 16px;border-radius:12px;margin-bottom:14px">
+            <div>
+              <b style="color:#fde047;font-size:.88rem">📌 ${selectedIds.size} comisiones seleccionadas para liquidar</b>
+              <div class="mut" style="font-size:.78rem;margin-top:2px">
+                Total a pagar a Pablo: <b style="color:#fde047">$${selTotUsd.toFixed(2)} USD</b> (equiv: <b style="color:#00f5a0">Bs. ${selTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b>)
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="g" id="btnClearSelection" style="padding:5px 12px;font-size:.78rem">Deseleccionar todas</button>
+              <button id="btnQuickLiquidateSelected" style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none;padding:6px 14px;border-radius:8px">
+                ✅ Liquidar Seleccionadas (${selectedIds.size})
+              </button>
+            </div>
+          </div>
+        ` : ''}
+
         <!-- Filtros Rápidos -->
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;background:rgba(255,255,255,.02);padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06)">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <label class="mut" style="font-size:.8rem">Socio Oficial:</label>
             <select id="selFilterSeller" style="padding:6px 12px;font-size:.82rem;background:rgba(3,8,18,.8);border-radius:8px;border:1px solid rgba(255,183,3,.4);color:#fde047;font-weight:700" disabled>
               <option value="${pabloSocio.id || ''}">💼 ${esc(pabloSocio.nombre || 'Pablo Gonzalez')} (Socio Oficial - ${esc(pabloSocio.codigo_identificacion || 'RVD:1001')})</option>
+            </select>
+
+            <label class="mut" style="font-size:.8rem;margin-left:8px">Origen / Concepto:</label>
+            <select id="selFilterConcepto" style="padding:6px 10px;font-size:.82rem;background:rgba(3,8,18,.8);border-radius:8px">
+              <option value="todos" ${filterConcepto === 'todos' ? 'selected' : ''}>Todos los Conceptos</option>
+              <option value="autogestion_bs" ${filterConcepto === 'autogestion_bs' ? 'selected' : ''}>🛒 Directo Tienda / Autogestión</option>
+              <option value="otro_revendedor" ${filterConcepto === 'otro_revendedor' ? 'selected' : ''}>🤝 Por Concepto de Revendedores</option>
+              <option value="binance_usdt" ${filterConcepto === 'binance_usdt' ? 'selected' : ''}>🟡 Ventas Binance USDT</option>
             </select>
 
             <label class="mut" style="font-size:.8rem;margin-left:8px">Estado:</label>
@@ -4653,22 +4935,24 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             </select>
           </div>
           <div class="mut" style="font-size:.8rem">
-            Mostrando <b>${filtered.length}</b> registros de comisión de Pablo Gonzalez
+            Mostrando <b>${filtered.length}</b> registros de comisión
           </div>
         </div>
 
-        <!-- Tabla Detallada -->
+        <!-- Tabla Detallada con Selección por Checkbox -->
         <div class="wrap">
           <table>
             <thead>
               <tr>
+                <th style="width:36px;text-align:center">
+                  <input type="checkbox" id="chkAllComms" title="Seleccionar todas las comisiones pendientes visibles">
+                </th>
                 <th>Fecha</th>
-                <th>Socio Responsable</th>
+                <th>Concepto / Origen</th>
                 <th>Cliente</th>
                 <th>Servicio</th>
-                <th>Vía Pago</th>
                 <th>Cobrado</th>
-                <th>Comisión Socio</th>
+                <th>Comisión Pablo</th>
                 <th>Gregory</th>
                 <th>Caja Neg. (90%)</th>
                 <th>🛡️ Reserva (10%)</th>
@@ -4677,28 +4961,39 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             </thead>
             <tbody>
               ${filtered.length ? filtered.map(c => {
-                const sNom = c.vendedor?.nombre || pabloSocio.nombre || 'Pablo Gonzalez';
-                const cNom = c.customers?.nombre || c.customers?.email || 'Cliente';
                 const isPend = c.estado === 'pendiente';
-                const isBin = c.metodo_origen === 'binance';
+                const isBin = c.metodo_origen === 'binance' || c.tipo_venta === 'binance_usdt';
                 const cCaja = Number(c.caja_negocio_usd || (Number(c.ganancia_negocio_usd || 0) * 0.90));
                 const cRes = Number(c.reserva_estrategica_usd || (Number(c.ganancia_negocio_usd || 0) * 0.10));
+                const cNom = c.customers?.nombre || c.customers?.email || 'Cliente';
+                
+                // Concepto / Origen Badge
+                let conceptoBadge = '';
+                if (c.tipo_venta === 'otro_revendedor' || (c.vendedor_id && c.vendedor_id !== pabloSocio.id)) {
+                  const rNom = c.vendedor?.nombre || c.vendedor?.codigo_identificacion || 'Revendedor';
+                  conceptoBadge = `<span class="pill" style="font-size:.68rem;background:rgba(168,85,247,.15);color:#c084fc;border-color:rgba(168,85,247,.3)">🤝 Revendedor: ${esc(rNom)}</span>`;
+                } else if (isBin) {
+                  conceptoBadge = `<span class="pill" style="font-size:.68rem;background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)">🟡 Binance USDT</span>`;
+                } else {
+                  conceptoBadge = `<span class="pill" style="font-size:.68rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">🛒 Autogestión Tienda</span>`;
+                }
+
+                const isChecked = selectedIds.has(c.id);
+
                 return `
-                  <tr>
+                  <tr style="${isChecked ? 'background:rgba(255,183,3,.06)' : ''}">
+                    <td style="text-align:center">
+                      <input type="checkbox" class="chk-single-comm" data-id="${c.id}" ${isChecked ? 'checked' : ''} ${!isPend ? 'disabled style="opacity:.3"' : ''}>
+                    </td>
                     <td style="font-size:.76rem;color:#94a3b8">${(c.created_at || '').slice(0, 10)}</td>
-                    <td><b>${esc(sNom)}</b></td>
+                    <td>${conceptoBadge}</td>
                     <td>${esc(cNom)}</td>
                     <td><b>${esc(c.servicio_nombre)}</b></td>
-                    <td>
-                      <span class="pill" style="font-size:.68rem;${isBin ? 'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)' : 'background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)'}">
-                        ${isBin ? '🟡 Binance' : '🇻🇪 Bolívares'}
-                      </span>
-                    </td>
                     <td>$${Number(c.monto_cobrado_usd).toFixed(2)}</td>
                     <td style="color:#fde047;font-weight:800">
                       +$${Number(c.ganancia_vendedor_usd).toFixed(2)}
                       <div style="font-size:.72rem;color:${isBin ? '#fde047' : '#94a3b8'};font-weight:400">
-                        ${isBin ? 'USDT' : 'Bs. ' + Number(c.ganancia_vendedor_bs).toFixed(2)}
+                        ${isBin ? 'USDT' : 'Bs. ' + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate)).toFixed(2)}
                       </div>
                     </td>
                     <td style="color:#00f5a0;font-weight:700">+$${Number(c.ganancia_gregory_usd).toFixed(2)}</td>
@@ -4724,19 +5019,160 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       `;
 
       // Eventos de Filtro
+      const cSel = $('#selFilterConcepto');
+      if (cSel) cSel.onchange = (e) => { filterConcepto = e.target.value; render(); };
       const stSel = $('#selFilterStatus');
       if (stSel) stSel.onchange = (e) => { filterStatus = e.target.value; render(); };
 
-      // Enviar Estado a WhatsApp
+      // Checkbox Maestro (Seleccionar/Deseleccionar todas las pendientes visibles)
+      const chkMaster = $('#chkAllComms');
+      if (chkMaster) {
+        const visiblePending = filtered.filter(c => c.estado === 'pendiente');
+        chkMaster.checked = visiblePending.length > 0 && visiblePending.every(c => selectedIds.has(c.id));
+        chkMaster.onchange = (e) => {
+          if (e.target.checked) {
+            visiblePending.forEach(c => selectedIds.add(c.id));
+          } else {
+            visiblePending.forEach(c => selectedIds.delete(c.id));
+          }
+          render();
+        };
+      }
+
+      // Checkboxes individuales
+      box.querySelectorAll('.chk-single-comm').forEach(chk => {
+        chk.onchange = (e) => {
+          const id = e.target.dataset.id;
+          if (e.target.checked) selectedIds.add(id);
+          else selectedIds.delete(id);
+          render();
+        };
+      });
+
+      // Botón Limpiar Selección
+      const btnClear = $('#btnClearSelection');
+      if (btnClear) {
+        btnClear.onclick = () => {
+          selectedIds.clear();
+          render();
+        };
+      }
+
+      // Función disparadora del modal de liquidación
+      const triggerLiquidationModal = (idsToPay) => {
+        const targetComms = allComms.filter(c => idsToPay.includes(c.id) && c.estado === 'pendiente');
+        if (!targetComms.length) {
+          return toast('No hay comisiones pendientes seleccionadas para liquidar.');
+        }
+
+        const sTotUsd = targetComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+        const sTotBs = targetComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+
+        $('#dlgBody').innerHTML = `
+          <h3>✅ Registrar Liquidación y Pago a Socio</h3>
+          <p class="mut" style="font-size:.84rem;margin:0 0 14px">
+            Se marcarán como pagadas las <b>${targetComms.length}</b> comisiones seleccionadas.
+          </p>
+          <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span class="mut" style="font-size:.82rem">Socio Oficial:</span>
+              <b>${esc(pabloSocio.nombre)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span class="mut" style="font-size:.82rem">Comisiones a Liquidar:</span>
+              <b style="color:#fde047">${targetComms.length} ventas seleccionadas</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span class="mut" style="font-size:.82rem">Total en Dólares ($):</span>
+              <b style="color:#fde047;font-size:1.15rem">$${sTotUsd.toFixed(2)} USD</b>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span class="mut" style="font-size:.82rem">Total en Bolívares (Bs):</span>
+              <b style="color:#00f5a0;font-size:1.15rem">Bs. ${sTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b>
+            </div>
+          </div>
+          <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Referencia de Pago / Transferencia:</label>
+          <input id="inpLiqRef" placeholder="Ej: Pago Móvil #928374 / Binance Pay ID" style="width:100%;margin-bottom:12px" required>
+          <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Notas u Observaciones (opcional):</label>
+          <input id="inpLiqNotas" placeholder="Ej: Pago parcial / quincenal seleccionado" style="width:100%;margin-bottom:14px">
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnConfirmLiquidation" style="background:linear-gradient(135deg,#00f5a0,#00d98b);color:#000;font-weight:800;border:none">
+              💾 Confirmar Liquidación Pagada
+            </button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnConfirmLiquidation').onclick = async () => {
+          const ref = $('#inpLiqRef').value.trim();
+          if (!ref) return toast('Ingresa el número de referencia bancaria o comprobante.');
+
+          const notas = $('#inpLiqNotas').value.trim();
+          const btn = $('#btnConfirmLiquidation');
+          btn.disabled = true;
+          btn.textContent = '⏳ Procesando...';
+
+          // Actualizar las comisiones seleccionadas
+          const { error: updErr } = await sb.from('partner_commissions')
+            .update({
+              estado: 'liquidada',
+              liquidada_at: new Date().toISOString(),
+              referencia_pago: ref,
+              notas: notas || 'Liquidado por administrador'
+            })
+            .in('id', targetComms.map(x => x.id));
+
+          if (updErr) {
+            btn.disabled = false;
+            btn.textContent = '💾 Confirmar Liquidación Pagada';
+            return toast('Error al liquidar comisiones: ' + updErr.message);
+          }
+
+          toast(`Liquidación registrada con éxito. Se marcaron ${targetComms.length} comisiones como pagadas.`);
+          selectedIds.clear();
+          dlg.close();
+          EXTRA.liquidaciones(box);
+        };
+      };
+
+      // Botón Liquidar (del encabezado o barra de selección)
+      const bDo = $('#btnDoLiquidation');
+      if (bDo) {
+        bDo.onclick = () => {
+          const idsToPay = selectedIds.size > 0 
+            ? Array.from(selectedIds) 
+            : filtered.filter(c => c.estado === 'pendiente').map(c => c.id);
+          
+          if (!idsToPay.length) {
+            return toast('No hay comisiones pendientes para liquidar.');
+          }
+          triggerLiquidationModal(idsToPay);
+        };
+      }
+
+      const bQuick = $('#btnQuickLiquidateSelected');
+      if (bQuick) {
+        bQuick.onclick = () => {
+          triggerLiquidationModal(Array.from(selectedIds));
+        };
+      }
+
+      // Enviar Estado a WhatsApp (con las seleccionadas o todas las pendientes)
       const bWA = $('#btnWAComms');
       if (bWA) {
         bWA.onclick = () => {
           const targetSeller = pabloSocio;
           if (!targetSeller || !targetSeller.id) return toast('No se encontró el registro de Pablo Gonzalez.');
 
-          const sComms = allComms.filter(c => c.estado === 'pendiente');
-          const commsBs = sComms.filter(c => c.metodo_origen !== 'binance');
-          const commsBin = sComms.filter(c => c.metodo_origen === 'binance');
+          const sComms = selectedIds.size > 0 
+            ? allComms.filter(c => selectedIds.has(c.id) && c.estado === 'pendiente')
+            : allComms.filter(c => c.estado === 'pendiente');
+
+          if (!sComms.length) return toast('No hay comisiones pendientes para enviar.');
+
+          const commsBs = sComms.filter(c => c.metodo_origen !== 'binance' && c.tipo_venta !== 'binance_usdt');
+          const commsBin = sComms.filter(c => c.metodo_origen === 'binance' || c.tipo_venta === 'binance_usdt');
 
           const totUsd = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
           const totBs = commsBs.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
@@ -4746,7 +5182,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           const itemsTxt = sComms.slice(0, 15).map((x, i) => `  ${i + 1}. ${x.servicio_nombre} (${x.customers?.nombre || 'Cliente'}): +$${Number(x.ganancia_vendedor_usd).toFixed(2)} [${x.metodo_origen === 'binance' ? 'Binance USDT' : 'Bs.'}]`).join('\n');
 
           const msg = `¡Hola ${targetSeller.nombre || 'Pablo'}! 👋 Te comparto tu *Corte de Liquidación de Comisiones* al ${fechaHoy}:\n\n` +
-            `🛒 *Ventas Autogestionadas Pendientes:* ${sComms.length}\n` +
+            `🛒 *Ventas Pendientes Seleccionadas:* ${sComms.length}\n` +
             (itemsTxt ? `${itemsTxt}\n\n` : '') +
             (commsBs.length ? `🇻🇪 *Por Transferir en Bolívares (Pago Móvil):* Bs. ${totBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (Tasa BCV: ${curRate.toFixed(2)})\n` : '') +
             (commsBin.length ? `🟡 *Por Transferir en Binance Pay (USDT):* $${totUsdt.toFixed(2)} USDT\n` : '') +
@@ -4762,85 +5198,6 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           } else {
             toast('Comprobante copiado al portapapeles (el socio no tiene WhatsApp registrado).');
           }
-        };
-      }
-
-      // Modal para Registrar Liquidación
-      const bDo = $('#btnDoLiquidation');
-      if (bDo) {
-        bDo.onclick = () => {
-          const targetSeller = pabloSocio;
-          if (!targetSeller || !targetSeller.id) return toast('No se encontró el registro de Pablo Gonzalez.');
-
-          const sComms = allComms.filter(c => c.estado === 'pendiente');
-          const sTotUsd = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
-          const sTotBs = sComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
-
-          if (!sComms.length) {
-            return toast(`El socio Pablo Gonzalez no tiene comisiones pendientes por liquidar.`);
-          }
-
-          $('#dlgBody').innerHTML = `
-            <h3>✅ Registrar Liquidación y Pago a Socio</h3>
-            <p class="mut" style="font-size:.84rem;margin:0 0 14px">
-              Cierra el corte actual de comisiones pendientes y regístralo como pagado.
-            </p>
-            <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
-              <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-                <span class="mut" style="font-size:.82rem">Socio Oficial:</span>
-                <b>${esc(targetSeller.nombre)}</b>
-              </div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-                <span class="mut" style="font-size:.82rem">Comisiones a Liquidar:</span>
-                <b>${sComms.length} ventas</b>
-              </div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-                <span class="mut" style="font-size:.82rem">Total en Dólares ($):</span>
-                <b style="color:#fde047;font-size:1.1rem">$${sTotUsd.toFixed(2)} USD</b>
-              </div>
-              <div style="display:flex;justify-content:space-between">
-                <span class="mut" style="font-size:.82rem">Total en Bolívares (Bs):</span>
-                <b style="color:#00f5a0;font-size:1.1rem">Bs. ${sTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b>
-              </div>
-            </div>
-            <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Referencia de Pago / Transferencia:</label>
-            <input id="inpLiqRef" placeholder="Ej: Pago Móvil 928374 / Binance Pay ID" style="width:100%;margin-bottom:12px" required>
-            <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Notas u Observaciones (opcional):</label>
-            <input id="inpLiqNotas" placeholder="Ej: Pago quincenal de comisiones tienda web" style="width:100%;margin-bottom:14px">
-            <div style="display:flex;gap:10px;justify-content:flex-end">
-              <button class="g" onclick="dlg.close()">Cancelar</button>
-              <button id="btnConfirmLiquidation" style="background:linear-gradient(135deg,#00f5a0,#00d98b);color:#000;font-weight:800;border:none">
-                💾 Confirmar Liquidación Pagada
-              </button>
-            </div>
-          `;
-          dlg.showModal();
-
-          $('#btnConfirmLiquidation').onclick = async () => {
-            const ref = $('#inpLiqRef').value.trim();
-            if (!ref) return toast('Ingresa el número de referencia bancaria o comprobante.');
-
-            const notas = $('#inpLiqNotas').value.trim();
-            const btn = $('#btnConfirmLiquidation');
-            btn.disabled = true;
-            btn.textContent = '⏳ Procesando...';
-
-            const { data: res, error: rpcErr } = await sb.rpc('liquidar_comisiones_socio', {
-              p_vendedor_id: targetSeller.id,
-              p_referencia: ref,
-              p_notas: notas
-            });
-
-            if (rpcErr) {
-              btn.disabled = false;
-              btn.textContent = '💾 Confirmar Liquidación Pagada';
-              return toast('Error al liquidar comisiones: ' + rpcErr.message);
-            }
-
-            toast(`Liquidación registrada con éxito. Se marcaron pagadas ${res?.comisiones_liquidadas || sComms.length} comisiones.`);
-            dlg.close();
-            EXTRA.liquidaciones(box);
-          };
         };
       }
     };
