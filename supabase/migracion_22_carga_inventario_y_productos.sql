@@ -8,61 +8,61 @@
 
 begin;
 
--- 1. CATEGORÍA PRINCIPAL: Perfiles
-insert into categories (id, nombre, descripcion, activo, orden) values
-  ('e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Perfiles', 'Perfiles de Streaming individuales y compartidos', true, 1)
-on conflict (id) do update set nombre = 'Perfiles', activo = true;
+-- 1. CATEGORÍA PRINCIPAL: Perfiles (columnas: id, nombre, orden, activo)
+insert into categories (id, nombre, orden, activo) values
+  ('e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Perfiles', 1, true)
+on conflict (id) do update set nombre = 'Perfiles', orden = 1, activo = true;
 
 -- 2. ACTUALIZAR O REGISTRAR LOS 10 PRODUCTOS CON SUS DESCRIPCIONES PERSONALIZADAS
 -- Producto: Netflix (Para servicio: NETFLIX)
-update products set nombre = 'Netflix', descripcion = 'PREMIUM', precio_usd = 5.0, precio_revendedor_usd = 4.5, activo = true, orden = 1 where id = '817719d3-2adf-4010-b2c8-35c879867ca6';
-insert into products (id, category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select '817719d3-2adf-4010-b2c8-35c879867ca6', 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Netflix', 'PREMIUM', 'pantalla', 5.0, 4.5, 30, 1, true, 1
+update products set nombre = 'Netflix', descripcion = 'PREMIUM', precio_usd = 5.0, precio_revendedor_usd = 4.5, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 1 where id = '817719d3-2adf-4010-b2c8-35c879867ca6';
+insert into products (id, category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select '817719d3-2adf-4010-b2c8-35c879867ca6', 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Netflix', 'PREMIUM', 'pantalla', 5.0, 4.5, 30, 30, true, 1
 where not exists (select 1 from products where id = '817719d3-2adf-4010-b2c8-35c879867ca6');
 -- Producto: Perfil Extra Netflix (Para servicio: PERFIL EXTRA NETFLIX)
-update products set descripcion = 'Perfil Privado', precio_usd = 4.5, precio_revendedor_usd = 4.0, activo = true, orden = 2 where lower(trim(nombre)) = lower(trim('Perfil Extra Netflix'));
-insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Perfil Extra Netflix', 'Perfil Privado', 'pantalla', 4.5, 4.0, 30, 1, true, 2
+update products set descripcion = 'Perfil Privado', precio_usd = 4.5, precio_revendedor_usd = 4.0, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 2 where lower(trim(nombre)) = lower(trim('Perfil Extra Netflix'));
+insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Perfil Extra Netflix', 'Perfil Privado', 'pantalla', 4.5, 4.0, 30, 30, true, 2
 where not exists (select 1 from products where lower(trim(nombre)) = lower(trim('Perfil Extra Netflix')));
 -- Producto: Disney+ Premium (Para servicio: DISNEY PREMIUM)
-update products set descripcion = 'Premium', precio_usd = 3.5, precio_revendedor_usd = 3.0, activo = true, orden = 3 where lower(trim(nombre)) = lower(trim('Disney+ Premium'));
-insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Disney+ Premium', 'Premium', 'pantalla', 3.5, 3.0, 30, 1, true, 3
+update products set descripcion = 'Premium', precio_usd = 3.5, precio_revendedor_usd = 3.0, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 3 where lower(trim(nombre)) = lower(trim('Disney+ Premium'));
+insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Disney+ Premium', 'Premium', 'pantalla', 3.5, 3.0, 30, 30, true, 3
 where not exists (select 1 from products where lower(trim(nombre)) = lower(trim('Disney+ Premium')));
 -- Producto: Max Estándar (Para servicio: MAX ESTANDAR)
-update products set descripcion = 'Estandar', precio_usd = 3.5, precio_revendedor_usd = 3.0, activo = true, orden = 4 where lower(trim(nombre)) = lower(trim('Max Estándar'));
-insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Max Estándar', 'Estandar', 'pantalla', 3.5, 3.0, 30, 1, true, 4
+update products set descripcion = 'Estandar', precio_usd = 3.5, precio_revendedor_usd = 3.0, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 4 where lower(trim(nombre)) = lower(trim('Max Estándar'));
+insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Max Estándar', 'Estandar', 'pantalla', 3.5, 3.0, 30, 30, true, 4
 where not exists (select 1 from products where lower(trim(nombre)) = lower(trim('Max Estándar')));
 -- Producto: Amazon Prime Video (Para servicio: PRIME VIDEO)
-update products set descripcion = 'Global', precio_usd = 3.0, precio_revendedor_usd = 2.5, activo = true, orden = 5 where lower(trim(nombre)) = lower(trim('Amazon Prime Video'));
-insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Amazon Prime Video', 'Global', 'pantalla', 3.0, 2.5, 30, 1, true, 5
+update products set descripcion = 'Global', precio_usd = 3.0, precio_revendedor_usd = 2.5, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 5 where lower(trim(nombre)) = lower(trim('Amazon Prime Video'));
+insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Amazon Prime Video', 'Global', 'pantalla', 3.0, 2.5, 30, 30, true, 5
 where not exists (select 1 from products where lower(trim(nombre)) = lower(trim('Amazon Prime Video')));
 -- Producto: ViX Premium (Para servicio: VIX PREMIUM)
-update products set descripcion = 'Liga y Novelas', precio_usd = 3.0, precio_revendedor_usd = 2.5, activo = true, orden = 6 where lower(trim(nombre)) = lower(trim('ViX Premium'));
-insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'ViX Premium', 'Liga y Novelas', 'pantalla', 3.0, 2.5, 30, 1, true, 6
+update products set descripcion = 'Liga y Novelas', precio_usd = 3.0, precio_revendedor_usd = 2.5, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 6 where lower(trim(nombre)) = lower(trim('ViX Premium'));
+insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'ViX Premium', 'Liga y Novelas', 'pantalla', 3.0, 2.5, 30, 30, true, 6
 where not exists (select 1 from products where lower(trim(nombre)) = lower(trim('ViX Premium')));
 -- Producto: Crunchyroll Fan (Para servicio: CRUNCHYROLL)
-update products set descripcion = 'Anime HD', precio_usd = 3.0, precio_revendedor_usd = 2.5, activo = true, orden = 7 where lower(trim(nombre)) = lower(trim('Crunchyroll Fan'));
-insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Crunchyroll Fan', 'Anime HD', 'pantalla', 3.0, 2.5, 30, 1, true, 7
+update products set descripcion = 'Anime HD', precio_usd = 3.0, precio_revendedor_usd = 2.5, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 7 where lower(trim(nombre)) = lower(trim('Crunchyroll Fan'));
+insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Crunchyroll Fan', 'Anime HD', 'pantalla', 3.0, 2.5, 30, 30, true, 7
 where not exists (select 1 from products where lower(trim(nombre)) = lower(trim('Crunchyroll Fan')));
 -- Producto: Paramount+ (Para servicio: PARAMOUNT)
-update products set descripcion = 'Oficial', precio_usd = 3.0, precio_revendedor_usd = 2.5, activo = true, orden = 8 where lower(trim(nombre)) = lower(trim('Paramount+'));
-insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Paramount+', 'Oficial', 'pantalla', 3.0, 2.5, 30, 1, true, 8
+update products set descripcion = 'Oficial', precio_usd = 3.0, precio_revendedor_usd = 2.5, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 8 where lower(trim(nombre)) = lower(trim('Paramount+'));
+insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Paramount+', 'Oficial', 'pantalla', 3.0, 2.5, 30, 30, true, 8
 where not exists (select 1 from products where lower(trim(nombre)) = lower(trim('Paramount+')));
 -- Producto: Telelatino (Para servicio: TELELATINO)
-update products set descripcion = 'Canales en Vivo', precio_usd = 3.5, precio_revendedor_usd = 3.0, activo = true, orden = 9 where lower(trim(nombre)) = lower(trim('Telelatino'));
-insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Telelatino', 'Canales en Vivo', 'pantalla', 3.5, 3.0, 30, 1, true, 9
+update products set descripcion = 'Canales en Vivo', precio_usd = 3.5, precio_revendedor_usd = 3.0, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 9 where lower(trim(nombre)) = lower(trim('Telelatino'));
+insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Telelatino', 'Canales en Vivo', 'pantalla', 3.5, 3.0, 30, 30, true, 9
 where not exists (select 1 from products where lower(trim(nombre)) = lower(trim('Telelatino')));
 -- Producto: Flujo TV (Para servicio: FLUJOTV)
-update products set descripcion = 'Canales en Vivo', precio_usd = 3.5, precio_revendedor_usd = 3.0, activo = true, orden = 10 where lower(trim(nombre)) = lower(trim('Flujo TV'));
-insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, pantallas, activo, orden)
-select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Flujo TV', 'Canales en Vivo', 'pantalla', 3.5, 3.0, 30, 1, true, 10
+update products set descripcion = 'Canales en Vivo', precio_usd = 3.5, precio_revendedor_usd = 3.0, duracion_dias = 30, garantia_dias = 30, activo = true, orden = 10 where lower(trim(nombre)) = lower(trim('Flujo TV'));
+insert into products (category_id, nombre, descripcion, tipo, precio_usd, precio_revendedor_usd, duracion_dias, garantia_dias, activo, orden)
+select 'e23806c0-6237-4dfc-bf16-99a7e8e66b20', 'Flujo TV', 'Canales en Vivo', 'pantalla', 3.5, 3.0, 30, 30, true, 10
 where not exists (select 1 from products where lower(trim(nombre)) = lower(trim('Flujo TV')));
 
 -- 3. CARGAR LAS 32 CUENTAS MADRE
