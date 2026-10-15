@@ -4,6 +4,10 @@
 -- Emprendimiento Gregory Izquierdo
 -- ==============================================================================
 
+-- 0. Desambiguar relación orders -> customers eliminando la FK explícita de vendedor_id
+-- (se mantiene vendedor_id como columna UUID en orders para guardar el socio, pero sin FK para que PostgREST no confunda la relación principal con customers)
+alter table orders drop constraint if exists orders_vendedor_id_fkey;
+
 -- 1. Ampliar columnas en products para costos y márgenes de liquidación
 alter table products add column if not exists costo_usdt numeric(10,2) default 0.00;
 alter table products add column if not exists costo_bs numeric(10,2) default 0.00;
@@ -19,7 +23,7 @@ insert into categories (id, nombre, orden, activo) values
 on conflict (id) do update set nombre = excluded.nombre, orden = excluded.orden, activo = true;
 
 -- 3. Cargar y Actualizar los 62 Servicios Oficiales con sus Precios y Costos
-do 74778
+do $$
 declare
   r record;
   v_cat_id uuid;
@@ -136,7 +140,7 @@ begin
       );
     end if;
   end loop;
-end 74778;
+end $$;
 
 -- 4. Tabla de Liquidaciones y Comisiones para Socios / Revendedores (Pablo, etc.)
 create table if not exists partner_commissions (
@@ -174,11 +178,12 @@ drop policy if exists partner_commissions_reseller_select on partner_commissions
 create policy partner_commissions_reseller_select on partner_commissions for select to authenticated
 using (vendedor_id = (select auth.uid()));
 
--- 5. Función de cálculo automático de comisión al entregar un pedido
-create or replace function procesar_comision_socio_orden()
-returns trigger
-language plpgsql security definer set search_path = public as 74778
+-- 5. Función de cálculo y registro de comisión por orden
+create or replace function registrar_comision_orden(p_order_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
 declare
+  v_ord record;
   v_seller_id uuid;
   v_prod record;
   v_rate numeric;
@@ -190,25 +195,26 @@ declare
   v_gan_gregory numeric;
   v_gan_negocio numeric;
 begin
-  if new.estado not in ('entregado', 'pagado') then
-    return new;
+  select * into v_ord from orders where id = p_order_id;
+  if not found or v_ord.estado not in ('entregado', 'pagado') then
+    return;
   end if;
 
-  v_seller_id := new.vendedor_id;
-  if v_seller_id is null and new.customer_id is not null then
-    select vendedor_id into v_seller_id from customers where id = new.customer_id;
+  v_seller_id := v_ord.vendedor_id;
+  if v_seller_id is null and v_ord.customer_id is not null then
+    select vendedor_id into v_seller_id from customers where id = v_ord.customer_id;
   end if;
 
   if v_seller_id is null then
-    return new;
+    return;
   end if;
 
   select bs_por_usd into v_rate from exchange_rates order by fecha desc limit 1;
-  v_rate := coalesce(new.tasa_bs, v_rate, 50.00);
+  v_rate := coalesce(v_ord.tasa_bs, v_rate, 50.00);
 
-  select * into v_prod from products where id = new.product_id;
+  select * into v_prod from products where id = v_ord.product_id;
 
-  v_pvp := coalesce(new.total_usd, v_prod.precio_usd, 0.00);
+  v_pvp := coalesce(v_ord.total_usd, v_prod.precio_usd, 0.00);
   v_rvd := coalesce(v_prod.precio_revendedor_usd, v_pvp * 0.80);
   v_cost := coalesce(v_prod.costo_usdt, 0.00);
 
@@ -228,7 +234,7 @@ begin
     ganancia_vendedor_usd, ganancia_gregory_usd, ganancia_negocio_usd,
     tasa_bs, ganancia_vendedor_bs, estado
   ) values (
-    new.id, new.customer_id, v_seller_id, new.product_id, coalesce(v_prod.nombre, 'Servicio Streaming'),
+    v_ord.id, v_ord.customer_id, v_seller_id, v_ord.product_id, coalesce(v_prod.nombre, 'Servicio Streaming'),
     v_pvp, v_rvd, v_cost,
     v_gan_vendedor, v_gan_gregory, v_gan_negocio,
     v_rate, round(v_gan_vendedor * v_rate, 2), 'pendiente'
@@ -241,10 +247,17 @@ begin
     ganancia_gregory_usd = excluded.ganancia_gregory_usd,
     ganancia_negocio_usd = excluded.ganancia_negocio_usd,
     ganancia_vendedor_bs = excluded.ganancia_vendedor_bs;
+end;
+$$;
 
+create or replace function procesar_comision_socio_orden()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform registrar_comision_orden(new.id);
   return new;
 end;
-74778;
+$$;
 
 drop trigger if exists trg_procesar_comision_socio_orden on orders;
 create trigger trg_procesar_comision_socio_orden
@@ -252,15 +265,15 @@ after insert or update of estado on orders
 for each row execute function procesar_comision_socio_orden();
 
 -- 6. Retroalimentar comisiones de las órdenes existentes que tienen vendedor_id
-do 74778
+do $$
 declare
   ord record;
 begin
-  for ord in select * from orders where vendedor_id is not null and estado in ('entregado', 'pagado')
+  for ord in select id from orders where estado in ('entregado', 'pagado')
   loop
-    perform procesar_comision_socio_orden() from (select ord.*) as new;
+    perform registrar_comision_orden(ord.id);
   end loop;
-end 74778;
+end $$;
 
 -- 7. RPC: liquidar_comisiones_socio(p_vendedor_id, p_referencia, p_notas)
 create or replace function liquidar_comisiones_socio(
@@ -268,7 +281,7 @@ create or replace function liquidar_comisiones_socio(
   p_referencia text,
   p_notas text default null
 ) returns jsonb
-language plpgsql security definer set search_path = public as 74778
+language plpgsql security definer set search_path = public as $$
 declare
   v_count int;
   v_total_usd numeric;
@@ -302,6 +315,6 @@ begin
     'referencia', p_referencia
   );
 end;
-74778;
+$$;
 
 grant execute on function liquidar_comisiones_socio(uuid, text, text) to authenticated;
