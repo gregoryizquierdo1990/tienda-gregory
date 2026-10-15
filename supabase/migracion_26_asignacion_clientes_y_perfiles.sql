@@ -19,6 +19,18 @@ alter table profiles_inventory add column if not exists vendedor_id uuid referen
 alter table profiles_inventory add column if not exists assigned_customer_id uuid references customers(id) on delete set null;
 alter table orders add column if not exists vendedor_id uuid references customers(id) on delete set null;
 
+-- 2. Desactivar creación automática de Tarjetas Zeny en customers
+-- (Los clientes y revendedores deben solicitarlas voluntariamente mediante el botón 'Solicitar Tarjeta Zeny')
+drop trigger if exists trg_ensure_customer_zeny_card on customers;
+
+create or replace function ensure_customer_zeny_card()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  return new;
+end;
+$$;
+
 do $$
 declare
   v_pablo_id uuid;

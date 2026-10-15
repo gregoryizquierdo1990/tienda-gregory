@@ -45,6 +45,17 @@ create table if not exists zeny_cards (
 create index if not exists idx_zeny_cards_customer on zeny_cards(customer_id);
 create index if not exists idx_zeny_cards_numero on zeny_cards(numero_tarjeta);
 
+-- Desactivar creación automática no deseada de tarjetas Zeny en customers
+drop trigger if exists trg_ensure_customer_zeny_card on customers;
+
+create or replace function ensure_customer_zeny_card()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  return new;
+end;
+$$;
+
 
 -- ------------------------------------------------------------------------------
 -- 2. REGISTRO Y ACTIVACIÓN DE LOS 4 REVENDEDORES OFICIALES
