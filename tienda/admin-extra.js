@@ -1415,11 +1415,21 @@ Cobrar antes de ${fVenceCred}`;
     });
   },
   async finanzas(box) {
-    const [{ data, error }, mcOpsRes, mcCfgRow] = await Promise.all([
-      sb.rpc('finanzas', { p_meses: 12 }),
-      sb.from('mesa_cambio_operaciones').select('*').eq('estado', 'completado_enviado').catch(()=>({data:[]})),
-      sb.from('settings').select('value').eq('key', 'mesa_cambio_config').maybeSingle().catch(()=>({data:null}))
-    ]);
+    let data = [], error = null, mcOpsRes = { data: [] }, mcCfgRow = { data: null };
+    try {
+      const res = await Promise.all([
+        sb.rpc('finanzas', { p_meses: 12 }),
+        sb.from('mesa_cambio_operaciones').select('*').eq('estado', 'completado_enviado'),
+        sb.from('settings').select('value').eq('key', 'mesa_cambio_config').maybeSingle()
+      ]);
+      data = res[0]?.data || [];
+      error = res[0]?.error || null;
+      mcOpsRes = res[1] || { data: [] };
+      mcCfgRow = res[2] || { data: null };
+    } catch(errFin) {
+      console.warn('Error cargando finanzas:', errFin);
+      return box.innerHTML = '<p>Error al cargar finanzas: ' + esc(errFin.message) + '</p>';
+    }
     if (error) return box.innerHTML = '<p>' + esc(error.message) + '</p>';
     const m = data[0] || {}, f = n => (n < 0 ? '-$' : '$') + Math.abs(Number(n || 0)).toFixed(2), cards = [['Ventas', m.ventas], ['Devoluciones', m.devoluciones], ['Gastos', m.gastos], ['Compras', m.compras]];
 
@@ -4140,23 +4150,25 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           if (buyRate) cfg.tasa_adquisicion_bs = buyRate;
 
           // Guardar en settings
-          await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: cfg }).catch(()=>{});
-          const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
-          const negVal = negRow?.value || {};
-          negVal.mesa_cambio_config = cfg;
-          await sb.from('settings').upsert({ key: 'negocio', value: negVal }).catch(()=>{});
-          S.settings.mesa_cambio_config = cfg;
-          if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = cfg;
+          try {
+            await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: cfg });
+            const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
+            const negVal = negRow?.value || {};
+            negVal.mesa_cambio_config = cfg;
+            await sb.from('settings').upsert({ key: 'negocio', value: negVal });
+            S.settings.mesa_cambio_config = cfg;
+            if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = cfg;
 
-          // Registrar en mesa_cambio_caja
-          await sb.from('mesa_cambio_caja').insert({
-            tipo: 'ingreso_liquidez',
-            monto_usdt: addAmt,
-            tasa_compra_bs: buyRate,
-            costo_total_bs: costBs,
-            saldo_posterior_usdt: newSaldo,
-            notas: 'Inyección manual de liquidez USDT'
-          }).catch(()=>{});
+            // Registrar en mesa_cambio_caja
+            await sb.from('mesa_cambio_caja').insert({
+              tipo: 'ingreso_liquidez',
+              monto_usdt: addAmt,
+              tasa_compra_bs: buyRate,
+              costo_total_bs: costBs,
+              saldo_posterior_usdt: newSaldo,
+              notas: 'Inyección manual de liquidez USDT'
+            });
+          } catch(e) { console.warn('Error guardando mesa_cambio_caja:', e); }
 
           toast(`✅ Liquidez inyectada: +${addAmt.toFixed(2)} USDT. Nuevo saldo de caja: $${newSaldo.toFixed(2)} USDT`);
           render();
@@ -4174,20 +4186,22 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           if (isNaN(newVal) || newVal < 0) return toast('Ingresa un valor válido mayor o igual a 0.');
 
           cfg.fondo_caja_usdt = newVal;
-          await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: cfg }).catch(()=>{});
-          const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
-          const negVal = negRow?.value || {};
-          negVal.mesa_cambio_config = cfg;
-          await sb.from('settings').upsert({ key: 'negocio', value: negVal }).catch(()=>{});
-          S.settings.mesa_cambio_config = cfg;
-          if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = cfg;
+          try {
+            await sb.from('settings').upsert({ key: 'mesa_cambio_config', value: cfg });
+            const { data: negRow } = await sb.from('settings').select('value').eq('key', 'negocio').maybeSingle();
+            const negVal = negRow?.value || {};
+            negVal.mesa_cambio_config = cfg;
+            await sb.from('settings').upsert({ key: 'negocio', value: negVal });
+            S.settings.mesa_cambio_config = cfg;
+            if (S.settings.negocio) S.settings.negocio.mesa_cambio_config = cfg;
 
-          await sb.from('mesa_cambio_caja').insert({
-            tipo: 'ajuste_manual',
-            monto_usdt: newVal,
-            saldo_posterior_usdt: newVal,
-            notas: `Ajuste manual de saldo de caja a $${newVal.toFixed(2)} USDT`
-          }).catch(()=>{});
+            await sb.from('mesa_cambio_caja').insert({
+              tipo: 'ajuste_manual',
+              monto_usdt: newVal,
+              saldo_posterior_usdt: newVal,
+              notas: `Ajuste manual de saldo de caja a $${newVal.toFixed(2)} USDT`
+            });
+          } catch(e) { console.warn('Error ajustando caja:', e); }
 
           toast(`✅ Fondo de Caja actualizado a $${newVal.toFixed(2)} USDT`);
           render();
