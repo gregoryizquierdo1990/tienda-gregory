@@ -15,4 +15,4 @@ Sitio estático + funciones serverless de Vercel + base de datos Supabase. No re
 ## Estructura (importante)
 - `tienda/` = lo que Vercel publica (Root Directory = `tienda`): sitio, `api/`, `vercel.json`, `package.json`, iconos.
 - `supabase/` y los `.md` = documentación y base de datos; no se publican.
-- Sitio: https://tienda.gregoryizquierdo.xyz/
+- Sitio: https://www.gregoryizquierdo.xyz/ (o https://gregoryizquierdo.xyz/)

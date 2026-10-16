@@ -14,6 +14,7 @@ export default async function handler(req, res) {
   const escHtml = str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const cleanPhone = String(data.telefono || data.phone || data.whatsapp || '').replace(/\D/g, '');
   const waLink = cleanPhone ? `https://wa.me/${cleanPhone.startsWith('58') ? cleanPhone : (cleanPhone.startsWith('0') ? '58' + cleanPhone.slice(1) : '58' + cleanPhone)}` : '';
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'https://www.gregoryizquierdo.xyz')).replace(/\/+$/, '');
 
   let plainMsg = '';
   let htmlMsg = '';
@@ -41,7 +42,7 @@ export default async function handler(req, res) {
 💳 <b>Método:</b> ${metodo}
 🔢 <b>Referencia:</b> <code>${ref}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 <a href="https://tienda.gregoryizquierdo.xyz/#admin">Ver pedido en Panel Admin</a>`;
+👉 <a href="${siteUrl}/#admin">Ver pedido en Panel Admin</a>`;
       break;
     }
 
@@ -62,7 +63,7 @@ export default async function handler(req, res) {
 💳 <b>Forma de Pago:</b> ${metodo}
 🔢 <b>Comprobante / Ref:</b> <code>${ref}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 <a href="https://tienda.gregoryizquierdo.xyz/#admin">Revisar y Aprobar en Billetera Zeny</a>`;
+👉 <a href="${siteUrl}/#admin">Revisar y Aprobar en Billetera Zeny</a>`;
       break;
     }
 
@@ -86,7 +87,7 @@ export default async function handler(req, res) {
 🆔 <b>Destino (${destTipo}):</b> <code>${destVal}</code>
 🔢 <b>Referencia Pago Móvil:</b> <code>${ref}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 <a href="https://tienda.gregoryizquierdo.xyz/#admin">Conciliar Abono en Mesa de Cambio</a>`;
+👉 <a href="${siteUrl}/#admin">Conciliar Abono en Mesa de Cambio</a>`;
       break;
     }
 
@@ -107,7 +108,7 @@ export default async function handler(req, res) {
 📝 <b>Descripción del Problema:</b>
 <i>"${desc}"</i>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 ${waLink ? `<a href="${waLink}?text=${encodeURIComponent(`Hola ${nom}! 👋 Recibimos tu reporte de soporte sobre ${srv}. Ya lo estamos revisando.`)}">Contactar al cliente por WhatsApp</a>` : '<a href="https://tienda.gregoryizquierdo.xyz/#admin">Ver en Incidencias</a>'}`;
+👉 ${waLink ? `<a href="${waLink}?text=${encodeURIComponent(`Hola ${nom}! 👋 Recibimos tu reporte de soporte sobre ${srv}. Ya lo estamos revisando.`)}">Contactar al cliente por WhatsApp</a>` : '<a href="${siteUrl}/#admin">Ver en Incidencias</a>'}`;
       break;
     }
 
@@ -129,7 +130,7 @@ ${listCli}
 ${listMad}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 <b>Total a gestionar hoy:</b> ${totCli} clientes · ${totMad} cuentas madre.
-👉 <a href="https://tienda.gregoryizquierdo.xyz/#admin">Abrir Calendario de Vencimientos</a>`;
+👉 <a href="${siteUrl}/#admin">Abrir Calendario de Vencimientos</a>`;
       break;
     }
 
@@ -148,7 +149,7 @@ ${listMad}
 💳 <b>Tarjeta Digital Zeny:</b> Asignada y lista para compras
 📅 <b>Fecha de Alta:</b> ${new Date().toLocaleDateString('es-VE')}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 <a href="https://tienda.gregoryizquierdo.xyz/#admin">Ver en Directorio de Clientes</a>`;
+👉 <a href="${siteUrl}/#admin">Ver en Directorio de Clientes</a>`;
       break;
     }
 
@@ -169,7 +170,7 @@ ${listMad}
 📝 <b>Propuesta / Volumen Estimado:</b>
 <i>"${notas}"</i>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 ${waLink ? `<a href="${waLink}?text=${encodeURIComponent(`Hola ${nom}! 👋 Recibimos tu solicitud para ser Revendedor Oficial de Emprendimiento Gregory. Cuéntanos sobre tus requerimientos.`)}">Contactar por WhatsApp</a>` : '<a href="https://tienda.gregoryizquierdo.xyz/#admin">Ver en Clientes</a>'}`;
+👉 ${waLink ? `<a href="${waLink}?text=${encodeURIComponent(`Hola ${nom}! 👋 Recibimos tu solicitud para ser Revendedor Oficial de Emprendimiento Gregory. Cuéntanos sobre tus requerimientos.`)}">Contactar por WhatsApp</a>` : '<a href="${siteUrl}/#admin">Ver en Clientes</a>'}`;
       break;
     }
 
@@ -192,7 +193,7 @@ ${listMad}
 📝 <b>Experiencia / Planes:</b>
 <i>"${notas}"</i>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 ${waLink ? `<a href="${waLink}?text=${encodeURIComponent(`Hola ${owner}! 👋 Te escribe Gregory Izquierdo respecto a tu solicitud para la franquicia ${biz}.`)}">Contactar por WhatsApp</a>` : '<a href="https://tienda.gregoryizquierdo.xyz/#admin">Ver en Franquicias</a>'}`;
+👉 ${waLink ? `<a href="${waLink}?text=${encodeURIComponent(`Hola ${owner}! 👋 Te escribe Gregory Izquierdo respecto a tu solicitud para la franquicia ${biz}.`)}">Contactar por WhatsApp</a>` : '<a href="${siteUrl}/#admin">Ver en Franquicias</a>'}`;
       break;
     }
 
@@ -214,7 +215,7 @@ ${listMad}
 💼 <b>Usuario Recargas247:</b> <code>${user247}</code>
 💵 <b>Canon Mensual Acordado:</b> <b>$${canon} USD</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 <a href="https://tienda.gregoryizquierdo.xyz/#admin">Gestionar en Red de Distribuidores</a>`;
+👉 <a href="${siteUrl}/#admin">Gestionar en Red de Distribuidores</a>`;
       break;
     }
 

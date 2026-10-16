@@ -61,6 +61,7 @@ export default async function handler(req, res) {
       return `• 💳 <b>[Cuota ${c.numero_cuota}/${c.total_cuotas}]</b> $${Number(c.monto_usd).toFixed(2)} USD · ${cli}${tel} (${prod}) - ${c.estado === 'vencida' ? '⚠️ Vencida' : '📅 Vence hoy'}`;
     });
 
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'https://www.gregoryizquierdo.xyz')).replace(/\/+$/, '');
     const plainMsg = `📅 VENCIMIENTOS DE HOY (${hoy}): ${totalClientes} clientes, ${totalMadres} cuentas madre y ${totalCuotas} cuotas por cobrar.`;
     const htmlMsg = `📅 <b>LISTADO DE VENCIMIENTOS DE HOY (${hoy})</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -74,7 +75,7 @@ ${mothersList.join('\n') || '<i>No hay cuentas madre por vencer hoy.</i>'}
 ${cuotasList.slice(0, 15).join('\n') || '<i>No hay cuotas pendientes o vencidas hoy.</i>'}${cuotasList.length > 15 ? `\n<i>... y ${cuotasList.length - 15} cuota(s) más</i>` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 <b>Resumen diario:</b> ${totalClientes} clientes · ${totalMadres} cuentas madre · ${totalCuotas} cuotas por cobrar.
-👉 <a href="https://tienda.gregoryizquierdo.xyz/#admin">Abrir Control de Vencimientos</a>`;
+👉 <a href="${siteUrl}/#admin">Abrir Control de Vencimientos</a>`;
 
     const out = await sendAll('vencimientos_resumen', plainMsg, htmlMsg);
     return res.json({ ok: true, fecha: hoy, totalClientes, totalMadres, totalCuotas, ...out });

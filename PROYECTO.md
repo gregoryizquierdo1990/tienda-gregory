@@ -1,5 +1,5 @@
 # Resumen del proyecto
-**Negocio:** Emprendimiento Gregory Izquierdo (J-50639379-4). Tel. oficial +584241983648 · correo oficial emprendimientogregoryizquierdo@gmail.com · sitio en tienda.gregoryizquierdo.xyz (subdominio); www.gregoryizquierdo.xyz es otro proyecto.
+**Negocio:** Emprendimiento Gregory Izquierdo (J-50639379-4). Tel. oficial +584241983648 · correo oficial emprendimientogregoryizquierdo@gmail.com · sitio oficial en www.gregoryizquierdo.xyz y gregoryizquierdo.xyz.
 **Venta:** pantallas (perfiles), cuentas completas y otros servicios digitales. Precios en USD con conversión a Bs. por la tasa oficial BCV diaria.
 
 ## Decisiones y reglas

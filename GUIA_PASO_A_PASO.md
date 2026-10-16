@@ -4,10 +4,10 @@ Emprendimiento Gregory Izquierdo · Tiempo estimado: 1 a 2 horas. Sigue el orden
 **Cuentas que necesitas (todas tienen plan gratis para empezar):** GitHub, Supabase, Vercel, Google (la del correo oficial), tu proveedor de dominio y Telegram.
 **Nota honesta:** yo no puedo crear tu repositorio de GitHub ni subir el código por ti (no tengo acceso a tus cuentas). El paso 2 lo hace en 5 minutos con los comandos listos.
 
-> **ESTADO REAL (revisado el 10-oct-2026)** — Tienda: **https://tienda.gregoryizquierdo.xyz/** (subdominio; el sitio principal `www.gregoryizquierdo.xyz` es otro proyecto y no se toca).
+> **ESTADO REAL (revisado el 15-oct-2026)** — Tienda Oficial: **https://www.gregoryizquierdo.xyz/** y **https://gregoryizquierdo.xyz/**.
 > - **Supabase** `tienda-gregory`: esquema + permisos + rendimiento aplicados, sin datos de prueba, Auth con Email y Google activos. Ya hecho: no repitas el paso 3.2.
 > - **Vercel** proyecto `tienda-gregory2026`, conectado a GitHub `gregoryizquierdo1990/tienda-gregory`, con las variables SUPABASE_URL, SUPABASE_SERVICE_KEY y CRON_SECRET. **Settings → General → Root Directory debe ser `tienda`.** Todo lo que se publica vive dentro de la carpeta `tienda/` (sitio, `api/`, `vercel.json`, `package.json`); `supabase/` y los documentos quedan fuera y no se publican.
-> - **Pendiente tuyo:** subir esta versión corregida a GitHub (la anterior tenía `index.html` cortado y con `\$` por error), poner en Supabase → Authentication → URL Configuration: Site URL y Redirect URL = `https://tienda.gregoryizquierdo.xyz/`, entrar con Google, y activar notificaciones/Telegram.
+> - **Pendiente tuyo:** poner en Supabase → Authentication → URL Configuration: Site URL y Redirect URL con `https://www.gregoryizquierdo.xyz` y `https://gregoryizquierdo.xyz`, entrar con Google, y activar notificaciones/Telegram.
 
 ---
 ## 1. Prepara los archivos
@@ -32,7 +32,7 @@ GitHub te pedirá iniciar sesión (usa un *Personal Access Token* como contrase�
 1. https://supabase.com → *New project*. Contraseña de base de datos larga (guárdala en un gestor de claves). Región cercana.
 2. **SQL Editor → New query** → pega TODO el contenido de `supabase/schema.sql` → **Run**. Ejecútalo **una sola vez** en un proyecto nuevo. (Si ya habías corrido una versión anterior, ejecuta solo las migraciones `02`, `03` y `04` de la carpeta `supabase`, en ese orden.)
 3. **Authentication → Providers:** activa *Email* (deja **Confirm email** encendido), *Phone* (requiere un proveedor SMS como Twilio; sin él no llegan códigos) y *Google* (se completa en el paso 4).
-4. **Authentication → URL Configuration:** Site URL = `https://tienda.gregoryizquierdo.xyz/`; en *Redirect URLs* agrega esa misma URL (con la barra final) y `https://tienda.gregoryizquierdo.xyz`.
+4. **Authentication → URL Configuration:** Site URL = `https://www.gregoryizquierdo.xyz`; en *Redirect URLs* agrega `https://www.gregoryizquierdo.xyz/**`, `https://www.gregoryizquierdo.xyz`, `https://gregoryizquierdo.xyz/**`, y `https://gregoryizquierdo.xyz`.
 5. **Authentication → Attack Protection:** activa CAPTCHA (hCaptcha o Turnstile).
 6. **Project Settings → API:** copia el *Project URL*, la clave *anon public* y la clave *service_role* (secreta, solo va en Vercel).
 
@@ -49,7 +49,7 @@ Edita `tienda/config.js` y pon tu `SUPABASE_URL` y tu `SUPABASE_ANON`. Es lo ún
 ## 6. Vercel (publicación)
 1. https://vercel.com → *Add New → Project* → importa el repositorio `tienda-gregory` (Framework: *Other*, sin comando de build, **Root Directory: `tienda`**).
 2. **Settings → Environment Variables:** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (la service_role), `CRON_SECRET` (cualquier texto largo aleatorio) y `GEMINI_API_KEY`. Luego **Redeploy**.
-3. **Settings → Domains:** agrega `tienda.gregoryizquierdo.xyz`. Tu dominio ya está en tu equipo de Vercel con el DNS en **Cloudflare**: en Cloudflare crea el registro que Vercel te muestre (normalmente un `CNAME` de `www` hacia `cname.vercel-dns.com`, con el proxy naranja **apagado**/"solo DNS"). La tienda queda en `https://tienda.gregoryizquierdo.xyz/`.
+3. **Settings → Domains:** agrega `www.gregoryizquierdo.xyz` y `gregoryizquierdo.xyz`. En Cloudflare crea los registros indicados por Vercel (`CNAME` para `www` hacia `cname.vercel-dns.com` y registro `A` para `@` hacia `76.76.21.21`). Configura la redirección automática según tu preferencia (ej. de raíz a www). La tienda queda en `https://www.gregoryizquierdo.xyz/` y `https://gregoryizquierdo.xyz/`.
 4. Carga la primera tasa BCV: Vercel → **Settings → Cron Jobs → Run** en `/api/tasa-bcv`. Luego se actualiza sola cada día (11:00 UTC). `/api/vencimientos` corre a las 12:00 UTC (8:00 a. m. Venezuela).
 
 ## 7. Primer ingreso como administrador
@@ -89,7 +89,7 @@ Avisan de: **pedido nuevo**, **recarga Zeny**, **incidencia** y **vencimientos d
 - La tienda es una **app instalable (PWA)**: es la misma tienda, siempre en tiempo real. No guarda credenciales ni datos de clientes en el teléfono.
 - **Android (navegador):** botón **Instalar app**. **iPhone (Safari):** *Compartir → Añadir a pantalla de inicio*.
 - **APK:** (no puedo compilarlo aquí; lo generas tú con tu llave de firma)
-  1. https://www.pwabuilder.com → escribe `https://tienda.gregoryizquierdo.xyz/` → *Package for stores → Android*.
+  1. https://www.pwabuilder.com → escribe `https://www.gregoryizquierdo.xyz/` → *Package for stores → Android*.
   2. Descarga el paquete: trae `.apk`, `.aab` (Google Play) y tu **llave de firma** (guárdala: sin ella no podrás actualizar la app).
   3. Pega el contenido de `assetlinks.json` que te da PWABuilder en `.well-known/assetlinks.json`, haz commit y push.
   4. Sube el `.apk` a una *Release* de GitHub o a un bucket público de Supabase, y pega su enlace en Admin → **settings** → clave `app` → `{"apk_url":"https://..."}`. Aparecerá *Descargar APK*.
