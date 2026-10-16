@@ -4404,7 +4404,7 @@ const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
 const NOADD=['transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'&&r.estado==='vendido'?`<button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'&&r.estado==='vendido'?`<button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Liberar perfil para la venta">🔓 Liberar</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -4677,6 +4677,73 @@ async function admin(t){
   app.querySelectorAll('[data-pay-purchase]').forEach(b=>b.onclick=()=>window.openPayPurchaseModal(b.dataset.payPurchase,b.dataset.prov,b.dataset.usdt,b.dataset.vence,()=>admin(t)));
   app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));
   app.querySelectorAll('[data-tr-prof]').forEach(b=>b.onclick=()=>openTransferModal({profileId:b.dataset.trProf,done:()=>admin(t)}));
+  app.querySelectorAll('[data-release-prof]').forEach(b => b.onclick = () => {
+    const profId = b.dataset.releaseProf;
+    const nom = b.dataset.nom || 'Perfil';
+    const srv = b.dataset.srv || 'Servicio';
+    const curPin = b.dataset.pin || '';
+    const mail = b.dataset.mail || '';
+
+    $('#dlgBody').innerHTML = `
+      <h3>🔓 Liberar Perfil para la Venta</h3>
+      <p class="mut" style="font-size:.85rem;margin:0 0 12px">
+        ¿Deseas liberar el perfil <b>${esc(nom)}</b> (${esc(srv)}) para ponerlo inmediatamente a la venta en la tienda?
+      </p>
+      <div style="background:rgba(255,255,255,.04);border:1.5px solid rgba(0,245,160,.3);border-radius:12px;padding:12px;margin-bottom:14px;font-size:.82rem">
+        <div>📧 Cuenta Madre: <b>${esc(mail || '—')}</b></div>
+        <div style="margin-top:4px">🔒 PIN actual en sistema: <code style="color:#00f5a0">${esc(curPin || 'Sin PIN')}</code></div>
+        <div class="mut" style="font-size:.74rem;margin-top:8px;line-height:1.4">
+          ⚠️ <b>Paso Importante:</b> Recuerda cambiar el PIN en la app de streaming (Netflix, Disney, etc.) para que el cliente que venció ya no pueda usarlo.
+        </div>
+      </div>
+      <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nuevo PIN (o confirmar el actual):</label>
+      <input id="inputReleaseNewPin" value="${esc(curPin)}" placeholder="Ej: 1234" style="width:100%;margin-bottom:10px">
+      <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nombre del Perfil en Inventario:</label>
+      <input id="inputReleaseNewNom" value="${esc(nom)}" placeholder="Ej: Perfil 1" style="width:100%;margin-bottom:14px">
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="g" onclick="dlg.close()">Cancelar</button>
+        <button id="btnConfirmReleaseProfile" style="background:var(--grad);color:#03121c;font-weight:800">
+          🔓 Liberar y Poner en Venta
+        </button>
+      </div>
+    `;
+    dlg.showModal();
+
+    $('#btnConfirmReleaseProfile').onclick = async () => {
+      const btn = $('#btnConfirmReleaseProfile');
+      btn.disabled = true;
+      btn.textContent = '⏳ Liberando...';
+      const newPin = $('#inputReleaseNewPin').value.trim();
+      const newNom = $('#inputReleaseNewNom').value.trim();
+
+      try {
+        const { data, error } = await sb.rpc('liberar_perfil_inventario', {
+          p_profile_id: profId,
+          p_nuevo_pin: newPin || null,
+          p_nuevo_nombre: newNom || null
+        });
+        if(error){
+          const { error: updErr } = await sb.from('profiles_inventory').update({
+            estado: 'disponible',
+            inicia: null,
+            vence: null,
+            assigned_customer_id: null,
+            ...(newPin ? { pin: newPin } : {}),
+            ...(newNom ? { nombre_perfil: newNom } : {})
+          }).eq('id', profId);
+          if(updErr) throw updErr;
+          await sb.from('orders').update({ estado: 'vencido' }).eq('profile_id', profId).in('estado', ['entregado', 'pagado']).catch(()=>{});
+        }
+        dlg.close();
+        toast(`✅ Perfil "${newNom || nom}" liberado con éxito. Ya está disponible en la tienda.`);
+        admin(t);
+      } catch(err){
+        btn.disabled = false;
+        btn.textContent = '🔓 Liberar y Poner en Venta';
+        alert('Error al liberar perfil: ' + err.message);
+      }
+    };
+  });
   app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
   app.querySelectorAll('[data-assign-seller]').forEach(b => b.onclick = async () => {
     const custId = b.dataset.assignSeller;

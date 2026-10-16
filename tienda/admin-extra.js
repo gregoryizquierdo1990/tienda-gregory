@@ -1105,6 +1105,9 @@ const EXTRA = {
                   <td><span class="pill" style="font-size:.7rem">${esc(p.vendedor || 'ADMIN')}</span></td>
                   <td><b style="color:#f59e0b">${esc(p.vence)}</b></td>
                   <td class="row" style="gap:5px">
+                    <button class="g" data-cal-release-prof="${p.id}" data-cur-pin="${esc(p.pin||'')}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" data-mail="${esc(motherMail)}" style="padding:4px 8px;font-size:.73rem;background:rgba(0,245,160,.14);color:#00f5a0;border:1px solid rgba(0,245,160,.35);font-weight:700" title="Liberar perfil para la venta en la tienda">
+                      🔓 Liberar
+                    </button>
                     <button class="g" data-cal-tr-prof="${p.id}" style="padding:4px 8px;font-size:.73rem;background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)" title="Trasladar o reponer pantalla caída">
                       🔀 Reponer
                     </button>
@@ -1778,6 +1781,77 @@ Cobrar antes de ${fVenceCred}`;
         }
       };
     }
+
+    // Liberar perfil para la venta directamente desde la lista de vencimientos
+    box.querySelectorAll('[data-cal-release-prof]').forEach(btn => {
+      btn.onclick = () => {
+        const profId = btn.dataset.calReleaseProf;
+        const nom = btn.dataset.nom || 'Perfil';
+        const srv = btn.dataset.srv || 'Servicio';
+        const curPin = btn.dataset.curPin || '';
+        const mail = btn.dataset.mail || '';
+
+        $('#dlgBody').innerHTML = `
+          <h3>🔓 Liberar Perfil para la Venta</h3>
+          <p class="mut" style="font-size:.85rem;margin:0 0 12px">
+            El cliente no renovará. ¿Deseas liberar el perfil <b>${esc(nom)}</b> (${esc(srv)}) para ponerlo inmediatamente a la venta en la tienda?
+          </p>
+          <div style="background:rgba(255,255,255,.04);border:1.5px solid rgba(0,245,160,.3);border-radius:12px;padding:12px;margin-bottom:14px;font-size:.82rem">
+            <div>📧 Cuenta Madre: <b>${esc(mail || '—')}</b></div>
+            <div style="margin-top:4px">🔒 PIN actual en sistema: <code style="color:#00f5a0">${esc(curPin || 'Sin PIN')}</code></div>
+            <div class="mut" style="font-size:.74rem;margin-top:8px;line-height:1.4">
+              ⚠️ <b>Paso Importante:</b> Recuerda cambiar el PIN en la app de streaming (${esc(srv)}) para que el cliente que venció ya no pueda usarlo.
+            </div>
+          </div>
+          <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nuevo PIN (o confirmar el actual):</label>
+          <input id="inputReleaseCalNewPin" value="${esc(curPin)}" placeholder="Ej: 1234" style="width:100%;margin-bottom:10px">
+          <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nombre del Perfil en Inventario:</label>
+          <input id="inputReleaseCalNewNom" value="${esc(nom)}" placeholder="Ej: Perfil 1" style="width:100%;margin-bottom:14px">
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnConfirmReleaseCalProfile" style="background:var(--grad);color:#03121c;font-weight:800">
+              🔓 Liberar y Poner en Venta
+            </button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnConfirmReleaseCalProfile').onclick = async () => {
+          const cBtn = $('#btnConfirmReleaseCalProfile');
+          cBtn.disabled = true;
+          cBtn.textContent = '⏳ Liberando...';
+          const newPin = $('#inputReleaseCalNewPin').value.trim();
+          const newNom = $('#inputReleaseCalNewNom').value.trim();
+
+          try {
+            const { data, error } = await sb.rpc('liberar_perfil_inventario', {
+              p_profile_id: profId,
+              p_nuevo_pin: newPin || null,
+              p_nuevo_nombre: newNom || null
+            });
+            if(error){
+              const { error: updErr } = await sb.from('profiles_inventory').update({
+                estado: 'disponible',
+                inicia: null,
+                vence: null,
+                assigned_customer_id: null,
+                ...(newPin ? { pin: newPin } : {}),
+                ...(newNom ? { nombre_perfil: newNom } : {})
+              }).eq('id', profId);
+              if(updErr) throw updErr;
+              await sb.from('orders').update({ estado: 'vencido' }).eq('profile_id', profId).in('estado', ['entregado', 'pagado']).catch(()=>{});
+            }
+            dlg.close();
+            toast(`✅ Perfil "${newNom || nom}" liberado con éxito. Ya está disponible en la tienda.`);
+            EXTRA.vencimientos(box);
+          } catch(err){
+            cBtn.disabled = false;
+            cBtn.textContent = '🔓 Liberar y Poner en Venta';
+            alert('Error al liberar perfil: ' + err.message);
+          }
+        };
+      };
+    });
 
     // Reponer / trasladar perfil directamente desde el calendario
     box.querySelectorAll('[data-cal-tr-prof]').forEach(btn => {
