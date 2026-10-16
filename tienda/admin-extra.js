@@ -958,7 +958,7 @@ const EXTRA = {
         .gte('vence', startMonth)
         .lte('vence', endMonth),
       sb.from('profiles_inventory')
-        .select('id,nombre_perfil,vence,vendedor,pin,estado,product_id,mother_id,products(nombre),mother_accounts(plataforma,correo)')
+        .select('id,nombre_perfil,vence,vendedor,pin,estado,product_id,mother_id,no_renueva,no_renueva_motivo,products(nombre),mother_accounts(plataforma,correo)')
         .eq('estado', 'vendido')
         .not('vence', 'is', null)
         .gte('vence', startMonth)
@@ -1071,8 +1071,27 @@ const EXTRA = {
     const selEvents = eventsByDate[selDate] || { orders: [], mothers: [], profiles: [], gcal: [] };
     const selTotal = (selEvents.orders?.length || 0) + (selEvents.mothers?.length || 0) + (selEvents.profiles?.length || 0) + (selEvents.gcal || []).filter(g => !g._isLinked).length;
 
+    const noRenuevanGlobal = (profiles || []).filter(p => p.no_renueva);
+    let noRenBannerHtml = '';
+    if (noRenuevanGlobal.length > 0) {
+      noRenBannerHtml = `
+        <div style="background:rgba(239,68,68,.12);border:1.5px solid rgba(239,68,68,.4);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:1.5rem">📢</span>
+            <div>
+              <b style="color:#f87171;font-size:.9rem">Reporte de Revendedores: ${noRenuevanGlobal.length} perfil(es) marcados como "NO RENUEVA"</b>
+              <div class="mut" style="font-size:.76rem;margin-top:2px">
+                Los clientes confirmaron que no continuarán. Cambia el PIN en la app de streaming y pulsa <b>"🔓 Liberar"</b> para sumarlos de inmediato al stock de la tienda.
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     let detailHtml = `
       <div class="cal-detail">
+        ${noRenBannerHtml}
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
           <h4 style="margin:0;font-size:1.05rem">Vencimientos para el <b>${selDate}</b> ${selDate === todayStr ? '· (Hoy)' : ''}</h4>
           <span class="mut" style="font-size:.8rem">${selTotal} vencimiento${selTotal === 1 ? '' : 's'} en total</span>
@@ -1097,16 +1116,19 @@ const EXTRA = {
                 const clientName = p.nombre_perfil || 'Cliente';
                 const waText = encodeURIComponent(`Hola ${clientName}! 👋 Te recordamos de Emprendimiento Gregory Izquierdo que tu servicio de ${srvName} tiene fecha de cobro/vencimiento el día de hoy (${p.vence}). Por favor indícanos si deseas renovar para mantener tu perfil activo.`);
                 return `
-                <tr>
-                  <td><b>${esc(clientName)}</b></td>
+                <tr style="${p.no_renueva ? 'background:rgba(239,68,68,.06)' : ''}">
+                  <td>
+                    <b>${esc(clientName)}</b>
+                    ${p.no_renueva ? `<div style="margin-top:3px"><span class="pill" style="font-size:.68rem;padding:2px 6px;background:rgba(239,68,68,.18);color:#f87171;border:1px solid rgba(239,68,68,.4);font-weight:800">🔴 NO RENUEVA</span></div>` : ''}
+                  </td>
                   <td><b style="color:var(--c)">${esc(srvName)}</b></td>
                   <td><small>${esc(motherMail)}</small></td>
                   <td><code>${esc(p.pin || '—')}</code></td>
                   <td><span class="pill" style="font-size:.7rem">${esc(p.vendedor || 'ADMIN')}</span></td>
                   <td><b style="color:#f59e0b">${esc(p.vence)}</b></td>
                   <td class="row" style="gap:5px">
-                    <button class="g" data-cal-release-prof="${p.id}" data-cur-pin="${esc(p.pin||'')}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" data-mail="${esc(motherMail)}" style="padding:4px 8px;font-size:.73rem;background:rgba(0,245,160,.14);color:#00f5a0;border:1px solid rgba(0,245,160,.35);font-weight:700" title="Liberar perfil para la venta en la tienda">
-                      🔓 Liberar
+                    <button class="g" data-cal-release-prof="${p.id}" data-cur-pin="${esc(p.pin||'')}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" data-mail="${esc(motherMail)}" style="padding:4px 8px;font-size:.73rem;background:${p.no_renueva ? 'rgba(239,68,68,.22)' : 'rgba(0,245,160,.14)'};color:${p.no_renueva ? '#f87171' : '#00f5a0'};border:1.5px solid ${p.no_renueva ? 'rgba(239,68,68,.5)' : 'rgba(0,245,160,.35)'};font-weight:800" title="Liberar perfil para la venta en la tienda">
+                      ${p.no_renueva ? '🔓 Liberar YA' : '🔓 Liberar'}
                     </button>
                     <button class="g" data-cal-tr-prof="${p.id}" style="padding:4px 8px;font-size:.73rem;background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)" title="Trasladar o reponer pantalla caída">
                       🔀 Reponer
@@ -5792,12 +5814,14 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     if(!tpls){
       const { data } = await sb.from('settings').select('value').eq('key', 'plantillas_mensajes').maybeSingle();
       if(data?.value && typeof data.value === 'object'){
-        tpls = data.value;
+        tpls = Object.assign({}, DEFAULT_MESSAGE_TEMPLATES, data.value);
       } else {
         tpls = JSON.parse(JSON.stringify(DEFAULT_MESSAGE_TEMPLATES));
       }
       S.settings = S.settings || {};
       S.settings.plantillas_mensajes = tpls;
+    } else {
+      tpls = Object.assign({}, DEFAULT_MESSAGE_TEMPLATES, tpls);
     }
 
     let activeChannelFilter = 'todos';
@@ -5832,7 +5856,21 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       telefono_negocio: S.settings?.negocio?.telefono || '+584241983648',
       rif: S.settings?.negocio?.rif || 'J-50639379-4',
       portal_url: location.origin,
-      estado: 'Activo'
+      estado: 'Activo',
+      nuevo_balance: '45.00',
+      tipo_operacion: 'Venta de USDT a Bolívares (Binance)',
+      monto_usdt: '25.00',
+      tasa_cambio: '879.12',
+      motivo: 'Garantía por pantalla caída de proveedor',
+      destino: 'Tarjeta Digital Zeny (Saldo a Favor)',
+      operadora: 'Digitel',
+      telefono_recarga: '04121234567',
+      player_id: '192837465',
+      nickname: 'GREGORY_PRO',
+      usuario_247: 'pablo_recargas',
+      nombre_punto: 'Inversiones Gonzalez',
+      titular: 'Pablo Gonzalez',
+      referencia: '00982341'
     });
 
     const formatSample = (raw) => {
@@ -6030,7 +6068,9 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         'cliente', 'codigo_id', 'producto', 'servicio', 'correo', 'clave', 'perfil', 'pin',
         'vence', 'fecha_vence', 'fecha_vencimiento', 'fecha_vence_credito', 'dias_credito',
         'cuota', 'total_cuotas', 'monto_usd', 'monto_bs', 'tasa_bcv', 'numero_factura',
-        'numero_tarjeta', 'codigo_activacion', 'garantia', 'portal_url', 'negocio', 'rif'
+        'numero_tarjeta', 'codigo_activacion', 'garantia', 'portal_url', 'negocio', 'rif',
+        'nuevo_balance', 'tipo_operacion', 'monto_usdt', 'tasa_cambio', 'motivo', 'destino',
+        'operadora', 'telefono_recarga', 'player_id', 'nickname', 'usuario_247', 'nombre_punto', 'titular', 'referencia'
       ]));
 
       $('#dlgBody').innerHTML = `

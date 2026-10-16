@@ -675,6 +675,46 @@ const formatBcvDate = dStr => {
 };
 
 const DEFAULT_MESSAGE_TEMPLATES = {
+  renovacion_exitosa: {
+    id: 'renovacion_exitosa',
+    canal: 'whatsapp',
+    titulo: '🔄 Renovación Exitosa de Suscripción (+30 días)',
+    descripcion: 'Confirmación enviada al cliente cuando renueva su servicio para el próximo período.',
+    tags: ['cliente', 'producto', 'vence', 'monto_usd', 'monto_bs', 'tasa_bcv', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 🔄✨\nTu renovación para {producto} ha sido PROCESADA CON ÉXITO en {negocio}.\n\n📌 Servicio: {producto}\n📅 Nuevo Vencimiento (+30 días): {vence}\n💵 Monto Pagado: ${monto_usd} USD (Bs. {monto_bs})\n🇻🇪 Tasa BCV: {tasa_bcv}\n\nTu perfil continúa activo sin interrupciones ni cambios de pantalla. ¡Muchas gracias por tu preferencia y confianza continua! ⭐🍿'
+  },
+  factura_lista: {
+    id: 'factura_lista',
+    canal: 'whatsapp',
+    titulo: '📄 Factura Digital Emitida y Lista',
+    descripcion: 'Aviso al cliente de que su factura oficial ya está generada y lista para descargar en el portal.',
+    tags: ['cliente', 'numero_factura', 'fecha', 'total_usd', 'total_bs', 'tasa_bcv', 'portal_url', 'negocio', 'rif'],
+    cuerpo: '¡Hola {cliente}! 📄 Tu factura digital en {negocio} ya está emitida y disponible.\n\n🧾 Documento: {numero_factura}\n📅 Fecha de Emisión: {fecha}\n💵 Total Facturado: ${total_usd} USD (Bs. {total_bs})\n🇻🇪 Tasa Oficial BCV: Bs. {tasa_bcv}\n🏢 RIF Emisor: {rif}\n\nPuedes consultar, descargar o imprimir tu factura oficial ingresando directamente a tu portal web:\n🌐 {portal_url}\n\n¡Gracias por tu pago puntual y por elegirnos! ⭐'
+  },
+  aviso_vencimiento_hoy: {
+    id: 'aviso_vencimiento_hoy',
+    canal: 'whatsapp',
+    titulo: '⏰ Cobro y Vencimiento del Día (Hoy)',
+    descripcion: 'Recordatorio urgente enviado el día exacto de vencimiento para gestionar la renovación o liberación.',
+    tags: ['cliente', 'producto', 'vence', 'monto_usd', 'monto_bs', 'portal_url', 'negocio'],
+    cuerpo: '¡Hola {cliente}! ⏰ Te recordamos de {negocio} que tu servicio de {producto} tiene fecha de cobro y vencimiento el día de HOY ({vence}).\n\n💵 Monto de renovación: ${monto_usd} USD (Bs. {monto_bs})\n🌐 Tu Portal Web: {portal_url}\n\n¿Deseas renovar tu pantalla para mantenerla activa este próximo mes? Por favor confírmanos por esta vía para asegurar tu cupo sin interrupciones. ¡Quedamos atentos a tu respuesta! 👋'
+  },
+  aviso_vencimiento: {
+    id: 'aviso_vencimiento',
+    canal: 'whatsapp',
+    titulo: '⏰ Aviso Previo de Vencimiento de Suscripción',
+    descripcion: 'Mensaje preventivo enviado 1 o 2 días antes del vencimiento para ofrecer la renovación anticipada.',
+    tags: ['cliente', 'producto', 'fecha_vence', 'monto_usd', 'portal_url', 'negocio'],
+    cuerpo: 'Hola {cliente}! ⏰ Tu servicio de {producto} está próximo a vencer el {fecha_vence}.\n\nPara mantener tu perfil activo y no perder tus pantallas guardadas, puedes renovar directamente desde tu portal con saldo Zeny o confirmarnos por acá:\n💵 Monto de renovación: ${monto_usd} USD\n🌐 Tu Portal de Cliente: {portal_url}\n\n¿Deseas renovar para este próximo período? Quedamos a tu orden.'
+  },
+  activacion_servicio: {
+    id: 'activacion_servicio',
+    canal: 'whatsapp',
+    titulo: '🚀 Activación y Entrega Oficial de Credenciales',
+    descripcion: 'Bienvenida al cliente con sus credenciales de acceso, perfil, PIN de 4 dígitos y normas de uso.',
+    tags: ['cliente', 'producto', 'correo', 'clave', 'perfil', 'pin', 'vence', 'garantia', 'codigo_id', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 🎉 Tu servicio ha sido ACTIVADO EXITOSAMENTE en {negocio}.\nAquí tienes los datos de acceso para tu pantalla:\n\n📌 Servicio: {producto}\n📧 Correo: {correo}\n🔑 Clave: {clave}\n👤 Perfil Asignado: {perfil}\n🔒 PIN de Acceso: {pin}\n⏳ Vence el: {vence}\n🛡️ Garantía: {garantia} días continuos\n\n⚠️ Reglas de uso importantes:\n• Usar ÚNICAMENTE tu perfil asignado ({perfil}).\n• No modificar correo, clave ni los perfiles de otros usuarios.\n• Ante cualquier consulta, indícanos tu ID oficial {codigo_id}.\n\n¡Que disfrutes al máximo tu entretenimiento! ⭐🍿'
+  },
   entrega_servicio: {
     id: 'entrega_servicio',
     canal: 'whatsapp',
@@ -682,6 +722,38 @@ const DEFAULT_MESSAGE_TEMPLATES = {
     descripcion: 'Enviado al cliente cuando su pedido es conciliado y se entregan las credenciales de acceso.',
     tags: ['cliente', 'producto', 'correo', 'clave', 'perfil', 'pin', 'vence', 'garantia', 'codigo_id', 'negocio'],
     cuerpo: '¡Hola {cliente}! 🎉 Gracias por tu compra en {negocio}.\nAquí tienes los datos de acceso para tu servicio:\n\n📌 Servicio: {producto}\n📧 Correo: {correo}\n🔑 Clave: {clave}\n👤 Perfil: {perfil}\n🔒 PIN: {pin}\n⏳ Vence el: {vence}\n🛡️ Garantía: {garantia} días\n\n⚠️ Instrucciones:\n• No modificar correo ni perfil asignado.\n• Ante dudas indícanos tu ID {codigo_id}.\n¡Que disfrutes tu servicio! ⭐'
+  },
+  abono_zeny: {
+    id: 'abono_zeny',
+    canal: 'whatsapp',
+    titulo: '💳 Confirmación de Abono / Recarga Saldo Zeny',
+    descripcion: 'Notificación de saldo acreditado a la Tarjeta Digital Zeny o billetera del usuario.',
+    tags: ['cliente', 'monto_usd', 'monto_bs', 'referencia', 'nuevo_balance', 'portal_url', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 💳✨\nTu abono de saldo Zeny ha sido verificado y acreditado exitosamente en tu cuenta de {negocio}.\n\n💵 Monto Acreditado: ${monto_usd} USD (Bs. {monto_bs})\n🔢 Referencia: {referencia}\n💰 Nuevo Balance Zeny: ${nuevo_balance} ZP\n\nTu saldo está disponible para compras y renovaciones instantáneas con 0 esperas bancarias en:\n🌐 {portal_url}\n\n¡Muchas gracias por recargar con nosotros! 🚀'
+  },
+  abono_usdt_mesa_cambio: {
+    id: 'abono_usdt_mesa_cambio',
+    canal: 'whatsapp',
+    titulo: '💱 Confirmación de Operación Mesa de Cambio USDT',
+    descripcion: 'Enviado al cliente cuando su operación de USDT (Binance Pay / TRC20 / BEP20) ha sido liquidada.',
+    tags: ['cliente', 'tipo_operacion', 'monto_usdt', 'tasa_cambio', 'monto_bs', 'referencia', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 💱⚡\nTu operación en la Mesa de Cambio USDT de {negocio} ha sido PROCESADA Y LIQUIDADA CON ÉXITO.\n\n📊 Operación: {tipo_operacion}\n🪙 Monto USDT: {monto_usdt} USDT\n📈 Tasa de Cambio: Bs. {tasa_cambio} por USDT\n🇻🇪 Total en Bolívares: Bs. {monto_bs}\n🔢 Referencia Bancaria / Binance: {referencia}\n\nFondos entregados y verificados. ¡Gracias por confiar en nuestra mesa de cambio segura y rápida! 🤝💎'
+  },
+  devolucion_garantia: {
+    id: 'devolucion_garantia',
+    canal: 'whatsapp',
+    titulo: '🛡️ Reembolso o Devolución por Garantía / Pantalla',
+    descripcion: 'Enviado al cliente cuando se procesa una devolución o reposición de saldo ante una incidencia.',
+    tags: ['cliente', 'producto', 'monto_usd', 'motivo', 'destino', 'codigo_id', 'negocio'],
+    cuerpo: 'Hola {cliente}, un cordial saludo de {negocio} 🛡️\nTe informamos que tu solicitud de garantía para el servicio de {producto} ha sido APROBADA y procesada con éxito.\n\n💵 Monto Reintegrado: ${monto_usd} USD\n💼 Destino del Reintegro: {destino}\n📝 Motivo / Detalle: {motivo}\n🧾 ID de Registro: {codigo_id}\n\nLamentamos cualquier inconveniente presentado con el proveedor. Nuestro compromiso es garantizar siempre tu inversión y satisfacción. Quedamos a tu total disposición. 🤝'
+  },
+  reposicion_pantalla: {
+    id: 'reposicion_pantalla',
+    canal: 'whatsapp',
+    titulo: '🔀 Reposición Inmediata de Pantalla por Garantía',
+    descripcion: 'Entrega de nuevas credenciales de reemplazo por caída de cuenta o pantalla caída.',
+    tags: ['cliente', 'producto', 'correo', 'clave', 'perfil', 'pin', 'vence', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 🔀 Hemos activado tu REPOSICIÓN POR GARANTÍA para tu servicio de {producto}.\nAquí tienes tus nuevos datos de acceso funcionales:\n\n📌 Servicio: {producto}\n📧 Nuevo Correo: {correo}\n🔑 Nueva Clave: {clave}\n👤 Perfil: {perfil}\n🔒 PIN: {pin}\n⏳ Vigencia garantizada hasta: {vence}\n\nDisculpa la interrupción ocasionada por la plataforma original. Ya puedes disfrutar de tu servicio con total normalidad. ¡Cualquier duda estamos a la orden! 🍿'
   },
   cobro_cuota: {
     id: 'cobro_cuota',
@@ -698,14 +770,6 @@ const DEFAULT_MESSAGE_TEMPLATES = {
     descripcion: 'Notificación cuando se entrega o renueva un servicio a crédito con fecha límite de pago.',
     tags: ['cliente', 'producto', 'monto_usd', 'fecha_vence_credito', 'dias_credito', 'negocio'],
     cuerpo: 'Hola {cliente}! Te saludamos de {negocio} ✨\nTu servicio de {producto} ha sido activado/renovado a CRÉDITO por 30 días de disfrute.\n\n💵 Monto pendiente: ${monto_usd} USD\n📅 Fecha límite para el pago: {fecha_vence_credito} ({dias_credito} días)\n💳 Recuerda que puedes pagar con Pago Móvil o con tu Tarjeta Digital Zeny.\n\n¡Muchas gracias por tu preferencia y confianza continua! ⭐'
-  },
-  aviso_vencimiento: {
-    id: 'aviso_vencimiento',
-    canal: 'whatsapp',
-    titulo: 'Aviso Previo de Vencimiento de Suscripción',
-    descripcion: 'Mensaje preventivo antes del vencimiento para ofrecer la renovación inmediata.',
-    tags: ['cliente', 'producto', 'fecha_vence', 'monto_usd', 'portal_url', 'negocio'],
-    cuerpo: 'Hola {cliente}! ⏰ Tu servicio de {producto} está próximo a vencer el {fecha_vence}.\n\nPara mantener tu perfil activo y no perder tus pantallas guardadas, puedes renovar directamente desde tu portal con saldo Zeny o confirmarnos por acá:\n💵 Monto de renovación: ${monto_usd} USD\n🌐 Tu Portal de Cliente: {portal_url}\n\n¿Deseas renovar para este próximo período? Quedamos a tu orden.'
   },
   bienvenida_tarjeta: {
     id: 'bienvenida_tarjeta',
@@ -820,7 +884,11 @@ const DEFAULT_NIVELES_BENEFICIOS = {
 };
 
 function getMessageTemplates() {
-  return S.settings?.plantillas_mensajes || DEFAULT_MESSAGE_TEMPLATES;
+  const custom = S.settings?.plantillas_mensajes;
+  if(custom && typeof custom === 'object') {
+    return Object.assign({}, DEFAULT_MESSAGE_TEMPLATES, custom);
+  }
+  return DEFAULT_MESSAGE_TEMPLATES;
 }
 
 function formatMessageTemplate(key, data = {}) {
@@ -1189,7 +1257,7 @@ async function onSession(session){
   }
   // El boton Admin siempre permanece visible y accesible para el administrador
   $('#bAdmin').classList.remove('hide');
-  $('#bSnd').classList.toggle('hide',!S.isAdmin); updSnd(); badge(); checkVenc();
+  $('#bSnd').classList.toggle('hide', !S.isAdmin && !S.me?.es_revendedor); updSnd(); badge(); checkVenc();
 }
 document.addEventListener('visibilitychange', async () => {
   if(!document.hidden && S.user){
@@ -3496,8 +3564,38 @@ async function portal(){
     const showResellerBlock = isReseller;
     let resellerBlockHtml = '';
     if(showResellerBlock){
+      const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      const dt3 = new Date(Date.now() + 3 * 86400000 - new Date().getTimezoneOffset() * 60000);
+      const in3DaysStr = dt3.toISOString().slice(0, 10);
+
+      const vencenHoyList = rcList.filter(rc => rc.vence === todayStr && rc.estado === 'vendido');
+      const vencidosList = rcList.filter(rc => rc.vence && rc.vence < todayStr && rc.estado === 'vendido');
+      const proximosList = rcList.filter(rc => rc.vence && rc.vence > todayStr && rc.vence <= in3DaysStr && rc.estado === 'vendido');
+      const noRenuevanList = rcList.filter(rc => rc.no_renueva === true);
+
+      let alertHoyHtml = '';
+      if(vencenHoyList.length > 0){
+        alertHoyHtml = `
+          <div style="background:rgba(239,68,68,.14);border:1.5px solid rgba(239,68,68,.4);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="font-size:2rem">⏰</span>
+              <div>
+                <b style="color:#f87171;font-size:1.02rem">¡Atención! Tienes ${vencenHoyList.length} cliente(s) con vencimiento el día de HOY (${todayStr})</b>
+                <div class="mut" style="font-size:.8rem;margin-top:2px">
+                  Contacta a tus clientes para renovar o pulsa <b>"❌ No Renueva"</b> si no continuarán para que Gregory libere el perfil.
+                </div>
+              </div>
+            </div>
+            <button class="g" id="btnQuickFilterHoy" style="background:#ef4444;color:#fff;border:none;font-weight:800;padding:8px 14px;border-radius:10px;font-size:.8rem">
+              Ver ${vencenHoyList.length} de Hoy
+            </button>
+          </div>
+        `;
+      }
+
       resellerBlockHtml = `
       <div style="margin:28px 0;background:rgba(255,255,255,.02);border:1px solid rgba(255,183,3,.25);border-radius:16px;padding:20px 16px">
+        ${alertHoyHtml}
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <div>
             <div style="display:flex;align-items:center;gap:8px">
@@ -3505,16 +3603,36 @@ async function portal(){
               <span class="pill" style="font-size:.74rem;background:rgba(255,183,3,.15);color:#ffb703;border-color:rgba(255,183,3,.3)">${rcList.length} ${rcList.length === 1 ? 'perfil' : 'perfiles'}</span>
             </div>
             <p class="mut" style="font-size:.82rem;margin:4px 0 0">
-              Datos de acceso, claves y fechas de vencimiento de tus clientes para soporte y reenvío directo.
+              Control de vencimientos diarios, datos de acceso y reportes de renovación para tus clientes.
             </p>
           </div>
           <div style="font-size:.78rem;color:#fde047;background:rgba(253,224,71,.08);padding:4px 10px;border-radius:8px;border:1px solid rgba(253,224,71,.2)">
             ⭐ Aliado Comercial Autorizado
           </div>
         </div>
+
+        <!-- Filtros y control de notificaciones -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+          <button class="g rc-filter-btn active" data-filter="todos" style="padding:6px 12px;font-size:.76rem;border-radius:99px;font-weight:700">
+            Todos (${rcList.length})
+          </button>
+          <button class="g rc-filter-btn" data-filter="hoy" style="padding:6px 12px;font-size:.76rem;border-radius:99px;font-weight:700;color:#f87171;border-color:rgba(239,68,68,.4)">
+            ⏰ Vencen Hoy (${vencenHoyList.length})
+          </button>
+          <button class="g rc-filter-btn" data-filter="proximos" style="padding:6px 12px;font-size:.76rem;border-radius:99px;font-weight:700;color:#f59e0b;border-color:rgba(245,158,11,.4)">
+            ⏳ Próximos 3 días (${proximosList.length})
+          </button>
+          <button class="g rc-filter-btn" data-filter="norenueva" style="padding:6px 12px;font-size:.76rem;border-radius:99px;font-weight:700;color:#ef4444;border-color:rgba(239,68,68,.4)">
+            🔴 No Renuevan (${noRenuevanList.length})
+          </button>
+          <button class="g" id="btnResellerActPush" style="margin-left:auto;padding:6px 14px;font-size:.75rem;border-radius:8px;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Activar alertas en este teléfono">
+            🔔 Alertas en este Teléfono
+          </button>
+        </div>
+
         ${rcList.length ? `
           <div class="wrap">
-            <table>
+            <table id="tblResellerClients">
               <thead>
                 <tr>
                   <th>Cliente / WhatsApp</th>
@@ -3529,19 +3647,46 @@ async function portal(){
                 ${rcList.map(rc => {
                   const cleanPhone = (rc.cliente_telefono || '').replace(/\D/g, '');
                   const waTarget = cleanPhone.startsWith('58') ? cleanPhone : (cleanPhone ? '58' + cleanPhone.replace(/^0+/, '') : '');
-                  const cleanMsg = formatMessageTemplate('datos_limpios_revendedor', {
-                    servicio: rc.servicio || rc.plataforma || 'Servicio Digital',
-                    correo: rc.correo,
-                    clave: rc.clave,
-                    perfil: rc.nombre_perfil || 'Perfil 1',
-                    pin: rc.pin || 'Sin PIN',
-                    vence: rc.vence || '30 días'
-                  });
+                  const isHoy = rc.vence === todayStr;
+                  const isExp = rc.vence && rc.vence < todayStr;
+                  const isProx = rc.vence && rc.vence > todayStr && rc.vence <= in3DaysStr;
+                  const isNoRen = rc.no_renueva === true;
+
+                  const tplKey = isHoy ? 'aviso_vencimiento_hoy' : 'datos_limpios_revendedor';
+                  const cleanMsg = isHoy
+                    ? formatMessageTemplate('aviso_vencimiento_hoy', {
+                        cliente: rc.cliente_nombre || 'Cliente',
+                        producto: rc.servicio || rc.plataforma || 'Servicio Digital',
+                        vence: rc.vence || 'Hoy',
+                        monto_usd: '—',
+                        monto_bs: '—'
+                      })
+                    : formatMessageTemplate('datos_limpios_revendedor', {
+                        servicio: rc.servicio || rc.plataforma || 'Servicio Digital',
+                        correo: rc.correo,
+                        clave: rc.clave,
+                        perfil: rc.nombre_perfil || 'Perfil 1',
+                        pin: rc.pin || 'Sin PIN',
+                        vence: rc.vence || '30 días'
+                      });
+
                   const waUrl = waTarget ? `https://wa.me/${waTarget}?text=${encodeURIComponent(cleanMsg)}` : '';
-                  const isExp = rc.vence && rc.vence < new Date().toISOString().slice(0, 10);
+
+                  let pillStatus = '<span class="pill" style="font-size:.7rem;color:#00f5a0;border-color:rgba(0,245,160,.3)">🟢 Activo</span>';
+                  if (isNoRen) {
+                    pillStatus = '<span class="pill" style="font-size:.7rem;background:rgba(239,68,68,.18);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800">🔴 NO RENUEVA</span>';
+                  } else if (isHoy) {
+                    pillStatus = '<span class="pill" style="font-size:.7rem;background:rgba(239,68,68,.2);color:#f87171;border:1.5px solid rgba(239,68,68,.5);font-weight:800">⏰ VENCE HOY</span>';
+                  } else if (isExp) {
+                    pillStatus = '<span class="pill" style="font-size:.7rem;background:rgba(239,68,68,.12);color:#f87171;border-color:rgba(239,68,68,.3);font-weight:700">⚠️ Vencido</span>';
+                  } else if (isProx) {
+                    pillStatus = '<span class="pill" style="font-size:.7rem;background:rgba(245,158,11,.15);color:#f59e0b;border-color:rgba(245,158,11,.3);font-weight:700">⏳ Vence pronto</span>';
+                  }
+
+                  const rowCat = isNoRen ? 'norenueva' : (isHoy ? 'hoy' : (isProx ? 'proximos' : (isExp ? 'vencido' : 'activo')));
 
                   return `
-                    <tr>
+                    <tr data-rc-cat="${rowCat}" style="${isNoRen ? 'background:rgba(239,68,68,.05)' : (isHoy ? 'background:rgba(239,68,68,.08)' : '')}">
                       <td>
                         <b>${esc(rc.cliente_nombre || 'Cliente')}</b>
                         ${rc.cliente_telefono ? `<div style="font-size:.76rem;color:#38bdf8;margin-top:2px">📱 ${esc(rc.cliente_telefono)}</div>` : ''}
@@ -3561,22 +3706,29 @@ async function portal(){
                       </td>
                       <td>
                         <b>${esc(rc.vence || '—')}</b>
-                        <div style="font-size:.7rem;margin-top:2px">
-                          ${isExp ? '<span style="color:#f87171;font-weight:700">⚠️ Vencido</span>' : '<span style="color:#00f5a0;font-weight:700">🟢 Activo</span>'}
-                        </div>
+                        <div style="margin-top:3px">${pillStatus}</div>
                       </td>
                       <td>
-                        <div style="display:flex;gap:6px;flex-wrap:wrap">
-                          <button class="clean-copy-btn" data-clean-copy="${esc(cleanMsg)}" title="Copiar datos limpios para reenviar a tu cliente">
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                          <button class="clean-copy-btn" data-clean-copy="${esc(cleanMsg)}" title="Copiar datos para el cliente">
                             📋 Copiar
                           </button>
                           ${waUrl ? `
                             <a href="${waUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
-                              <button class="g" style="padding:6px 10px;font-size:.76rem;color:#00f5a0;border-color:rgba(0,245,160,.35)">
-                                💬 WA
+                              <button class="g" style="padding:6px 10px;font-size:.76rem;color:${isHoy ? '#f87171' : '#00f5a0'};border-color:${isHoy ? 'rgba(239,68,68,.4)' : 'rgba(0,245,160,.35)'};font-weight:700" title="${isHoy ? 'Enviar recordatorio de cobro hoy por WA' : 'Enviar accesos por WA'}">
+                                ${isHoy ? '⏰ Cobrar WA' : '💬 WA'}
                               </button>
                             </a>
                           ` : ''}
+                          ${isNoRen ? `
+                            <span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);font-weight:700">
+                              Reportado a Admin
+                            </span>
+                          ` : `
+                            <button class="g" data-reseller-no-renueva="${rc.profile_id}" data-nom="${esc(rc.cliente_nombre||'Cliente')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-vence="${esc(rc.vence||'')}" style="padding:5px 9px;font-size:.73rem;color:#f87171;border-color:rgba(239,68,68,.4);font-weight:700" title="Reportar que este cliente no desea renovar para que Gregory libere el perfil">
+                              ❌ No Renueva
+                            </button>
+                          `}
                         </div>
                       </td>
                     </tr>
@@ -4314,6 +4466,130 @@ async function portal(){
     };
   });
 
+  // --- CONTROL DE VENCIMIENTOS Y REPORTES DEL REVENDEDOR ---
+  const tblRc = app.querySelector('#tblResellerClients');
+  if(tblRc){
+    const filterButtons = app.querySelectorAll('.rc-filter-btn');
+    const applyFilter = (cat) => {
+      filterButtons.forEach(b => b.classList.toggle('active', b.dataset.filter === cat));
+      tblRc.querySelectorAll('tbody tr').forEach(tr => {
+        const trCat = tr.dataset.rcCat || '';
+        if(cat === 'todos') tr.style.display = '';
+        else if(cat === 'hoy') tr.style.display = (trCat === 'hoy') ? '' : 'none';
+        else if(cat === 'proximos') tr.style.display = (trCat === 'proximos' || trCat === 'hoy') ? '' : 'none';
+        else if(cat === 'norenueva') tr.style.display = (trCat === 'norenueva') ? '' : 'none';
+      });
+    };
+    filterButtons.forEach(b => b.onclick = () => applyFilter(b.dataset.filter));
+
+    const bQuickHoy = app.querySelector('#btnQuickFilterHoy');
+    if(bQuickHoy) bQuickHoy.onclick = () => applyFilter('hoy');
+
+    const bResPush = app.querySelector('#btnResellerActPush');
+    if(bResPush){
+      bResPush.onclick = async () => {
+        if(!('Notification' in window)){
+          return toast('Tu dispositivo o navegador no soporta notificaciones de sistema.');
+        }
+        try {
+          const perm = await Notification.requestPermission();
+          if(perm === 'granted'){
+            new Notification('Emprendimiento Gregory Izquierdo', {
+              body: '✅ ¡Alertas activadas! Recibirás notificaciones en este teléfono de los vencimientos de tus clientes.',
+              icon: '/icon-192.png'
+            });
+            toast('✅ Alertas activadas con éxito en tu dispositivo.');
+          } else {
+            toast('⚠️ Permiso de notificaciones denegado en el navegador.');
+          }
+        } catch(e){
+          toast('Error al activar notificaciones: ' + e.message);
+        }
+      };
+    }
+
+    app.querySelectorAll('[data-reseller-no-renueva]').forEach(b => {
+      b.onclick = () => {
+        const profId = b.dataset.resellerNoRenueva;
+        const nom = b.dataset.nom || 'Cliente';
+        const srv = b.dataset.srv || 'Servicio';
+        const vence = b.dataset.vence || '';
+
+        $('#dlgBody').innerHTML = `
+          <h3>❌ Reportar que el Cliente NO Renueva</h3>
+          <p class="mut" style="font-size:.85rem;margin:0 0 12px">
+            ¿Confirmas que el cliente <b>${esc(nom)}</b> no renovará su suscripción de <b>${esc(srv)}</b>${vence ? ' (Vence: ' + esc(vence) + ')' : ''}?
+          </p>
+          <div style="background:rgba(239,68,68,.08);border:1.5px solid rgba(239,68,68,.3);border-radius:12px;padding:12px;margin-bottom:14px;font-size:.82rem">
+            <b>ℹ️ Protocolo de la tienda:</b>
+            <ul style="margin:6px 0 0;padding-left:18px;line-height:1.4">
+              <li>El perfil se marcará en color rojo como <b>NO RENUEVA</b>.</li>
+              <li>La administración (Gregory) recibirá el aviso inmediato para cambiar el PIN en el streaming y liberar la pantalla para la venta.</li>
+            </ul>
+          </div>
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Motivo u observación (Opcional):</label>
+          <input id="inResellerNoRenMotivo" placeholder="Ej: Cliente no respondió / No tiene dinero este mes" style="width:100%;margin-bottom:14px">
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnConfirmNoRenReport" style="background:#ef4444;color:#fff;font-weight:800;border:none;border-radius:8px;padding:8px 16px">
+              Confirmar Reporte
+            </button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnConfirmNoRenReport').onclick = async () => {
+          const btn = $('#btnConfirmNoRenReport');
+          btn.disabled = true;
+          btn.textContent = '⏳ Reportando...';
+          const motivo = $('#inResellerNoRenMotivo')?.value?.trim() || null;
+
+          try {
+            const { error: rpcErr } = await sb.rpc('reportar_no_renovacion_perfil', {
+              p_profile_id: profId,
+              p_motivo: motivo
+            });
+            if(rpcErr){
+              const { error: updErr } = await sb.from('profiles_inventory').update({
+                no_renueva: true,
+                no_renueva_reportado_at: new Date().toISOString(),
+                no_renueva_motivo: motivo,
+                no_renueva_por: S.me?.nombre || S.user?.email || 'Revendedor'
+              }).eq('id', profId);
+              if(updErr) throw updErr;
+              await sb.from('orders').update({
+                no_renueva: true,
+                no_renueva_reportado_at: new Date().toISOString()
+              }).eq('profile_id', profId).catch(()=>{});
+            }
+
+            fetch('/api/notify-event', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'revendedor_no_renueva',
+                data: {
+                  revendedor: S.me?.nombre || S.user?.email,
+                  cliente: nom,
+                  servicio: srv,
+                  motivo: motivo || 'Cliente no desea renovar'
+                }
+              })
+            }).catch(()=>{});
+
+            dlg.close();
+            toast('✅ Reportado con éxito. Gregory procederá a liberar el perfil para la tienda.');
+            portal();
+          } catch(err){
+            btn.disabled = false;
+            btn.textContent = 'Confirmar Reporte';
+            alert('Error al reportar: ' + err.message);
+          }
+        };
+      };
+    });
+  }
+
   app.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('cancel_my_order',{p_order:b.dataset.cancel});error?toast(error.message):(await loadPublic(),portal());});
   $('#rec').onclick=()=>{
     $('#dlgBody').innerHTML='<h3>Recargar Billetera Zeny</h3><input id="m" type="number" min="1" step="0.5" placeholder="Monto en USD (1 ZP = $1)"><input id="r" placeholder="Referencia del pago móvil o comprobante" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Solicitar recarga</button>'; dlg.showModal();
@@ -4404,7 +4680,7 @@ const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
 const NOADD=['transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'&&r.estado==='vendido'?`<button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Liberar perfil para la venta">🔓 Liberar</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'&&r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -5349,11 +5625,29 @@ const ALERTS={orders:{ok:r=>r.estado==='pendiente',kind:'order',msg:'Nuevo pedid
   zeny_ledger:{ok:r=>r.tipo==='recarga'&&r.estado==='pendiente',kind:'recarga',msg:'Nueva recarga Zeny por aprobar'},
   incidents:{ok:()=>true,kind:'incidencia',msg:'Nueva incidencia reportada por un cliente'}};
 Object.entries(ALERTS).reduce((ch,[t,a])=>ch.on('postgres_changes',{event:'INSERT',schema:'public',table:t},p=>{ if(S.isAdmin&&a.ok(p.new)) notify(a.kind,a.msg); }),sb.channel('alerts')).subscribe();
-// Vencimientos del dia: servicios de clientes y cuentas madre. Suena una vez por cada nuevo vencimiento del dia, y se revisa cada hora.
-async function checkVenc(){ if(!S.isAdmin) return; const d=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
-  const [o,m]=await Promise.all([sb.from('orders').select('id',{count:'exact',head:true}).eq('estado','entregado').eq('vence',d), sb.from('mother_accounts').select('id',{count:'exact',head:true}).eq('activa',true).eq('vence',d)]);
-  const a=o.count||0, b=m.count||0, n=a+b; S.venc=n; const k='venc-'+d, prev=+(localStorage.getItem(k)||0);
-  if(n>prev){ localStorage.setItem(k,n); notify('venc',`Vencen hoy: ${a} servicio(s) de clientes y ${b} cuenta(s) madre`); } else badge(); }
+// Vencimientos del dia: servicios de clientes y cuentas madre para Admin, y vencimientos de sus propios clientes para Revendedores.
+async function checkVenc(){
+  const d=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  if(S.isAdmin){
+    const [o,m]=await Promise.all([sb.from('orders').select('id',{count:'exact',head:true}).eq('estado','entregado').eq('vence',d), sb.from('mother_accounts').select('id',{count:'exact',head:true}).eq('activa',true).eq('vence',d)]);
+    const a=o.count||0, b=m.count||0, n=a+b; S.venc=n; const k='venc-'+d, prev=+(localStorage.getItem(k)||0);
+    if(n>prev){ localStorage.setItem(k,n); notify('venc',`Vencen hoy: ${a} servicio(s) de clientes y ${b} cuenta(s) madre`); } else badge();
+  } else if(S.me?.es_revendedor && S.user){
+    try {
+      const { data: list } = await sb.rpc('my_reseller_clients');
+      if(list && Array.isArray(list)){
+        const expToday = list.filter(r => r.vence === d && r.estado === 'vendido');
+        const count = expToday.length;
+        const k = 'reseller-venc-' + d + '-' + S.user.id;
+        const prev = +(localStorage.getItem(k) || 0);
+        if(count > 0 && count > prev){
+          localStorage.setItem(k, count);
+          notify('venc', `⏰ Vencimientos de hoy: Tienes ${count} cliente(s) con suscripción por vencer hoy (${d}). Revisa tu portal para renovar o reportar.`);
+        }
+      }
+    } catch(e){}
+  }
+}
 setInterval(checkVenc,3600000);
 ['orders','zeny_ledger','customers','incidents','profiles_inventory','refunds','expenses','purchases','transfers'].reduce((ch,t)=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},refresh),sb.channel('live')).subscribe();
 let _dip; addEventListener('beforeinstallprompt',e=>{e.preventDefault();_dip=e;});
