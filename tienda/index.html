@@ -485,17 +485,126 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
   input,select,textarea{padding:8px 10px;font-size:.84rem;border-radius:10px}
   button{padding:8px 14px;font-size:.8rem;border-radius:10px}
 
-  /* 10. Vista del Administrador en Móvil */
-  .admin-main{padding:8px 8px 65px!important}
-  .admin-main-head{padding:10px 12px;gap:8px}
-  .admin-main-title h2{font-size:1.05rem}
-  .admin-mobile-bar{margin:6px 8px 2px}
-  .admin-mobile-toggle{padding:8px 12px;font-size:.8rem}
-  .wrap{border-radius:8px}
-  table{font-size:.72rem}
-  td,th{padding:6px 4px}
+  /* 10. PANEL ADMINISTRADOR EN MÓVIL (PANTALLAS DE 5 Y 6 PULGADAS) */
+  .admin-layout{grid-template-columns:1fr;min-height:auto}
+  .admin-main{padding:6px 6px 65px!important;gap:8px}
+  .admin-main-head{padding:8px 10px;gap:6px;border-radius:12px;flex-direction:column;align-items:stretch}
+  .admin-main-title{justify-content:space-between;width:100%}
+  .admin-main-title h2{font-size:.96rem;letter-spacing:.2px}
+  .admin-main-head .row{width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+  .admin-main-head .row button{flex:1 1 auto;padding:5px 9px!important;font-size:.7rem!important;height:30px!important;min-height:30px!important;border-radius:8px!important}
+  .admin-mobile-bar{margin:4px 6px 2px;display:block}
+  .admin-mobile-toggle{padding:8px 12px;font-size:.78rem;border-radius:10px}
+  
+  /* Tablas de Administración: alta densidad y botones compactos */
+  .admin-main .wrap{border-radius:10px;border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.4);margin:4px 0 12px;-webkit-overflow-scrolling:touch}
+  .admin-main table{font-size:.7rem;border-collapse:collapse;width:100%}
+  .admin-main th{font-size:.64rem;padding:6px 5px;letter-spacing:.3px;background:rgba(10,24,46,.95);white-space:nowrap}
+  .admin-main td{padding:6px 5px;vertical-align:middle;border-bottom:1px solid rgba(22,51,90,.6)}
+  .admin-main td.row{display:flex;flex-wrap:wrap;gap:3px;align-items:center;min-width:130px}
+  .admin-main td.row button{padding:3px 7px!important;font-size:.66rem!important;border-radius:5px!important;font-weight:700!important;height:auto!important;min-height:22px!important;line-height:1.1!important;box-shadow:none!important}
+  .admin-main .pill{font-size:.62rem;padding:2px 5px;border-radius:4px}
+  .admin-main td b{font-size:.73rem}
 
-  /* 11. Modal de login poligonal facetado */
+  /* 11. PORTAL DEL CLIENTE EN MÓVIL */
+  .portal-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .portal-summary-grid > .portal-summary-card:nth-child(1),
+  .portal-summary-grid > .portal-summary-card:nth-child(2){min-height:auto;padding:10px 8px;border-radius:12px}
+  .portal-summary-grid > .portal-summary-card .mut{font-size:.66rem}
+  .portal-summary-grid > .portal-summary-card .price{font-size:1.15rem;margin:3px 0 2px}
+  .portal-summary-grid > .portal-summary-card button{padding:6px 8px;font-size:.72rem;border-radius:8px}
+  .portal-summary-grid > .portal-tdc-summary-card{grid-column:1 / -1;padding:10px 8px 8px;border-radius:14px;min-height:auto}
+  
+  /* Tarjeta Digital Zeny en el portal */
+  .zeny-mini-card-wrapper{max-width:260px;margin:3px auto;filter:drop-shadow(0 0 10px rgba(255,215,0,.3))}
+  .zeny-mini-card-inner{border-radius:12px}
+  .zeny-mini-card-face{border-radius:12px;border-width:1.5px}
+  .zeny-card-number-text{font-size:clamp(.70rem,3.2vw,.88rem);letter-spacing:1px}
+  .zeny-card-holder-name{font-size:clamp(.60rem,2.5vw,.75rem);letter-spacing:.8px}
+  .zeny-card-expiry-text{font-size:clamp(.62rem,2.5vw,.75rem)}
+  .zeny-card-magstrip{height:24px;margin-top:2px}
+  .zeny-card-back-body{padding:0 10px;gap:4px}
+  .zeny-card-cvv-box{height:24px;padding:0 6px}
+  .zeny-card-cvv-text{font-size:.82rem;letter-spacing:2px}
+  .portal-tdc-info-row{font-size:.7rem;margin-top:6px;padding-top:6px}
+  .portal-tdc-info-row b{font-size:.95rem}
+  .zeny-card-btn-act{padding:8px 10px;font-size:.76rem;border-radius:8px;margin-top:6px}
+
+  /* Sección Mis Accesos y Cuotas */
+  #app h3{font-size:.92rem;margin:18px 0 8px;letter-spacing:.2px}
+  .bnpl-inst-pill{font-size:.62rem;padding:2px 6px;border-radius:4px}
+  .clean-copy-btn{padding:4px 7px;font-size:.66rem;border-radius:6px;gap:3px}
+
+  /* 12. PORTAL DEL REVENDEDOR EN MÓVIL (PABLO / RED MAYORISTA) */
+  /* Contenedor del panel revendedor */
+  div[style*="border:1px solid rgba(255,183,3,.25)"]{
+    margin:14px 0!important;padding:12px 10px!important;border-radius:14px!important
+  }
+  div[style*="border:1px solid rgba(255,183,3,.25)"] h3{
+    font-size:.95rem!important
+  }
+  /* Caja Enlace de Referido */
+  div[style*="border:1px dashed rgba(255,183,3,.35)"]{
+    padding:10px!important;border-radius:10px!important;gap:6px!important;flex-direction:column;align-items:stretch!important
+  }
+  div[style*="border:1px dashed rgba(255,183,3,.35)"] code{
+    font-size:.72rem!important;word-break:break-all;white-space:normal
+  }
+  div[style*="border:1px dashed rgba(255,183,3,.35)"] button{
+    width:100%!important;text-align:center;padding:7px 10px!important;font-size:.74rem!important;border-radius:8px!important
+  }
+  /* Resumen de Comisiones Pendientes */
+  div[style*="Pendiente por cobrar"]{
+    font-size:.74rem!important
+  }
+  div[style*="Pendiente por cobrar"] b{
+    font-size:.95rem!important
+  }
+
+  /* Tabla de Clientes y Perfiles Asignados (71 perfiles en móvil) */
+  div[style*="border:1px solid rgba(255,183,3,.25)"] table{
+    font-size:.7rem;width:100%
+  }
+  div[style*="border:1px solid rgba(255,183,3,.25)"] th{
+    font-size:.64rem;padding:6px 5px;white-space:nowrap
+  }
+  div[style*="border:1px solid rgba(255,183,3,.25)"] td{
+    padding:6px 5px;vertical-align:middle
+  }
+  div[style*="border:1px solid rgba(255,183,3,.25)"] td b{
+    font-size:.74rem
+  }
+  div[style*="border:1px solid rgba(255,183,3,.25)"] td code{
+    font-size:.7rem
+  }
+  div[style*="border:1px solid rgba(255,183,3,.25)"] .clean-copy-btn{
+    padding:3px 6px!important;font-size:.65rem!important;border-radius:5px!important
+  }
+  div[style*="border:1px solid rgba(255,183,3,.25)"] a button.g{
+    padding:3px 6px!important;font-size:.65rem!important;border-radius:5px!important
+  }
+
+  /* 13. MÓDULOS EXTRA DE ADMINISTRACIÓN (admin-extra.js) EN MÓVIL */
+  /* Cajas de métricas financieras y analítica */
+  #ex div[style*="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))"],
+  #ex div[style*="grid-template-columns:repeat(auto-fit, minmax(185px, 1fr))"],
+  #ex div[style*="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))"],
+  #ex div[style*="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"]{
+    grid-template-columns:1fr 1fr!important;gap:7px!important
+  }
+  #ex .card{padding:10px 8px;border-radius:12px}
+  #ex .price{font-size:1.15rem!important}
+  #ex .mut{font-size:.68rem!important}
+  #ex h3{font-size:.95rem!important;margin:12px 0 6px!important}
+  #ex h4{font-size:.85rem!important;margin:8px 0 4px!important}
+  
+  /* Cajas bimoneda de 2 columnas en formularios */
+  #ex div[style*="grid-template-columns:1fr 1fr"],
+  dialog div[style*="grid-template-columns:1fr 1fr"]{
+    gap:6px!important
+  }
+
+  /* 14. Modal de login poligonal facetado */
   .facet-dialog{width:95%}
   .facet-card{padding:34px 20px 24px;margin:10px auto}
   .facet-title{font-size:1.35rem;letter-spacing:5px}
