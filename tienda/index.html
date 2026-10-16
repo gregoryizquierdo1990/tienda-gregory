@@ -405,7 +405,113 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 .fq-wa-inquiry-btn:hover{background:linear-gradient(135deg,rgba(37,211,102,.22),rgba(59,130,246,.22));border-color:#22c55e;color:#ffffff;transform:translateY(-1px);box-shadow:0 6px 20px rgba(37,211,102,.25)}
 .fq-wa-success-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 20px;border-radius:16px;background:linear-gradient(135deg,#10b981,#059669);color:#ffffff;font-weight:800;font-size:.92rem;text-decoration:none;box-shadow:0 8px 24px rgba(16,185,129,.4),0 0 20px rgba(16,185,129,.3);transition:all .2s ease;margin:16px 0 10px;border:none;cursor:pointer;animation:neonGoldGlow 3s ease-in-out infinite}
 .fq-wa-success-btn:hover{transform:scale(1.02);filter:brightness(1.08);box-shadow:0 12px 30px rgba(16,185,129,.6),0 0 26px rgba(16,185,129,.4)}
-@media(max-width:640px){.franchise-recruit-banner{flex-direction:column;align-items:stretch;gap:14px;padding:18px 16px}.frb-btn{text-align:center}.fq-grid-cards{grid-template-columns:1fr}}
+@media(max-width:640px){
+  .franchise-recruit-banner{flex-direction:column;align-items:stretch;gap:14px;padding:18px 16px}.frb-btn{text-align:center}.fq-grid-cards{grid-template-columns:1fr}
+
+  /* 1. Escala tipográfica refinada para evitar aspecto tosco/aumentado */
+  html{font-size:14.5px}
+  body{-webkit-tap-highlight-color:transparent}
+
+  /* 2. Cabecera ultra-compacta y barra de navegación horizontal deslizable */
+  header{padding:6px 10px;gap:6px}
+  .brand{gap:8px}
+  .logo{width:32px;height:32px;box-shadow:0 0 10px rgba(0,245,160,.35)}
+  h1#biz{font-size:.84rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px}
+  .rate#rate{font-size:.66rem;line-height:1.1}
+  header .row{width:100%;display:flex;flex-wrap:nowrap;overflow-x:auto;gap:5px;padding:2px 2px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  header .row::-webkit-scrollbar{display:none}
+  header .row button,header .row select{flex-shrink:0;padding:6px 11px;font-size:.72rem;font-weight:700;border-radius:99px;height:30px;line-height:1;display:inline-flex;align-items:center;justify-content:center;box-shadow:none}
+  header .row select#cur{padding:4px 8px;height:30px;font-size:.72rem}
+
+  /* 3. Contenedor principal con márgenes adaptados a móviles */
+  main{padding:10px 10px 85px;max-width:100%}
+
+  /* 4. Hero compacto y proporcionado */
+  .hero{padding:16px 12px 14px;border-radius:16px;margin-bottom:12px;border-color:rgba(0,212,255,.2)}
+  .hero h2{font-size:1.12rem;line-height:1.22;margin:0 0 6px;max-width:100%}
+  .hero p{font-size:.76rem;line-height:1.35;margin:0 0 10px}
+  .hero-rate-box{padding:7px 14px;border-radius:12px;margin:2px auto 10px;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+  .hero-rate-icon{font-size:1.05rem}
+  .hero-rate-text{font-size:.78rem;line-height:1.2}
+  .hero-rate-text span.rate-date{display:block;margin-left:0;font-size:.65rem}
+  .chips{gap:5px;margin-bottom:12px}
+  .chips span{font-size:.66rem;font-weight:700;padding:4px 9px}
+  .search{font-size:.82rem;padding:9px 14px;border-radius:12px;max-width:100%}
+
+  /* 5. Banner Showcase superior */
+  .banner-top-container{margin:0 auto 12px}
+  .banner-card-showcase{border-radius:16px}
+  .banner-card-body{padding:12px 10px 12px}
+  .banner-card-media-box{border-radius:12px;margin-bottom:8px;max-width:100%}
+  .banner-card-pill{font-size:.65rem;padding:3px 10px}
+  .banner-card-desc{font-size:.76rem}
+  .banner-card-cta{padding:6px 14px;font-size:.72rem;border-radius:8px}
+
+  /* 6. Pestañas de categorías deslizables */
+  .tabs{margin:6px 0 12px;gap:5px;padding-bottom:2px}
+  .tabs button{padding:6px 12px;font-size:.74rem;font-weight:700;border-radius:8px}
+
+  /* 7. GRILLA DE PRODUCTOS EN 2 COLUMNAS (Estilo App Móvil Nativa de 5 y 6 Pulgadas) */
+  .pgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .pc{border-radius:14px;border-width:1px;box-shadow:0 4px 16px -2px rgba(0,0,0,.6)}
+  .pc-brand-indicator{top:6px;right:6px;padding:2px 6px;font-size:.58rem;letter-spacing:.3px;border-radius:6px}
+  .pc-brand-dot{width:5px;height:5px}
+  .pc img,.ph{aspect-ratio:16/10}
+  .ph{padding:6px}
+  .ph span{font-size:.88rem!important}
+  .pb{padding:8px 8px 10px;gap:4px}
+  .pb h3{font-size:.76rem;line-height:1.25;margin:0;min-height:2.5em;max-height:2.5em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+  .pb p.mut{display:none}
+  .tag{font-size:.56rem;padding:2px 5px;letter-spacing:.3px;border-radius:4px}
+  .reseller-badge{font-size:.55rem;padding:2px 4px}
+  .pb .pill{font-size:.55rem;padding:2px 4px}
+  .meta{font-size:.58rem;gap:2px;margin:2px 0}
+  .meta span{padding:1px 4px;border-radius:4px}
+  .buy{padding-top:6px;gap:4px;flex-direction:column;align-items:stretch}
+  .price{font-size:1.02rem;line-height:1.1}
+  .price .reseller-orig-price{font-size:.65rem}
+  .sub{font-size:.6rem;margin-top:1px}
+  .cta{width:100%;text-align:center;padding:6px 8px;font-size:.74rem;font-weight:800;border-radius:8px;margin-top:2px;box-shadow:0 2px 10px rgba(0,245,160,.25)}
+
+  /* 8. Botones flotantes compactos */
+  .float-acts{right:8px;bottom:calc(8px + env(safe-area-inset-bottom));gap:6px}
+  .wa,.tg{padding:7px 11px;font-size:.72rem;gap:5px;border-radius:99px}
+  .wa svg,.tg svg{width:14px;height:14px}
+
+  /* 9. Ventanas modales y formularios (Checkout, Login, Admin) */
+  dialog{width:95%!important;max-width:95%!important;padding:14px 12px!important;border-radius:16px!important;max-height:90vh!important}
+  dialog h3{font-size:1.05rem;margin:0 0 8px}
+  input,select,textarea{padding:8px 10px;font-size:.84rem;border-radius:10px}
+  button{padding:8px 14px;font-size:.8rem;border-radius:10px}
+
+  /* 10. Vista del Administrador en Móvil */
+  .admin-main{padding:8px 8px 65px!important}
+  .admin-main-head{padding:10px 12px;gap:8px}
+  .admin-main-title h2{font-size:1.05rem}
+  .admin-mobile-bar{margin:6px 8px 2px}
+  .admin-mobile-toggle{padding:8px 12px;font-size:.8rem}
+  .wrap{border-radius:8px}
+  table{font-size:.72rem}
+  td,th{padding:6px 4px}
+
+  /* 11. Modal de login poligonal facetado */
+  .facet-dialog{width:95%}
+  .facet-card{padding:34px 20px 24px;margin:10px auto}
+  .facet-title{font-size:1.35rem;letter-spacing:5px}
+  .facet-sub{font-size:.68rem;margin-bottom:14px}
+  .facet-input{padding:10px 14px!important;font-size:.8rem!important}
+  .facet-btn{padding:8px 20px;font-size:.76rem}
+}
+
+/* Pantallas extra compactas (ej: 320px - 360px de 5 pulgadas) */
+@media(max-width:360px){
+  html{font-size:13.5px}
+  .pgrid,.grid{gap:6px}
+  .pb{padding:6px 5px 8px}
+  .price{font-size:.95rem}
+  .cta{padding:5px 6px;font-size:.7rem}
+}
 
 @media print {
   body *{visibility:hidden}
