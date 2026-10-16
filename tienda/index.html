@@ -4994,7 +4994,10 @@ async function admin(t){
         }
       };
     }
-    $('#save').onclick=async()=>{const o={};
+    $('#save').onclick=async()=>{
+      const btnSave = $('#save');
+      if(btnSave) { btnSave.disabled = true; btnSave.textContent = '⏳ Guardando...'; }
+      const o={};
       for(const i of dlg.querySelectorAll('[data-c]')){let v=i.value;if(v===''||i.disabled)continue;if(v==='true'||v==='false')v=v==='true';else if(/^[\[{]/.test(v))try{v=JSON.parse(v)}catch{};o[i.dataset.c]=v;}
       let {error:e}=await (row?sb.from(t).update(o).eq(pk,row[pk]):sb.from(t).insert(o));
       if(e && e.message && e.message.includes('permite_cuotas')){
@@ -5010,9 +5013,17 @@ async function admin(t){
       }
       if(!e && t === 'purchases' && o.mother_id && o.monto_usd != null){
         const costUsd = parseFloat(o.monto_usd) || 0;
-        try { await sb.from('mother_accounts').update({ costo_usd: costUsd }).eq('id', o.mother_id); } catch(e){}
+        try { await sb.from('mother_accounts').update({ costo_usd: costUsd }).eq('id', o.mother_id); } catch(err){}
       }
-      e?toast(e.message):(dlg.close(),admin(t));};};
+      if(e){
+        if(btnSave) { btnSave.disabled = false; btnSave.textContent = 'Guardar'; }
+        alert('⚠️ Error al guardar: ' + e.message);
+      } else {
+        dlg.close();
+        toast('Guardado con éxito.');
+        admin(t);
+      }
+    };};
   if($('#add')) $('#add').onclick=()=>{
     if(curTab==='refunds'){
       return refundDlg(null, 0, ()=>admin(curTab));
