@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "xyz.gregoryizquierdo.www.twa",
+      "sha256_cert_fingerprints": [
+        "B2:B2:72:0C:AE:6E:6A:2D:2D:C5:F5:BC:D3:37:8A:3C:6C:A4:B9:06:15:40:0D:54:BE:1F:09:FC:DA:53:76:52"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "xyz.gregoryizquierdo.tienda.twa",
+      "sha256_cert_fingerprints": [
+        "F3:7D:F0:B0:84:A8:AE:9F:6D:5D:FC:1B:14:8B:B9:43:8A:F5:EC:11:4A:6A:79:AF:E8:75:30:E9:7D:14:43:E9"
+      ]
+    }
+  }
+]
