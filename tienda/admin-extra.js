@@ -1133,7 +1133,7 @@ const EXTRA = {
                     <button class="g" data-cal-tr-prof="${p.id}" style="padding:4px 8px;font-size:.73rem;background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)" title="Trasladar o reponer pantalla caída">
                       🔀 Reponer
                     </button>
-                    <button class="g" data-cal-renov-30d-prof="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
+                    <button class="g" data-cal-renov-prof="${p.id}" data-cal-renov-30d-prof="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
                       🔄 Renovar (+30d)
                     </button>
                     <button class="g" data-cal-edit-prof-date="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem" title="Modificar fecha de vencimiento">
@@ -1166,7 +1166,7 @@ const EXTRA = {
                     ${o.gcal_event_id ? '<span class="pill" style="font-size:.68rem;background:rgba(0,245,160,.12);color:#00f5a0;border:1px solid rgba(0,245,160,.3)" title="Sincronizado con Google Calendar">🟢 En Calendar</span>' : '<span class="pill off" style="font-size:.68rem" title="Pendiente de sincronizar">⏳ No sync</span>'}
                   </td>
                   <td class="row" style="gap:5px">
-                    <button class="g" data-cal-renov-30d-order="${o.id}" data-cur-date="${o.vence}" data-nom="${esc(o.customers?.nombre || o.customers?.email || 'Cliente')}" data-prod="${esc(o.products?.nombre || 'Servicio')}" data-gcal-id="${esc(o.gcal_event_id || '')}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
+                    <button class="g" data-cal-renov-order="${o.id}" data-cal-renov-30d-order="${o.id}" data-cur-date="${o.vence}" data-nom="${esc(o.customers?.nombre || o.customers?.email || 'Cliente')}" data-prod="${esc(o.products?.nombre || 'Servicio')}" data-gcal-id="${esc(o.gcal_event_id || '')}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
                       🔄 Renovar (+30d)
                     </button>
                     <button class="g" data-cal-edit-date="${o.id}" data-cur-date="${o.vence}" data-prod="${esc(o.products?.nombre || 'Servicio')}" data-nom="${esc(o.customers?.nombre || o.customers?.email || 'Cliente')}" data-gcal-id="${esc(o.gcal_event_id || '')}" style="padding:4px 8px;font-size:.73rem" title="Modificar fecha y sincronizar con Calendar">
@@ -1606,13 +1606,14 @@ Fecha Vencimiento: ${newDate}`;
     });
 
     // Acción: Renovar Suscripción de Perfil sumando 30 días exactos desde la fecha agendada
-    box.querySelectorAll('[data-cal-renov-30d-prof]').forEach(btn => {
+    box.querySelectorAll('[data-cal-renov-prof], [data-cal-renov-30d-prof]').forEach(btn => {
       btn.onclick = async () => {
-        const profId = btn.dataset.calRenov30dProf;
+        const profId = btn.getAttribute('data-cal-renov-prof') || btn.getAttribute('data-cal-renov-30d-prof') || btn.dataset.calRenovProf;
         const curDate = btn.dataset.curDate;
         const custNom = btn.dataset.nom;
         const srvNom = btn.dataset.srv;
 
+        if (!profId || profId === 'undefined') return toast('Error: No se encontró el ID del perfil a renovar.');
         if (!curDate) return toast('El perfil no tiene una fecha agendada válida.');
 
         // Calcular +30 días exactos desde la fecha agendada
@@ -1635,10 +1636,11 @@ Fecha Vencimiento: ${newDate}`;
         btn.textContent = '⏳...';
 
         try {
-          // 1. Actualizar profiles_inventory
+          // 1. Actualizar profiles_inventory (extendiendo fecha y reseteando no_renueva)
           const { error: pErr } = await sb.from('profiles_inventory').update({
             vence: nextDateStr,
-            estado: 'vendido'
+            estado: 'vendido',
+            no_renueva: false
           }).eq('id', profId);
           if (pErr) throw pErr;
 
@@ -1661,14 +1663,15 @@ Fecha Vencimiento: ${newDate}`;
     });
 
     // Acción: Renovar Orden Web sumando 30 días exactos desde la fecha agendada
-    box.querySelectorAll('[data-cal-renov-30d-order]').forEach(btn => {
+    box.querySelectorAll('[data-cal-renov-order], [data-cal-renov-30d-order]').forEach(btn => {
       btn.onclick = async () => {
-        const orderId = btn.dataset.calRenov30dOrder;
+        const orderId = btn.getAttribute('data-cal-renov-order') || btn.getAttribute('data-cal-renov-30d-order') || btn.dataset.calRenovOrder;
         const curDate = btn.dataset.curDate;
         const custNom = btn.dataset.nom;
         const prodNom = btn.dataset.prod;
         const gcalId = btn.dataset.gcalId;
 
+        if (!orderId || orderId === 'undefined') return toast('Error: No se encontró el ID de la orden a renovar.');
         if (!curDate) return toast('La orden no tiene una fecha agendada válida.');
 
         const [y, m, d] = curDate.split('-').map(Number);
@@ -1698,7 +1701,7 @@ Fecha Vencimiento: ${newDate}`;
 
           if (oRow?.profile_id) {
             try {
-              await sb.from('profiles_inventory').update({ vence: nextDateStr, estado: 'vendido' }).eq('id', oRow.profile_id);
+              await sb.from('profiles_inventory').update({ vence: nextDateStr, estado: 'vendido', no_renueva: false }).eq('id', oRow.profile_id);
             } catch(e) {}
           }
 
