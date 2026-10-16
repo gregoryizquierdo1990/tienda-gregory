@@ -953,7 +953,7 @@ const EXTRA = {
         .gte('vence', startMonth)
         .lte('vence', endMonth),
       sb.from('mother_accounts')
-        .select('id,plataforma,correo,vence,activa,proveedor')
+        .select('id,plataforma,correo,vence,activa,proveedor,costo_usd')
         .not('vence', 'is', null)
         .gte('vence', startMonth)
         .lte('vence', endMonth),
@@ -1159,16 +1159,28 @@ const EXTRA = {
       }
       if (selEvents.mothers.length > 0) {
         detailHtml += `
-          <h5 style="margin:8px 0 6px;color:#ffb703">Cuentas Madre (${selEvents.mothers.length})</h5>
+          <h5 style="margin:8px 0 6px;color:#ffb703;display:flex;align-items:center;justify-content:space-between">
+            <span>🔑 Cuentas Madre (${selEvents.mothers.length})</span>
+            <span class="pill" style="font-size:.7rem;background:rgba(255,183,3,.12);color:#ffb703;border:1px solid rgba(255,183,3,.3)">Suscripción con Proveedor</span>
+          </h5>
           <div class="wrap" style="margin-bottom:12px">
             <table>
-              <tr><th>Plataforma</th><th>Correo Madre</th><th>Proveedor</th><th>Estado</th></tr>
+              <tr><th>Plataforma</th><th>Correo Madre</th><th>Proveedor</th><th>Estado</th><th>Vence</th><th>Acciones</th></tr>
               ${selEvents.mothers.map(m => `
                 <tr>
                   <td><b>${esc(m.plataforma)}</b></td>
-                  <td>${esc(m.correo)}</td>
-                  <td>${esc(m.proveedor || '—')}</td>
+                  <td><code>${esc(m.correo)}</code></td>
+                  <td><b>${esc(m.proveedor || '— Sin asignar —')}</b></td>
                   <td><span class="pill ${m.activa ? '' : 'off'}">${m.activa ? 'Activa' : 'Inactiva'}</span></td>
+                  <td><b style="color:#ffb703">${esc(m.vence)}</b></td>
+                  <td class="row" style="gap:5px">
+                    <button class="g" data-cal-renov-mother="${m.id}" data-cur-date="${m.vence}" data-plat="${esc(m.plataforma)}" data-mail="${esc(m.correo)}" data-prov="${esc(m.proveedor || '')}" data-cost="${m.costo_usd || 0}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
+                      🔄 Renovar (+30d)
+                    </button>
+                    <button class="g" data-cal-edit-mother="${m.id}" data-cur-date="${m.vence}" data-plat="${esc(m.plataforma)}" data-mail="${esc(m.correo)}" data-prov="${esc(m.proveedor || '')}" style="padding:4px 8px;font-size:.73rem" title="Modificar fecha o asignar proveedor">
+                      ✏️ Fecha / Proveedor
+                    </button>
+                  </td>
                 </tr>
               `).join('')}
             </table>
@@ -1775,6 +1787,181 @@ Cobrar antes de ${fVenceCred}`;
           profileId: profId,
           done: () => EXTRA.vencimientos(box)
         });
+      };
+    });
+
+    // Acción: Renovar Suscripción de Cuenta Madre (+30 días desde la fecha agendada)
+    box.querySelectorAll('[data-cal-renov-mother]').forEach(btn => {
+      btn.onclick = () => {
+        const motherId = btn.dataset.calRenovMother;
+        const curDate = btn.dataset.curDate;
+        const plat = btn.dataset.plat;
+        const mail = btn.dataset.mail;
+        const curProv = btn.dataset.prov || '';
+        const curCost = btn.dataset.cost || '0';
+
+        if (!curDate) return toast('La cuenta madre no tiene una fecha agendada.');
+
+        const [y, m, d] = curDate.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        dt.setUTCDate(dt.getUTCDate() + 30);
+        const nextDateStr = dt.toISOString().slice(0, 10);
+
+        $('#dlgBody').innerHTML = `
+          <h3>🔄 Renovar Cuenta Madre (+30 Días)</h3>
+          <p class="mut" style="font-size:.85rem;margin:0 0 14px">
+            Renovación de ciclo de suscripción con tu proveedor para la cuenta madre.
+          </p>
+          <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span class="mut" style="font-size:.82rem">Plataforma:</span>
+              <b style="color:var(--c)">${esc(plat)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span class="mut" style="font-size:.82rem">Correo Cuenta:</span>
+              <code>${esc(mail)}</code>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+              <span class="mut" style="font-size:.82rem">Ciclo de Vencimiento:</span>
+              <span><b style="color:#f59e0b">${esc(curDate)}</b> ➔ <b style="color:#00f5a0">${nextDateStr}</b></span>
+            </div>
+            <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Proveedor Asignado:</label>
+            <input id="renovMotherProv" list="list_proveedores_sugeridos" value="${esc(curProv)}" placeholder="Ej: ALEXANDER OJEDA, MOVIAX, ALEGG..." style="width:100%;margin-bottom:10px">
+            <datalist id="list_proveedores_sugeridos">
+              <option value="ALEXANDER OJEDA">
+              <option value="MOVIAX">
+              <option value="ALEGG">
+            </datalist>
+
+            <label style="display:flex;align-items:center;gap:8px;font-size:.85rem;cursor:pointer;margin-top:8px">
+              <input type="checkbox" id="checkCreatePurchaseRecord" checked>
+              <span>Registrar costo de renovación en 🛍️ Compras</span>
+            </label>
+            <div id="boxPurchaseCost" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+              <div>
+                <span class="mut" style="font-size:.74rem">Costo Renovación ($ USD):</span>
+                <input id="renovMotherCost" type="number" step="0.01" min="0" value="${curCost}" style="width:100%">
+              </div>
+              <div>
+                <span class="mut" style="font-size:.74rem">Condición de Pago:</span>
+                <select id="renovMotherCredito" style="width:100%">
+                  <option value="contado">💵 Contado</option>
+                  <option value="credito">💳 A Crédito</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnConfirmRenovMother" style="background:#10b981;color:#fff;font-weight:700">💾 Confirmar Renovación (+30d)</button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#checkCreatePurchaseRecord').onchange = (e) => {
+          $('#boxPurchaseCost').style.display = e.target.checked ? 'grid' : 'none';
+        };
+
+        $('#btnConfirmRenovMother').onclick = async () => {
+          const btnSave = $('#btnConfirmRenovMother');
+          btnSave.disabled = true;
+          btnSave.textContent = '⏳ Guardando...';
+
+          const provVal = ($('#renovMotherProv').value || '').trim();
+          const shouldPurchase = $('#checkCreatePurchaseRecord').checked;
+          const costVal = parseFloat($('#renovMotherCost').value) || 0;
+          const isCred = $('#renovMotherCredito').value === 'credito';
+
+          try {
+            const upObj = { vence: nextDateStr };
+            if (provVal) upObj.proveedor = provVal;
+            if (costVal > 0) upObj.costo_usd = costVal;
+            const { error: mErr } = await sb.from('mother_accounts').update(upObj).eq('id', motherId);
+            if (mErr) throw mErr;
+
+            if (shouldPurchase && costVal > 0) {
+              await sb.from('purchases').insert({
+                fecha: new Date().toISOString().slice(0, 10),
+                proveedor: provVal || 'Proveedor',
+                plataforma: plat,
+                mother_id: motherId,
+                monto_usd: costVal,
+                monto_usdt: costVal,
+                es_credito: isCred,
+                estado_pago: isCred ? 'pendiente' : 'pagado',
+                notas: `Renovación cuenta madre (+30d hasta ${nextDateStr})`
+              }).catch(e => console.warn('Error insert purchase:', e));
+            }
+
+            toast(`✅ Cuenta madre ${plat} renovada hasta ${nextDateStr}.`);
+            dlg.close();
+            EXTRA.vencimientos(box);
+          } catch(err) {
+            toast('Error al renovar cuenta madre: ' + err.message);
+            btnSave.disabled = false;
+            btnSave.textContent = '💾 Confirmar Renovación (+30d)';
+          }
+        };
+      };
+    });
+
+    // Acción: Modificar Fecha o Proveedor de Cuenta Madre
+    box.querySelectorAll('[data-cal-edit-mother]').forEach(btn => {
+      btn.onclick = () => {
+        const motherId = btn.dataset.calEditMother;
+        const curDate = btn.dataset.curDate || '';
+        const plat = btn.dataset.plat;
+        const mail = btn.dataset.mail;
+        const curProv = btn.dataset.prov || '';
+
+        $('#dlgBody').innerHTML = `
+          <h3>✏️ Editar Cuenta Madre</h3>
+          <p class="mut" style="font-size:.85rem;margin:0 0 14px">
+            Ajusta la fecha de vencimiento o asigna el proveedor para <b>${esc(plat)}</b> (<code>${esc(mail)}</code>).
+          </p>
+          <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
+            <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Fecha de Vencimiento:</label>
+            <input id="editMotherDate" type="date" value="${curDate}" style="width:100%;margin-bottom:10px">
+
+            <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Proveedor Asignado:</label>
+            <input id="editMotherProv" list="list_proveedores_sugeridos" value="${esc(curProv)}" placeholder="Ej: ALEXANDER OJEDA, MOVIAX, ALEGG..." style="width:100%">
+            <datalist id="list_proveedores_sugeridos">
+              <option value="ALEXANDER OJEDA">
+              <option value="MOVIAX">
+              <option value="ALEGG">
+            </datalist>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnSaveEditMother">💾 Guardar Cambios</button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnSaveEditMother').onclick = async () => {
+          const btn = $('#btnSaveEditMother');
+          btn.disabled = true;
+          btn.textContent = '⏳ Guardando...';
+
+          const newDate = $('#editMotherDate').value || null;
+          const newProv = ($('#editMotherProv').value || '').trim() || null;
+
+          try {
+            const { error: err } = await sb.from('mother_accounts').update({
+              vence: newDate,
+              proveedor: newProv
+            }).eq('id', motherId);
+            if (err) throw err;
+
+            toast('✅ Cuenta madre actualizada.');
+            dlg.close();
+            EXTRA.vencimientos(box);
+          } catch(e) {
+            toast('Error: ' + e.message);
+            btn.disabled = false;
+            btn.textContent = '💾 Guardar Cambios';
+          }
+        };
       };
     });
   },

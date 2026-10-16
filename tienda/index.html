@@ -2938,10 +2938,10 @@ function loginDlg(mode = 'login'){
       facetDlg.close();
       toast('Cuenta creada exitosamente. Revisa tu correo si requiere confirmación o inicia sesión.');
     } else {
-      let loginEmail = inputId;
-      const isPhone = !inputId.includes('@');
+      let loginEmail = (inputId || '').trim().toLowerCase();
+      const isPhone = !loginEmail.includes('@');
       if(isPhone){
-        const cleanPhone = inputId.replace(/\D/g, '');
+        const cleanPhone = loginEmail.replace(/\D/g, '');
         if(cleanPhone.length < 7) return toast('Ingresa un número de WhatsApp válido (ej: 04121234567).');
         loginEmail = `${cleanPhone}@cliente.gregoryizquierdo.xyz`;
       }
@@ -2962,9 +2962,27 @@ function loginDlg(mode = 'login'){
         }
       }
 
+      // Si falló y era correo con error de tipeo en dominio (ej. @gmai.com <-> @gmail.com):
+      if(error && !isPhone){
+        let altEmail = null;
+        if(loginEmail.endsWith('@gmai.com')) altEmail = loginEmail.replace('@gmai.com', '@gmail.com');
+        else if(loginEmail.endsWith('@gmail.co')) altEmail = loginEmail.replace('@gmail.co', '@gmail.com');
+        else if(loginEmail.endsWith('@gamil.com')) altEmail = loginEmail.replace('@gamil.com', '@gmail.com');
+        else if(loginEmail.endsWith('@gmail.com')) altEmail = loginEmail.replace('@gmail.com', '@gmai.com');
+        if(altEmail){
+          const retry = await sb.auth.signInWithPassword({ email: altEmail, password: pwVal });
+          if(!retry.error){
+            error = null;
+          }
+        }
+      }
+
       if(error){
-        if(error.message.includes('Invalid login credentials')){
+        if(error.message && error.message.includes('Invalid login credentials')){
           return toast(isPhone ? 'Teléfono o contraseña incorrecta. Si es tu primer ingreso, la contraseña son los últimos 6 dígitos de tu WhatsApp.' : 'Correo o contraseña incorrecta.');
+        }
+        if(error.message && error.message.toLowerCase().includes('database error querying schema')){
+          return toast('⚠️ Error de esquema en Supabase Auth. Ejecuta la Migración 34 en el SQL Editor de Supabase para reparar los tokens de acceso.');
         }
         return toast(error.message);
       }
@@ -2984,7 +3002,11 @@ function loginDlg(mode = 'login'){
       } catch(e){}
 
       facetDlg.close();
-      home();
+      if(S.me?.es_revendedor){
+        portal();
+      } else {
+        home();
+      }
     }
   };
 
