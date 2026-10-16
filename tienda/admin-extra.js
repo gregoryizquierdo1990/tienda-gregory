@@ -5025,6 +5025,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const totPendUsd = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
       const totPendBs = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
       const totGregUsd = filtered.reduce((a, c) => a + Number(c.ganancia_gregory_usd || 0), 0);
+      const totGregBs = filtered.reduce((a, c) => a + Number(c.ganancia_gregory_bs || (c.ganancia_gregory_usd * curRate) || 0), 0);
       const totNegUsd = filtered.reduce((a, c) => a + Number(c.ganancia_negocio_usd || 0), 0);
       const totReservaUsd = filtered.reduce((a, c) => a + Number(c.reserva_estrategica_usd || (c.ganancia_negocio_usd * 0.10) || 0), 0);
       const totCajaUsd = filtered.reduce((a, c) => a + Number(c.caja_negocio_usd || (c.ganancia_negocio_usd * 0.90) || 0), 0);
@@ -5033,6 +5034,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const selComms = allComms.filter(c => selectedIds.has(c.id));
       const selTotUsd = selComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
       const selTotBs = selComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+      const selGregUsd = selComms.reduce((a, c) => a + Number(c.ganancia_gregory_usd || 0), 0);
+      const selGregBs = selComms.reduce((a, c) => a + Number(c.ganancia_gregory_bs || (c.ganancia_gregory_usd * curRate) || 0), 0);
 
       box.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
@@ -5049,8 +5052,11 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             <button class="g" id="btnWAComms" style="background:rgba(37,211,102,.12);border-color:#25d366;color:#25d366;font-weight:700">
               💬 Enviar Estado a Pablo por WhatsApp
             </button>
-            <button id="btnDoLiquidation" style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none">
-              ${selectedIds.size > 0 ? `✅ Liquidar Seleccionadas (${selectedIds.size})` : '✅ Liquidar Comisiones'}
+            <button id="btnLiquidateGregory" style="background:linear-gradient(135deg,#00f5a0,#00d98b);color:#000;font-weight:800;border:none;padding:7px 14px;border-radius:8px">
+              💳 Liquidar a Gregory (Personal)
+            </button>
+            <button id="btnDoLiquidation" style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none;padding:7px 14px;border-radius:8px">
+              ${selectedIds.size > 0 ? `💳 Liquidar a Pablo (${selectedIds.size})` : '💳 Liquidar a Pablo (Socio)'}
             </button>
           </div>
         </div>
@@ -5074,7 +5080,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           <div class="card" style="border-color:rgba(0,245,160,.4);background:rgba(0,245,160,.04)">
             <div class="mut" style="font-size:.76rem;text-transform:uppercase;color:#00f5a0;font-weight:700">Ganancia Gregory</div>
             <div style="font-size:1.55rem;font-weight:800;color:#00f5a0;margin:6px 0 2px">$${totGregUsd.toFixed(2)}</div>
-            <div class="mut" style="font-size:.76rem">Honorarios operativos tienda</div>
+            <div class="mut" style="font-size:.76rem">Equiv: <b style="color:#00f5a0">Bs. ${totGregBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b></div>
           </div>
           <div class="card" style="border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.04)">
             <div class="mut" style="font-size:.76rem;text-transform:uppercase;color:#38bdf8;font-weight:700">Caja Negocio (90%)</div>
@@ -5095,17 +5101,29 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
 
         <!-- Barra Dinámica de Selección Parcial -->
         ${selectedIds.size > 0 ? `
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:rgba(255,183,3,.1);border:1.5px solid rgba(255,183,3,.45);padding:10px 16px;border-radius:12px;margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;background:rgba(255,183,3,.08);border:1.5px solid rgba(255,183,3,.45);padding:12px 16px;border-radius:12px;margin-bottom:14px">
             <div>
-              <b style="color:#fde047;font-size:.88rem">📌 ${selectedIds.size} comisiones seleccionadas para liquidar</b>
-              <div class="mut" style="font-size:.78rem;margin-top:2px">
-                Total a pagar a Pablo: <b style="color:#fde047">$${selTotUsd.toFixed(2)} USD</b> (equiv: <b style="color:#00f5a0">Bs. ${selTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b>)
+              <b style="color:#fde047;font-size:.9rem">📌 ${selectedIds.size} comisiones seleccionadas para liquidar</b>
+              <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:.82rem">
+                <div>
+                  <span class="mut">A Pagar a Pablo (Socio):</span>
+                  <b style="color:#fde047;font-size:.95rem">$${selTotUsd.toFixed(2)} USD</b>
+                  <span class="mut">(Bs. ${selTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})})</span>
+                </div>
+                <div style="border-left:1px solid rgba(255,255,255,.15);padding-left:14px">
+                  <span class="mut">Ganancia Personal Gregory:</span>
+                  <b style="color:#00f5a0;font-size:.95rem">$${selGregUsd.toFixed(2)} USD</b>
+                  <span class="mut">(Bs. ${selGregBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})})</span>
+                </div>
               </div>
             </div>
-            <div style="display:flex;gap:8px">
-              <button class="g" id="btnClearSelection" style="padding:5px 12px;font-size:.78rem">Deseleccionar todas</button>
-              <button id="btnQuickLiquidateSelected" style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none;padding:6px 14px;border-radius:8px">
-                ✅ Liquidar Seleccionadas (${selectedIds.size})
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="g" id="btnClearSelection" style="padding:6px 12px;font-size:.78rem">Deseleccionar</button>
+              <button id="btnQuickLiquidateGregory" style="background:linear-gradient(135deg,#00f5a0,#00d98b);color:#000;font-weight:800;border:none;padding:7px 14px;border-radius:8px">
+                💳 Liquidar a Gregory ($${selGregUsd.toFixed(2)})
+              </button>
+              <button id="btnQuickLiquidateSelected" style="background:linear-gradient(135deg,#ffb703,#fb8500);color:#000;font-weight:800;border:none;padding:7px 14px;border-radius:8px">
+                💳 Liquidar a Pablo ($${selTotUsd.toFixed(2)})
               </button>
             </div>
           </div>
@@ -5266,46 +5284,65 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         };
       }
 
-      // Función disparadora del modal de liquidación
-      const triggerLiquidationModal = (idsToPay) => {
-        const targetComms = allComms.filter(c => idsToPay.includes(c.id) && c.estado === 'pendiente');
+      // Función disparadora del modal de liquidación (Socio Pablo o Personal Gregory)
+      const triggerLiquidationModal = (idsToPay, beneficiary = 'pablo') => {
+        const isGregory = beneficiary === 'gregory';
+        const targetComms = allComms.filter(c => idsToPay.includes(c.id));
         if (!targetComms.length) {
-          return toast('No hay comisiones pendientes seleccionadas para liquidar.');
+          return toast('No hay comisiones seleccionadas para liquidar.');
         }
 
-        const sTotUsd = targetComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
-        const sTotBs = targetComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+        const sTotUsd = targetComms.reduce((a, c) => a + Number(isGregory ? (c.ganancia_gregory_usd || 0) : (c.ganancia_vendedor_usd || 0)), 0);
+        const sTotBs = targetComms.reduce((a, c) => a + Number(isGregory 
+          ? (c.ganancia_gregory_bs || (c.ganancia_gregory_usd * curRate) || 0)
+          : (c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0)), 0);
 
         $('#dlgBody').innerHTML = `
-          <h3>✅ Registrar Liquidación y Pago a Socio</h3>
+          <h3>${isGregory ? '💳 Liquidar Ganancia Personal de Gregory' : '✅ Registrar Liquidación y Pago a Socio (Pablo)'}</h3>
           <p class="mut" style="font-size:.84rem;margin:0 0 14px">
-            Se marcarán como pagadas las <b>${targetComms.length}</b> comisiones seleccionadas.
+            ${isGregory 
+              ? `Registrar pago de utilidades personales a cuenta bancaria de Gregory (${targetComms.length} ventas seleccionadas).`
+              : `Se marcarán como pagadas las comisiones de Pablo Gonzalez (${targetComms.length} ventas seleccionadas).`}
           </p>
           <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:14px">
             <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-              <span class="mut" style="font-size:.82rem">Socio Oficial:</span>
-              <b>${esc(pabloSocio.nombre)}</b>
+              <span class="mut" style="font-size:.82rem">Destinatario:</span>
+              <b>${isGregory ? '👑 Gregory Izquierdo (Cuenta Personal)' : esc(pabloSocio.nombre || 'Pablo Gonzalez')}</b>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-              <span class="mut" style="font-size:.82rem">Comisiones a Liquidar:</span>
-              <b style="color:#fde047">${targetComms.length} ventas seleccionadas</b>
+              <span class="mut" style="font-size:.82rem">Ventas Seleccionadas:</span>
+              <b style="color:${isGregory ? '#00f5a0' : '#fde047'}">${targetComms.length} ventas</b>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:8px">
               <span class="mut" style="font-size:.82rem">Total en Dólares ($):</span>
-              <b style="color:#fde047;font-size:1.15rem">$${sTotUsd.toFixed(2)} USD</b>
+              <b style="color:${isGregory ? '#00f5a0' : '#fde047'};font-size:1.15rem">$${sTotUsd.toFixed(2)} USD</b>
             </div>
             <div style="display:flex;justify-content:space-between">
               <span class="mut" style="font-size:.82rem">Total en Bolívares (Bs):</span>
               <b style="color:#00f5a0;font-size:1.15rem">Bs. ${sTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b>
             </div>
           </div>
-          <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Referencia de Pago / Transferencia:</label>
-          <input id="inpLiqRef" placeholder="Ej: Pago Móvil #928374 / Binance Pay ID" style="width:100%;margin-bottom:12px" required>
+          <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Método de Pago / Destino:</label>
+          <select id="selLiqMetodo" style="width:100%;margin-bottom:12px;padding:8px 10px;background:rgba(3,8,18,.8);border-radius:8px;border:1px solid rgba(255,255,255,.15);color:#fff">
+            ${isGregory ? `
+              <option value="Pago Móvil BNC Personal">Pago Móvil BNC Personal</option>
+              <option value="Transferencia Bancaria BNC">Transferencia Bancaria BNC</option>
+              <option value="Binance Pay USDT">Binance Pay USDT</option>
+              <option value="Efectivo / Caja">Efectivo / Caja</option>
+            ` : `
+              <option value="Pago Móvil">Pago Móvil Banco Venezuela / Banesco</option>
+              <option value="Binance Pay USDT">Binance Pay USDT</option>
+              <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+              <option value="Efectivo / Acordado">Efectivo / Acordado</option>
+            `}
+          </select>
+          <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Referencia de Pago / Comprobante:</label>
+          <input id="inpLiqRef" placeholder="Ej: Pago Móvil #928374 / Binance Pay ID / Transferencia" style="width:100%;margin-bottom:12px" required>
           <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Notas u Observaciones (opcional):</label>
-          <input id="inpLiqNotas" placeholder="Ej: Pago parcial / quincenal seleccionado" style="width:100%;margin-bottom:14px">
+          <input id="inpLiqNotas" placeholder="Ej: Pago quincenal de utilidades personales / Pago socio" style="width:100%;margin-bottom:14px">
           <div style="display:flex;gap:10px;justify-content:flex-end">
             <button class="g" onclick="dlg.close()">Cancelar</button>
-            <button id="btnConfirmLiquidation" style="background:linear-gradient(135deg,#00f5a0,#00d98b);color:#000;font-weight:800;border:none">
+            <button id="btnConfirmLiquidation" style="background:${isGregory ? 'linear-gradient(135deg,#00f5a0,#00d98b)' : 'linear-gradient(135deg,#ffb703,#fb8500)'};color:#000;font-weight:800;border:none">
               💾 Confirmar Liquidación Pagada
             </button>
           </div>
@@ -5316,53 +5353,84 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           const ref = $('#inpLiqRef').value.trim();
           if (!ref) return toast('Ingresa el número de referencia bancaria o comprobante.');
 
+          const metodo = $('#selLiqMetodo').value;
           const notas = $('#inpLiqNotas').value.trim();
           const btn = $('#btnConfirmLiquidation');
           btn.disabled = true;
           btn.textContent = '⏳ Procesando...';
 
-          // Actualizar las comisiones seleccionadas
+          const updateData = isGregory ? {
+            metodo_pago: metodo,
+            pagado_gregory_usd: sTotUsd,
+            pagado_gregory_bs: sTotBs,
+            referencia_pago: ref,
+            notas: notas || `Liquidado ganancia personal Gregory vía ${metodo}`
+          } : {
+            estado: 'liquidada',
+            liquidada_at: new Date().toISOString(),
+            metodo_pago: metodo,
+            pagado_usd: sTotUsd,
+            pagado_bs: sTotBs,
+            referencia_pago: ref,
+            notas: notas || `Liquidado a socio Pablo Gonzalez vía ${metodo}`
+          };
+
           const { error: updErr } = await sb.from('partner_commissions')
-            .update({
-              estado: 'liquidada',
-              liquidada_at: new Date().toISOString(),
-              referencia_pago: ref,
-              notas: notas || 'Liquidado por administrador'
-            })
+            .update(updateData)
             .in('id', targetComms.map(x => x.id));
 
           if (updErr) {
             btn.disabled = false;
             btn.textContent = '💾 Confirmar Liquidación Pagada';
-            return toast('Error al liquidar comisiones: ' + updErr.message);
+            return toast('Error al registrar liquidación: ' + updErr.message);
           }
 
-          toast(`Liquidación registrada con éxito. Se marcaron ${targetComms.length} comisiones como pagadas.`);
+          toast(`Liquidación registrada con éxito (${isGregory ? 'Ganancia Gregory' : 'Socio Pablo'}). Se actualizaron ${targetComms.length} comisiones.`);
           selectedIds.clear();
           dlg.close();
           EXTRA.liquidaciones(box);
         };
       };
 
-      // Botón Liquidar (del encabezado o barra de selección)
+      // Botón Liquidar a Gregory (Encabezado)
+      const bLiqGreg = $('#btnLiquidateGregory');
+      if (bLiqGreg) {
+        bLiqGreg.onclick = () => {
+          const idsToPay = selectedIds.size > 0 
+            ? Array.from(selectedIds) 
+            : filtered.map(c => c.id);
+          if (!idsToPay.length) return toast('No hay comisiones para liquidar a Gregory.');
+          triggerLiquidationModal(idsToPay, 'gregory');
+        };
+      }
+
+      // Botón Liquidar a Gregory (Barra rápida de selección)
+      const bQuickGreg = $('#btnQuickLiquidateGregory');
+      if (bQuickGreg) {
+        bQuickGreg.onclick = () => {
+          triggerLiquidationModal(Array.from(selectedIds), 'gregory');
+        };
+      }
+
+      // Botón Liquidar a Pablo (Encabezado)
       const bDo = $('#btnDoLiquidation');
       if (bDo) {
         bDo.onclick = () => {
           const idsToPay = selectedIds.size > 0 
             ? Array.from(selectedIds) 
             : filtered.filter(c => c.estado === 'pendiente').map(c => c.id);
-          
           if (!idsToPay.length) {
-            return toast('No hay comisiones pendientes para liquidar.');
+            return toast('No hay comisiones pendientes para liquidar a Pablo.');
           }
-          triggerLiquidationModal(idsToPay);
+          triggerLiquidationModal(idsToPay, 'pablo');
         };
       }
 
+      // Botón Liquidar a Pablo (Barra rápida de selección)
       const bQuick = $('#btnQuickLiquidateSelected');
       if (bQuick) {
         bQuick.onclick = () => {
-          triggerLiquidationModal(Array.from(selectedIds));
+          triggerLiquidationModal(Array.from(selectedIds), 'pablo');
         };
       }
 

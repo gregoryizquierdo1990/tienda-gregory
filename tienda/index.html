@@ -962,6 +962,16 @@ async function onSession(session){
   $('#bRegister').classList.toggle('hide',!!S.user);
   $('#bOut').classList.toggle('hide',!S.user);
   $('#bPortal').classList.toggle('hide',!S.user);
+  if(S.isAdmin) {
+    $('#bPortal').textContent = '⚙️ Panel Admin';
+    $('#bPortal').title = 'Panel de Administración Central';
+  } else if(S.me?.es_revendedor) {
+    $('#bPortal').textContent = '💼 Mi Portal Revendedor';
+    $('#bPortal').title = 'Portal de Revendedor Oficial';
+  } else {
+    $('#bPortal').textContent = 'Mi portal';
+    $('#bPortal').title = 'Mi portal de cliente';
+  }
   // El boton Admin siempre permanece visible y accesible para el administrador
   $('#bAdmin').classList.remove('hide');
   $('#bSnd').classList.toggle('hide',!S.isAdmin); updSnd(); badge(); checkVenc();
@@ -985,7 +995,15 @@ document.addEventListener('visibilitychange', async () => {
 });
 $('#cur').onchange = e => { S.cur=e.target.value; if(S.view==='home') renderGrid(); };
 $('#bHome').onclick = home;
-$('#bPortal').onclick = portal;
+$('#bPortal').onclick = () => {
+  if(S.isAdmin){
+    if(facetDlg && facetDlg.open) facetDlg.close();
+    history.replaceState(null, '', location.pathname + '#admin');
+    admin('finanzas');
+  } else {
+    portal();
+  }
+};
 $('#bAdmin').onclick = async () => {
   if(!S.isAdmin) await ensureAdminSession();
   if(S.isAdmin) {
@@ -3002,7 +3020,10 @@ function loginDlg(mode = 'login'){
       } catch(e){}
 
       facetDlg.close();
-      if(S.me?.es_revendedor){
+      if(S.isAdmin){
+        history.replaceState(null, '', location.pathname + '#admin');
+        admin('finanzas');
+      } else if(S.me?.es_revendedor){
         portal();
       } else {
         home();
@@ -3208,6 +3229,12 @@ function adminLoginDlg(){
 // ---------- PORTAL CLIENTE ----------
 async function portal(){
   if(!S.user) return loginDlg('login');
+  if(S.isAdmin){
+    // Gregory es el Administrador Master de la plataforma.
+    // Nunca debe ser tratado como cliente común ni ver pantallas de clientes o incidencias personales.
+    history.replaceState(null, '', location.pathname + '#admin');
+    return admin('finanzas');
+  }
   if(S.me?.debe_cambiar_password === true && !S.isAdmin) return forceChangePasswordDlg();
   document.body.classList.remove('is-admin');
   S.view='portal';
@@ -3216,6 +3243,7 @@ async function portal(){
   try {
     const q = async fn => { try { return await fn(); } catch(e) { return { data: null, error: e }; } };
 
+    const isReseller = S.me?.es_revendedor === true;
     const [o,i,l,inc,cr,inst,zcard,mcOps,resellerClients,resellerCommissions] = await Promise.all([
       q(() => sb.from('orders').select('*,products(nombre)').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
       q(() => sb.from('invoices').select('*').eq('customer_id',S.user.id).order('emitida',{ascending:false})),
@@ -3225,13 +3253,12 @@ async function portal(){
       q(() => sb.from('installments').select('*, orders(products(nombre))').eq('customer_id',S.user.id).order('fecha_vencimiento',{ascending:true})),
       q(() => sb.from('my_zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle().then(r => r.error ? sb.from('zeny_cards').select('*').eq('customer_id',S.user.id).maybeSingle() : r)),
       q(() => sb.from('mesa_cambio_operaciones').select('*').eq('customer_id',S.user.id).order('created_at',{ascending:false})),
-      q(() => (S.me?.es_revendedor || S.isAdmin) ? sb.rpc('my_reseller_clients') : Promise.resolve({ data: [] })),
-      q(() => (S.me?.es_revendedor || S.isAdmin) ? sb.from('partner_commissions').select('*').eq('vendedor_id', S.user.id).order('created_at',{ascending:false}) : Promise.resolve({ data: [] }))
+      q(() => isReseller ? sb.rpc('my_reseller_clients') : Promise.resolve({ data: [] })),
+      q(() => isReseller ? sb.from('partner_commissions').select('*').eq('vendedor_id', S.user.id).order('created_at',{ascending:false}) : Promise.resolve({ data: [] }))
     ]);
 
     const cardData = zcard?.data || null;
-    const userCode = S.me?.codigo_identificacion || (S.me?.es_revendedor ? 'RVD:1001' : 'CLT:001');
-    const isReseller = S.me?.es_revendedor === true;
+    const userCode = S.me?.codigo_identificacion || (isReseller ? 'RVD:1001' : 'CLT:001');
     const isFranchise = !!S.franchise || S.me?.es_franquicia === true;
     const nivelesCfg = getNivelesConfig();
     const curLevelKey = isFranchise ? 'franquiciado' : (isReseller ? 'revendedor' : 'cliente');
@@ -3251,7 +3278,7 @@ async function portal(){
     const myComms = resellerCommissions?.data || [];
     const totMyPendUsd = myComms.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
     const totMyPendBs = myComms.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_bs || 0), 0);
-    const showResellerBlock = isReseller || rcList.length > 0 || myComms.length > 0;
+    const showResellerBlock = isReseller;
     let resellerBlockHtml = '';
     if(showResellerBlock){
       resellerBlockHtml = `
@@ -3259,15 +3286,15 @@ async function portal(){
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <div>
             <div style="display:flex;align-items:center;gap:8px">
-              <h3 style="margin:0;color:#ffb703">${S.isAdmin ? '🛒 Clientes Directo Tienda (Autogestión)' : '👥 Mis Clientes & Perfiles Asignados'}</h3>
+              <h3 style="margin:0;color:#ffb703">👥 Mis Clientes & Perfiles Asignados</h3>
               <span class="pill" style="font-size:.74rem;background:rgba(255,183,3,.15);color:#ffb703;border-color:rgba(255,183,3,.3)">${rcList.length} ${rcList.length === 1 ? 'perfil' : 'perfiles'}</span>
             </div>
             <p class="mut" style="font-size:.82rem;margin:4px 0 0">
-              ${S.isAdmin ? 'Perfiles y suscripciones de clientes autogestionados directamente en la tienda central (sin revendedor intermediario).' : 'Datos de acceso, claves y fechas de vencimiento de tus clientes para soporte y reenvío directo.'}
+              Datos de acceso, claves y fechas de vencimiento de tus clientes para soporte y reenvío directo.
             </p>
           </div>
           <div style="font-size:.78rem;color:#fde047;background:rgba(253,224,71,.08);padding:4px 10px;border-radius:8px;border:1px solid rgba(253,224,71,.2)">
-            ${S.isAdmin ? '👑 Administración Central' : '⭐ Aliado Comercial Autorizado'}
+            ⭐ Aliado Comercial Autorizado
           </div>
         </div>
         ${rcList.length ? `
