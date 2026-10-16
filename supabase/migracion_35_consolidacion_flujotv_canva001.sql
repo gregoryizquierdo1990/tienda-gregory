@@ -21,11 +21,11 @@ begin
     raise exception 'No se encontró la cuenta madre FLUJOTV Canva001';
   end if;
 
-  -- 2. Asegurar que Canva001 tenga sus datos actualizados (Alexander Ojeda, vence 2026-11-18)
+  -- 2. Asegurar que Canva001 tenga sus datos actualizados (Alexander Ojeda, vence 2026-11-18, capacidad 3 perfiles)
   update mother_accounts
   set proveedor = 'ALEXANDER OJEDA',
       vence = '2026-11-18'::date,
-      max_perfiles = 5,
+      max_perfiles = 3,
       activa = true
   where id = v_canva001_id;
 
