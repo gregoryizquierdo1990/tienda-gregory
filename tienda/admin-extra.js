@@ -5003,12 +5003,16 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     const curRate = Number(exRate?.bs_por_usd || 50.00);
     // En este módulo se registran todas las ventas del negocio (directas, por revendedores y Binance)
     const allComms = coms || [];
+    let filterPeriodo = 'lanzamiento'; // 'lanzamiento' (>= 2026-10-16) | 'todos'
     let filterConcepto = 'todos';
     let filterStatus = 'pendiente';
     const selectedIds = new Set();
 
     const render = () => {
       let filtered = allComms;
+      if (filterPeriodo === 'lanzamiento') {
+        filtered = filtered.filter(c => (c.created_at || '').slice(0, 10) >= '2026-10-16');
+      }
       if (filterStatus !== 'todos') filtered = filtered.filter(c => c.estado === filterStatus);
       if (filterConcepto === 'autogestion_bs') {
         filtered = filtered.filter(c => c.tipo_venta === 'autogestion_bs');
@@ -5031,7 +5035,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const selTotBs = selComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
 
       box.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
           <div>
             <h3 style="margin:0;display:flex;align-items:center;gap:8px">
               <span>💼 Liquidación de Ganancias & Socios</span>
@@ -5049,6 +5053,15 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               ${selectedIds.size > 0 ? `✅ Liquidar Seleccionadas (${selectedIds.size})` : '✅ Liquidar Comisiones'}
             </button>
           </div>
+        </div>
+
+        <!-- Banner de Inicio Oficial de Operaciones en Plataforma -->
+        <div style="background:rgba(0,245,160,.06);border:1px solid rgba(0,245,160,.25);padding:10px 14px;border-radius:10px;margin-bottom:16px;font-size:.82rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:1.1rem">🚀</span>
+            <span><b>Puesta en Marcha Oficial:</b> El conteo de comisiones en la plataforma inicia el <b>16 de Octubre de 2026</b> con las transacciones reales. Todo lo anterior fue cancelado y saldado externamente.</span>
+          </div>
+          <span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.15);color:#00f5a0;border-color:rgba(0,245,160,.3)">Corte Oficial 16/10/2026</span>
         </div>
 
         <!-- Tarjetas de Métricas Globales con Reserva Estratégica (10%) -->
@@ -5112,6 +5125,12 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               <option value="autogestion_bs" ${filterConcepto === 'autogestion_bs' ? 'selected' : ''}>🛒 Directo Tienda / Autogestión</option>
               <option value="otro_revendedor" ${filterConcepto === 'otro_revendedor' ? 'selected' : ''}>🤝 Por Concepto de Revendedores</option>
               <option value="binance_usdt" ${filterConcepto === 'binance_usdt' ? 'selected' : ''}>🟡 Ventas Binance USDT</option>
+            </select>
+
+            <label class="mut" style="font-size:.8rem;margin-left:8px">Período:</label>
+            <select id="selFilterPeriodo" style="padding:6px 10px;font-size:.82rem;background:rgba(3,8,18,.8);border-radius:8px;border:1px solid rgba(0,245,160,.35);color:#00f5a0;font-weight:700">
+              <option value="lanzamiento" ${filterPeriodo === 'lanzamiento' ? 'selected' : ''}>🚀 Desde Puesta en Marcha (16/10/2026)</option>
+              <option value="todos" ${filterPeriodo === 'todos' ? 'selected' : ''}>📜 Todo el Historial (Pre-lanzamiento)</option>
             </select>
 
             <label class="mut" style="font-size:.8rem;margin-left:8px">Estado:</label>
@@ -5206,6 +5225,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       `;
 
       // Eventos de Filtro
+      const pSel = $('#selFilterPeriodo');
+      if (pSel) pSel.onchange = (e) => { filterPeriodo = e.target.value; render(); };
       const cSel = $('#selFilterConcepto');
       if (cSel) cSel.onchange = (e) => { filterConcepto = e.target.value; render(); };
       const stSel = $('#selFilterStatus');
