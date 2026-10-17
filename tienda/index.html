@@ -5982,6 +5982,10 @@ async function admin(t){
     const curPin = b.dataset.pin || '';
     const mail = b.dataset.mail || '';
 
+    const isEncPin = typeof curPin === 'string' && curPin.startsWith('enc:');
+    const pinInitial = isEncPin ? '' : curPin;
+    const pinDisplay = isEncPin ? '🔒 Protegido / Cifrado (Asignar uno nuevo)' : (curPin ? esc(curPin) : 'Sin PIN');
+
     $('#dlgBody').innerHTML = `
       <h3>🔓 Liberar Perfil para la Venta</h3>
       <p class="mut" style="font-size:.85rem;margin:0 0 12px">
@@ -5989,15 +5993,15 @@ async function admin(t){
       </p>
       <div style="background:rgba(255,255,255,.04);border:1.5px solid rgba(0,245,160,.3);border-radius:12px;padding:12px;margin-bottom:14px;font-size:.82rem">
         <div>📧 Cuenta Madre: <b>${esc(mail || '—')}</b></div>
-        <div style="margin-top:4px">🔒 PIN actual en sistema: <code style="color:#00f5a0">${esc(curPin || 'Sin PIN')}</code></div>
+        <div style="margin-top:4px">🔒 PIN actual en sistema: <code style="color:#00f5a0">${pinDisplay}</code></div>
         <div class="mut" style="font-size:.74rem;margin-top:8px;line-height:1.4">
-          ⚠️ <b>Paso Importante:</b> Recuerda cambiar el PIN en la app de streaming (Netflix, Disney, etc.) para que el cliente que venció ya no pueda usarlo.
+          ⚠️ <b>Paso Importante:</b> Recuerda cambiar el PIN en la app de streaming (${esc(srv)}) para que el cliente que venció ya no pueda usarlo.
         </div>
       </div>
-      <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nuevo PIN (o confirmar el actual):</label>
-      <input id="inputReleaseNewPin" value="${esc(curPin)}" placeholder="Ej: 1234" style="width:100%;margin-bottom:10px">
-      <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">Nombre del Perfil en Inventario:</label>
-      <input id="inputReleaseNewNom" value="${esc(nom)}" placeholder="Ej: Perfil 1" style="width:100%;margin-bottom:14px">
+      <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px;font-weight:700">1. Nombre del Perfil en Inventario (Catálogo):</label>
+      <input id="inputReleaseNewNom" value="${esc(nom)}" placeholder="Ej: Perfil 1" style="width:100%;margin-bottom:12px">
+      <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px;font-weight:700">2. Nuevo PIN para la Pantalla (4 dígitos):</label>
+      <input id="inputReleaseNewPin" value="${esc(pinInitial)}" placeholder="Ej: 0102" style="width:100%;margin-bottom:14px">
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="g" onclick="dlg.close()">Cancelar</button>
         <button id="btnConfirmReleaseProfile" style="background:var(--grad);color:#03121c;font-weight:800">
@@ -6011,34 +6015,76 @@ async function admin(t){
       const btn = $('#btnConfirmReleaseProfile');
       btn.disabled = true;
       btn.textContent = '⏳ Liberando...';
-      const newPin = $('#inputReleaseNewPin').value.trim();
-      const newNom = $('#inputReleaseNewNom').value.trim();
+      let newPin = $('#inputReleaseNewPin').value.trim();
+      let newNom = $('#inputReleaseNewNom').value.trim();
+
+      // Detección y auto-corrección si se invirtieron los campos accidentalmente
+      if (/[a-zA-Z]/.test(newPin) && /^\d{2,6}$/.test(newNom)) {
+        const temp = newPin;
+        newPin = newNom;
+        newNom = temp;
+      }
+      if (newPin.startsWith('enc:')) {
+        newPin = '';
+      }
 
       try {
-        const { data, error } = await sb.rpc('liberar_perfil_inventario', {
-          p_profile_id: profId,
-          p_nuevo_pin: newPin || null,
-          p_nuevo_nombre: newNom || null
-        });
-        if(error){
-          const { error: updErr } = await sb.from('profiles_inventory').update({
+        let rpcOk = false;
+        try {
+          const rpcP = sb.rpc('liberar_perfil_inventario', {
+            p_profile_id: profId,
+            p_nuevo_pin: newPin || null,
+            p_nuevo_nombre: newNom || null
+          });
+          const toP = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 4000));
+          const res = await Promise.race([rpcP, toP]);
+          if (!res?.error) rpcOk = true;
+        } catch(eRpc) {
+          console.warn('RPC liberar_perfil_inventario tardío o no disponible, usando fallback directo:', eRpc);
+        }
+
+        if (!rpcOk) {
+          const updData = {
             estado: 'disponible',
             inicia: null,
             vence: null,
             assigned_customer_id: null,
-            ...(newPin ? { pin: newPin } : {}),
-            ...(newNom ? { nombre_perfil: newNom } : {})
-          }).eq('id', profId);
-          if(updErr) throw updErr;
-          await sb.from('orders').update({ estado: 'vencido' }).eq('profile_id', profId).in('estado', ['entregado', 'pagado']).catch(()=>{});
+            no_renueva: false,
+            no_renueva_reportado_at: null,
+            no_renueva_motivo: null,
+            no_renueva_por: null
+          };
+          if (newPin) updData.pin = newPin;
+          if (newNom) updData.nombre_perfil = newNom;
+
+          const { error: updErr } = await sb.from('profiles_inventory')
+            .update(updData)
+            .eq('id', profId);
+          if (updErr) throw updErr;
+
+          try {
+            await sb.from('orders')
+              .update({ estado: 'vencido', no_renueva: false })
+              .eq('profile_id', profId)
+              .in('estado', ['entregado', 'pagado']);
+          } catch(eOrd) {
+            console.warn('Orders cleanup warning:', eOrd);
+          }
         }
+
         dlg.close();
         toast(`✅ Perfil "${newNom || nom}" liberado con éxito. Ya está disponible en la tienda.`);
-        admin(t);
+        setTimeout(() => {
+          try {
+            if (typeof admin === 'function') admin(t);
+          } catch(eAdm) {
+            console.warn('Error recargando admin:', eAdm);
+          }
+        }, 150);
       } catch(err){
         btn.disabled = false;
         btn.textContent = '🔓 Liberar y Poner en Venta';
-        alert('Error al liberar perfil: ' + err.message);
+        alert('Error al liberar perfil: ' + (err.message || err));
       }
     };
   });
