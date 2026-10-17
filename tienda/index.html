@@ -1254,25 +1254,51 @@ async function openRenewalModal(opts = {}) {
             await sb.from('profiles_inventory').update({
               vence: nextVenceStr,
               estado: 'vendido',
-              no_renueva: false
+              no_renueva: false,
+              no_renueva_reportado_at: null,
+              no_renueva_motivo: null
             }).eq('id', profileId);
+            // Marcar ciclo anterior como vencido para no violar el índice único de pedidos activos
             await sb.from('orders').update({
-              vence: nextVenceStr,
-              proximo_pago: nextVenceStr
-            }).eq('profile_id', profileId);
+              estado: 'vencido',
+              no_renueva: false
+            }).eq('profile_id', profileId).in('estado', ['entregado', 'pagado']);
           }
-          await sb.from('orders').insert({
-            customer_id: S.user.id,
+          const { data: newOrdRow } = await sb.from('orders').insert({
+            customer_id: curProfRec?.assigned_customer_id || S.user.id,
             vendedor_id: S.user.id,
             profile_id: profileId,
+            product_id: curProfRec?.product_id || null,
             total_usd: priceUsd,
             tasa_bs: bcvRate,
             total_bs: priceBs,
             estado: 'entregado',
-            referencia: `[RENOVACIÓN CRÉDITO] Cobrar antes de 7 días ($${priceUsd} USD)`,
+            referencia: `[RENOVACIÓN CRÉDITO REVENDEDOR] ${nom} - ${srv} ($${priceUsd} USD)`,
             vence: nextVenceStr,
-            proximo_pago: nextVenceStr
-          });
+            proximo_pago: nextVenceStr,
+            pagado_at: new Date().toISOString(),
+            entregado_at: new Date().toISOString()
+          }).select('id').maybeSingle();
+
+          // Registrar la cuota por pagar a 7 días en installments para que compute la línea de crédito
+          const fVenceCred = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+          try {
+            await sb.from('installments').insert({
+              order_id: newOrdRow?.id || null,
+              customer_id: curProfRec?.assigned_customer_id || S.user.id,
+              reseller_id: S.user.id,
+              numero_cuota: 1,
+              total_cuotas: 1,
+              monto_usd: priceUsd,
+              monto_bs: Number((priceUsd * bcvRate).toFixed(2)),
+              tasa_bs: bcvRate,
+              fecha_vencimiento: fVenceCred,
+              estado: 'pendiente',
+              referencia: `[CRÉDITO REVENDEDOR] Renovación ${nom} - ${srv} ($${priceUsd} USD)`
+            });
+          } catch(eInst) {
+            console.warn('Installment fallback error:', eInst);
+          }
           result = { success: true, estado: 'entregado', nuevo_vencimiento: nextVenceStr };
         } else {
           await sb.from('orders').insert({
@@ -5649,7 +5675,7 @@ const TABLES = {
   bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
   exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','monto_bs','notas'], purchases:['fecha','proveedor','plataforma','mother_id','es_credito','dias_credito','fecha_limite_pago','estado_pago','monto_usdt','monto_usd','monto_bs','notas'],
   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
-const SEL={orders:'*,customers!customer_id(nombre,email),products(nombre,tipo)',installments:'*,customers(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
+const SEL={orders:'*,customers!customer_id(nombre,email,telefono),products(nombre,tipo)',installments:'*,customers(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
@@ -6651,8 +6677,8 @@ async function admin(t){
       }
     };};
   if($('#add')) $('#add').onclick=()=>{
-    if(curTab==='refunds'){
-      return refundDlg(null, 0, ()=>admin(curTab));
+    if(t==='refunds'){
+      return refundDlg(null, 0, ()=>admin(t));
     }
     form(null);
   };

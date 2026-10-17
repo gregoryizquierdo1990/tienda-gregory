@@ -931,6 +931,449 @@ const EXTRA = {
     $('#n3').onclick = e => run(e.target, async () => { const r = await api('/api/notify-test', {}); return `Prueba enviada. Telegram: ${r.telegram ? 'sí' : 'no'} · Push: ${r.push} dispositivo(s).` + (r.errores?.length ? '\n' + r.errores.join(' | ') : ''); });
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await sb.from('push_subscriptions').delete().eq('id', b.dataset.del); EXTRA.notificaciones(box); });
   },
+  async orders(box) {
+    box.innerHTML = `<div style="text-align:center;padding:40px"><span style="font-size:2rem">⏳</span><p class="mut">Cargando pedidos de clientes...</p></div>`;
+
+    let ordList = [];
+    let resellers = [];
+    try {
+      const [resOrd, resResellers] = await Promise.all([
+        sb.from('orders')
+          .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion), products(id,nombre,tipo), profiles_inventory(id,nombre_perfil,pin,mother_id,mother_accounts(plataforma,correo))')
+          .order('created_at', { ascending: false })
+          .limit(300),
+        sb.from('customers')
+          .select('id,nombre,email,codigo_identificacion')
+          .eq('es_revendedor', true)
+      ]);
+      ordList = resOrd?.data;
+      if (!ordList) {
+        const { data: rawOrds } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(300);
+        ordList = rawOrds || [];
+      }
+      resellers = resResellers?.data || [];
+    } catch(errFetch) {
+      console.warn('Error fetching orders:', errFetch);
+      try {
+        const { data: rawOrds } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(300);
+        ordList = rawOrds || [];
+      } catch(e2) {
+        return box.innerHTML = `<p class="mut">Error al cargar pedidos: ${esc(errFetch.message)}</p>`;
+      }
+    }
+
+    const sellersMap = {};
+    resellers.forEach(r => {
+      sellersMap[r.id] = r.nombre || r.codigo_identificacion || r.email;
+    });
+
+    box._orderFilter = box._orderFilter || 'todos';
+    box._searchQuery = box._searchQuery || '';
+
+    const filterVal = box._orderFilter;
+    const searchVal = box._searchQuery.toLowerCase().trim();
+
+    const totalOrders = ordList.length;
+    const pendCount = ordList.filter(o => o.estado === 'pendiente').length;
+    const credCount = ordList.filter(o => o.estado === 'entregado' && (o.referencia && o.referencia.toLowerCase().includes('crédito'))).length;
+    const deliveredCount = ordList.filter(o => o.estado === 'entregado').length;
+    const totalUsdVol = ordList.filter(o => ['entregado', 'pagado'].includes(o.estado)).reduce((a, o) => a + Number(o.total_usd || 0), 0);
+
+    let filtered = ordList.filter(o => {
+      if (filterVal === 'pendientes') return o.estado === 'pendiente';
+      if (filterVal === 'credito') return (o.referencia && o.referencia.toLowerCase().includes('crédito'));
+      if (filterVal === 'entregados') return o.estado === 'entregado';
+      if (filterVal === 'rechazados') return ['rechazado', 'cancelado', 'vencido'].includes(o.estado);
+      return true;
+    });
+
+    if (searchVal) {
+      filtered = filtered.filter(o => {
+        const cNom = o.customers?.nombre || '';
+        const cEmail = o.customers?.email || '';
+        const cTel = o.customers?.telefono || '';
+        const prod = o.products?.nombre || '';
+        const ref = o.referencia || '';
+        const id = String(o.id || '');
+        const seller = sellersMap[o.vendedor_id] || '';
+        const text = `${cNom} ${cEmail} ${cTel} ${prod} ${ref} ${id} ${seller}`.toLowerCase();
+        return text.includes(searchVal);
+      });
+    }
+
+    const render = () => {
+      EXTRA.orders(box);
+    };
+
+    box.innerHTML = `
+      <!-- Métricas Superiores -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:16px">
+        <div class="card" style="background:rgba(234,179,8,.08);border:1.5px solid rgba(234,179,8,.35)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="mut" style="font-size:.76rem">🟡 Pendientes de Conciliación</span>
+            <span style="font-size:1.4rem">🛒</span>
+          </div>
+          <div style="font-size:1.7rem;font-weight:900;color:#fde047;margin:4px 0">${pendCount}</div>
+          <span class="mut" style="font-size:.72rem">${pendCount ? 'Requieren entrega / revisión' : 'Todo conciliado al día'}</span>
+        </div>
+
+        <div class="card" style="background:rgba(255,183,3,.08);border:1.5px solid rgba(255,183,3,.35)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="mut" style="font-size:.76rem">💳 A Crédito / Revendedores</span>
+            <span style="font-size:1.4rem">🤝</span>
+          </div>
+          <div style="font-size:1.7rem;font-weight:900;color:#ffb703;margin:4px 0">${credCount}</div>
+          <span class="mut" style="font-size:.72rem">Líneas de crédito y plazos activos</span>
+        </div>
+
+        <div class="card" style="background:rgba(0,245,160,.08);border:1.5px solid rgba(0,245,160,.35)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="mut" style="font-size:.76rem">🟢 Pedidos Entregados</span>
+            <span style="font-size:1.4rem">✅</span>
+          </div>
+          <div style="font-size:1.7rem;font-weight:900;color:#00f5a0;margin:4px 0">${deliveredCount}</div>
+          <span class="mut" style="font-size:.72rem">Activos en plataforma</span>
+        </div>
+
+        <div class="card" style="background:rgba(56,189,248,.08);border:1.5px solid rgba(56,189,248,.35)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="mut" style="font-size:.76rem">💰 Total Facturado (Ventas)</span>
+            <span style="font-size:1.4rem">💵</span>
+          </div>
+          <div style="font-size:1.7rem;font-weight:900;color:#38bdf8;margin:4px 0">$${totalUsdVol.toFixed(2)} USD</div>
+          <span class="mut" style="font-size:.72rem">${totalOrders} transacciones totales</span>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros y Búsqueda -->
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="g btn-order-filter ${filterVal==='todos'?'active':''}" data-f="todos" style="padding:6px 12px;font-size:.78rem;font-weight:700;${filterVal==='todos'?'background:rgba(255,255,255,.15);border-color:#fff;color:#fff':''}">
+            📋 Todos (${totalOrders})
+          </button>
+          <button class="g btn-order-filter ${filterVal==='pendientes'?'active':''}" data-f="pendientes" style="padding:6px 12px;font-size:.78rem;font-weight:700;${filterVal==='pendientes'?'background:rgba(234,179,8,.2);border-color:#fde047;color:#fde047':'color:#fde047'}">
+            🟡 Pendientes (${pendCount})
+          </button>
+          <button class="g btn-order-filter ${filterVal==='credito'?'active':''}" data-f="credito" style="padding:6px 12px;font-size:.78rem;font-weight:700;${filterVal==='credito'?'background:rgba(255,183,3,.2);border-color:#ffb703;color:#ffb703':'color:#ffb703'}">
+            💳 A Crédito (${credCount})
+          </button>
+          <button class="g btn-order-filter ${filterVal==='entregados'?'active':''}" data-f="entregados" style="padding:6px 12px;font-size:.78rem;font-weight:700;${filterVal==='entregados'?'background:rgba(0,245,160,.2);border-color:#00f5a0;color:#00f5a0':'color:#00f5a0'}">
+            🟢 Entregados (${deliveredCount})
+          </button>
+          <button class="g btn-order-filter ${filterVal==='rechazados'?'active':''}" data-f="rechazados" style="padding:6px 12px;font-size:.78rem;font-weight:700;${filterVal==='rechazados'?'background:rgba(239,68,68,.2);border-color:#f87171;color:#f87171':'color:#f87171'}">
+            🔴 Rechazados / Vencidos
+          </button>
+        </div>
+
+        <div style="flex:1;min-width:240px;max-width:380px">
+          <input id="inSearchOrders" value="${esc(box._searchQuery)}" placeholder="🔍 Buscar cliente, ref, servicio o ID..." style="width:100%;font-size:.82rem;padding:7px 12px;border-radius:10px">
+        </div>
+      </div>
+
+      <!-- Tabla de Pedidos -->
+      ${filtered.length === 0 ? `
+        <div class="card" style="text-align:center;padding:36px;border:1.5px dashed rgba(255,255,255,.15);border-radius:14px">
+          <div style="font-size:2.5rem;margin-bottom:8px">📦</div>
+          <h4 style="margin:0 0 6px">No se encontraron pedidos con este filtro</h4>
+          <p class="mut" style="font-size:.82rem;margin:0">Prueba cambiando la pestaña de filtro o limpiando el buscador.</p>
+        </div>
+      ` : `
+        <div class="wrap">
+          <table style="width:100%;font-size:.82rem">
+            <thead>
+              <tr>
+                <th style="min-width:90px">Pedido</th>
+                <th style="min-width:160px">Cliente</th>
+                <th style="min-width:130px">Servicio / Producto</th>
+                <th style="min-width:110px">Total</th>
+                <th style="min-width:160px">Pago / Ref</th>
+                <th style="min-width:100px">Estado</th>
+                <th style="min-width:140px">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.map(o => {
+                const cNom = o.customers?.nombre || o.customers?.email || 'Cliente';
+                const cEmail = o.customers?.email || '';
+                const cTel = o.customers?.telefono || '';
+                const cleanPhone = cTel.replace(/\D/g, '');
+                const waTarget = cleanPhone.startsWith('58') ? cleanPhone : (cleanPhone ? '58' + cleanPhone.replace(/^0+/, '') : '');
+                const prodName = o.products?.nombre || 'Servicio Digital';
+                const profName = o.profiles_inventory?.nombre_perfil || '';
+                const profPin = o.profiles_inventory?.pin || '';
+                const isPinEnc = profPin && profPin.startsWith('enc:');
+                const sellerNom = sellersMap[o.vendedor_id];
+                const isCredit = o.referencia && o.referencia.toLowerCase().includes('crédito');
+                const createdStr = o.created_at ? new Date(o.created_at).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+                const hasVoucher = !!o.comprobante_url;
+
+                let statusBadge = '';
+                if (o.estado === 'pendiente') {
+                  statusBadge = '<span class="pill" style="background:rgba(234,179,8,.18);color:#fde047;border-color:rgba(234,179,8,.4);font-weight:800">🟡 Pendiente</span>';
+                } else if (isCredit) {
+                  statusBadge = '<span class="pill" style="background:rgba(255,183,3,.18);color:#ffb703;border-color:rgba(255,183,3,.4);font-weight:800">💳 A Crédito</span>';
+                } else if (o.estado === 'entregado') {
+                  statusBadge = '<span class="pill" style="background:rgba(0,245,160,.18);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:800">🟢 Entregado</span>';
+                } else if (o.estado === 'vencido') {
+                  statusBadge = '<span class="pill" style="background:rgba(148,163,184,.15);color:#94a3b8;border-color:rgba(148,163,184,.3)">⚪ Vencido</span>';
+                } else {
+                  statusBadge = `<span class="pill" style="background:rgba(239,68,68,.18);color:#f87171;border-color:rgba(239,68,68,.4)">🔴 ${esc(o.estado)}</span>`;
+                }
+
+                let gamingHtml = '';
+                if (o.datos_recarga && (o.datos_recarga.player_id || o.datos_recarga.telefono)) {
+                  const d = o.datos_recarga;
+                  const gText = d.player_id ? `🎮 ID: ${d.player_id}${d.servidor ? ' ('+d.servidor+')' : ''}` : `📱 ${d.operadora||''}: ${d.telefono||''}`;
+                  gamingHtml = `<div style="margin-top:3px;font-size:.72rem;color:#fde047"><b>${esc(gText)}</b></div>`;
+                }
+
+                return `
+                  <tr style="${o.estado === 'pendiente' ? 'background:rgba(234,179,8,.04)' : ''}">
+                    <td>
+                      <b>#${esc(String(o.id || '').slice(0, 8))}</b>
+                      <div class="mut" style="font-size:.7rem;margin-top:2px">${createdStr}</div>
+                      ${sellerNom ? `<div style="margin-top:3px"><span class="pill" style="font-size:.65rem;background:rgba(255,183,3,.15);color:#ffb703;border-color:rgba(255,183,3,.3)">🤝 Rev: ${esc(sellerNom)}</span></div>` : ''}
+                    </td>
+
+                    <td>
+                      <b>${esc(cNom)}</b>
+                      ${cTel ? `
+                        <div style="margin-top:2px;display:flex;align-items:center;gap:4px">
+                          <a href="https://wa.me/${waTarget}" target="_blank" rel="noopener noreferrer" style="font-size:.74rem;color:#25d366;text-decoration:none;font-weight:700">
+                            📲 ${esc(cTel)}
+                          </a>
+                        </div>
+                      ` : ''}
+                      ${cEmail ? `<div class="mut" style="font-size:.7rem">${esc(cEmail)}</div>` : ''}
+                    </td>
+
+                    <td>
+                      <b style="color:var(--c)">${esc(prodName)}</b>
+                      ${profName ? `<div style="font-size:.72rem;color:#38bdf8;margin-top:2px">👤 ${esc(profName)} ${profPin ? (isPinEnc ? '🔒 PIN Cifrado' : `· PIN: ${esc(profPin)}`) : ''}</div>` : ''}
+                      ${gamingHtml}
+                    </td>
+
+                    <td>
+                      <b style="color:#00f5a0;font-size:.95rem">$${Number(o.total_usd || 0).toFixed(2)} USD</b>
+                      ${o.total_bs ? `<div class="mut" style="font-size:.72rem">Bs. ${Number(o.total_bs).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>` : ''}
+                      ${o.zeny_aplicado > 0 ? `<div style="font-size:.68rem;color:#38bdf8">ZP -$${Number(o.zeny_aplicado).toFixed(2)}</div>` : ''}
+                    </td>
+
+                    <td>
+                      <div style="font-size:.75rem;line-height:1.3;max-width:200px;word-break:break-word">
+                        ${esc(o.referencia || '—')}
+                      </div>
+                      ${hasVoucher ? `
+                        <button class="g btn-view-voucher" data-img="${esc(o.comprobante_url)}" style="margin-top:4px;padding:3px 7px;font-size:.68rem;color:#38bdf8;border-color:rgba(56,189,248,.3)">
+                          🖼️ Ver Comprobante
+                        </button>
+                      ` : ''}
+                    </td>
+
+                    <td>
+                      ${statusBadge}
+                      ${o.vence ? `<div class="mut" style="font-size:.68rem;margin-top:3px">Vence: ${esc(o.vence)}</div>` : ''}
+                    </td>
+
+                    <td>
+                      <div class="row" style="gap:4px;flex-wrap:wrap">
+                        ${['pendiente', 'vencido'].includes(o.estado) ? `
+                          <button class="g btn-order-deliver" data-ord="${o.id}" data-tot="${o.total_usd}" data-nom="${esc(cNom)}" style="padding:4px 8px;font-size:.73rem;background:rgba(0,245,160,.15);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:800" title="Conciliar y entregar credenciales">
+                            ✅ Entregar
+                          </button>
+                          <button class="g btn-order-credit" data-ord="${o.id}" data-tot="${o.total_usd}" data-nom="${esc(cNom)}" data-tel="${esc(cTel)}" data-prod="${esc(prodName)}" style="padding:4px 8px;font-size:.73rem;background:rgba(255,183,3,.15);color:#ffb703;border-color:rgba(255,183,3,.35);font-weight:700" title="Entregar a Crédito a cliente o revendedor">
+                            💳 Crédito
+                          </button>
+                          <button class="g btn-order-reject" data-ord="${o.id}" style="padding:4px 7px;font-size:.73rem;color:#f87171;border-color:rgba(239,68,68,.3)" title="Rechazar y liberar perfil">
+                            ❌
+                          </button>
+                        ` : ''}
+
+                        ${o.estado === 'entregado' && o.profile_id ? `
+                          <button class="g btn-order-tr" data-prof="${o.profile_id}" style="padding:4px 7px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.3)" title="Trasladar o reponer pantalla">
+                            🔀
+                          </button>
+                        ` : ''}
+
+                        ${['pagado', 'entregado'].includes(o.estado) ? `
+                          <button class="g btn-order-refund" data-ord="${o.id}" data-tot="${o.total_usd}" style="padding:4px 7px;font-size:.73rem" title="Registrar devolución / reembolso">
+                            🔄
+                          </button>
+                        ` : ''}
+
+                        ${waTarget ? `
+                          <a href="https://wa.me/${waTarget}?text=${encodeURIComponent('Hola ' + cNom + '! 👋 Te escribimos de Emprendimiento Gregory Izquierdo respecto a tu pedido #' + String(o.id).slice(0, 8) + ' (' + prodName + ').')}" target="_blank" rel="noopener noreferrer" class="g" style="padding:4px 7px;font-size:.73rem;color:#25d366;border-color:rgba(37,211,102,.3);text-decoration:none" title="Chatear por WhatsApp">
+                            💬
+                          </a>
+                        ` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `}
+    `;
+
+    box.querySelectorAll('.btn-order-filter').forEach(btn => {
+      btn.onclick = () => {
+        box._orderFilter = btn.dataset.f;
+        render();
+      };
+    });
+
+    const searchInp = box.querySelector('#inSearchOrders');
+    if (searchInp) {
+      searchInp.oninput = () => {
+        box._searchQuery = searchInp.value;
+        clearTimeout(box._searchTimer);
+        box._searchTimer = setTimeout(render, 250);
+      };
+    }
+
+    box.querySelectorAll('.btn-view-voucher').forEach(btn => {
+      btn.onclick = () => {
+        const imgUrl = btn.dataset.img;
+        $('#dlgBody').innerHTML = `
+          <h3>🖼️ Comprobante de Pago</h3>
+          <div style="text-align:center;margin:14px 0">
+            <a href="${esc(imgUrl)}" target="_blank" rel="noopener noreferrer">
+              <img src="${esc(imgUrl)}" alt="Comprobante" style="max-width:100%;max-height:70vh;border-radius:12px;border:1px solid rgba(255,255,255,.15);box-shadow:0 10px 30px rgba(0,0,0,.5)">
+            </a>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <a href="${esc(imgUrl)}" target="_blank" rel="noopener noreferrer" class="g" style="text-decoration:none;font-size:.8rem">
+              ↗ Abrir imagen en pestaña nueva
+            </a>
+            <button class="g" onclick="dlg.close()">Cerrar</button>
+          </div>
+        `;
+        dlg.showModal();
+      };
+    });
+
+    box.querySelectorAll('.btn-order-deliver').forEach(btn => {
+      btn.onclick = async () => {
+        const ordId = btn.dataset.ord;
+        const nom = btn.dataset.nom;
+        const tot = btn.dataset.tot;
+        if (!confirm(`¿Confirmas que verificaste el pago de $${tot} USD de ${nom} y deseas entregar las credenciales del servicio?`)) return;
+
+        btn.disabled = true;
+        btn.textContent = '⏳...';
+
+        try {
+          const { error: rpcErr } = await sb.rpc('deliver_order', { p_order: ordId });
+          if (rpcErr) {
+            const { error: updErr } = await sb.from('orders').update({
+              estado: 'entregado',
+              pagado_at: new Date().toISOString(),
+              conciliado_at: new Date().toISOString(),
+              conciliado_por: S.me?.email || S.user?.email || 'admin'
+            }).eq('id', ordId);
+            if (updErr) throw updErr;
+          }
+          toast(`✅ Pedido de ${nom} entregado con éxito.`);
+          render();
+        } catch(err) {
+          btn.disabled = false;
+          btn.textContent = '✅ Entregar';
+          alert('Error al entregar pedido: ' + err.message);
+        }
+      };
+    });
+
+    box.querySelectorAll('.btn-order-credit').forEach(btn => {
+      btn.onclick = async () => {
+        const ordId = btn.dataset.ord;
+        const nom = btn.dataset.nom;
+        const tot = Number(btn.dataset.tot || 0);
+        const tel = (btn.dataset.tel || '').replace(/\D/g, '');
+        const prod = btn.dataset.prod;
+
+        const dias = prompt(`¿A cuántos días de crédito entregas el servicio a ${nom}?`, '7');
+        if (!dias || isNaN(dias)) return;
+
+        btn.disabled = true;
+        btn.textContent = '⏳...';
+
+        const fVence = new Date(Date.now() + Number(dias) * 86400000).toISOString().slice(0, 10);
+
+        try {
+          const { error: rpcErr } = await sb.rpc('deliver_order', { p_order: ordId });
+          if (rpcErr) {
+            await sb.from('orders').update({
+              estado: 'entregado',
+              pagado_at: new Date().toISOString()
+            }).eq('id', ordId);
+          }
+
+          await sb.from('orders').update({
+            referencia: `[CRÉDITO] Vence ${fVence} ($${tot.toFixed(2)} USD)`
+          }).eq('id', ordId);
+
+          const bcv = Number(S.rate || 1);
+          try {
+            await sb.from('installments').insert({
+              order_id: ordId,
+              customer_id: ordList.find(o => o.id === ordId)?.customer_id,
+              numero_cuota: 1,
+              total_cuotas: 1,
+              monto_usd: tot,
+              monto_bs: Number((tot * bcv).toFixed(2)),
+              tasa_bs: bcv,
+              fecha_vencimiento: fVence,
+              estado: 'pendiente',
+              referencia: `[CRÉDITO] ${nom} - ${prod} ($${tot.toFixed(2)} USD)`
+            });
+          } catch(eInst) {
+            console.warn('Installment insert warning:', eInst);
+          }
+
+          toast(`✅ Pedido entregado a CRÉDITO a ${nom} por ${dias} días.`);
+          render();
+        } catch(err) {
+          btn.disabled = false;
+          btn.textContent = '💳 Crédito';
+          alert('Error al procesar crédito: ' + err.message);
+        }
+      };
+    });
+
+    box.querySelectorAll('.btn-order-reject').forEach(btn => {
+      btn.onclick = async () => {
+        const ordId = btn.dataset.ord;
+        if (!confirm('¿Seguro que deseas rechazar este pedido? El perfil reservado será liberado inmediatamente.')) return;
+
+        btn.disabled = true;
+        try {
+          const { error } = await sb.rpc('reject_order', { p_order: ordId });
+          if (error) {
+            await sb.from('orders').update({ estado: 'rechazado' }).eq('id', ordId);
+          }
+          toast('Pedido rechazado y stock restaurado.');
+          render();
+        } catch(err) {
+          btn.disabled = false;
+          alert('Error al rechazar pedido: ' + err.message);
+        }
+      };
+    });
+
+    box.querySelectorAll('.btn-order-tr').forEach(btn => {
+      btn.onclick = () => {
+        openTransferModal({ profileId: btn.dataset.prof, done: render });
+      };
+    });
+
+    box.querySelectorAll('.btn-order-refund').forEach(btn => {
+      btn.onclick = () => {
+        refundDlg(btn.dataset.ord, btn.dataset.tot, render);
+      };
+    });
+  },
   async vencimientos(box) {
     if (!box._calState) {
       const now = new Date();
