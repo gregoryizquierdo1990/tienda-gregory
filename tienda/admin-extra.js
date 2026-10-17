@@ -193,7 +193,7 @@ async function refundDlg(id, total, done) {
   let recentOrders = [];
   if (!targetOrderId) {
     const { data: ords } = await sb.from('orders')
-      .select('id,total_usd,total_bs,referencia,estado,created_at,customers(nombre,email,telefono),products(nombre)')
+      .select('id,total_usd,total_bs,referencia,estado,created_at,customers!customer_id(nombre,email,telefono),products(nombre)')
       .in('estado', ['pagado', 'entregado', 'vencido'])
       .order('created_at', { ascending: false })
       .limit(60);
@@ -211,7 +211,7 @@ async function refundDlg(id, total, done) {
     orderObj = recentOrders[0];
   } else {
     const { data: singleOrd } = await sb.from('orders')
-      .select('id,total_usd,total_bs,referencia,estado,customers(nombre,email,telefono),products(nombre)')
+      .select('id,total_usd,total_bs,referencia,estado,customers!customer_id(nombre,email,telefono),products(nombre)')
       .eq('id', targetOrderId)
       .maybeSingle();
     orderObj = singleOrd;
@@ -2698,7 +2698,12 @@ Cobrar antes de ${fVenceCred}`;
       .order('fecha_vencimiento', { ascending: true });
     if (res.error) {
       res = await sb.from('installments')
-        .select('*, customers(nombre,email,telefono), orders(referencia, products(nombre))')
+        .select('*, customers!customer_id(nombre,email,telefono), orders(referencia, products(nombre))')
+        .order('fecha_vencimiento', { ascending: true });
+    }
+    if (res.error) {
+      res = await sb.from('installments')
+        .select('*, orders(referencia, products(nombre))')
         .order('fecha_vencimiento', { ascending: true });
     }
     instList = res.data;
