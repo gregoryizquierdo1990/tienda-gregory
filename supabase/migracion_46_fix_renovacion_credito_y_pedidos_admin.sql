@@ -2,13 +2,14 @@
 -- MIGRACIÓN 46: Fix Integral de Renovación a Crédito de Revendedores y Registro en Cuotas
 -- ==============================================================================
 -- 1. Asegura la columna 'reseller_id' en 'installments' y actualiza políticas RLS.
--- 2. Resuelve el conflicto con el índice único 'orders_profile_activo':
+-- 2. Permite 'customer_id' nullable en 'installments' cuando es a nombre del revendedor.
+-- 3. Resuelve el conflicto con el índice único 'orders_profile_activo':
 --    Al renovar un perfil, la orden del ciclo anterior se marca como 'vencido',
 --    permitiendo insertar la nueva orden del nuevo ciclo sin violar la unicidad.
--- 3. Registra automáticamente la deuda en 'installments' cuando un revendedor
+-- 4. Registra automáticamente la deuda en 'installments' cuando un revendedor
 --    utiliza su línea de crédito para renovar un perfil (con plazo de 7 días).
--- 4. Vincula la línea de crédito de $30.00 USD y los perfiles iniciales a Pablo González.
--- 5. Sincroniza la deuda de las renovaciones recientes realizadas por Pablo González
+-- 5. Vincula la línea de crédito de $30.00 USD y los perfiles iniciales a Pablo González.
+-- 6. Sincroniza la deuda de las renovaciones recientes realizadas por Pablo González
 --    o cualquier revendedor para que aparezcan en Cobranza Cuotas y Pedidos.
 
 -- ------------------------------------------------------------------------------
@@ -29,6 +30,7 @@ alter table public.profiles_inventory add column if not exists no_renueva_report
 alter table public.profiles_inventory add column if not exists no_renueva_motivo text;
 
 alter table public.installments add column if not exists reseller_id uuid references public.customers(id);
+alter table public.installments alter column customer_id drop not null;
 create index if not exists idx_installments_reseller on public.installments(reseller_id, estado);
 
 -- ------------------------------------------------------------------------------
@@ -507,7 +509,7 @@ begin
         monto_usd, monto_bs, tasa_bs, fecha_vencimiento, estado, referencia
       )
       select
-        o.id, o.customer_id, v_pablo_id, 1, 1,
+        o.id, coalesce(o.customer_id, v_pablo_id), v_pablo_id, 1, 1,
         7.00, round(7.00 * v_rate, 2), v_rate, '2026-10-30'::date, 'pendiente',
         '[CRÉDITO PABLO GONZALEZ] EVERT IZQUIERDO - NETFLIX ($7.00 USD)'
       from public.orders o
@@ -522,7 +524,7 @@ begin
         monto_usd, monto_bs, tasa_bs, fecha_vencimiento, estado, referencia
       )
       select
-        o.id, o.customer_id, v_pablo_id, 1, 1,
+        o.id, coalesce(o.customer_id, v_pablo_id), v_pablo_id, 1, 1,
         4.50, round(4.50 * v_rate, 2), v_rate, '2026-10-30'::date, 'pendiente',
         '[CRÉDITO PABLO GONZALEZ] FERNISBEL - DISNEY ($4.50 USD)'
       from public.orders o
@@ -537,7 +539,7 @@ begin
         monto_usd, monto_bs, tasa_bs, fecha_vencimiento, estado, referencia
       )
       select
-        o.id, o.customer_id, v_pablo_id, 1, 1,
+        o.id, coalesce(o.customer_id, v_pablo_id), v_pablo_id, 1, 1,
         4.50, round(4.50 * v_rate, 2), v_rate, '2026-10-30'::date, 'pendiente',
         '[CRÉDITO PABLO GONZALEZ] TONY MASSIMO - TELELATINO ($4.50 USD)'
       from public.orders o
@@ -553,12 +555,17 @@ begin
         and (lower(o.referencia) like '%[crédito%' or lower(o.referencia) like '%[renovación crédito%')
         and not exists (select 1 from public.installments i where i.order_id = o.id)
     loop
+      -- Si la orden no tenía customer_id, asignarle a Pablo para mantener la integridad
+      if r.cust_id is null then
+        update public.orders set customer_id = v_pablo_id where id = r.ord_id;
+      end if;
+
       insert into public.installments (
         order_id, customer_id, reseller_id, numero_cuota, total_cuotas,
         monto_usd, monto_bs, tasa_bs, fecha_vencimiento, estado, referencia
       ) values (
         r.ord_id,
-        r.cust_id,
+        coalesce(r.cust_id, v_pablo_id),
         v_pablo_id,
         1, 1,
         r.monto,
@@ -577,5 +584,10 @@ begin
   set reseller_id = o.vendedor_id
   from public.orders o
   where o.id = i.order_id and o.vendedor_id is not null and i.reseller_id is null;
+
+  -- 7. Asegurar que ninguna cuota quede con customer_id nulo si tiene reseller_id
+  update public.installments
+  set customer_id = reseller_id
+  where customer_id is null and reseller_id is not null;
 
 end $$;
