@@ -907,6 +907,52 @@ function formatMessageTemplate(key, data = {}) {
   return text;
 }
 
+function cleanWaPhone(phone) {
+  if (!phone) return '';
+  let clean = String(phone).replace(/\D/g, '');
+  if (!clean) return '';
+  clean = clean.replace(/^0+/, '');
+  if (clean.length === 10) return '58' + clean;
+  if (!clean.startsWith('58') && clean.length <= 11) return '58' + clean;
+  return clean;
+}
+
+function openWhatsApp(phone, text) {
+  const clean = cleanWaPhone(phone);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+    }
+  } catch(e) {}
+  const encText = encodeURIComponent(text);
+  const url = clean ? `https://wa.me/${clean}?text=${encText}` : `https://api.whatsapp.com/send?text=${encText}`;
+  window.open(url, '_blank');
+}
+window.cleanWaPhone = cleanWaPhone;
+window.openWhatsApp = openWhatsApp;
+
+function setupCleanCopy(container = document) {
+  container.querySelectorAll('[data-clean-copy]').forEach(btn => {
+    btn.onclick = async () => {
+      const text = btn.dataset.cleanCopy;
+      try {
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement('textarea'); ta.value = text;
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        }
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ Copiado';
+        setTimeout(() => btn.innerHTML = orig, 1800);
+      } catch(e) {
+        toast('Copia manual: ' + text);
+      }
+    };
+  });
+}
+window.setupCleanCopy = setupCleanCopy;
+
 function getNivelesConfig() {
   return S.settings?.niveles_beneficios || DEFAULT_NIVELES_BENEFICIOS;
 }
@@ -3714,10 +3760,8 @@ async function portal(){
                             📋 Copiar
                           </button>
                           ${waUrl ? `
-                            <a href="${waUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
-                              <button class="g" style="padding:6px 10px;font-size:.76rem;color:${isHoy ? '#f87171' : '#00f5a0'};border-color:${isHoy ? 'rgba(239,68,68,.4)' : 'rgba(0,245,160,.35)'};font-weight:700" title="${isHoy ? 'Enviar recordatorio de cobro hoy por WA' : 'Enviar accesos por WA'}">
-                                ${isHoy ? '⏰ Cobrar WA' : '💬 WA'}
-                              </button>
+                            <a class="g" href="${waUrl}" target="_blank" rel="noopener noreferrer" style="padding:6px 10px;font-size:.76rem;color:${isHoy ? '#f87171' : '#00f5a0'};border:1px solid ${isHoy ? 'rgba(239,68,68,.4)' : 'rgba(0,245,160,.35)'};border-radius:8px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center" title="${isHoy ? 'Enviar recordatorio de cobro hoy por WA' : 'Enviar accesos por WA'}">
+                              ${isHoy ? '⏰ Cobrar WA' : '💬 WA'}
                             </a>
                           ` : ''}
                           ${isNoRen ? `
@@ -4680,7 +4724,7 @@ const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
 const NOADD=['transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono)}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'&&r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'&&r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -4924,6 +4968,57 @@ async function admin(t){
   }
   app.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const {data:v,error:e}=await sb.rpc('reveal_secret',{p:b.dataset.rv});toast(e?e.message:v);});
   app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!confirm(t==='orders'?`¿Verificaste el pago? Total $${b.dataset.tot} (ZenyPoints aplicados: $${b.dataset.z}). Se entregarán las credenciales al cliente.`:'¿Verificaste el pago de esta recarga?'))return;const {error:e}=t==='orders'?await sb.rpc('deliver_order',{p_order:b.dataset.ok}):await sb.from(t).update({estado:'aprobado'}).eq('id',b.dataset.ok);e?toast(e.message):admin(t);});
+  app.querySelectorAll('[data-ok-inst]').forEach(b => b.onclick = async () => {
+    if(!confirm('¿Confirmas la conciliación y aprobación de esta cuota?')) return;
+    b.disabled = true;
+    b.textContent = '⏳...';
+    try {
+      let { error } = await sb.rpc('approve_installment', { p_installment_id: b.dataset.okInst });
+      if(error){
+        const { error: updErr } = await sb.from('installments').update({
+          estado: 'pagada',
+          pagada_at: new Date().toISOString()
+        }).eq('id', b.dataset.okInst);
+        if(updErr) throw updErr;
+      }
+      toast('✅ Cuota aprobada con éxito.');
+      admin(t);
+    } catch(err) {
+      toast('Error al aprobar cuota: ' + err.message);
+      b.disabled = false;
+      b.textContent = 'Aprobar cuota';
+    }
+  });
+  app.querySelectorAll('[data-wa-rem]').forEach(b => b.onclick = () => {
+    let tel = b.dataset.tel || '';
+    const nom = b.dataset.nom || 'Cliente';
+    const prod = b.dataset.prod || 'Servicio Digital';
+    const cNum = b.dataset.c || '1';
+    const cTot = b.dataset.tc || '2';
+    const mUsd = Number(b.dataset.m || 0).toFixed(2);
+    const fVence = b.dataset.f || '';
+    const mBs = (Number(mUsd) * (S.rate || 0)).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const tasaBcv = (S.rate || 0).toLocaleString('es-VE');
+
+    if(!tel){
+      tel = prompt(`Ingresa el número de WhatsApp para contactar a ${nom} (ej: 04121234567 o +58...):`, '') || '';
+    }
+
+    const rawMsg = formatMessageTemplate('cobro_cuota', {
+      cliente: nom,
+      producto: prod,
+      cuota: cNum,
+      total_cuotas: cTot,
+      monto_usd: mUsd,
+      monto_bs: mBs,
+      tasa_bcv: tasaBcv,
+      fecha_vencimiento: fVence
+    });
+
+    openWhatsApp(tel, rawMsg);
+    toast(`Recordatorio de cobro copiado y abriendo WhatsApp para ${nom}...`);
+  });
+  setupCleanCopy(app);
   app.querySelectorAll('[data-cred]').forEach(b=>b.onclick=async()=>{
     const nom = b.dataset.nom, tot = b.dataset.tot, tel = (b.dataset.tel||'').replace(/\D/g,''), prod = b.dataset.prod;
     const dias = prompt(`¿A cuántos días de crédito entregas a ${nom}?`, '7');
@@ -4934,17 +5029,14 @@ async function admin(t){
     await sb.from('orders').update({
       referencia: `[CRÉDITO] Vence ${fVence} ($${tot} USD)`
     }).eq('id', b.dataset.cred).catch(()=>{});
-    if(tel){
-      const rawMsg = formatMessageTemplate('entrega_credito', {
-        cliente: nom,
-        producto: prod,
-        monto_usd: tot,
-        fecha_vence_credito: fVence,
-        dias_credito: dias
-      });
-      const waMsg = encodeURIComponent(rawMsg);
-      window.open(`https://wa.me/${tel}?text=${waMsg}`, '_blank');
-    }
+    const rawMsg = formatMessageTemplate('entrega_credito', {
+      cliente: nom,
+      producto: prod,
+      monto_usd: tot,
+      fecha_vence_credito: fVence,
+      dias_credito: dias
+    });
+    openWhatsApp(tel, rawMsg);
     toast(`Servicio entregado a CRÉDITO a ${nom}. Plazo: ${dias} días (hasta ${fVence}).`);
     admin(t);
   });

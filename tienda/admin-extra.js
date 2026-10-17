@@ -1774,8 +1774,7 @@ Cobrar antes de ${fVenceCred}`;
             fecha_vence_credito: fVenceCred,
             dias_credito: dias
           });
-          const waMsg = encodeURIComponent(rawMsg);
-          window.open(`https://wa.me/${tel}?text=${waMsg}`, '_blank');
+          openWhatsApp(tel, rawMsg);
         }
 
         EXTRA.vencimientos(box);
@@ -2325,7 +2324,7 @@ grant execute on function approve_installment(uuid) to authenticated;`;
             const isVencida = c.estado !== 'pagada' && c.fecha_vencimiento < todayStr;
             const statusClass = isVencida ? 'vencida' : c.estado;
             const statusLabel = isVencida ? 'Vencida' : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente'));
-            const tel = (c.customers?.telefono || '').replace(/\D/g, '');
+            const tel = c.customers?.telefono || '';
             const nom = c.customers?.nombre || c.customers?.email || 'Cliente';
             const prod = c.orders?.products?.nombre || c.orders?.referencia || c.referencia || 'Servicio Digital';
             const rawMsg = formatMessageTemplate('cobro_cuota', {
@@ -2338,13 +2337,13 @@ grant execute on function approve_installment(uuid) to authenticated;`;
               tasa_bcv: (S.rate || 0).toLocaleString('es-VE'),
               fecha_vencimiento: c.fecha_vencimiento
             });
-            const waMsg = encodeURIComponent(rawMsg);
 
             return `
               <tr>
                 <td><b>#${c.numero_cuota} de ${c.total_cuotas}</b></td>
                 <td>
                   <b>${esc(nom)}</b>
+                  ${tel ? `<div style="font-size:.73rem;color:#38bdf8;margin-top:2px">📱 ${esc(tel)}</div>` : ''}
                   <span class="mut" style="display:block;font-size:.72rem">${esc(c.customers?.email || '')}</span>
                 </td>
                 <td>${esc(prod)}</td>
@@ -2352,15 +2351,22 @@ grant execute on function approve_installment(uuid) to authenticated;`;
                 <td><span style="color:${isVencida ? '#ff4d6d' : 'inherit'}">${esc(c.fecha_vencimiento)}</span></td>
                 <td><span class="bnpl-inst-pill ${statusClass}">${statusLabel}</span></td>
                 <td><code>${esc(c.referencia || '—')}</code></td>
-                <td class="row">
+                <td class="row" style="gap:5px;align-items:center">
                   ${c.estado !== 'pagada' ? `
-                    <button data-ok-inst="${c.id}" style="padding:6px 10px;font-size:.75rem">Aprobar</button>
-                  ` : '<span class="mut" style="font-size:.75rem">✓ Pagada</span>'}
-                  ${tel && c.estado !== 'pagada' ? `
-                    <a class="g" href="https://wa.me/${tel}?text=${waMsg}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;padding:6px 10px;font-size:.75rem;display:inline-flex;align-items:center;gap:4px">
-                      💬 Recordar WA
-                    </a>
+                    <button data-ok-inst="${c.id}" style="padding:5px 9px;font-size:.74rem">Aprobar</button>
+                  ` : '<span class="mut" style="font-size:.74rem">✓ Pagada</span>'}
+                  ${c.estado === 'en_revision' ? `
+                    <button class="g" data-reset-inst="${c.id}" style="padding:5px 9px;font-size:.74rem;color:#f87171;border-color:rgba(239,68,68,.35)" title="Rechazar comprobante y devolver a pendiente">❌ Rechazar</button>
                   ` : ''}
+                  ${c.estado !== 'pagada' ? `
+                    <button class="g" data-wa-inst="${c.id}" data-tel="${esc(tel)}" data-nom="${esc(nom)}" data-prod="${esc(prod)}" data-c="${c.numero_cuota}" data-tc="${c.total_cuotas}" data-m="${Number(c.monto_usd).toFixed(2)}" data-f="${esc(c.fecha_vencimiento)}" style="padding:5px 9px;font-size:.74rem;color:#00f5a0;border-color:rgba(0,245,160,.35);font-weight:700" title="Enviar recordatorio de cobro por WhatsApp">
+                      💬 Recordar WA
+                    </button>
+                  ` : ''}
+                  <button class="clean-copy-btn" data-clean-copy="${esc(rawMsg)}" style="padding:5px 8px;font-size:.74rem" title="Copiar plantilla de cobro">
+                    📋
+                  </button>
+                  <button class="d" data-del-inst="${c.id}" style="padding:5px 8px;font-size:.74rem" title="Eliminar cuota">🗑️</button>
                 </td>
               </tr>
             `;
@@ -2372,12 +2378,74 @@ grant execute on function approve_installment(uuid) to authenticated;`;
     box.querySelectorAll('[data-ok-inst]').forEach(btn => {
       btn.onclick = () => run(btn, async () => {
         const id = btn.dataset.okInst;
-        const { error } = await sb.rpc('approve_installment', { p_installment_id: id });
-        if (error) throw error;
+        let { error } = await sb.rpc('approve_installment', { p_installment_id: id });
+        if (error) {
+          const { error: updErr } = await sb.from('installments').update({
+            estado: 'pagada',
+            pagada_at: new Date().toISOString()
+          }).eq('id', id);
+          if (updErr) throw updErr;
+        }
         EXTRA.cuotas(box);
         return 'Cuota aprobada con éxito.';
       });
     });
+
+    box.querySelectorAll('[data-reset-inst]').forEach(btn => {
+      btn.onclick = () => run(btn, async () => {
+        const id = btn.dataset.resetInst;
+        if(!confirm('¿Deseas devolver esta cuota a estado pendiente para que el cliente adjunte un nuevo comprobante?')) return;
+        const { error } = await sb.from('installments').update({ estado: 'pendiente', referencia: null }).eq('id', id);
+        if (error) throw error;
+        EXTRA.cuotas(box);
+        return 'Cuota restablecida a pendiente.';
+      });
+    });
+
+    box.querySelectorAll('[data-wa-inst]').forEach(btn => {
+      btn.onclick = () => {
+        let tel = btn.dataset.tel || '';
+        const nom = btn.dataset.nom || 'Cliente';
+        const prod = btn.dataset.prod || 'Servicio Digital';
+        const cNum = btn.dataset.c || '1';
+        const cTot = btn.dataset.tc || '2';
+        const mUsd = btn.dataset.m || '0.00';
+        const fVence = btn.dataset.f || '';
+        const mBs = (Number(mUsd) * (S.rate || 0)).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const tasaBcv = (S.rate || 0).toLocaleString('es-VE');
+
+        if(!tel){
+          tel = prompt(`Ingresa el número de WhatsApp para enviar el cobro a ${nom} (ej: 04121234567 o +58...):`, '') || '';
+        }
+
+        const rawMsg = formatMessageTemplate('cobro_cuota', {
+          cliente: nom,
+          producto: prod,
+          cuota: cNum,
+          total_cuotas: cTot,
+          monto_usd: mUsd,
+          monto_bs: mBs,
+          tasa_bcv: tasaBcv,
+          fecha_vencimiento: fVence
+        });
+
+        openWhatsApp(tel, rawMsg);
+        toast(`Recordatorio de cobro copiado y abriendo WhatsApp para ${nom}...`);
+      };
+    });
+
+    box.querySelectorAll('[data-del-inst]').forEach(btn => {
+      btn.onclick = () => run(btn, async () => {
+        const id = btn.dataset.delInst;
+        if(!confirm('¿Confirmas que deseas eliminar permanentemente este registro de cuota?')) return;
+        const { error } = await sb.from('installments').delete().eq('id', id);
+        if (error) throw error;
+        EXTRA.cuotas(box);
+        return 'Cuota eliminada.';
+      });
+    });
+
+    if (window.setupCleanCopy) setupCleanCopy(box);
 
     const bCfg = box.querySelector('#btnConfigCuotas');
     if(bCfg){
@@ -4215,10 +4283,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           const tel = btn.dataset.tel;
           const taq = btn.dataset.taq;
           const saldo = btn.dataset.saldo;
-          const waText = encodeURIComponent(
-            `✅ ¡Hola! Te confirmamos que tu saldo de *$${saldo} USD* se encuentra disponible y activo en tu taquilla *${taq}* en https://www.recargas247.net. ¡Éxitos en tus ventas!`
-          );
-          window.open(`https://wa.me/${tel}?text=${waText}`, '_blank');
+          const waText = `✅ ¡Hola! Te confirmamos que tu saldo de *$${saldo} USD* se encuentra disponible y activo en tu taquilla *${taq}* en https://www.recargas247.net. ¡Éxitos en tus ventas!`;
+          openWhatsApp(tel, waText);
         };
       });
 
@@ -4231,13 +4297,11 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           const canon = btn.dataset.canon;
           const vence = btn.dataset.vence;
 
-          const msg = encodeURIComponent(
-            `👋 Hola ${nom}, te saludamos de la administración.\n\n` +
+          const msg = `👋 Hola ${nom}, te saludamos de la administración.\n\n` +
             `Te recordamos que el canon mensual de mantenimiento para tu punto de recarga *${taq}* ($${Number(canon).toFixed(2)} USD) vence el *${vence}*.\n\n` +
             `Por favor remítenos tu comprobante de pago por esta vía para mantener tu taquilla operativa en nuestra red de https://www.recargas247.net.\n\n` +
-            `¡Muchas gracias y feliz jornada!`
-          );
-          window.open(`https://wa.me/${tel}?text=${msg}`, '_blank');
+            `¡Muchas gracias y feliz jornada!`;
+          openWhatsApp(tel, msg);
         };
       });
 
