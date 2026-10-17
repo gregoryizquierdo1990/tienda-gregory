@@ -4381,6 +4381,49 @@ async function portal(){
     const myComms = resellerCommissions?.data || [];
     const totMyPendUsd = myComms.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
     const totMyPendBs = myComms.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_bs || 0), 0);
+    const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+    const parseResellerDebt = (d) => {
+      let nom = (d.cliente_nombre || '').trim();
+      let srv = (d.servicio || d.orders?.products?.nombre || '').trim();
+      let tel = (d.cliente_telefono || '').trim();
+      const ref = d.referencia || '';
+
+      const isGeneric = !nom || nom === 'Cliente Asignado' || nom.toLowerCase().includes('pablo gonzalez') || nom.toLowerCase().startsWith('vence');
+      if (isGeneric) {
+        const m1 = ref.match(/\[[^\]]+\]\s*(?:Renovación\s+)?([^-]+)\s*-\s*([^($]+)/i);
+        if (m1) {
+          nom = m1[1].trim();
+          if (!srv || srv === 'Servicio Digital') srv = m1[2].trim();
+        } else {
+          const m2 = ref.match(/·\s*([^($]+)/);
+          if (m2 && !m2[1].toLowerCase().includes('pablo')) nom = m2[1].trim();
+        }
+      }
+
+      if (!srv || srv === 'Servicio Digital') {
+        const sMatch = ref.match(/-\s*([^($]+)/);
+        if (sMatch) srv = sMatch[1].trim();
+      }
+
+      const sLow = srv.toLowerCase();
+      let platIcon = '📺', platColor = '#38bdf8', platBg = 'rgba(56,189,248,.15)';
+      if (sLow.includes('netflix')) { platIcon = '🎬'; platColor = '#ef4444'; platBg = 'rgba(239,68,68,.18)'; }
+      else if (sLow.includes('disney')) { platIcon = '🏰'; platColor = '#38bdf8'; platBg = 'rgba(56,189,248,.18)'; }
+      else if (sLow.includes('telelatino')) { platIcon = '📱'; platColor = '#a855f7'; platBg = 'rgba(168,85,247,.18)'; }
+      else if (sLow.includes('max') || sLow.includes('hbo')) { platIcon = '👑'; platColor = '#9333ea'; platBg = 'rgba(147,51,234,.18)'; }
+      else if (sLow.includes('prime')) { platIcon = '📦'; platColor = '#00a8e1'; platBg = 'rgba(0,168,225,.18)'; }
+      else if (sLow.includes('spotify')) { platIcon = '🎧'; platColor = '#22c55e'; platBg = 'rgba(34,197,94,.18)'; }
+      else if (sLow.includes('magis') || sLow.includes('iptv')) { platIcon = '⚡'; platColor = '#f97316'; platBg = 'rgba(249,115,22,.18)'; }
+
+      if (!tel && nom && rcList.length) {
+        const found = rcList.find(c => c.nombre && c.nombre.toLowerCase().includes(nom.toLowerCase()));
+        if (found?.telefono) tel = found.telefono;
+      }
+
+      return { nom: nom || 'Cliente', srv: srv || 'Servicio Digital', tel, platIcon, platColor, platBg };
+    };
+
     const showResellerBlock = isReseller;
     let resellerBlockHtml = '';
     if(showResellerBlock){
@@ -4955,41 +4998,140 @@ async function portal(){
       </div>
     </div>
 
-  <!-- Sección Mis Cuotas (BNPL) -->
+  <!-- Sección Mis Cuotas -->
   <div style="display:flex;justify-content:space-between;align-items:center;margin:28px 0 10px">
-    <h3 style="margin:0">📅 Mis Cuotas Pendientes</h3>
-    <span class="mut" style="font-size:.8rem">${instData.filter(x=>x.estado!=='pagada').length} por pagar</span>
-  </div>
-  ${instData.length ? `
-    <div class="wrap">
-      <table>
-        <tr><th>Servicio</th><th>Cuota</th><th>Monto</th><th>Vencimiento</th><th>Estado</th><th>Acción</th></tr>
-        ${instData.map(c => {
-          const prodName = c.orders?.products?.nombre || 'Servicio';
-          const isVencida = c.estado !== 'pagada' && c.fecha_vencimiento < new Date().toISOString().slice(0, 10);
-          const stClass = isVencida ? 'vencida' : c.estado;
-          const stLabel = isVencida ? 'Vencida' : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente'));
-
-          return `
-            <tr>
-              <td><b>${esc(prodName)}</b></td>
-              <td>#${c.numero_cuota} de ${c.total_cuotas}</td>
-              <td><b style="color:var(--c)">$${Number(c.monto_usd).toFixed(2)} USD</b></td>
-              <td>${esc(c.fecha_vencimiento)}</td>
-              <td><span class="bnpl-inst-pill ${stClass}">${stLabel}</span></td>
-              <td>
-                ${c.estado === 'pendiente' || isVencida ? `
-                  <button class="g" data-pay-inst="${c.id}" data-m="${c.monto_usd}" data-prod="${esc(prodName)}" data-c="${c.numero_cuota}" style="padding:6px 12px;font-size:.78rem">
-                    Pagar cuota
-                  </button>
-                ` : (c.estado === 'en_revision' ? '<span class="mut" style="font-size:.75rem">En verificación</span>' : '<span class="mut" style="font-size:.75rem">✓ Al día</span>')}
-              </td>
-            </tr>
-          `;
-        }).join('')}
-      </table>
+    <div>
+      <h3 style="margin:0">📅 Mis Cuotas Pendientes ${isReseller ? '(Línea de Crédito Mayorista)' : ''}</h3>
+      ${isReseller ? `<p class="mut" style="font-size:.78rem;margin:3px 0 0">Identifica qué plataforma y perfil tiene cada cliente a crédito, cóbrales por WhatsApp con 1 clic y salda tus cuentas con Gregory.</p>` : ''}
     </div>
-  ` : '<p class="mut">No tienes cuotas activas actualmente. Puedes financiar tus compras en 2 partes al comprar.</p>'}
+    <span class="mut" style="font-size:.8rem">${(isReseller ? myResellerDebtsList : instData).filter(x=>x.estado!=='pagada').length} por pagar</span>
+  </div>
+
+  ${isReseller ? `
+    ${myResellerDebtsList.length ? `
+      <div class="wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Plataforma a Crédito</th>
+              <th>Tu Cliente (A cobrar)</th>
+              <th>Deuda con Gregory</th>
+              <th>Plazo de Pago</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${myResellerDebtsList.map(d => {
+              const det = parseResellerDebt(d);
+              const isVencida = d.estado !== 'pagada' && d.fecha_vencimiento && d.fecha_vencimiento < todayStr;
+              const diffDays = d.fecha_vencimiento ? Math.ceil((new Date(d.fecha_vencimiento + 'T00:00:00') - new Date()) / 86400000) : 0;
+              const stLabel = d.estado === 'pagada' ? '🟢 Pagada' : (d.estado === 'en_revision' ? '🔵 En Verificación' : (isVencida ? '🔴 Vencida' : '🟡 Por Pagar'));
+              const stStyle = d.estado === 'pagada' ? 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)' : (d.estado === 'en_revision' ? 'background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)' : 'background:rgba(239,68,68,.12);color:#f87171;border-color:rgba(239,68,68,.3)');
+              const mUsd = Number(d.monto_usd || 0).toFixed(2);
+              const mBs = Number(d.monto_bs || (d.monto_usd * (S.rate || 1))).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+              return `
+                <tr style="${d.estado !== 'pagada' ? 'background:rgba(239,68,68,.02)' : ''}">
+                  <td>
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <div style="width:36px;height:36px;border-radius:10px;background:${det.platBg};border:1.5px solid ${det.platColor};display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0">
+                        ${det.platIcon}
+                      </div>
+                      <div>
+                        <b style="color:#fff;font-size:.9rem;display:block">${esc(det.srv)}</b>
+                        <span class="pill" style="font-size:.65rem;background:rgba(255,255,255,.06);color:#94a3b8;padding:2px 6px">
+                          ${esc(d.nombre_perfil || 'Perfil')}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>
+                    <div style="font-size:.7rem;color:#fde047;font-weight:700;letter-spacing:.3px;text-transform:uppercase">👤 Cliente Final</div>
+                    <b style="color:#fff;font-size:.92rem;display:block;margin-top:1px">${esc(det.nom)}</b>
+                    ${det.tel ? `
+                      <div style="margin-top:2px">
+                        <a href="https://wa.me/${cleanWaPhone(det.tel)}" target="_blank" rel="noopener noreferrer" style="font-size:.73rem;color:#25d366;text-decoration:none;font-weight:700">
+                          📲 ${esc(det.tel)}
+                        </a>
+                      </div>
+                    ` : '<span class="mut" style="font-size:.7rem">Sin tel registrado</span>'}
+                  </td>
+
+                  <td>
+                    <b style="color:var(--c);font-size:1.05rem">$${mUsd} USD</b>
+                    <div class="mut" style="font-size:.72rem">Bs. ${mBs}</div>
+                    <div style="font-size:.65rem;color:#00f5a0;font-weight:600">Tarifa Mayorista</div>
+                  </td>
+
+                  <td>
+                    <b>${esc(d.fecha_vencimiento || '—')}</b>
+                    ${isVencida 
+                      ? `<div style="font-size:.7rem;color:#f87171;font-weight:700">🔴 Venció hace ${Math.abs(diffDays)}d</div>` 
+                      : (diffDays === 0 
+                        ? '<div style="font-size:.7rem;color:#fbbf24;font-weight:700">🟡 Vence hoy</div>' 
+                        : `<div style="font-size:.7rem;color:#00f5a0;font-weight:700">⏳ En ${diffDays} días</div>`)}
+                  </td>
+
+                  <td>
+                    <span class="pill" style="font-size:.72rem;${stStyle}">${stLabel}</span>
+                  </td>
+
+                  <td>
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                      ${d.estado !== 'pagada' ? `
+                        <button class="g" data-wa-client-debt="${d.id}" data-m="${mUsd}" data-mbs="${mBs}" data-nom="${esc(det.nom)}" data-srv="${esc(det.srv)}" data-prof="${esc(d.nombre_perfil||'Perfil')}" data-vence="${esc(d.fecha_vencimiento||'')}" data-tel="${esc(det.tel)}" style="padding:5px 9px;font-size:.74rem;background:rgba(37,211,102,.12);color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Cobrar por WhatsApp a tu cliente">
+                          💬 Cobrar a Cliente
+                        </button>
+                        <button class="g" data-pay-reseller-debt="${d.id}" data-m="${mUsd}" data-nom="${esc(det.nom)}" data-srv="${esc(det.srv)}" style="padding:5px 9px;font-size:.74rem;background:rgba(0,245,160,.15);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Pagar crédito a Gregory">
+                          💳 Pagar a Gregory
+                        </button>
+                        <button class="g" data-wa-reseller-debt="${d.id}" data-m="${mUsd}" data-nom="${esc(det.nom)}" data-srv="${esc(det.srv)}" data-vence="${esc(d.fecha_vencimiento||'')}" style="padding:5px 8px;font-size:.74rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Reportar pago a Gregory por WhatsApp">
+                          💬 WA Gregory
+                        </button>
+                      ` : '<span class="mut" style="font-size:.75rem">✓ Deuda Saldada</span>'}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    ` : '<p class="mut">No tienes deudas de crédito pendientes con Gregory. Tu línea de crédito mayorista está al 100% disponible.</p>'}
+  ` : `
+    ${instData.length ? `
+      <div class="wrap">
+        <table>
+          <tr><th>Servicio</th><th>Cuota</th><th>Monto</th><th>Vencimiento</th><th>Estado</th><th>Acción</th></tr>
+          ${instData.map(c => {
+            const prodName = c.orders?.products?.nombre || 'Servicio';
+            const isVencida = c.estado !== 'pagada' && c.fecha_vencimiento < todayStr;
+            const stClass = isVencida ? 'vencida' : c.estado;
+            const stLabel = isVencida ? 'Vencida' : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente'));
+
+            return `
+              <tr>
+                <td><b>${esc(prodName)}</b></td>
+                <td>#${c.numero_cuota} de ${c.total_cuotas}</td>
+                <td><b style="color:var(--c)">$${Number(c.monto_usd).toFixed(2)} USD</b></td>
+                <td>${esc(c.fecha_vencimiento)}</td>
+                <td><span class="bnpl-inst-pill ${stClass}">${stLabel}</span></td>
+                <td>
+                  ${c.estado === 'pendiente' || isVencida ? `
+                    <button class="g" data-pay-inst="${c.id}" data-m="${c.monto_usd}" data-prod="${esc(prodName)}" data-c="${c.numero_cuota}" style="padding:6px 12px;font-size:.78rem">
+                      Pagar cuota
+                    </button>
+                  ` : (c.estado === 'en_revision' ? '<span class="mut" style="font-size:.75rem">En verificación</span>' : '<span class="mut" style="font-size:.75rem">✓ Al día</span>')}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </table>
+      </div>
+    ` : '<p class="mut">No tienes cuotas activas actualmente. Puedes financiar tus compras en 2 partes al comprar.</p>'}
+  `}
 
   <h3 style="margin-top:28px">Mis accesos</h3>
   ${(cr.data||[]).length ? `
