@@ -2692,9 +2692,17 @@ Cobrar antes de ${fVenceCred}`;
   },
 
   async cuotas(box) {
-    const { data: instList, error } = await sb.from('installments')
-      .select('*, customers(nombre,email,telefono), orders(referencia, products(nombre))')
+    let instList = null, error = null;
+    let res = await sb.from('installments')
+      .select('*, customers!customer_id(nombre,email,telefono), reseller:customers!reseller_id(nombre,email,telefono), orders(referencia, products(nombre))')
       .order('fecha_vencimiento', { ascending: true });
+    if (res.error) {
+      res = await sb.from('installments')
+        .select('*, customers(nombre,email,telefono), orders(referencia, products(nombre))')
+        .order('fecha_vencimiento', { ascending: true });
+    }
+    instList = res.data;
+    error = res.error;
 
     if (error) {
       if (error.message?.includes('schema cache') || error.code === '42P01') {
@@ -2834,6 +2842,7 @@ grant execute on function approve_installment(uuid) to authenticated;`;
                 <td><b>#${c.numero_cuota} de ${c.total_cuotas}</b></td>
                 <td>
                   <b>${esc(nom)}</b>
+                  ${c.reseller?.nombre ? `<div style="font-size:.73rem;color:#f59e0b;margin-top:2px;font-weight:600">🏷️ Revendedor: ${esc(c.reseller.nombre)}</div>` : ''}
                   ${tel ? `<div style="font-size:.73rem;color:#38bdf8;margin-top:2px">📱 ${esc(tel)}</div>` : ''}
                   <span class="mut" style="display:block;font-size:.72rem">${esc(c.customers?.email || '')}</span>
                 </td>
