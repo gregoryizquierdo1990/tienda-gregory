@@ -243,6 +243,29 @@ ${listMad}
       break;
     }
 
+    // 11. PAGO DE CREDITO / CUENTA POR PAGAR DE REVENDEDOR
+    case 'pago_credito_revendedor': {
+      const rev = escHtml(data.revendedor || 'Revendedor');
+      const nom = escHtml(data.cliente || 'Cliente');
+      const srv = escHtml(data.servicio || 'Servicio Digital');
+      const usd = Number(data.monto_usd || 0).toFixed(2);
+      const met = escHtml(data.metodo || 'Zeny');
+      const ref = escHtml(data.referencia || 'Pago directo');
+
+      plainMsg = `💳 ¡PAGO DE CRÉDITO DE REVENDEDOR! ${rev} pagó $${usd} USD (${srv} - ${nom}). Ref: ${ref}`;
+      htmlMsg = `💳 <b>¡PAGO DE CRÉDITO MAYORISTA RECIBIDO!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🤝 <b>Revendedor:</b> ${rev}
+👤 <b>Cliente Asociado:</b> ${nom}
+📦 <b>Servicio:</b> <b>${srv}</b>
+💵 <b>Monto Abonado:</b> <b>$${usd} USD</b>
+💳 <b>Método:</b> ${met}
+🔢 <b>Referencia:</b> <code>${ref}</code>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👉 <a href="${siteUrl}/#admin">Conciliar en Cuentas por Cobrar</a>`;
+      break;
+    }
+
     default: {
       plainMsg = `🔔 Aviso: ${JSON.stringify(data).slice(0, 200)}`;
       htmlMsg = `🔔 <b>AVISO DEL SISTEMA</b><br><code>${escHtml(JSON.stringify(data, null, 2))}</code>`;
