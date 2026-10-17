@@ -1206,6 +1206,10 @@ const EXTRA = {
                             💬
                           </a>
                         ` : ''}
+
+                        <button class="d btn-order-del" data-ord="${o.id}" style="padding:4px 7px;font-size:.73rem" title="Eliminar orden permanentemente">
+                          🗑️
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1372,6 +1376,18 @@ const EXTRA = {
       btn.onclick = () => {
         refundDlg(btn.dataset.ord, btn.dataset.tot, render);
       };
+    });
+
+    box.querySelectorAll('.btn-order-del').forEach(btn => {
+      btn.onclick = () => run(btn, async () => {
+        const ordId = btn.dataset.ord;
+        if (!confirm('¿Seguro que deseas eliminar permanentemente esta orden del sistema?')) return;
+        await sb.from('installments').delete().eq('order_id', ordId);
+        const { error } = await sb.from('orders').delete().eq('id', ordId);
+        if (error) throw error;
+        toast('Orden eliminada correctamente.');
+        render();
+      });
     });
   },
   async vencimientos(box) {
