@@ -219,6 +219,30 @@ ${listMad}
       break;
     }
 
+    // 10. RENOVACION DE SUSCRIPCION (MISMAS CREDENCIALES)
+    case 'renovacion_suscripcion': {
+      const nom = escHtml(data.cliente || 'Cliente');
+      const srv = escHtml(data.servicio || 'Servicio Digital');
+      const prof = escHtml(data.perfil || 'Perfil 1');
+      const rev = escHtml(data.revendedor || 'Directo');
+      const usd = Number(data.monto_usd || 0).toFixed(2);
+      const met = escHtml(data.metodo || 'Zeny');
+      const nv = escHtml(data.nuevo_vencimiento || '');
+
+      plainMsg = `🔄 ¡RENOVACIÓN (+30d)! ${srv} (${prof}) - $${usd} USD. Cliente: ${nom}. Revendedor: ${rev}`;
+      htmlMsg = `🔄 <b>¡RENOVACIÓN DE SUSCRIPCIÓN (+30 DÍAS)!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 <b>Cliente:</b> ${nom}
+🤝 <b>Gestionado por:</b> ${rev}
+📦 <b>Servicio:</b> <b>${srv}</b> (Perfil: <code>${prof}</code>)
+💵 <b>Monto:</b> <b>$${usd} USD</b>
+💳 <b>Método:</b> ${met}
+📅 <b>Nuevo Vencimiento:</b> <code>${nv}</code>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👉 <a href="${siteUrl}/#admin">Ver en Panel Admin</a>`;
+      break;
+    }
+
     default: {
       plainMsg = `🔔 Aviso: ${JSON.stringify(data).slice(0, 200)}`;
       htmlMsg = `🔔 <b>AVISO DEL SISTEMA</b><br><code>${escHtml(JSON.stringify(data, null, 2))}</code>`;

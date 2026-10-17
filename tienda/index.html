@@ -953,6 +953,424 @@ function setupCleanCopy(container = document) {
 }
 window.setupCleanCopy = setupCleanCopy;
 
+async function openRenewalModal(opts = {}) {
+  if(!S.user) return loginDlg('login');
+  let { profileId, orderId, nom, srv, prof, pin, mail, tel, curVence } = opts;
+
+  // Si no tenemos profileId pero sí orderId, buscar el profile_id en orders
+  if(!profileId && orderId) {
+    try {
+      const { data: ordRec } = await sb.from('orders').select('profile_id, total_usd, products(nombre)').eq('id', orderId).maybeSingle();
+      if(ordRec?.profile_id) {
+        profileId = ordRec.profile_id;
+        if(!srv && ordRec?.products?.nombre) srv = ordRec.products.nombre;
+      }
+    } catch(e) {
+      console.warn('Error fetching order for renewal:', e);
+    }
+  }
+
+  // Cargar datos del perfil e inventario si tenemos profileId
+  let prodRec = null;
+  let motherRec = null;
+  let curProfRec = null;
+
+  if(profileId) {
+    try {
+      const { data: pData } = await sb.from('profiles_inventory')
+        .select('*, products(*), mother_accounts(*)')
+        .eq('id', profileId)
+        .maybeSingle();
+      if(pData) {
+        curProfRec = pData;
+        prodRec = pData.products;
+        motherRec = pData.mother_accounts;
+        if(!srv) srv = prodRec?.nombre || motherRec?.plataforma || 'Servicio Digital';
+        if(!prof) prof = pData.nombre_perfil || 'Perfil 1';
+        if(!pin) pin = pData.pin || 'Sin PIN';
+        if(!mail) mail = motherRec?.correo || '';
+        if(!curVence) curVence = pData.vence;
+      }
+    } catch(e) {
+      console.warn('Error fetching profile for renewal:', e);
+    }
+  }
+
+  srv = srv || 'Servicio Digital';
+  prof = prof || 'Perfil';
+  nom = nom || S.me?.nombre || S.user?.email || 'Cliente';
+
+  // Calcular precio
+  const isReseller = S.me?.es_revendedor === true;
+  let priceUsd = 0;
+  if(isReseller && prodRec?.precio_revendedor_usd && Number(prodRec.precio_revendedor_usd) > 0) {
+    priceUsd = Number(prodRec.precio_revendedor_usd);
+  } else if(prodRec?.precio_usd && Number(prodRec.precio_usd) > 0) {
+    priceUsd = Number(prodRec.precio_usd);
+  } else {
+    priceUsd = 3.00;
+  }
+
+  const bcvRate = Number(S.rate || 1);
+  const priceBs = priceUsd * bcvRate;
+
+  // Calcular nuevo vencimiento (+30 días)
+  const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  let baseDate = new Date();
+  if(curVence && curVence >= todayStr) {
+    const parts = curVence.split('-');
+    if(parts.length === 3) {
+      baseDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    }
+  }
+  const nextDate = new Date(baseDate.getTime() + 30 * 86400000);
+  const nextVenceStr = nextDate.toISOString().slice(0, 10);
+
+  // Saldo Zeny disponible
+  const zenyBal = Number(S.me?.zeny_balance || 0);
+  const canPayZeny = zenyBal >= priceUsd;
+
+  let pmList = [];
+  try {
+    const { data: pms } = await sb.from('payment_methods').select('*').eq('activo', true).order('orden');
+    pmList = (pms && pms.length > 0) ? pms : (DEFAULT_PAYMENT_METHODS || []);
+  } catch(e) {
+    pmList = DEFAULT_PAYMENT_METHODS || [];
+  }
+
+  $('#dlgBody').innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:1.6rem">🔄</span>
+        <div>
+          <h3 style="margin:0;color:#00f5a0">Renovar Suscripción (+30 días)</h3>
+          <div class="mut" style="font-size:.78rem">Mismas credenciales, sin crear pantallas nuevas</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ficha del servicio a renovar -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <b style="font-size:1.05rem;color:#fff">${esc(srv)}</b>
+          <div style="font-size:.8rem;color:#38bdf8;margin-top:2px">
+            👤 Perfil: <b>${esc(prof)}</b> ${pin ? `· PIN: <code style="color:#00f5a0">${esc(pin)}</code>` : ''}
+          </div>
+          ${mail ? `<div class="mut" style="font-size:.75rem;margin-top:2px">✉️ ${esc(mail)}</div>` : ''}
+          ${isReseller && nom ? `<div style="font-size:.75rem;color:#fde047;margin-top:2px">Cliente: <b>${esc(nom)}</b></div>` : ''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.72rem;color:#94a3b8">Costo Renovación:</div>
+          <b style="font-size:1.25rem;color:var(--c)">$${priceUsd.toFixed(2)} USD</b>
+          <div class="mut" style="font-size:.76rem">Bs. ${priceBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+          ${isReseller ? '<span class="pill" style="font-size:.65rem;background:rgba(255,183,3,.15);color:#ffb703;border-color:rgba(255,183,3,.3);margin-top:2px;display:inline-block">Tarifa Mayorista</span>' : ''}
+        </div>
+      </div>
+
+      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.1);display:flex;align-items:center;justify-content:space-between;font-size:.82rem">
+        <div>
+          <span class="mut">Vence actualmente:</span>
+          <b>${esc(curVence || 'Hoy')}</b>
+        </div>
+        <div style="text-align:right">
+          <span class="mut">Nuevo vencimiento:</span>
+          <b style="color:#00f5a0;font-size:.9rem">${nextVenceStr} (+30d)</b>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mensaje de garantía -->
+    <div style="background:rgba(0,245,160,.06);border:1px solid rgba(0,245,160,.25);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:.78rem;line-height:1.4">
+      🛡️ <b>Garantía de Continuidad:</b> El cliente mantendrá exactamente sus mismas credenciales, historial de visualización y series guardadas sin interrupción.
+    </div>
+
+    <!-- Opciones de pago -->
+    <label class="mut" style="font-size:.78rem;font-weight:700;display:block;margin-bottom:6px">Selecciona la forma de pago:</label>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+      <!-- 1. Billetera Zeny -->
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(255,255,255,.02);border:1.5px solid ${canPayZeny ? 'rgba(0,245,160,.3)' : 'rgba(255,255,255,.1)'};border-radius:10px;cursor:pointer">
+        <input type="radio" name="renewPayMethod" value="zeny" ${canPayZeny ? 'checked' : ''} style="margin-top:3px">
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <b>💳 Billetera ZenyPoints (Instantáneo)</b>
+            <span class="pill" style="font-size:.72rem;${canPayZeny ? 'background:rgba(0,245,160,.12);color:#00f5a0' : 'background:rgba(239,68,68,.12);color:#f87171'}">
+              Tu saldo: $${zenyBal.toFixed(2)} ZP
+            </span>
+          </div>
+          <div class="mut" style="font-size:.74rem;margin-top:2px">
+            ${canPayZeny ? '✅ Se descontará al instante y la cuenta se renovará de forma inmediata.' : '⚠️ Saldo Zeny insuficiente para esta renovación.'}
+          </div>
+        </div>
+      </label>
+
+      <!-- 2. Línea de Crédito (Revendedor) -->
+      ${isReseller ? `
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(255,255,255,.02);border:1.5px solid rgba(255,183,3,.25);border-radius:10px;cursor:pointer">
+          <input type="radio" name="renewPayMethod" value="credito" ${!canPayZeny ? 'checked' : ''} style="margin-top:3px">
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <b>🤝 Línea de Crédito Revendedor</b>
+              <span class="pill" style="font-size:.72rem;background:rgba(255,183,3,.15);color:#ffb703">
+                Plazo: 7 días
+              </span>
+            </div>
+            <div class="mut" style="font-size:.74rem;margin-top:2px">
+              La renovación se aplica de inmediato. El importe ($${priceUsd.toFixed(2)}) se sumará a tus cuentas por pagar.
+            </div>
+          </div>
+        </label>
+      ` : ''}
+
+      <!-- 3. Pago Móvil / Binance / Transferencia -->
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(255,255,255,.02);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;cursor:pointer">
+        <input type="radio" name="renewPayMethod" value="transferencia" ${(!canPayZeny && !isReseller) ? 'checked' : ''} style="margin-top:3px">
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <b>🏦 Pago Móvil / Binance / Bancario</b>
+            <span class="mut" style="font-size:.72rem">Conciliación Manual</span>
+          </div>
+          <div class="mut" style="font-size:.74rem;margin-top:2px">
+            Transfiere el monto e ingresa el número de referencia para verificar tu pago.
+          </div>
+        </div>
+      </label>
+    </div>
+
+    <!-- Campos para Transferencia / Pago Móvil -->
+    <div id="renewTransferBlock" style="display:none;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:14px">
+      <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Selecciona cuenta destino:</label>
+      <select id="selRenewPm" style="width:100%;margin-bottom:8px">
+        ${pmList.map(pm => `<option value="${pm.id}">${esc(pm.nombre)} (${esc(pm.tipo || 'Pago')})</option>`).join('')}
+      </select>
+      <div id="renewPmInfoBox" style="font-size:.76rem;background:rgba(0,0,0,.25);padding:8px 10px;border-radius:8px;margin-bottom:10px;line-height:1.4"></div>
+      <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Referencia bancaria o comprobante:</label>
+      <input id="inRenewRef" placeholder="Ej: 12345678 o ID de Binance" style="width:100%">
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="g" onclick="dlg.close()">Cancelar</button>
+      <button id="btnConfirmRenew" style="background:var(--grad);color:#03121c;font-weight:800;border:none;border-radius:8px;padding:9px 18px;cursor:pointer">
+        Confirmar Renovación (+30d)
+      </button>
+    </div>
+  `;
+
+  if(!dlg.open) dlg.showModal();
+
+  const radios = $('#dlgBody').querySelectorAll('input[name="renewPayMethod"]');
+  const transferBlock = $('#renewTransferBlock');
+  const selPm = $('#selRenewPm');
+  const infoBox = $('#renewPmInfoBox');
+
+  const updatePmInfo = () => {
+    if(!selPm || !infoBox) return;
+    const curId = selPm.value;
+    const curPm = pmList.find(p => p.id === curId);
+    if(curPm && curPm.datos) {
+      let dStr = '';
+      if(typeof curPm.datos === 'object') {
+        dStr = Object.entries(curPm.datos).map(([k, v]) => `<b>${esc(k)}:</b> ${esc(v)}`).join(' · ');
+      } else {
+        dStr = esc(String(curPm.datos));
+      }
+      infoBox.innerHTML = `💳 <b>Datos de pago:</b> ${dStr}`;
+      infoBox.style.display = 'block';
+    } else {
+      infoBox.style.display = 'none';
+    }
+  };
+
+  const updateMethodView = () => {
+    const selVal = $('#dlgBody').querySelector('input[name="renewPayMethod"]:checked')?.value;
+    if(selVal === 'transferencia') {
+      transferBlock.style.display = 'block';
+      updatePmInfo();
+    } else {
+      transferBlock.style.display = 'none';
+    }
+  };
+
+  radios.forEach(r => r.addEventListener('change', updateMethodView));
+  if(selPm) selPm.addEventListener('change', updatePmInfo);
+  updateMethodView();
+
+  $('#btnConfirmRenew').onclick = async () => {
+    const selMetodo = $('#dlgBody').querySelector('input[name="renewPayMethod"]:checked')?.value;
+    if(!selMetodo) return toast('Selecciona una forma de pago.');
+
+    if(selMetodo === 'zeny' && !canPayZeny) {
+      return toast(`Saldo Zeny insuficiente ($${zenyBal.toFixed(2)} ZP). Recarga saldo o paga por transferencia.`);
+    }
+
+    let pmId = null;
+    let refVal = null;
+    if(selMetodo === 'transferencia') {
+      pmId = $('#selRenewPm')?.value || null;
+      refVal = ($('#inRenewRef')?.value || '').trim();
+      if(!refVal) return toast('Por favor ingresa el número de referencia bancaria.');
+    }
+
+    const btn = $('#btnConfirmRenew');
+    btn.disabled = true;
+    btn.textContent = '⏳ Procesando renovación...';
+
+    try {
+      let result = null;
+      // 1. Intentar RPC en base de datos
+      const { data: rpcData, error: rpcErr } = await sb.rpc('renovar_suscripcion_perfil', {
+        p_profile_id: profileId,
+        p_metodo: selMetodo,
+        p_metodo_id: pmId,
+        p_referencia: refVal
+      });
+
+      if(!rpcErr && rpcData?.success) {
+        result = rpcData;
+      } else {
+        console.warn('Fallback renovación directa:', rpcErr?.message);
+        if(selMetodo === 'zeny') {
+          await sb.from('zeny_ledger').insert({
+            customer_id: S.user.id,
+            tipo: 'compra',
+            monto: -priceUsd,
+            estado: 'aprobado',
+            referencia: `Renovación +30d ${srv} (${prof})`
+          });
+          if(profileId) {
+            await sb.from('profiles_inventory').update({
+              vence: nextVenceStr,
+              estado: 'vendido',
+              no_renueva: false
+            }).eq('id', profileId);
+            await sb.from('orders').update({
+              vence: nextVenceStr,
+              proximo_pago: nextVenceStr
+            }).eq('profile_id', profileId);
+          }
+          result = { success: true, estado: 'entregado', nuevo_vencimiento: nextVenceStr };
+        } else if(selMetodo === 'credito') {
+          if(profileId) {
+            await sb.from('profiles_inventory').update({
+              vence: nextVenceStr,
+              estado: 'vendido',
+              no_renueva: false
+            }).eq('id', profileId);
+            await sb.from('orders').update({
+              vence: nextVenceStr,
+              proximo_pago: nextVenceStr
+            }).eq('profile_id', profileId);
+          }
+          await sb.from('orders').insert({
+            customer_id: S.user.id,
+            vendedor_id: S.user.id,
+            profile_id: profileId,
+            total_usd: priceUsd,
+            tasa_bs: bcvRate,
+            total_bs: priceBs,
+            estado: 'entregado',
+            referencia: `[RENOVACIÓN CRÉDITO] Cobrar antes de 7 días ($${priceUsd} USD)`,
+            vence: nextVenceStr,
+            proximo_pago: nextVenceStr
+          });
+          result = { success: true, estado: 'entregado', nuevo_vencimiento: nextVenceStr };
+        } else {
+          await sb.from('orders').insert({
+            customer_id: S.user.id,
+            vendedor_id: isReseller ? S.user.id : null,
+            profile_id: profileId,
+            metodo_id: pmId,
+            total_usd: priceUsd,
+            tasa_bs: bcvRate,
+            total_bs: priceBs,
+            estado: 'pendiente',
+            referencia: `[RENOVACIÓN PENDIENTE] Ref: ${refVal} (${srv})`,
+            vence: nextVenceStr,
+            proximo_pago: nextVenceStr
+          });
+          result = { success: true, estado: 'pendiente', nuevo_vencimiento: nextVenceStr };
+        }
+      }
+
+      // Notificar evento
+      fetch('/api/notify-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'renovacion_suscripcion',
+          data: {
+            cliente: nom || S.me?.nombre || S.user?.email,
+            email: S.user?.email,
+            telefono: tel || S.me?.telefono,
+            revendedor: isReseller ? (S.me?.nombre || S.user?.email) : 'Directo',
+            servicio: srv,
+            perfil: prof,
+            nuevo_vencimiento: result.nuevo_vencimiento || nextVenceStr,
+            metodo: selMetodo === 'zeny' ? 'Billetera Zeny' : (selMetodo === 'credito' ? 'Línea de Crédito' : 'Transferencia / Pago Móvil'),
+            referencia: refVal || 'Pago directo',
+            monto_usd: priceUsd
+          }
+        })
+      }).catch(()=>{});
+
+      const waRenewalMsg = `🌟 *RENOVACIÓN DE SERVICIO EXITOSA* 🌟\n━━━━━━━━━━━━━━━━━━━━\n👤 *Cliente:* ${nom}\n📺 *Servicio:* ${srv}\n👤 *Perfil:* ${prof}${pin ? ` (PIN: ${pin})` : ''}\n${mail ? `✉️ *Correo:* ${mail}\n🔑 *Clave:* (Se mantiene la misma)\n` : ''}📅 *Nuevo Vencimiento:* ${result.nuevo_vencimiento || nextVenceStr}\n━━━━━━━━━━━━━━━━━━━━\n✅ Tu suscripción continúa activa sin interrupción. ¡Gracias por tu preferencia!\n✨ *Emprendimiento Gregory Izquierdo*`;
+
+      const cleanPhone = (tel || '').replace(/\D/g, '');
+      const waTarget = cleanPhone.startsWith('58') ? cleanPhone : (cleanPhone ? '58' + cleanPhone.replace(/^0+/, '') : '');
+      const waSendUrl = waTarget ? `https://wa.me/${waTarget}?text=${encodeURIComponent(waRenewalMsg)}` : '';
+
+      $('#dlgBody').innerHTML = `
+        <div style="text-align:center;padding:10px 0">
+          <div style="font-size:3rem">🎉</div>
+          <h3 style="margin:8px 0;color:#00f5a0">
+            ${result.estado === 'pendiente' ? '¡Solicitud de Renovación Registrada!' : '¡Suscripción Renovada con Éxito!'}
+          </h3>
+          <p class="mut" style="font-size:.85rem;margin:0 0 16px">
+            ${result.estado === 'pendiente' 
+              ? `Tu referencia <b>${esc(refVal)}</b> está en proceso de verificación por Gregory. Una vez validada, el vencimiento se extenderá automáticamente.`
+              : `El servicio ha sido extendido +30 días hasta el <b style="color:#00f5a0">${result.nuevo_vencimiento || nextVenceStr}</b> manteniendo exactamente las mismas credenciales.`
+            }
+          </p>
+
+          <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:left;margin-bottom:16px;font-size:.82rem">
+            <div>📺 <b>Servicio:</b> ${esc(srv)} (${esc(prof)})</div>
+            ${mail ? `<div>✉️ <b>Cuenta:</b> ${esc(mail)}</div>` : ''}
+            <div>📅 <b>Nuevo Vencimiento:</b> <b style="color:#00f5a0">${result.nuevo_vencimiento || nextVenceStr}</b></div>
+            <div>💵 <b>Monto:</b> $${priceUsd.toFixed(2)} USD</div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button class="clean-copy-btn" data-clean-copy="${esc(waRenewalMsg)}" style="width:100%;padding:10px;font-size:.85rem;background:rgba(0,245,160,.12);color:#00f5a0;border:1.5px solid rgba(0,245,160,.4);border-radius:10px;cursor:pointer;font-weight:700">
+              📋 Copiar Confirmación para el Cliente
+            </button>
+            ${waSendUrl ? `
+              <a href="${waSendUrl}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;padding:10px;font-size:.85rem;background:#25D366;color:#fff;border-radius:10px;text-decoration:none;font-weight:800">
+                💬 Enviar Confirmación por WhatsApp
+              </a>
+            ` : ''}
+            <button class="g" id="btnFinishRenew" style="width:100%;margin-top:6px;padding:9px;border-radius:10px">
+              Cerrar y Volver al Portal
+            </button>
+          </div>
+        </div>
+      `;
+
+      setupCleanCopy();
+      $('#btnFinishRenew').onclick = () => {
+        dlg.close();
+        portal();
+      };
+
+    } catch(err) {
+      console.error('Error al renovar:', err);
+      btn.disabled = false;
+      btn.textContent = 'Confirmar Renovación (+30d)';
+      alert('Error al renovar: ' + err.message);
+    }
+  };
+}
+window.openRenewalModal = openRenewalModal;
+
 function getNivelesConfig() {
   return S.settings?.niveles_beneficios || DEFAULT_NIVELES_BENEFICIOS;
 }
@@ -3756,6 +4174,9 @@ async function portal(){
                       </td>
                       <td>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                          <button class="g" data-reseller-renovar="${rc.profile_id}" data-nom="${esc(rc.cliente_nombre||'Cliente')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-prof="${esc(rc.nombre_perfil||'')}" data-pin="${esc(rc.pin||'')}" data-mail="${esc(rc.correo||'')}" data-tel="${esc(rc.cliente_telefono||'')}" data-vence="${esc(rc.vence||'')}" style="padding:5px 9px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700;display:inline-flex;align-items:center;gap:3px" title="Renovar suscripción por 30 días manteniendo las mismas credenciales">
+                            🔄 Renovar (+30d)
+                          </button>
                           <button class="clean-copy-btn" data-clean-copy="${esc(cleanMsg)}" title="Copiar datos para el cliente">
                             📋 Copiar
                           </button>
@@ -4018,7 +4439,7 @@ async function portal(){
   ${(cr.data||[]).length ? `
     <div class="wrap">
       <table>
-        <tr><th>Servicio</th><th>Correo</th><th>Clave</th><th>Perfil</th><th>PIN</th><th>Vence</th><th>Reenviar</th></tr>
+        <tr><th>Servicio</th><th>Correo</th><th>Clave</th><th>Perfil</th><th>PIN</th><th>Vence</th><th>Acciones</th></tr>
         ${(cr.data||[]).map(x => {
           const rawText = formatMessageTemplate('datos_limpios_revendedor', {
             servicio: x.servicio,
@@ -4037,9 +4458,14 @@ async function portal(){
               <td><code>${esc(x.pin || '—')}</code></td>
               <td>${esc(x.vence || '—')}</td>
               <td>
-                <button class="clean-copy-btn" data-clean-copy="${esc(rawText)}" title="Copiar datos limpios para reenviar a tu cliente">
-                  📋 Copiar p/ Cliente
-                </button>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                  <button class="g" data-client-renovar="${x.order_id}" data-srv="${esc(x.servicio)}" data-prof="${esc(x.perfil||'')}" data-pin="${esc(x.pin||'')}" data-mail="${esc(x.correo||'')}" data-vence="${esc(x.vence||'')}" style="padding:5px 9px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700;display:inline-flex;align-items:center;gap:3px" title="Renovar tu suscripción +30 días manteniendo las mismas credenciales">
+                    🔄 Renovar (+30d)
+                  </button>
+                  <button class="clean-copy-btn" data-clean-copy="${esc(rawText)}" title="Copiar datos limpios para reenviar a tu cliente">
+                    📋 Copiar p/ Cliente
+                  </button>
+                </div>
               </td>
             </tr>
           `;
@@ -4552,6 +4978,19 @@ async function portal(){
       };
     }
 
+    app.querySelectorAll('[data-reseller-renovar]').forEach(b => {
+      b.onclick = () => openRenewalModal({
+        profileId: b.dataset.resellerRenovar,
+        nom: b.dataset.nom,
+        srv: b.dataset.srv,
+        prof: b.dataset.prof,
+        pin: b.dataset.pin,
+        mail: b.dataset.mail,
+        tel: b.dataset.tel,
+        curVence: b.dataset.vence
+      });
+    });
+
     app.querySelectorAll('[data-reseller-no-renueva]').forEach(b => {
       b.onclick = () => {
         const profId = b.dataset.resellerNoRenueva;
@@ -4635,6 +5074,16 @@ async function portal(){
   }
 
   app.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('cancel_my_order',{p_order:b.dataset.cancel});error?toast(error.message):(await loadPublic(),portal());});
+  app.querySelectorAll('[data-client-renovar]').forEach(b => {
+    b.onclick = () => openRenewalModal({
+      orderId: b.dataset.clientRenovar,
+      srv: b.dataset.srv,
+      prof: b.dataset.prof,
+      pin: b.dataset.pin,
+      mail: b.dataset.mail,
+      curVence: b.dataset.vence
+    });
+  });
   $('#rec').onclick=()=>{
     $('#dlgBody').innerHTML='<h3>Recargar Billetera Zeny</h3><input id="m" type="number" min="1" step="0.5" placeholder="Monto en USD (1 ZP = $1)"><input id="r" placeholder="Referencia del pago móvil o comprobante" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Solicitar recarga</button>'; dlg.showModal();
     $('#ok').onclick=async()=>{
