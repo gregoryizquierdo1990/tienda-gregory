@@ -29,6 +29,7 @@ create index if not exists idx_payment_methods_franchise on public.payment_metho
 -- SECCIÓN 2: CONTROL DE INVENTARIO Y CUENTAS MADRE ACTIVAS (stock)
 -- ------------------------------------------------------------------------------
 -- Solo contabiliza y ofrece perfiles de cuentas madre activas y vigentes
+drop function if exists public.stock();
 create or replace function public.stock()
 returns table(product_id uuid, disponibles bigint)
 language plpgsql security definer set search_path = public as $$
@@ -205,6 +206,12 @@ end $$;
 -- ------------------------------------------------------------------------------
 -- SECCIÓN 6: PROCESO MAESTRO DE CREACIÓN DE PEDIDOS (create_order)
 -- ------------------------------------------------------------------------------
+drop function if exists public.create_order(uuid, uuid, text);
+drop function if exists public.create_order(uuid, uuid, text, numeric);
+drop function if exists public.create_order(uuid, uuid, text, numeric, jsonb);
+drop function if exists public.create_order(uuid, uuid, text, numeric, jsonb, boolean);
+drop function if exists public.create_order(uuid, uuid, text, numeric, jsonb, boolean, uuid);
+
 create or replace function public.create_order(
   p_product uuid,
   p_metodo uuid default null,
@@ -416,59 +423,13 @@ begin
   return o;
 end $$;
 
--- Sobrecargas para compatibilidad
-create or replace function public.create_order(
-  p_product uuid,
-  p_metodo uuid,
-  p_ref text,
-  p_zeny numeric,
-  p_datos_recarga jsonb,
-  p_es_cuotas boolean
-) returns uuid language plpgsql security definer set search_path = public as $$
-begin
-  return public.create_order(p_product, p_metodo, p_ref, p_zeny, p_datos_recarga, p_es_cuotas, null);
-end $$;
-
-create or replace function public.create_order(
-  p_product uuid,
-  p_metodo uuid,
-  p_ref text,
-  p_zeny numeric,
-  p_datos_recarga jsonb
-) returns uuid language plpgsql security definer set search_path = public as $$
-begin
-  return public.create_order(p_product, p_metodo, p_ref, p_zeny, p_datos_recarga, false, null);
-end $$;
-
-create or replace function public.create_order(
-  p_product uuid,
-  p_metodo uuid,
-  p_ref text,
-  p_zeny numeric
-) returns uuid language plpgsql security definer set search_path = public as $$
-begin
-  return public.create_order(p_product, p_metodo, p_ref, p_zeny, '{}'::jsonb, false, null);
-end $$;
-
-create or replace function public.create_order(
-  p_product uuid,
-  p_metodo uuid,
-  p_ref text
-) returns uuid language plpgsql security definer set search_path = public as $$
-begin
-  return public.create_order(p_product, p_metodo, p_ref, 0, '{}'::jsonb, false, null);
-end $$;
-
 revoke execute on function public.create_order(uuid,uuid,text,numeric,jsonb,boolean,uuid) from public, anon;
 grant execute on function public.create_order(uuid,uuid,text,numeric,jsonb,boolean,uuid) to authenticated;
-grant execute on function public.create_order(uuid,uuid,text,numeric,jsonb,boolean) to authenticated;
-grant execute on function public.create_order(uuid,uuid,text,numeric,jsonb) to authenticated;
-grant execute on function public.create_order(uuid,uuid,text,numeric) to authenticated;
-grant execute on function public.create_order(uuid,uuid,text) to authenticated;
 
 -- ------------------------------------------------------------------------------
 -- SECCIÓN 7: CONCILIACIÓN, CIERRE, RECHAZO Y REEMBOLSOS COHERENTES
 -- ------------------------------------------------------------------------------
+drop function if exists public._deliver(uuid);
 create or replace function public._deliver(p_order uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -561,6 +522,7 @@ begin
       tasa_bs = excluded.tasa_bs;
 end $$;
 
+drop function if exists public._close_order(uuid, text);
 create or replace function public._close_order(p_order uuid, p_estado text)
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -590,6 +552,7 @@ begin
   where order_id = p_order and estado in ('pendiente', 'en_revision');
 end $$;
 
+drop function if exists public.release_expired();
 create or replace function public.release_expired()
 returns void language plpgsql security definer set search_path = public as $$
 declare
@@ -622,6 +585,10 @@ begin
   end loop;
 end $$;
 
+drop function if exists public.refund_order(uuid, numeric, text, text, boolean);
+drop function if exists public.refund_order(uuid, numeric, text, text);
+drop function if exists public.refund_order(uuid, text);
+drop function if exists public.refund_order(uuid);
 create or replace function public.refund_order(
   p_order uuid,
   p_monto numeric,
@@ -680,6 +647,10 @@ end $$;
 -- ------------------------------------------------------------------------------
 -- SECCIÓN 8: ENTREGAS A CRÉDITO Y REGISTRO AUTOMÁTICO EN installments
 -- ------------------------------------------------------------------------------
+drop function if exists public.deliver_order_credit(uuid, int, uuid);
+drop function if exists public.deliver_order_credit(uuid, int);
+drop function if exists public.deliver_order_credit(uuid);
+
 create or replace function public.deliver_order_credit(
   p_order uuid,
   p_dias int default 7,
@@ -762,25 +733,12 @@ begin
   );
 end $$;
 
-create or replace function public.deliver_order_credit(p_order uuid, p_dias int)
-returns void language plpgsql security definer set search_path = public as $$
-begin
-  perform public.deliver_order_credit(p_order, p_dias, null);
-end $$;
-
-create or replace function public.deliver_order_credit(p_order uuid)
-returns void language plpgsql security definer set search_path = public as $$
-begin
-  perform public.deliver_order_credit(p_order, 7, null);
-end $$;
-
 grant execute on function public.deliver_order_credit(uuid, int, uuid) to authenticated;
-grant execute on function public.deliver_order_credit(uuid, int) to authenticated;
-grant execute on function public.deliver_order_credit(uuid) to authenticated;
 
 -- ------------------------------------------------------------------------------
 -- SECCIÓN 9: APROBACIÓN DE CUOTAS Y LIBERACIÓN DE LÍMITE DE CRÉDITO
 -- ------------------------------------------------------------------------------
+drop function if exists public.approve_installment(uuid);
 create or replace function public.approve_installment(
   p_installment_id uuid
 ) returns void
