@@ -109,7 +109,6 @@ where tipo = 'compra'
 -- PASO 4: LIBERAR RESERVAS DE profiles_inventory Y PEDIDOS EXPIRADOS
 -- ------------------------------------------------------------------------------
 -- 4.1 Ejecutar liberación de reservas expiradas
-perform_release:
 do $$
 begin
   perform public.release_expired();
