@@ -3086,13 +3086,199 @@ Cobrar antes de ${fVenceCred}`;
     if (bGoMesa) bGoMesa.onclick = () => admin('mesa_cambio');
   },
   async google(box) {
-    const { data: gi } = await sb.from('google_integrations').select('*');
-    const on = k => !!gi?.find(x => x.service === k)?.enabled, has = !!sessionStorage.getItem('gtk');
-    box.innerHTML = `<p class="mut">Estado: ${has ? '✅ conectado' : '⚠️ sin conectar'}. Cada servicio se puede activar o desactivar.</p>
-    <div class="row"><button id="gc">Conectar Google</button></div>
-    <div class="grid" style="margin-top:12px">${[['calendar', 'Calendar', 'Crear eventos de vencimientos'], ['sheets', 'Sheets', 'Respaldar clientes, pedidos e inventario'], ['drive', 'Drive', 'Subir respaldo JSON completo'], ['contacts', 'Contactos', 'Guardar clientes como contactos'], ['gemini', 'Gemini', 'Asistente (ver pestaña gemini)']].map(([k, n, d]) => `<div class="card"><b>${n}</b><div class="mut">${d}</div><label class="row" style="margin:8px 0"><input type="checkbox" style="width:auto" data-sv="${k}" ${on(k) ? 'checked' : ''}> Activado</label>${k !== 'gemini' ? `<button data-go="${k}" ${on(k) ? '' : 'disabled'}>Ejecutar</button>` : ''}</div>`).join('')}</div>`;
-    $('#gc').onclick = () => GCal.connect();
-    box.querySelectorAll('[data-sv]').forEach(c => c.onchange = async () => { await sb.from('google_integrations').update({ enabled: c.checked, updated_at: new Date().toISOString() }).eq('service', c.dataset.sv); EXTRA.google(box); });
+    box.innerHTML = '<div style="padding:24px;text-align:center"><p class="mut">Cargando integraciones de Google Cloud…</p></div>';
+    let { data: gi } = await sb.from('google_integrations').select('*');
+    if(!gi || gi.length === 0){
+      try {
+        await sb.from('google_integrations').upsert([
+          { service: 'calendar' }, { service: 'sheets' }, { service: 'drive' }, { service: 'contacts' }, { service: 'gemini' }
+        ], { onConflict: 'service' });
+        const refetch = await sb.from('google_integrations').select('*');
+        gi = refetch.data || [];
+      } catch(e) {}
+    }
+
+    const currentTab = box._googleTab || 'servicios';
+    const has = !!sessionStorage.getItem('gtk');
+    const on = k => !!gi?.find(x => x.service === k)?.enabled;
+
+    box.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:1.15rem">🌐 Google Cloud & Workspace Hub</h3>
+          <p class="mut" style="margin:0;font-size:.82rem">Automatizaciones en Calendar, Sheets, Drive, Contactos y configuración OAuth 2.0 unificada.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="tabGoogleSrv" class="${currentTab === 'servicios' ? '' : 'g'}" style="padding:6px 12px;font-size:.78rem">🚀 Servicios y Tareas</button>
+          <button id="tabGoogleOAuth" class="${currentTab === 'oauth' ? '' : 'g'}" style="padding:6px 12px;font-size:.78rem">⚙️ Configuración OAuth & Cloud</button>
+        </div>
+      </div>
+
+      ${currentTab === 'servicios' ? `
+        <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(10,26,50,.85),rgba(5,15,30,.9))">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+              <span class="mut" style="font-size:.76rem;display:block">Estado de Conexión OAuth:</span>
+              <b style="font-size:1.05rem;color:${has ? '#00f5a0' : '#ffb703'}">${has ? '🟢 Sesión Google Conectada (OAuth 2.0)' : '⚠️ Sin Conectar con Google'}</b>
+              <p class="mut" style="margin:4px 0 0;font-size:.76rem">Permite sincronizar eventos de Calendar, crear copias en Drive/Sheets y respaldar contactos.</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              ${has ? `
+                <button id="btnDisconnectG" class="g" style="padding:7px 13px;font-size:.76rem;color:#f87171;border-color:rgba(239,68,68,.35)">Desconectar</button>
+                <button id="btnViewGCal" class="g" style="padding:7px 13px;font-size:.76rem;color:#38bdf8">📅 Ver Google Calendar</button>
+              ` : `
+                <button id="gc" style="padding:8px 16px;font-size:.82rem;font-weight:700">🔑 Conectar con Google</button>
+              `}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid" style="margin-top:12px">
+          ${[
+            ['calendar', '📅 Calendar', 'Sincroniza automáticamente los eventos de vencimiento de pedidos y servicios de clientes.'],
+            ['sheets', '📊 Google Sheets', 'Genera y actualiza un libro de cálculo con respaldos de Clientes, Pedidos, Facturas e Inventario.'],
+            ['drive', '☁️ Google Drive', 'Sube copias de seguridad completas de toda la base de datos en formato JSON comprimido.'],
+            ['contacts', '👥 Google Contacts', 'Guarda automáticamente a los clientes con número telefónico y email en tus Contactos de Google.'],
+            ['gemini', '🤖 Gemini AI', 'Asistente de inteligencia artificial para redacción y análisis de incidencias.']
+          ].map(([k, n, d]) => `
+            <div class="card" style="display:flex;flex-direction:column;justify-content:space-between">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <b>${n}</b>
+                  <span class="pill ${on(k) ? '' : 'off'}" style="font-size:.7rem">${on(k) ? 'Habilitado' : 'Inactivo'}</span>
+                </div>
+                <div class="mut" style="font-size:.78rem;line-height:1.4">${d}</div>
+              </div>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)">
+                <label class="row" style="margin:0 0 10px;font-size:.8rem;align-items:center;cursor:pointer">
+                  <input type="checkbox" style="width:auto;margin-right:6px" data-sv="${k}" ${on(k) ? 'checked' : ''}>
+                  <span>Habilitar servicio</span>
+                </label>
+                ${k === 'gemini' ? `
+                  <button class="g" id="btnGoGemini" style="width:100%;font-size:.76rem;padding:6px">Ir al Asistente Gemini ➔</button>
+                ` : `
+                  <button data-go="${k}" style="width:100%;font-size:.76rem;padding:6px" ${on(k) && has ? '' : 'disabled'}>
+                    ${has ? '⚡ Ejecutar Sincronización' : '⚠️ Conecta Google primero'}
+                  </button>
+                `}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : `
+        <div class="card" style="margin-bottom:16px;background:rgba(13,29,54,.6)">
+          <h4 style="margin:0 0 8px;color:var(--c);font-size:.95rem">⚙️ Configuración y Credenciales OAuth de Google Cloud</h4>
+          <p class="mut" style="font-size:.8rem;margin:0 0 12px;line-height:1.5">
+            Para que la autenticación y las APIs funcionen en producción, asegúrate de haber registrado estas URLs en la consola de Google Cloud (<b>APIs y Servicios ➔ Credenciales ➔ ID de cliente OAuth 2.0</b>):
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-bottom:12px">
+            <div style="background:rgba(0,0,0,.35);padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.08)">
+              <span class="mut" style="font-size:.72rem;display:block">Orígenes autorizados de JavaScript:</span>
+              <code style="font-size:.8rem;color:#38bdf8">https://www.gregoryizquierdo.xyz</code>
+            </div>
+            <div style="background:rgba(0,0,0,.35);padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.08)">
+              <span class="mut" style="font-size:.72rem;display:block">URI de redireccionamiento autorizados:</span>
+              <code style="font-size:.8rem;color:#00f5a0">https://tevjiqnnnjnakftrjgud.supabase.co/auth/v1/callback</code>
+            </div>
+          </div>
+          <div style="font-size:.76rem;color:#8ea8c8">
+            <b>Calendario Principal vinculado:</b> <code>${GCal.CAL_ID || 'emprendimientogregoryizquierdo@gmail.com'}</code>
+          </div>
+        </div>
+
+        <div class="wrap">
+          <table style="width:100%">
+            <tr>
+              <th>Servicio</th>
+              <th>Estado</th>
+              <th>Configuración JSON</th>
+              <th>Última Actualización</th>
+              <th>Acción</th>
+            </tr>
+            ${(gi || []).map(row => `
+              <tr>
+                <td><b>${esc(row.service)}</b></td>
+                <td>
+                  <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+                    <input type="checkbox" data-sv-oauth="${esc(row.service)}" ${row.enabled ? 'checked' : ''} style="width:auto">
+                    <span class="pill ${row.enabled ? '' : 'off'}" style="font-size:.72rem">${row.enabled ? 'Activo' : 'Inactivo'}</span>
+                  </label>
+                </td>
+                <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                  <code style="font-size:.75rem">${esc(JSON.stringify(row.config || {}))}</code>
+                </td>
+                <td><span class="mut" style="font-size:.75rem">${esc(row.updated_at ? row.updated_at.slice(0,16).replace('T',' ') : '—')}</span></td>
+                <td>
+                  <button class="g" data-edit-g-cfg="${esc(row.service)}" style="padding:4px 8px;font-size:.74rem">✏️ Editar Config</button>
+                </td>
+              </tr>
+            `).join('')}
+          </table>
+        </div>
+      `}
+    `;
+
+    const tabSrv = box.querySelector('#tabGoogleSrv');
+    if(tabSrv) tabSrv.onclick = () => { box._googleTab = 'servicios'; EXTRA.google(box); };
+    const tabOAuth = box.querySelector('#tabGoogleOAuth');
+    if(tabOAuth) tabOAuth.onclick = () => { box._googleTab = 'oauth'; EXTRA.google(box); };
+
+    const btnConnect = box.querySelector('#gc');
+    if(btnConnect) btnConnect.onclick = () => GCal.connect();
+    const btnDisc = box.querySelector('#btnDisconnectG');
+    if(btnDisc) btnDisc.onclick = () => {
+      sessionStorage.removeItem('gtk');
+      toast('Sesión de Google desconectada localmente.');
+      EXTRA.google(box);
+    };
+    const btnVCal = box.querySelector('#btnViewGCal');
+    if(btnVCal) btnVCal.onclick = () => GCal.openEmbedView();
+    const btnGoGem = box.querySelector('#btnGoGemini');
+    if(btnGoGem) btnGoGem.onclick = () => admin('gemini');
+
+    box.querySelectorAll('[data-sv]').forEach(c => c.onchange = async () => {
+      await sb.from('google_integrations').update({ enabled: c.checked, updated_at: new Date().toISOString() }).eq('service', c.dataset.sv);
+      EXTRA.google(box);
+    });
+
+    box.querySelectorAll('[data-sv-oauth]').forEach(c => c.onchange = async () => {
+      await sb.from('google_integrations').update({ enabled: c.checked, updated_at: new Date().toISOString() }).eq('service', c.dataset.svOauth);
+      EXTRA.google(box);
+    });
+
+    box.querySelectorAll('[data-edit-g-cfg]').forEach(btn => {
+      btn.onclick = () => {
+        const sName = btn.dataset.editGCfg;
+        const sRow = gi?.find(x => x.service === sName);
+        const curCfg = JSON.stringify(sRow?.config || {}, null, 2);
+        $('#dlgBody').innerHTML = `
+          <h3>⚙️ Configuración para ${esc(sName)}</h3>
+          <p class="mut" style="font-size:.8rem;margin:0 0 10px">Edita los parámetros en formato JSON para este servicio (ej. client_id, calendar_id, spreadsheet_id).</p>
+          <textarea id="txtGoogleCfgJson" rows="10" style="width:100%;font-family:monospace;font-size:.8rem;background:rgba(3,8,18,.9);border:1px solid var(--line);border-radius:8px;padding:8px;color:#c0e0ff">${esc(curCfg)}</textarea>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnSaveGCfgJson">💾 Guardar Configuración</button>
+          </div>
+        `;
+        dlg.showModal();
+        $('#btnSaveGCfgJson').onclick = async () => {
+          try {
+            const parsed = JSON.parse($('#txtGoogleCfgJson').value);
+            const { error: upErr } = await sb.from('google_integrations').update({
+              config: parsed,
+              updated_at: new Date().toISOString()
+            }).eq('service', sName);
+            if(upErr) throw upErr;
+            dlg.close();
+            toast(`Configuración de ${sName} guardada exitosamente.`);
+            EXTRA.google(box);
+          } catch(err){
+            toast('JSON inválido o error: ' + err.message);
+          }
+        };
+      };
+    });
+
     const jobs = {
       async calendar() {
         const { data } = await sb.from('orders').select('id,vence,products(nombre),customers!customer_id(nombre)').in('estado', ['pagado', 'entregado']).gte('vence', today()).is('gcal_event_id', null); let n = 0;
@@ -3136,11 +3322,11 @@ Cobrar antes de ${fVenceCred}`;
   async cuotas(box) {
     let instList = null, error = null;
     let res = await sb.from('installments')
-      .select('*, customers!customer_id(nombre,email,telefono), reseller:customers!reseller_id(nombre,email,telefono), orders(referencia, products(nombre))')
+      .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion,es_revendedor), reseller:customers!reseller_id(nombre,email,telefono), orders(referencia, products(nombre))')
       .order('fecha_vencimiento', { ascending: true });
     if (res.error) {
       res = await sb.from('installments')
-        .select('*, customers!customer_id(nombre,email,telefono), orders(referencia, products(nombre))')
+        .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion,es_revendedor), orders(referencia, products(nombre))')
         .order('fecha_vencimiento', { ascending: true });
     }
     if (res.error) {
@@ -3186,36 +3372,11 @@ create table if not exists installments (
   pagada_at timestamptz,
   created_at timestamptz not null default now()
 );
-
 alter table installments enable row level security;
 drop policy if exists installments_user_select on installments;
 create policy installments_user_select on installments for select to authenticated using (customer_id = auth.uid() or is_admin());
 drop policy if exists installments_admin_all on installments;
-create policy installments_admin_all on installments for all to authenticated using (is_admin()) with check (is_admin());
-
-alter table customers add column if not exists limite_credito numeric(10,2) not null default 10.00;
-alter table customers add column if not exists nivel_credito text not null default 'Bronce';
-
-create or replace function pay_installment(p_installment_id uuid, p_metodo_id uuid, p_referencia text)
-returns void language plpgsql security definer set search_path = public as $$
-declare inst installments; r numeric;
-begin
-  if auth.uid() is null then raise exception 'Inicia sesion'; end if;
-  select * into inst from installments where id = p_installment_id for update;
-  if not found then raise exception 'Cuota no encontrada'; end if;
-  if inst.customer_id <> auth.uid() and not is_admin() then raise exception 'No autorizado'; end if;
-  select bs_por_usd into r from exchange_rates order by fecha desc limit 1;
-  update installments set estado = 'en_revision', metodo_id = p_metodo_id, referencia = left(coalesce(p_referencia,''), 120), tasa_bs = r, monto_bs = inst.monto_usd * coalesce(r, 0) where id = p_installment_id;
-end $$;
-grant execute on function pay_installment(uuid, uuid, text) to authenticated;
-
-create or replace function approve_installment(p_installment_id uuid)
-returns void language plpgsql security definer set search_path = public as $$
-begin
-  if not is_admin() then raise exception 'No autorizado'; end if;
-  update installments set estado = 'pagada', pagada_at = coalesce(pagada_at, now()) where id = p_installment_id;
-end $$;
-grant execute on function approve_installment(uuid) to authenticated;`;
+create policy installments_admin_all on installments for all to authenticated using (is_admin()) with check (is_admin());`;
           await navigator.clipboard.writeText(sql);
           toast('¡SQL copiado al portapapeles! Pégalo y ejecútalo en Supabase.');
         };
@@ -3227,30 +3388,74 @@ grant execute on function approve_installment(uuid) to authenticated;`;
 
     const todayStr = new Date().toISOString().slice(0, 10);
     const list = instList || [];
-    const pendTotal = list.filter(c => c.estado !== 'pagada').reduce((a, c) => a + Number(c.monto_usd), 0);
+    const pendTotal = list.filter(c => c.estado !== 'pagada').reduce((a, c) => a + Number(c.monto_usd || 0), 0);
     const revCount = list.filter(c => c.estado === 'en_revision').length;
+    const vencCount = list.filter(c => c.estado !== 'pagada' && c.fecha_vencimiento < todayStr).length;
+    const pendCount = list.filter(c => c.estado === 'pendiente' && c.fecha_vencimiento >= todayStr).length;
+    const pagCount = list.filter(c => c.estado === 'pagada').length;
+
+    let filter = box._cuotasFilter || 'todas';
+    let search = (box._cuotasSearch || '').toLowerCase().trim();
+
+    const filtered = list.filter(c => {
+      if (filter === 'revision' && c.estado !== 'en_revision') return false;
+      if (filter === 'pendientes' && (c.estado !== 'pendiente' || c.fecha_vencimiento < todayStr)) return false;
+      if (filter === 'vencidas' && (c.estado === 'pagada' || c.fecha_vencimiento >= todayStr)) return false;
+      if (filter === 'pagadas' && c.estado !== 'pagada') return false;
+
+      if (search) {
+        const nom = (c.customers?.nombre || '').toLowerCase();
+        const mail = (c.customers?.email || '').toLowerCase();
+        const tel = (c.customers?.telefono || '').toLowerCase();
+        const cod = (c.customers?.codigo_identificacion || '').toLowerCase();
+        const prod = (c.orders?.products?.nombre || c.orders?.referencia || c.referencia || '').toLowerCase();
+        const ref = (c.referencia || '').toLowerCase();
+        if (!nom.includes(search) && !mail.includes(search) && !tel.includes(search) && !cod.includes(search) && !prod.includes(search) && !ref.includes(search)) {
+          return false;
+        }
+      }
+      return true;
+    });
 
     box.innerHTML = `
       <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(13,39,76,.85),rgba(7,20,40,.9))">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
           <div>
-            <h3 style="margin:0 0 4px;font-size:1.15rem">💳 Control y Cobranza de Cuotas (BNPL)</h3>
-            <p class="mut" style="margin:0;font-size:.82rem">Gestiona los pagos en cuotas, aprueba abonos y envía recordatorios automáticos por WhatsApp.</p>
+            <h3 style="margin:0 0 4px;font-size:1.15rem">💳 Control Integral y Cobranza de Cuotas (BNPL)</h3>
+            <p class="mut" style="margin:0;font-size:.82rem">Gestiona los pagos en cuotas, aprueba abonos, asigna límites de crédito y exporta informes contables.</p>
           </div>
           <div style="display:flex;gap:10px;text-align:right;align-items:center;flex-wrap:wrap">
-            <button id="btnConfigCuotas" class="g" style="padding:6px 12px;font-size:.76rem">⚙️ Configurar % Inicial y N° Cuotas</button>
-            <button id="btnManageCredits" class="g" style="padding:6px 12px;font-size:.76rem">👥 Asignar Límites a Usuarios</button>
+            <button id="btnExportCuotasCsv" class="g" style="padding:6px 12px;font-size:.76rem" title="Descargar reporte en formato CSV compatible con Excel">📥 Exportar CSV</button>
+            <button id="btnConfigCuotas" class="g" style="padding:6px 12px;font-size:.76rem">⚙️ Configurar BNPL</button>
+            <button id="btnManageCredits" class="g" style="padding:6px 12px;font-size:.76rem">👥 Límites de Crédito</button>
             <div>
               <span class="mut" style="font-size:.72rem;display:block">Por cobrar:</span>
               <b style="font-size:1.2rem;color:var(--c)">$${pendTotal.toFixed(2)} USD</b>
             </div>
-            ${revCount ? `
-              <div>
-                <span class="mut" style="font-size:.72rem;display:block">En revisión:</span>
-                <span class="pill" style="font-size:.8rem">${revCount} por validar</span>
-              </div>
-            ` : ''}
           </div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button data-filter-cuota="todas" class="${filter === 'todas' ? '' : 'g'}" style="padding:5px 11px;font-size:.76rem">
+            Todas (${list.length})
+          </button>
+          <button data-filter-cuota="revision" class="${filter === 'revision' ? '' : 'g'}" style="padding:5px 11px;font-size:.76rem;color:${revCount ? '#fde047' : 'inherit'}">
+            En revisión (${revCount})
+          </button>
+          <button data-filter-cuota="pendientes" class="${filter === 'pendientes' ? '' : 'g'}" style="padding:5px 11px;font-size:.76rem">
+            Pendientes (${pendCount})
+          </button>
+          <button data-filter-cuota="vencidas" class="${filter === 'vencidas' ? '' : 'g'}" style="padding:5px 11px;font-size:.76rem;color:${vencCount ? '#ff4d6d' : 'inherit'}">
+            Vencidas (${vencCount})
+          </button>
+          <button data-filter-cuota="pagadas" class="${filter === 'pagadas' ? '' : 'g'}" style="padding:5px 11px;font-size:.76rem;color:#00f5a0">
+            Pagadas (${pagCount})
+          </button>
+        </div>
+        <div style="flex:1;min-width:240px;max-width:380px">
+          <input id="inputSearchCuotas" placeholder="🔍 Buscar cliente, código, teléfono o ref..." value="${esc(box._cuotasSearch || '')}" style="width:100%;font-size:.8rem;padding:6px 10px">
         </div>
       </div>
 
@@ -3266,16 +3471,18 @@ grant execute on function approve_installment(uuid) to authenticated;`;
             <th>Referencia</th>
             <th>Acciones</th>
           </tr>
-          ${list.map(c => {
+          ${filtered.map(c => {
             const isVencida = c.estado !== 'pagada' && c.fecha_vencimiento < todayStr;
             const statusClass = isVencida ? 'vencida' : c.estado;
             const statusLabel = isVencida ? 'Vencida' : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente'));
             const tel = c.customers?.telefono || '';
             const nom = c.customers?.nombre || c.customers?.email || 'Cliente';
+            const cod = c.customers?.codigo_identificacion || (c.customers?.es_revendedor ? 'RVD:1001' : 'CLT:001');
             const prod = c.orders?.products?.nombre || c.orders?.referencia || c.referencia || 'Servicio Digital';
             const rawMsg = formatMessageTemplate('cobro_cuota', {
               cliente: nom,
               producto: prod,
+              servicio: prod,
               cuota: c.numero_cuota,
               total_cuotas: c.total_cuotas,
               monto_usd: Number(c.monto_usd).toFixed(2),
@@ -3286,28 +3493,43 @@ grant execute on function approve_installment(uuid) to authenticated;`;
 
             return `
               <tr>
-                <td><b>#${c.numero_cuota} de ${c.total_cuotas}</b></td>
                 <td>
-                  <b>${esc(nom)}</b>
-                  ${c.reseller?.nombre ? `<div style="font-size:.73rem;color:#f59e0b;margin-top:2px;font-weight:600">🏷️ Revendedor: ${esc(c.reseller.nombre)}</div>` : ''}
-                  ${tel ? `<div style="font-size:.73rem;color:#38bdf8;margin-top:2px">📱 ${esc(tel)}</div>` : ''}
-                  <span class="mut" style="display:block;font-size:.72rem">${esc(c.customers?.email || '')}</span>
+                  <b>#${c.numero_cuota} de ${c.total_cuotas}</b>
+                  <span class="mut" style="display:block;font-size:.7rem">${esc(c.created_at ? c.created_at.slice(0, 10) : '')}</span>
+                </td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-family:monospace;font-size:.74rem;color:var(--c);font-weight:700">${esc(cod)}</span>
+                    <b>${esc(nom)}</b>
+                  </div>
+                  ${c.reseller?.nombre ? `<div style="font-size:.72rem;color:#f59e0b;margin-top:2px;font-weight:600">🏷️ Revendedor: ${esc(c.reseller.nombre)}</div>` : ''}
+                  ${tel ? `<div style="font-size:.72rem;color:#38bdf8;margin-top:2px"><a href="https://wa.me/${tel.replace(/\D/g,'')}" target="_blank" style="color:inherit;text-decoration:none">📱 ${esc(tel)}</a></div>` : ''}
+                  <span class="mut" style="display:block;font-size:.7rem">${esc(c.customers?.email || '')}</span>
                 </td>
                 <td>${esc(prod)}</td>
-                <td><b style="color:var(--c)">$${Number(c.monto_usd).toFixed(2)}</b></td>
-                <td><span style="color:${isVencida ? '#ff4d6d' : 'inherit'}">${esc(c.fecha_vencimiento)}</span></td>
+                <td>
+                  <b style="color:var(--c);font-size:.92rem">$${Number(c.monto_usd).toFixed(2)}</b>
+                  <div class="mut" style="font-size:.7rem">Bs. ${(Number(c.monto_usd) * (S.rate || 0)).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                </td>
+                <td>
+                  <span style="color:${isVencida ? '#ff4d6d' : 'inherit'};font-weight:${isVencida ? '700' : 'normal'}">${esc(c.fecha_vencimiento)}</span>
+                </td>
                 <td><span class="bnpl-inst-pill ${statusClass}">${statusLabel}</span></td>
-                <td><code>${esc(c.referencia || '—')}</code></td>
-                <td class="row" style="gap:5px;align-items:center">
+                <td>
+                  <code>${esc(c.referencia || '—')}</code>
+                  ${c.comprobante_url ? `<a href="${esc(c.comprobante_url)}" target="_blank" style="display:block;font-size:.72rem;color:var(--c);margin-top:2px">📎 Ver Comprobante</a>` : ''}
+                </td>
+                <td class="row" style="gap:4px;align-items:center">
                   ${c.estado !== 'pagada' ? `
-                    <button data-ok-inst="${c.id}" style="padding:5px 9px;font-size:.74rem">Aprobar</button>
+                    <button data-ok-inst="${c.id}" style="padding:5px 8px;font-size:.74rem;font-weight:700" title="Aprobar pago de esta cuota">Aprobar</button>
                   ` : '<span class="mut" style="font-size:.74rem">✓ Pagada</span>'}
                   ${c.estado === 'en_revision' ? `
-                    <button class="g" data-reset-inst="${c.id}" style="padding:5px 9px;font-size:.74rem;color:#f87171;border-color:rgba(239,68,68,.35)" title="Rechazar comprobante y devolver a pendiente">❌ Rechazar</button>
+                    <button class="g" data-reset-inst="${c.id}" style="padding:5px 8px;font-size:.74rem;color:#f87171;border-color:rgba(239,68,68,.35)" title="Rechazar comprobante y devolver a pendiente">❌</button>
                   ` : ''}
+                  <button class="g" data-edit-inst="${c.id}" style="padding:5px 8px;font-size:.74rem" title="Editar cuota (monto, fecha o referencia)">✏️</button>
                   ${c.estado !== 'pagada' ? `
-                    <button class="g" data-wa-inst="${c.id}" data-tel="${esc(tel)}" data-nom="${esc(nom)}" data-prod="${esc(prod)}" data-c="${c.numero_cuota}" data-tc="${c.total_cuotas}" data-m="${Number(c.monto_usd).toFixed(2)}" data-f="${esc(c.fecha_vencimiento)}" style="padding:5px 9px;font-size:.74rem;color:#00f5a0;border-color:rgba(0,245,160,.35);font-weight:700" title="Enviar recordatorio de cobro por WhatsApp">
-                      💬 Recordar WA
+                    <button class="g" data-wa-inst="${c.id}" data-tel="${esc(tel)}" data-nom="${esc(nom)}" data-prod="${esc(prod)}" data-c="${c.numero_cuota}" data-tc="${c.total_cuotas}" data-m="${Number(c.monto_usd).toFixed(2)}" data-f="${esc(c.fecha_vencimiento)}" style="padding:5px 8px;font-size:.74rem;color:#00f5a0;border-color:rgba(0,245,160,.35);font-weight:700" title="Enviar recordatorio de cobro por WhatsApp">
+                      💬
                     </button>
                   ` : ''}
                   <button class="clean-copy-btn" data-clean-copy="${esc(rawMsg)}" style="padding:5px 8px;font-size:.74rem" title="Copiar plantilla de cobro">
@@ -3317,10 +3539,76 @@ grant execute on function approve_installment(uuid) to authenticated;`;
                 </td>
               </tr>
             `;
-          }).join('') || '<tr><td colspan="8" class="mut empty">Aún no hay compras con cuotas registradas.</td></tr>'}
+          }).join('') || '<tr><td colspan="8" class="mut empty">No se encontraron cuotas con los filtros seleccionados.</td></tr>'}
         </table>
       </div>
     `;
+
+    box.querySelectorAll('[data-filter-cuota]').forEach(btn => {
+      btn.onclick = () => {
+        box._cuotasFilter = btn.dataset.filterCuota;
+        EXTRA.cuotas(box);
+      };
+    });
+
+    const sInp = box.querySelector('#inputSearchCuotas');
+    if (sInp) {
+      let _st;
+      sInp.oninput = () => {
+        clearTimeout(_st);
+        _st = setTimeout(() => {
+          box._cuotasSearch = sInp.value;
+          EXTRA.cuotas(box);
+        }, 250);
+      };
+    }
+
+    const bExport = box.querySelector('#btnExportCuotasCsv');
+    if (bExport) {
+      bExport.onclick = () => {
+        const headers = ["ID", "Nro_Cuota", "Total_Cuotas", "Cliente", "Codigo", "Telefono", "Email", "Servicio", "Monto_USD", "Monto_BS", "Tasa_BS", "Fecha_Vencimiento", "Estado", "Referencia", "Pagada_At", "Fecha_Registro"];
+        const lines = [headers.join(',')];
+        filtered.forEach(c => {
+          const nom = c.customers?.nombre || '';
+          const cod = c.customers?.codigo_identificacion || (c.customers?.es_revendedor ? 'RVD:1001' : 'CLT:001');
+          const tel = c.customers?.telefono || '';
+          const mail = c.customers?.email || '';
+          const prod = c.orders?.products?.nombre || c.orders?.referencia || c.referencia || 'Servicio Digital';
+          const mUsd = Number(c.monto_usd || 0).toFixed(2);
+          const tBs = Number(c.tasa_bs || S.rate || 0);
+          const mBs = (Number(mUsd) * tBs).toFixed(2);
+          const row = [
+            `"${c.id}"`,
+            c.numero_cuota,
+            c.total_cuotas,
+            `"${nom.replace(/"/g, '""')}"`,
+            `"${cod}"`,
+            `"${tel.replace(/"/g, '""')}"`,
+            `"${mail.replace(/"/g, '""')}"`,
+            `"${prod.replace(/"/g, '""')}"`,
+            mUsd,
+            mBs,
+            tBs.toFixed(4),
+            `"${c.fecha_vencimiento || ''}"`,
+            `"${c.estado || ''}"`,
+            `"${(c.referencia || '').replace(/"/g, '""')}"`,
+            `"${c.pagada_at || ''}"`,
+            `"${c.created_at || ''}"`
+          ];
+          lines.push(row.join(','));
+        });
+        const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cuotas_cobranza_${todayStr}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('Reporte CSV de cuotas exportado.');
+      };
+    }
 
     box.querySelectorAll('[data-ok-inst]').forEach(btn => {
       btn.onclick = () => run(btn, async () => {
@@ -3349,6 +3637,72 @@ grant execute on function approve_installment(uuid) to authenticated;`;
       });
     });
 
+    box.querySelectorAll('[data-edit-inst]').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.editInst;
+        const c = list.find(x => x.id === id);
+        if (!c) return;
+
+        $('#dlgBody').innerHTML = `
+          <h3>✏️ Editar Registro de Cuota #${c.numero_cuota} de ${c.total_cuotas}</h3>
+          <p class="mut" style="font-size:.8rem;margin:0 0 14px">Ajusta los valores financieros o el estado administrativo de la cuota.</p>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:14px">
+            <div>
+              <label class="mut" style="font-size:.74rem">Monto en Dólares ($ USD):</label>
+              <input id="editInstMonto" type="number" step="0.01" min="0.01" value="${Number(c.monto_usd).toFixed(2)}" style="font-weight:700">
+            </div>
+            <div>
+              <label class="mut" style="font-size:.74rem">Fecha de Vencimiento:</label>
+              <input id="editInstVence" type="date" value="${c.fecha_vencimiento || todayStr}">
+            </div>
+            <div>
+              <label class="mut" style="font-size:.74rem">Estado de la Cuota:</label>
+              <select id="editInstEstado">
+                <option value="pendiente" ${c.estado === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+                <option value="en_revision" ${c.estado === 'en_revision' ? 'selected' : ''}>En revisión</option>
+                <option value="pagada" ${c.estado === 'pagada' ? 'selected' : ''}>Pagada</option>
+                <option value="vencida" ${c.estado === 'vencida' ? 'selected' : ''}>Vencida</option>
+              </select>
+            </div>
+            <div>
+              <label class="mut" style="font-size:.74rem">Referencia de Pago:</label>
+              <input id="editInstRef" value="${esc(c.referencia || '')}" placeholder="Ej: 123456 / Pago Móvil">
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnSaveInstEdit">💾 Guardar Cambios</button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnSaveInstEdit').onclick = () => run($('#btnSaveInstEdit'), async () => {
+          const newMonto = parseFloat($('#editInstMonto').value);
+          const newVence = $('#editInstVence').value;
+          const newEst = $('#editInstEstado').value;
+          const newRef = $('#editInstRef').value.trim();
+
+          if (isNaN(newMonto) || newMonto <= 0) throw new Error('El monto debe ser mayor a 0');
+          if (!newVence) throw new Error('Ingresa una fecha de vencimiento');
+
+          const updateData = {
+            monto_usd: newMonto,
+            fecha_vencimiento: newVence,
+            estado: newEst,
+            referencia: newRef || null
+          };
+          if (newEst === 'pagada' && !c.pagada_at) updateData.pagada_at = new Date().toISOString();
+
+          const { error: upErr } = await sb.from('installments').update(updateData).eq('id', id);
+          if (upErr) throw upErr;
+
+          dlg.close();
+          EXTRA.cuotas(box);
+          return 'Cuota actualizada correctamente.';
+        });
+      };
+    });
+
     box.querySelectorAll('[data-wa-inst]').forEach(btn => {
       btn.onclick = () => {
         let tel = btn.dataset.tel || '';
@@ -3368,6 +3722,7 @@ grant execute on function approve_installment(uuid) to authenticated;`;
         const rawMsg = formatMessageTemplate('cobro_cuota', {
           cliente: nom,
           producto: prod,
+          servicio: prod,
           cuota: cNum,
           total_cuotas: cTot,
           monto_usd: mUsd,
@@ -3403,7 +3758,7 @@ grant execute on function approve_installment(uuid) to authenticated;`;
           cfg = data?.value || { inicial_porcentaje: 50, total_cuotas: 2, dias_frecuencia: 15, monto_minimo: 5.00 };
         }
         $('#dlgBody').innerHTML = `
-          <h3>⚙️ Parámetros de Financiamiento en Cuotas</h3>
+          <h3>⚙️ Parámetros de Financiamiento en Cuotas (BNPL)</h3>
           <p class="mut" style="font-size:.8rem;margin:0 0 14px">Establece el porcentaje de la cuota inicial y el número de cuotas en las que tus clientes financiarán sus compras.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
             <div>
@@ -3517,6 +3872,7 @@ grant execute on function approve_installment(uuid) to authenticated;`;
               const { error } = await sb.from('customers').update({ limite_credito: val }).eq('id', uid);
               btn.disabled = false;
               if (error) return toast('Error: ' + error.message);
+              if (S.me && S.me.id === uid) S.me.limite_credito = val;
               const uObj = users.find(x => x.id === uid);
               if (uObj) uObj.limite_credito = val;
               toast(`Límite actualizado a $${val.toFixed(2)} USD`);

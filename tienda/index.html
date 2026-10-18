@@ -894,11 +894,14 @@ function getMessageTemplates() {
 function formatMessageTemplate(key, data = {}) {
   const tpls = getMessageTemplates();
   let text = tpls[key]?.cuerpo || DEFAULT_MESSAGE_TEMPLATES[key]?.cuerpo || '';
+  const srv = data.servicio || data.producto || '';
   const merged = {
     negocio: S.franchise?.nombre_comercial || S.settings?.negocio?.nombre || 'Emprendimiento Gregory Izquierdo',
     telefono_negocio: S.settings?.negocio?.telefono || '+584241983648',
     rif: S.settings?.negocio?.rif || 'J-50639379-4',
-    portal_url: location.origin,
+    portal_url: S.franchise ? location.origin : 'https://www.gregoryizquierdo.xyz',
+    servicio: srv,
+    producto: srv,
     ...data
   };
   for(const [k, v] of Object.entries(merged)){
@@ -1894,25 +1897,25 @@ async function loadPublic(){
       const { data: fq } = await sb.from('public_franchises').select('*').eq('subdominio', sub).maybeSingle();
       if(fq){
         S.franchise = fq;
-        // Kill-Switch Preventivo / Suspensión por Mora o Fraude
-        if(fq.estado === 'suspendido_fraude' || fq.estado === 'suspendido_mora'){
+        // Kill-Switch Preventivo / Suspensión por Mora, Fraude o Inactiva
+        if(fq.estado === 'suspendido_fraude' || fq.estado === 'suspendido_mora' || fq.estado === 'inactiva' || fq.estado === 'en_revision'){
           S.isSuspended = true;
           const isFraud = fq.estado === 'suspendido_fraude';
           document.body.innerHTML = `
             <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#030812;color:#ecf6ff;font-family:Sora,sans-serif;text-align:center">
               <div style="max-width:520px;background:rgba(13,29,54,.95);border:1.5px solid ${isFraud?'#ff4d6d':'#ffb703'};border-radius:24px;padding:36px 24px;box-shadow:0 20px 60px rgba(0,0,0,.8)">
                 <div style="font-size:3.5rem;margin-bottom:12px">${isFraud?'🚨':'⚠️'}</div>
-                <h2 style="margin:0 0 10px;color:${isFraud?'#ff7b93':'#ffb703'}">${isFraud?'Portal Suspendido':'Servicio Temporalmente Suspendido'}</h2>
+                <h2 style="margin:0 0 10px;color:${isFraud?'#ff7b93':'#ffb703'}">${isFraud?'Portal Suspendido':'Servicio Temporalmente Inactivo'}</h2>
                 <p style="color:#8ea8c8;font-size:.95rem;line-height:1.5;margin-bottom:20px">
                   ${isFraud
                     ? 'Este portal web ha sido suspendido preventivamente por el Proveedor Tecnológico debido a investigaciones de seguridad y cumplimiento normativo.'
-                    : 'Este portal se encuentra momentáneamente inactivo por mantenimiento comercial.'}
+                    : 'Este portal se encuentra momentáneamente inactivo por revisión o mantenimiento comercial.'}
                 </p>
                 <div style="background:rgba(3,8,18,.8);border:1px solid #16335a;border-radius:12px;padding:12px;font-size:.82rem;color:#8ea8c8;margin-bottom:20px">
                   Dominio auditado: <b>${esc(window.location.hostname)}</b><br>
                   Entidad registrada: ${esc(fq.nombre_comercial)}
                 </div>
-                <a href="https://gregoryizquierdo.xyz" style="display:inline-block;padding:10px 20px;border-radius:12px;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#03121c;text-decoration:none;font-weight:700">Ir a Portal Principal</a>
+                <a href="https://www.gregoryizquierdo.xyz" style="display:inline-block;padding:10px 20px;border-radius:12px;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#03121c;text-decoration:none;font-weight:700">Ir a Portal Principal</a>
               </div>
             </div>
           `;
@@ -2095,8 +2098,20 @@ function productCard(p){
   const isReseller = S.me?.es_revendedor === true;
   const isCentralOnly = p.es_exclusivo_central === true || p.tipo === 'gaming' || p.tipo === 'recarga_telefonica';
   const originalPrice = Number(p.precio_usd);
-  const hasResellerSpecial = !isCentralOnly && isReseller && p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0;
-  const effectivePrice = hasResellerSpecial ? Number(p.precio_revendedor_usd) : originalPrice;
+  let effectivePrice = originalPrice;
+  let hasResellerSpecial = false;
+
+  if(!isCentralOnly && isReseller){
+    if(p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0){
+      effectivePrice = Number(p.precio_revendedor_usd);
+      hasResellerSpecial = true;
+    } else {
+      const niveles = typeof getNivelesConfig === 'function' ? getNivelesConfig() : {};
+      const descRev = Number(niveles?.revendedor?.descuento || 15);
+      effectivePrice = Math.round((originalPrice * (1 - descRev / 100)) * 100) / 100;
+      hasResellerSpecial = true;
+    }
+  }
   const hasBinanceSpecial = p.precio_binance_usd != null && Number(p.precio_binance_usd) > 0;
   const hasCuotas = p.permite_cuotas === true;
   const brand = getBrandInfo(p.nombre);
@@ -2422,8 +2437,12 @@ async function buyDlg(id){
   const p = S.products.find(x => x.id === id);
   if(!p) return toast('Producto no encontrado');
 
+  const pmQuery = S.franchise
+    ? sb.from('payment_methods').select('*').eq('activo', true).or(`franchise_id.eq.${S.franchise.id},franchise_id.is.null`).order('orden')
+    : sb.from('payment_methods').select('*').eq('activo', true).is('franchise_id', null).order('orden');
+
   const [{data: rawPmList}, {data: h}, {data: userCard}] = await Promise.all([
-    sb.from('payment_methods').select('*').eq('activo', true).order('orden'),
+    pmQuery,
     sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente'),
     (async () => {
       try {
@@ -2485,9 +2504,16 @@ async function buyDlg(id){
   const isReseller = S.me?.es_revendedor === true;
   const isCentralOnly = p.es_exclusivo_central === true || isGaming || isTelecom;
   const standardPrice = Number(p.precio_usd);
-  const totalOriginal = (!isCentralOnly && isReseller && p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0)
-    ? Number(p.precio_revendedor_usd)
-    : standardPrice;
+  let totalOriginal = standardPrice;
+  if(!isCentralOnly && isReseller){
+    if(p.precio_revendedor_usd != null && Number(p.precio_revendedor_usd) > 0){
+      totalOriginal = Number(p.precio_revendedor_usd);
+    } else {
+      const niveles = typeof getNivelesConfig === 'function' ? getNivelesConfig() : {};
+      const descRev = Number(niveles?.revendedor?.descuento || 15);
+      totalOriginal = Math.round((standardPrice * (1 - descRev / 100)) * 100) / 100;
+    }
+  }
 
   // Parametros configurables de cuotas (definidos manualmente por el admin en ajustes)
   const cuotasCfg = S.settings?.cuotas_config || { inicial_porcentaje: 50, total_cuotas: 2, dias_frecuencia: 15, monto_minimo: 5.00 };
@@ -2909,7 +2935,8 @@ async function buyDlg(id){
             p_ref: combinedRef,
             p_zeny: appliedZeny,
             p_datos_recarga: isRechargeService ? rechargeData : {},
-            p_es_cuotas: payPlan === 'cuotas'
+            p_es_cuotas: payPlan === 'cuotas',
+            p_franchise_id: S.franchise?.id || null
           });
 
           if (error) {
@@ -2999,7 +3026,9 @@ async function buyDlg(id){
             p_metodo: null,
             p_ref: refText,
             p_zeny: appliedZeny,
-            p_datos_recarga: isRechargeService ? rechargeData : {}
+            p_datos_recarga: isRechargeService ? rechargeData : {},
+            p_es_cuotas: payPlan === 'cuotas',
+            p_franchise_id: S.franchise?.id || null
           });
           if(error){
             zenySubmit.disabled = false;
@@ -3007,7 +3036,7 @@ async function buyDlg(id){
           }
 
           if(payPlan === 'cuotas' && ordId){
-            // Registrar las 2 cuotas en installments
+            // Registrar las 2 cuotas en installments si la BD no las generó
             await sb.from('installments').insert([
               { order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: 2, monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', referencia: 'Zeny inicial' },
               { order_id: ordId, customer_id: S.user.id, numero_cuota: 2, total_cuotas: 2, monto_usd: cuotaDosUsd, fecha_vencimiento: d2Str, estado: 'pendiente' }
@@ -3032,7 +3061,9 @@ async function buyDlg(id){
             p_metodo: null,
             p_ref: refCard,
             p_zeny: totalToPayToday,
-            p_datos_recarga: isRechargeService ? rechargeData : {}
+            p_datos_recarga: isRechargeService ? rechargeData : {},
+            p_es_cuotas: payPlan === 'cuotas',
+            p_franchise_id: S.franchise?.id || null
           });
           if(error){
             cardDirectBtn.disabled = false;
@@ -3210,7 +3241,8 @@ async function buyDlg(id){
         p_ref: orderRef,
         p_zeny: appliedZeny,
         p_datos_recarga: isRechargeService ? rechargeData : {},
-        p_es_cuotas: payPlan === 'cuotas'
+        p_es_cuotas: payPlan === 'cuotas',
+        p_franchise_id: S.franchise?.id || null
       });
 
       if(error){
@@ -5951,7 +5983,6 @@ const ADMIN_MENU = [
       { id: 'orders', label: 'Pedidos de Clientes', icon: '🛒', badgeKey: 'orders' },
       { id: 'cuotas', label: 'Cobranza Cuotas', icon: '💳' },
       { id: 'tarjetas', label: 'Tarjetas Zeny (TDC)', icon: '💳' },
-      { id: 'installments', label: 'Cuotas por Cobrar', icon: '💳' },
       { id: 'vencimientos', label: 'Vencimientos', icon: '📅' },
       { id: 'zeny_ledger', label: 'Billetera Zeny', icon: '💰', badgeKey: 'zeny_ledger' },
       { id: 'incidents', label: 'Incidencias', icon: '⚠️', badgeKey: 'incidents' }
@@ -6011,7 +6042,6 @@ const ADMIN_MENU = [
     items: [
       { id: 'payment_methods', label: 'Métodos pago', icon: '💳' },
       { id: 'google', label: 'Google Cloud', icon: '🌐' },
-      { id: 'google_integrations', label: 'Config Google', icon: '🔌' },
       { id: 'faqs', label: 'Preguntas FAQ', icon: '❓' },
       { id: 'settings', label: 'Ajustes', icon: '⚙️' }
     ]
@@ -6100,6 +6130,8 @@ async function ensureAdminSession(){
 }
 
 async function admin(t){
+  if(t === 'installments') t = 'cuotas';
+  if(t === 'google_integrations') t = 'google';
   if(!t || (!TABLES[t] && !EXTRA[t])) t = 'finanzas';
   if(!S.isAdmin){
     const ok = await ensureAdminSession();
@@ -6220,11 +6252,11 @@ async function admin(t){
     const dias = prompt(`¿A cuántos días de crédito entregas a ${nom}?`, '7');
     if(!dias || isNaN(dias)) return;
     const fVence = new Date(Date.now() + Number(dias) * 86400000).toISOString().slice(0, 10);
-    const {error: e} = await sb.rpc('deliver_order', {p_order: b.dataset.cred});
-    if(e) return toast(e.message);
-    await sb.from('orders').update({
-      referencia: `[CRÉDITO] Vence ${fVence} ($${tot} USD)`
-    }).eq('id', b.dataset.cred).catch(()=>{});
+    const {error: e} = await sb.rpc('deliver_order_credit', {
+      p_order: b.dataset.cred,
+      p_dias: Number(dias)
+    });
+    if(e) return toast('Error al entregar a crédito: ' + e.message);
     const rawMsg = formatMessageTemplate('entrega_credito', {
       cliente: nom,
       producto: prod,
@@ -6927,7 +6959,11 @@ async function admin(t){
   app.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar registro?')){const {error:e}=await sb.from(t).delete().eq(pk,b.dataset.x);e?toast(e.message):admin(t);}});
 }
 // ---------- TIEMPO REAL, BADGE DE PENDIENTES E INSTALACION ----------
-let _rt; const refresh=()=>{clearTimeout(_rt);_rt=setTimeout(async()=>{ if(!S.user) return;
+let _rt; const refresh=()=>{clearTimeout(_rt);_rt=setTimeout(async()=>{
+  if(!S.user){
+    if(S.view==='home') loadPublic().then(()=>{ if(S.view==='home') home(); });
+    return;
+  }
   S.me=(await sb.from('customers').select('*').eq('id',S.user.id).maybeSingle()).data||S.me;
   if(S.view==='portal') portal();
   else if(S.view==='home') loadPublic().then(()=>{ if(S.view==='home') home(); });
@@ -6964,7 +7000,19 @@ const ALERTS={orders:{ok:r=>r.estado==='pendiente',kind:'order',msg:'Nuevo pedid
   installments:{ok:r=>r.estado==='en_revision',kind:'recarga',msg:'Nueva cuota o crédito por conciliar'},
   zeny_ledger:{ok:r=>r.tipo==='recarga'&&r.estado==='pendiente',kind:'recarga',msg:'Nueva recarga Zeny por aprobar'},
   incidents:{ok:()=>true,kind:'incidencia',msg:'Nueva incidencia reportada por un cliente'}};
-Object.entries(ALERTS).reduce((ch,[t,a])=>ch.on('postgres_changes',{event:'INSERT',schema:'public',table:t},p=>{ if(S.isAdmin&&a.ok(p.new)) notify(a.kind,a.msg); }),sb.channel('alerts')).subscribe();
+Object.entries(ALERTS).reduce((ch,[t,a])=>ch.on('postgres_changes',{event:'INSERT',schema:'public',table:t},p=>{ if(S.isAdmin&&a.ok(p.new)) notify(a.kind,a.msg); }),sb.channel('alerts'))
+  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'orders'},p=>{
+    if(p.new?.customer_id === S.user?.id){
+      if(p.new.estado === 'entregado' && p.old?.estado !== 'entregado') notify('order', '🎉 ¡Tu pedido ha sido entregado! Revisa tus accesos en Mi Portal.');
+      else if(p.new.estado === 'rechazado' && p.old?.estado !== 'rechazado') notify('incidencia', '⚠️ Tu pedido fue rechazado o requiere corrección.');
+    }
+  })
+  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'incidents'},p=>{
+    if(p.new?.customer_id === S.user?.id && p.new.estado === 'resuelta' && p.old?.estado !== 'resuelta'){
+      notify('order', '✅ Tu incidencia ha sido resuelta por Soporte.');
+    }
+  })
+  .subscribe();
 // Vencimientos del dia: servicios de clientes y cuentas madre para Admin, y vencimientos de sus propios clientes para Revendedores.
 async function checkVenc(){
   const d=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
@@ -6989,7 +7037,7 @@ async function checkVenc(){
   }
 }
 setInterval(checkVenc,3600000);
-['orders','installments','partner_commissions','zeny_ledger','customers','incidents','profiles_inventory','mother_accounts','franchises','refunds','expenses','purchases','transfers'].reduce((ch,t)=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},refresh),sb.channel('live')).subscribe();
+['orders','installments','partner_commissions','zeny_ledger','customers','incidents','profiles_inventory','mother_accounts','franchises','refunds','expenses','purchases','transfers','zeny_cards','invoices','mesa_cambio_operaciones','mesa_cambio_caja'].reduce((ch,t)=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},refresh),sb.channel('live')).subscribe();
 let _dip; addEventListener('beforeinstallprompt',e=>{e.preventDefault();_dip=e;});
 if(matchMedia('(display-mode: standalone)').matches||navigator.standalone) $('#bInstall').classList.add('hide');
 $('#bInstall').onclick=()=>{ const apk=S.settings.app?.apk_url||'', ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
