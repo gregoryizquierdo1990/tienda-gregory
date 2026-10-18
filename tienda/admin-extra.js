@@ -907,6 +907,342 @@ async function genDlg(motherId, done) {
   $('#gok').onclick = e => run(e.target, async () => { const { error } = await sb.rpc('generate_profiles', { p_mother: motherId, p_product: $('#gp').value, p_cantidad: +$('#gq').value, p_prefijo: $('#gx').value || 'Perfil' }); if (error) throw error; done && done(); return 'Perfiles creados.'; });
 }
 
+// 📢 Avisar Actualización de Credenciales a Clientes y Revendedores de una Cuenta Madre
+async function notifyMotherClients(motherId) {
+  dlg.style.maxWidth = '640px';
+  $('#dlgBody').innerHTML = `
+    <div style="text-align:center;padding:26px 12px">
+      <div style="font-size:2.4rem;margin-bottom:8px">📢</div>
+      <h3 style="margin:0 0 6px;color:#00f5a0">Avisar Actualización a Clientes</h3>
+      <p class="mut" style="font-size:.85rem;margin:0 0 16px">Consultando perfiles, órdenes y clientes vinculados a esta cuenta madre...</p>
+      <div class="sk" style="max-width:320px;min-height:90px;margin:auto"></div>
+    </div>
+  `;
+  dlg.showModal();
+
+  try {
+    const cleanWaFn = window.cleanWaPhone || function(phone) {
+      if (!phone) return '';
+      let clean = String(phone).replace(/\D/g, '');
+      if (!clean) return '';
+      clean = clean.replace(/^0+/, '');
+      if (clean.length === 10) return '58' + clean;
+      if (!clean.startsWith('58') && clean.length <= 11) return '58' + clean;
+      return clean;
+    };
+
+    // 1. Obtener datos de la cuenta madre
+    const { data: mother, error: mErr } = await sb.from('mother_accounts').select('*').eq('id', motherId).single();
+    if (mErr || !mother) throw new Error(mErr?.message || 'Cuenta madre no encontrada');
+
+    let plainPass = mother.clave || '';
+    if (plainPass.startsWith('enc:')) {
+      try {
+        const { data: rev } = await sb.rpc('reveal_secret', { p: plainPass });
+        if (rev) plainPass = rev;
+      } catch(e) {}
+    }
+
+    // 2. Obtener perfiles de esta cuenta madre
+    const { data: profiles, error: pErr } = await sb.from('profiles_inventory')
+      .select('id, nombre_perfil, pin, estado, inicia, vence, assigned_customer_id, vendedor, vendedor_id, products(nombre)')
+      .eq('mother_id', motherId)
+      .order('nombre_perfil');
+    if (pErr) throw pErr;
+
+    const profList = profiles || [];
+    const profIds = profList.map(p => p.id);
+
+    // 3. Traer órdenes activas asociadas a estos perfiles
+    let ordersByProf = {};
+    if (profIds.length > 0) {
+      const { data: ords } = await sb.from('orders')
+        .select('id, profile_id, customer_id, vence, referencia, reseller_id, customers!customer_id(id, nombre, email, telefono, es_revendedor)')
+        .in('profile_id', profIds)
+        .in('estado', ['entregado', 'pagado']);
+      (ords || []).forEach(o => { ordersByProf[o.profile_id] = o; });
+    }
+
+    // 4. Mapear clientes por assigned_customer_id
+    const assignedIds = profList.map(p => p.assigned_customer_id).filter(Boolean);
+    let custMap = {};
+    if (assignedIds.length > 0) {
+      const { data: custs } = await sb.from('customers').select('id, nombre, email, telefono, es_revendedor').in('id', assignedIds);
+      (custs || []).forEach(c => { custMap[c.id] = c; });
+    }
+
+    // 5. Mapear todos los clientes con teléfono para auto-emparejar por nombre si es de revendedor
+    let allCustsWithPhone = [];
+    try {
+      const { data: ac } = await sb.from('customers').select('id, nombre, telefono').not('telefono', 'is', null);
+      allCustsWithPhone = ac || [];
+    } catch(e) {}
+
+    // 6. Mapear revendedores si aplica
+    const resellerIds = new Set();
+    profList.forEach(p => { if (p.vendedor_id) resellerIds.add(p.vendedor_id); });
+    Object.values(ordersByProf).forEach(o => { if (o.reseller_id) resellerIds.add(o.reseller_id); });
+    let resellerMap = {};
+    if (resellerIds.size > 0) {
+      const { data: resList } = await sb.from('customers').select('id, nombre, email, telefono').in('id', Array.from(resellerIds));
+      (resList || []).forEach(r => { resellerMap[r.id] = r; });
+    }
+
+    // Identificar perfiles ocupados/vendidos o disponibles
+    const occupiedProfiles = profList.filter(p => p.estado === 'vendido' || ordersByProf[p.id] || p.assigned_customer_id);
+
+    const plat = mother.plataforma || 'Servicio Digital';
+    const mail = mother.correo || '—';
+
+    // Generar resumen general para portapapeles
+    let generalSummary = `📢 *ACTUALIZACIÓN DE CREDENCIALES (${plat.toUpperCase()})*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `📧 *Nuevo Correo:* ${mail}\n` +
+      `🔑 *Nueva Contraseña:* ${plainPass}\n\n` +
+      `👥 *PERFILES ACTIVOS:*\n`;
+
+    occupiedProfiles.forEach((p, idx) => {
+      const ord = ordersByProf[p.id];
+      let cli = ord?.customers?.nombre || custMap[p.assigned_customer_id]?.nombre || ord?.customers?.email || '';
+      if (!cli || cli.toLowerCase().includes('pablo')) {
+        const ref = ord?.referencia || '';
+        const m1 = ref.match(/\[[^\]]+\]\s*(?:Renovación\s+)?([^-]+)\s*-\s*([^($]+)/i);
+        if (m1) cli = m1[1].trim();
+        else {
+          const m2 = ref.match(/·\s*([^($]+)/);
+          if (m2 && !m2[1].toLowerCase().includes('pablo')) cli = m2[1].trim();
+        }
+      }
+      if (!cli) cli = `Cliente ${idx + 1}`;
+      const pinTxt = p.pin ? ` · PIN: ${p.pin}` : '';
+      const venTxt = p.vence || ord?.vence || mother.vence || '';
+      generalSummary += `${idx + 1}. *${p.nombre_perfil}* (${cli})${pinTxt}${venTxt ? ` - Vence: ${venTxt}` : ''}\n`;
+    });
+    generalSummary += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nYa pueden ingresar con estos datos en la app de streaming. ¡A la orden!`;
+
+    // Detectar si hay revendedores involucrados
+    const resellersFound = {};
+    occupiedProfiles.forEach(p => {
+      const ord = ordersByProf[p.id];
+      const resId = p.vendedor_id || ord?.reseller_id;
+      let resNom = p.vendedor || (resId ? resellerMap[resId]?.nombre : null);
+      if (!resNom && ord?.referencia && /pablo/i.test(ord.referencia)) {
+        resNom = 'Pablo Gonzalez';
+      }
+      if (resNom) {
+        if (!resellersFound[resNom]) {
+          resellersFound[resNom] = {
+            nombre: resNom,
+            telefono: (resId ? resellerMap[resId]?.telefono : null) || (resNom.toLowerCase().includes('pablo') ? '584129130080' : ''),
+            profiles: []
+          };
+        }
+        resellersFound[resNom].profiles.push({ profile: p, order: ord });
+      }
+    });
+
+    // Renderizar modal
+    $('#dlgBody').innerHTML = `
+      <div style="max-height:82vh;overflow-y:auto;padding-right:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:10px">
+          <div>
+            <h3 style="margin:0;color:#00f5a0;font-size:1.15rem;display:flex;align-items:center;gap:8px">
+              <span>📢</span> Avisar Actualización a Clientes
+            </h3>
+            <span class="mut" style="font-size:.76rem">Envía las nuevas credenciales por WhatsApp sin cambiar de orden ni comprar nada</span>
+          </div>
+          <button class="g" id="btnCloseNotifyMotherDlg" style="padding:4px 8px;font-size:.8rem">✕</button>
+        </div>
+
+        <div style="background:rgba(0,245,160,.06);border:1.5px solid rgba(0,245,160,.3);border-radius:12px;padding:12px;margin-bottom:16px;font-size:.84rem">
+          <div style="font-size:.72rem;font-weight:800;color:#00f5a0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+            📺 Datos Actualizados de la Cuenta Madre (${esc(plat)}):
+          </div>
+          <div style="display:grid;grid-template-columns:1fr;gap:4px">
+            <div>📧 <b>Correo:</b> <code style="font-size:.88rem;color:#38bdf8">${esc(mail)}</code></div>
+            <div>🔑 <b>Contraseña:</b> <code style="font-size:.88rem;color:#fde047">${esc(plainPass)}</code></div>
+            ${mother.vence ? `<div>📅 <b>Vence Cuenta Madre:</b> ${esc(mother.vence)}</div>` : ''}
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button id="btnCopyMotherFullSummary" class="g" style="font-size:.76rem;padding:6px 12px;background:rgba(255,255,255,.08);color:#fff;font-weight:700">
+              📋 Copiar Resumen Completo de la Cuenta
+            </button>
+          </div>
+        </div>
+
+        ${Object.keys(resellersFound).length > 0 ? `
+          <div style="background:rgba(56,189,248,.08);border:1.5px solid rgba(56,189,248,.3);border-radius:12px;padding:12px;margin-bottom:16px">
+            <div style="font-size:.74rem;font-weight:800;color:#38bdf8;text-transform:uppercase;margin-bottom:6px">
+              🤝 Aviso a Revendedores con clientes en esta cuenta:
+            </div>
+            ${Object.values(resellersFound).map(rf => {
+              const rCleanPhone = cleanWaFn(rf.telefono);
+              let rMsg = `¡Hola ${rf.nombre}! 👋 Te comparto las credenciales actualizadas de la cuenta madre de *${plat}* para tus clientes:\n\n` +
+                `📧 *Nuevo Correo:* ${mail}\n` +
+                `🔑 *Nueva Contraseña:* ${plainPass}\n\n` +
+                `👥 *Tus perfiles en esta cuenta:*\n`;
+              rf.profiles.forEach(rp => {
+                let cNom = rp.order?.customers?.nombre || custMap[rp.profile.assigned_customer_id]?.nombre || '';
+                if (!cNom || cNom.toLowerCase().includes('pablo')) {
+                  const ref = rp.order?.referencia || '';
+                  const m1 = ref.match(/\[[^\]]+\]\s*(?:Renovación\s+)?([^-]+)\s*-\s*([^($]+)/i);
+                  if (m1) cNom = m1[1].trim();
+                  else {
+                    const m2 = ref.match(/·\s*([^($]+)/);
+                    if (m2 && !m2[1].toLowerCase().includes('pablo')) cNom = m2[1].trim();
+                  }
+                }
+                if (!cNom) cNom = 'Cliente';
+                const pPin = rp.profile.pin ? ` · PIN: ${rp.profile.pin}` : '';
+                const pVen = rp.profile.vence || rp.order?.vence || '';
+                rMsg += `• *${rp.profile.nombre_perfil}* (${cNom})${pPin}${pVen ? ` - Vence: ${pVen}` : ''}\n`;
+              });
+              rMsg += `\nYa pueden ingresar con estos datos. ¡Cualquier duda a la orden!`;
+              const rWaUrl = rCleanPhone ? `https://wa.me/${rCleanPhone}?text=${encodeURIComponent(rMsg)}` : '';
+
+              return `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.1)">
+                  <div>
+                    <b style="color:#fff;font-size:.85rem">${esc(rf.nombre)}</b>
+                    <span class="pill" style="font-size:.65rem;margin-left:6px">${rf.profiles.length} perfil(es)</span>
+                    ${rf.telefono ? `<span class="mut" style="font-size:.72rem;display:block">📲 +${esc(rCleanPhone)}</span>` : ''}
+                  </div>
+                  <div>
+                    ${rWaUrl ? `
+                      <a href="${rWaUrl}" target="_blank" rel="noopener noreferrer" class="g" style="font-size:.74rem;padding:6px 10px;background:rgba(37,211,102,.15);color:#25d366;border-color:rgba(37,211,102,.4);text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:4px">
+                        💬 Avisar a ${esc(rf.nombre.split(' ')[0])} por WA
+                      </a>
+                    ` : `
+                      <button class="g" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(rMsg)}')).then(()=>toast('Mensaje para revendedor copiado'))" style="font-size:.74rem;padding:6px 10px">
+                        📋 Copiar Mensaje
+                      </button>
+                    `}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        ` : ''}
+
+        <h4 style="margin:16px 0 8px;font-size:.9rem;color:#fff;display:flex;align-items:center;justify-content:space-between">
+          <span>👥 Clientes Activos en esta Cuenta (${occupiedProfiles.length}):</span>
+          <span class="mut" style="font-size:.72rem">Haz clic para enviar WhatsApp directo a cada cliente</span>
+        </h4>
+
+        ${occupiedProfiles.length === 0 ? `
+          <p class="mut" style="font-size:.82rem;padding:12px;background:rgba(255,255,255,.02);border-radius:10px">
+            Esta cuenta no tiene perfiles vendidos ni clientes asignados en este momento.
+          </p>
+        ` : `
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${occupiedProfiles.map((p, idx) => {
+              const ord = ordersByProf[p.id];
+              let cliNom = ord?.customers?.nombre || custMap[p.assigned_customer_id]?.nombre || ord?.customers?.email || '';
+              let cliTel = ord?.customers?.telefono || custMap[p.assigned_customer_id]?.telefono || '';
+              const venceFinal = p.vence || ord?.vence || mother.vence || '';
+              const pinFinal = p.pin || '';
+
+              if (!cliNom || cliNom.toLowerCase().includes('pablo')) {
+                const ref = ord?.referencia || '';
+                const m1 = ref.match(/\[[^\]]+\]\s*(?:Renovación\s+)?([^-]+)\s*-\s*([^($]+)/i);
+                if (m1) {
+                  cliNom = m1[1].trim();
+                } else {
+                  const m2 = ref.match(/·\s*([^($]+)/);
+                  if (m2 && !m2[1].toLowerCase().includes('pablo')) cliNom = m2[1].trim();
+                }
+              }
+              if (!cliNom) cliNom = p.nombre_perfil || `Perfil ${idx + 1}`;
+
+              // Auto-búsqueda de teléfono si no vino en la orden
+              if (!cliTel && allCustsWithPhone.length > 0 && cliNom) {
+                const fCust = allCustsWithPhone.find(c => c.nombre && c.nombre.toLowerCase().includes(cliNom.toLowerCase()));
+                if (fCust?.telefono) cliTel = fCust.telefono;
+              }
+
+              const resId = p.vendedor_id || ord?.reseller_id;
+              const resNom = p.vendedor || (resId ? resellerMap[resId]?.nombre : null) || (ord?.referencia && /pablo/i.test(ord.referencia) ? 'Pablo Gonzalez' : null);
+
+              const waMsgClient = `¡Hola ${cliNom}! 👋 Te informamos que realizamos una *actualización de credenciales* en tu servicio de *${plat}*:\n\n` +
+                `📧 *Nuevo Correo:* ${mail}\n` +
+                `🔑 *Nueva Contraseña:* ${plainPass}\n` +
+                `👤 *Tu Perfil:* ${p.nombre_perfil}\n` +
+                (pinFinal ? `🔢 *PIN:* ${pinFinal}\n` : '') +
+                (venceFinal ? `📅 *Tu servicio continúa activo hasta el:* ${venceFinal}\n\n` : '\n') +
+                `Ya puedes ingresar con estos datos en la app de streaming. ¡Cualquier duda estamos a tu orden!`;
+
+              const cleanPhone = cleanWaFn(cliTel);
+              const waClientUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMsgClient)}` : '';
+
+              return `
+                <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                  <div style="min-width:180px">
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <b style="color:#00f5a0;font-size:.88rem">${esc(p.nombre_perfil)}</b>
+                      ${pinFinal ? `<code style="font-size:.72rem;background:rgba(0,245,160,.12);color:#00f5a0;padding:1px 5px;border-radius:4px">PIN: ${esc(pinFinal)}</code>` : ''}
+                    </div>
+                    <div style="font-size:.82rem;font-weight:700;color:#fff;margin-top:2px">
+                      👤 ${esc(cliNom)}
+                    </div>
+                    ${resNom ? `
+                      <div style="font-size:.7rem;color:#fde047;margin-top:1px">
+                        🤝 Revendedor: <b>${esc(resNom)}</b>
+                      </div>
+                    ` : ''}
+                    <div class="mut" style="font-size:.72rem;margin-top:2px">
+                      📅 Vence: <b>${esc(venceFinal || '—')}</b>
+                      ${cleanPhone ? ` · 📲 +${esc(cleanPhone)}` : ' · <span style="color:#f87171">Sin tel registrado</span>'}
+                    </div>
+                  </div>
+
+                  <div style="display:flex;gap:6px;align-items:center">
+                    ${waClientUrl ? `
+                      <a href="${waClientUrl}" target="_blank" rel="noopener noreferrer" class="g" style="padding:6px 10px;font-size:.75rem;background:rgba(37,211,102,.12);color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px">
+                        💬 Enviar WA
+                      </a>
+                    ` : ''}
+                    <button class="g" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(waMsgClient)}')).then(()=>toast('Mensaje copiado al portapapeles'))" style="padding:6px 8px;font-size:.75rem" title="Copiar mensaje">
+                      📋 Copiar
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+
+        <div style="margin-top:18px;display:flex;justify-content:flex-end">
+          <button class="g" id="btnCloseNotifyMotherBottom">Cerrar</button>
+        </div>
+      </div>
+    `;
+
+    const closeHandler = () => {
+      dlg.style.maxWidth = '';
+      dlg.close();
+    };
+    $('#btnCloseNotifyMotherDlg').onclick = closeHandler;
+    $('#btnCloseNotifyMotherBottom').onclick = closeHandler;
+
+    $('#btnCopyMotherFullSummary').onclick = () => {
+      navigator.clipboard.writeText(generalSummary).then(() => {
+        toast('✅ Resumen completo de la cuenta copiado al portapapeles.');
+      });
+    };
+
+  } catch(err) {
+    console.error('Error al consultar clientes de cuenta madre:', err);
+    $('#dlgBody').innerHTML = `
+      <h3>⚠️ Error</h3>
+      <p class="mut">${esc(err.message || err)}</p>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px">
+        <button class="g" onclick="dlg.style.maxWidth='';dlg.close()">Cerrar</button>
+      </div>
+    `;
+  }
+}
+window.notifyMotherClients = notifyMotherClients;
+
 async function pushSub() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('Este navegador no permite push. En iPhone instala la app en la pantalla de inicio (iOS 16.4 o superior).');
   if (await Notification.requestPermission() !== 'granted') throw new Error('Permiso de notificaciones denegado en este dispositivo.');
@@ -1658,6 +1994,9 @@ const EXTRA = {
                   <td><span class="pill ${m.activa ? '' : 'off'}">${m.activa ? 'Activa' : 'Inactiva'}</span></td>
                   <td><b style="color:#ffb703">${esc(m.vence)}</b></td>
                   <td class="row" style="gap:5px">
+                    <button class="g" data-cal-notify-mother="${m.id}" style="padding:4px 8px;font-size:.73rem;background:rgba(37,211,102,.15);color:#25d366;border:1px solid rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">
+                      📢 Avisar Clientes
+                    </button>
                     <button class="g" data-cal-renov-mother="${m.id}" data-cur-date="${m.vence}" data-plat="${esc(m.plataforma)}" data-mail="${esc(m.correo)}" data-prov="${esc(m.proveedor || '')}" data-cost="${m.costo_usd || 0}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
                       🔄 Renovar (+30d)
                     </button>
@@ -2393,6 +2732,11 @@ Cobrar antes de ${fVenceCred}`;
           done: () => EXTRA.vencimientos(box)
         });
       };
+    });
+
+    // Acción: Avisar Actualización de Credenciales a Clientes y Revendedores de Cuenta Madre
+    box.querySelectorAll('[data-cal-notify-mother]').forEach(btn => {
+      btn.onclick = () => notifyMotherClients(btn.dataset.calNotifyMother);
     });
 
     // Acción: Renovar Suscripción de Cuenta Madre (+30 días desde la fecha agendada)
