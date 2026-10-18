@@ -13,6 +13,9 @@
 
 begin;
 
+-- Asegurar created_at en profiles_inventory
+alter table public.profiles_inventory add column if not exists created_at timestamptz default now();
+
 -- ------------------------------------------------------------------------------
 -- SECCIÓN 1: REFACTORIZACIÓN DEFINITIVA DE _deliver(p_order uuid)
 -- ------------------------------------------------------------------------------
@@ -350,7 +353,7 @@ begin
   from public.profiles_inventory pi
   join public.mother_accounts m on m.id = pi.mother_id
   where (lower(m.correo) = 'solucionservnet+ext603@gmail.com' or lower(pi.nombre_perfil) like '%marianne%')
-  order by pi.created_at desc limit 1;
+  order by pi.vence desc nulls last, pi.id desc limit 1;
 
   -- Localizar o crear cliente Marianne Agudo vinculado a Pablo González
   select id into v_marianne_cust_id from public.customers
@@ -453,7 +456,7 @@ begin
   join public.mother_accounts m on m.id = pi.mother_id
   where (lower(m.correo) = 'gotimottyfy471@asfubllst.com' or lower(pi.nombre_perfil) like '%angelo%')
     and (lower(m.plataforma) like '%disney%' or lower(pi.nombre_perfil) like '%angelo%')
-  order by pi.created_at desc limit 1;
+  order by pi.vence desc nulls last, pi.id desc limit 1;
 
   if v_prod_disney_id is null then
     select id into v_prod_disney_id from public.products

@@ -25,6 +25,7 @@ alter table public.purchases add column if not exists tasa_usdt_pago numeric(14,
 alter table public.purchases add column if not exists monto_pagado_bs numeric(16,2);
 alter table public.purchases add column if not exists pagado_at timestamptz;
 alter table public.purchases add column if not exists comprobante_pago text;
+alter table public.profiles_inventory add column if not exists created_at timestamptz default now();
 
 create index if not exists idx_purchases_estado_pago on public.purchases(estado_pago);
 create index if not exists idx_purchases_fecha_limite on public.purchases(fecha_limite_pago);
@@ -447,7 +448,7 @@ begin
   join public.mother_accounts m on m.id = pi.mother_id
   where (lower(m.correo) = 'gotimottyfy471@asfubllst.com' or lower(pi.nombre_perfil) like '%angelo%')
     and (lower(m.plataforma) like '%disney%' or lower(pi.nombre_perfil) like '%angelo%')
-  order by pi.created_at desc limit 1;
+  order by pi.vence desc nulls last, pi.id desc limit 1;
 
   if v_prod_disney_id is null then
     select id into v_prod_disney_id from public.products
