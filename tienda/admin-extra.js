@@ -6078,16 +6078,17 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
   async liquidaciones(box) {
     box.innerHTML = '<div style="padding:30px;text-align:center"><div class="sk" style="height:120px;max-width:500px;margin:auto"></div><p class="mut" style="margin-top:12px">Cargando módulo de Liquidación de Socios y Comisiones…</p></div>';
 
-    // 1. Cargar comisiones, datos del socio oficial Pablo Gonzalez y tasa actual
-    const [{ data: coms, error: comsErr }, { data: pabloData }, { data: exRate }] = await Promise.all([
+    // 1. Cargar comisiones, datos del socio oficial Pablo Gonzalez, tasa actual y cuotas/créditos
+    const [{ data: coms, error: comsErr }, { data: pabloData }, { data: exRate }, { data: instData }] = await Promise.all([
       sb.from('partner_commissions')
         .select('*, customers!customer_id(nombre,telefono,email), vendedor:customers!vendedor_id(nombre,telefono,email,codigo_identificacion)')
         .order('created_at', { ascending: false }),
-      sb.from('customers').select('id,nombre,email,telefono,codigo_identificacion')
+      sb.from('customers').select('id,nombre,email,telefono,codigo_identificacion,limite_credito')
         .or('codigo_identificacion.eq.RVD:1001,nombre.ilike.%Pablo Gonzalez%')
         .limit(1)
         .maybeSingle(),
-      sb.from('exchange_rates').select('bs_por_usd').order('fecha', { ascending: false }).limit(1).maybeSingle()
+      sb.from('exchange_rates').select('bs_por_usd').order('fecha', { ascending: false }).limit(1).maybeSingle(),
+      sb.from('installments').select('id, order_id, customer_id, reseller_id, numero_cuota, total_cuotas, monto_usd, monto_bs, estado, fecha_vencimiento, referencia, pagada_at')
     ]);
 
     if (comsErr) {
@@ -6111,8 +6112,33 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     };
 
     const curRate = Number(exRate?.bs_por_usd || 50.00);
-    // En este módulo se registran todas las ventas del negocio (directas, por revendedores y Binance)
-    const allComms = coms || [];
+
+    // Mapear cada comisión con sus cuotas/créditos
+    const allDebts = instData || [];
+    const allComms = (coms || []).map(c => {
+      const ordDebts = allDebts.filter(d => d.order_id && d.order_id === c.order_id);
+      const pendDebts = ordDebts.filter(d => d.estado !== 'pagada');
+      const isCreditSale = ordDebts.length > 0;
+      const isCreditPending = pendDebts.length > 0;
+      const creditPendingUsd = pendDebts.reduce((sum, d) => sum + Number(d.monto_usd || 0), 0);
+      return {
+        ...c,
+        isCreditSale,
+        isCreditPending,
+        creditPendingUsd,
+        ordDebts
+      };
+    });
+
+    // Cuotas adeudadas por Pablo Gonzalez (por créditos de revendedor activos)
+    const pabloDebts = allDebts.filter(d => {
+      if (d.estado === 'pagada') return false;
+      if (d.reseller_id && pabloSocio.id && d.reseller_id === pabloSocio.id) return true;
+      if (d.customer_id && pabloSocio.id && d.customer_id === pabloSocio.id && d.referencia && d.referencia.toUpperCase().includes('CRÉDITO')) return true;
+      if (/pablo\s*gonzalez|\[crédito pablo/i.test(d.referencia || '')) return true;
+      return false;
+    });
+    const pabloTotalDeuda = pabloDebts.reduce((sum, d) => sum + Number(d.monto_usd || 0), 0);
     let filterPeriodo = 'lanzamiento'; // 'lanzamiento' (>= 2026-10-16) | 'todos'
     let filterConcepto = 'todos';
     let filterStatus = 'pendiente';
@@ -6132,14 +6158,26 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         filtered = filtered.filter(c => c.tipo_venta === 'binance_usdt' || c.metodo_origen === 'binance');
       }
 
-      const totPendUsd = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
-      const totPendBs = filtered.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+      // Comisiones disponibles para liquidar (excluyendo ventas a crédito cuyas cuotas aún están pendientes en calle)
+      const liquidableComms = filtered.filter(c => c.estado === 'pendiente' && !c.isCreditPending);
+      const retencionCreditoComms = filtered.filter(c => c.estado === 'pendiente' && c.isCreditPending);
+
+      const totPendUsd = liquidableComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+      const totPendBs = liquidableComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+
+      const totRetenidoUsd = retencionCreditoComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+      const totRetenidoBs = retencionCreditoComms.reduce((a, c) => a + Number(c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0), 0);
+
       const totGregUsd = filtered.reduce((a, c) => a + Number(c.ganancia_gregory_usd || 0), 0);
       const totGregBs = filtered.reduce((a, c) => a + Number(c.ganancia_gregory_bs || (c.ganancia_gregory_usd * curRate) || 0), 0);
       const totNegUsd = filtered.reduce((a, c) => a + Number(c.ganancia_negocio_usd || 0), 0);
       const totReservaUsd = filtered.reduce((a, c) => a + Number(c.reserva_estrategica_usd || (c.ganancia_negocio_usd * 0.10) || 0), 0);
       const totCajaUsd = filtered.reduce((a, c) => a + Number(c.caja_negocio_usd || (c.ganancia_negocio_usd * 0.90) || 0), 0);
       const totLiqUsd = filtered.filter(c => c.estado === 'liquidada').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
+
+      // Saldo neto real a favor de Pablo descontando su deuda por créditos
+      const pabloSaldoNetoUsd = totPendUsd - pabloTotalDeuda;
+      const pabloSaldoNetoBs = pabloSaldoNetoUsd * curRate;
 
       const selComms = allComms.filter(c => selectedIds.has(c.id));
       const selTotUsd = selComms.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
@@ -6186,7 +6224,26 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             <div class="mut" style="font-size:.76rem;text-transform:uppercase;color:#fde047;font-weight:700">Comisión Socio (Pablo)</div>
             <div style="font-size:1.55rem;font-weight:800;color:#fde047;margin:6px 0 2px">$${totPendUsd.toFixed(2)}</div>
             <div class="mut" style="font-size:.76rem">Equiv: <b>Bs. ${totPendBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b></div>
+            ${totRetenidoUsd > 0 ? `
+              <div style="font-size:.68rem;color:#f87171;margin-top:4px;border-top:1px dashed rgba(255,255,255,.1);padding-top:4px" title="Comisiones retenidas porque la venta fue a crédito y aún no se concilia la cuota">
+                ⏳ Retenido por cuotas en calle: <b>$${totRetenidoUsd.toFixed(2)}</b> (${retencionCreditoComms.length} ventas)
+              </div>
+            ` : ''}
           </div>
+          ${pabloTotalDeuda > 0 ? `
+            <div class="card" style="border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.06)">
+              <div class="mut" style="font-size:.76rem;text-transform:uppercase;color:#f87171;font-weight:700">💳 Deuda Crédito Pablo</div>
+              <div style="font-size:1.55rem;font-weight:800;color:#f87171;margin:6px 0 2px">-$${pabloTotalDeuda.toFixed(2)}</div>
+              <div class="mut" style="font-size:.74rem">
+                ${pabloSaldoNetoUsd >= 0 ? `
+                  <span style="color:#4ade80;font-weight:700">Neto liquidable: $${pabloSaldoNetoUsd.toFixed(2)} USD</span>
+                ` : `
+                  <span style="color:#ef4444;font-weight:700">Pablo adeuda neto: $${Math.abs(pabloSaldoNetoUsd).toFixed(2)} USD</span>
+                `}
+              </div>
+              <div class="mut" style="font-size:.68rem;margin-top:2px">${pabloDebts.length} cuotas de crédito activas</div>
+            </div>
+          ` : ''}
           <div class="card" style="border-color:rgba(0,245,160,.4);background:rgba(0,245,160,.04)">
             <div class="mut" style="font-size:.76rem;text-transform:uppercase;color:#00f5a0;font-weight:700">Ganancia Gregory</div>
             <div style="font-size:1.55rem;font-weight:800;color:#00f5a0;margin:6px 0 2px">$${totGregUsd.toFixed(2)}</div>
@@ -6317,7 +6374,11 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                 return `
                   <tr style="${isChecked ? 'background:rgba(255,183,3,.06)' : ''}">
                     <td style="text-align:center">
-                      <input type="checkbox" class="chk-single-comm" data-id="${c.id}" ${isChecked ? 'checked' : ''} ${!isPend ? 'disabled style="opacity:.3"' : ''}>
+                      ${c.isCreditPending ? `
+                        <input type="checkbox" disabled title="Orden a crédito: cuota de crédito pendiente por cobrar en calle ($${c.creditPendingUsd.toFixed(2)} USD). Al conciliarse la cuota, se habilitará para liquidar." style="opacity:.25;cursor:not-allowed">
+                      ` : `
+                        <input type="checkbox" class="chk-single-comm" data-id="${c.id}" ${isChecked ? 'checked' : ''} ${!isPend ? 'disabled style="opacity:.3"' : ''}>
+                      `}
                     </td>
                     <td style="font-size:.76rem;color:#94a3b8">${(c.created_at || '').slice(0, 10)}</td>
                     <td>${conceptoBadge}</td>
@@ -6334,9 +6395,19 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                     <td style="color:#38bdf8;font-weight:600">+$${cCaja.toFixed(2)}</td>
                     <td style="color:#fb7185;font-weight:700">+$${cRes.toFixed(2)}</td>
                     <td>
-                      <span class="pill" style="font-size:.7rem;${isPend ? 'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)' : 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">
-                        ${isPend ? '🟡 Pendiente' : '🟢 Liquidada'}
-                      </span>
+                      ${c.isCreditPending ? `
+                        <span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3)" title="Cuota de crédito pendiente por cobrar">
+                          ⏳ Cuota en Calle ($${c.creditPendingUsd.toFixed(2)})
+                        </span>
+                      ` : c.isCreditSale ? `
+                        <span class="pill" style="font-size:.68rem;background:rgba(34,197,94,.12);color:#4ade80;border-color:rgba(34,197,94,.3)" title="Cuota conciliada y cobrada">
+                          ${isPend ? '🟢 Lista (Cuota Cobrada)' : '🟢 Liquidada'}
+                        </span>
+                      ` : `
+                        <span class="pill" style="font-size:.7rem;${isPend ? 'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)' : 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">
+                          ${isPend ? '🟡 Pendiente' : '🟢 Liquidada'}
+                        </span>
+                      `}
                     </td>
                   </tr>
                 `;
@@ -6360,10 +6431,10 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       const stSel = $('#selFilterStatus');
       if (stSel) stSel.onchange = (e) => { filterStatus = e.target.value; render(); };
 
-      // Checkbox Maestro (Seleccionar/Deseleccionar todas las pendientes visibles)
+      // Checkbox Maestro (Seleccionar/Deseleccionar todas las pendientes visibles que NO estén retenidas por cuotas)
       const chkMaster = $('#chkAllComms');
       if (chkMaster) {
-        const visiblePending = filtered.filter(c => c.estado === 'pendiente');
+        const visiblePending = filtered.filter(c => c.estado === 'pendiente' && !c.isCreditPending);
         chkMaster.checked = visiblePending.length > 0 && visiblePending.every(c => selectedIds.has(c.id));
         chkMaster.onchange = (e) => {
           if (e.target.checked) {
@@ -6407,6 +6478,10 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           ? (c.ganancia_gregory_bs || (c.ganancia_gregory_usd * curRate) || 0)
           : (c.ganancia_vendedor_bs || (c.ganancia_vendedor_usd * curRate) || 0)), 0);
 
+        const maxCompensacion = (!isGregory && pabloTotalDeuda > 0) ? Math.min(sTotUsd, pabloTotalDeuda) : 0;
+        const netoInicial = (!isGregory && pabloTotalDeuda > 0) ? Math.max(0, sTotUsd - pabloTotalDeuda) : sTotUsd;
+        const netoInicialBs = netoInicial * curRate;
+
         $('#dlgBody').innerHTML = `
           <h3>${isGregory ? '💳 Liquidar Ganancia Personal de Gregory' : '✅ Registrar Liquidación y Pago a Socio (Pablo)'}</h3>
           <p class="mut" style="font-size:.84rem;margin:0 0 14px">
@@ -6424,7 +6499,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               <b style="color:${isGregory ? '#00f5a0' : '#fde047'}">${targetComms.length} ventas</b>
             </div>
             <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-              <span class="mut" style="font-size:.82rem">Total en Dólares ($):</span>
+              <span class="mut" style="font-size:.82rem">Total Comisiones ($):</span>
               <b style="color:${isGregory ? '#00f5a0' : '#fde047'};font-size:1.15rem">$${sTotUsd.toFixed(2)} USD</b>
             </div>
             <div style="display:flex;justify-content:space-between">
@@ -6432,6 +6507,31 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               <b style="color:#00f5a0;font-size:1.15rem">Bs. ${sTotBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b>
             </div>
           </div>
+
+          ${!isGregory && pabloTotalDeuda > 0 ? `
+            <div style="background:rgba(239,68,68,.08);border:1.5px solid rgba(239,68,68,.3);padding:12px;border-radius:10px;margin-bottom:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <b style="color:#f87171">💳 Cruce de Cuentas: Créditos Activos de Pablo ($${pabloTotalDeuda.toFixed(2)} USD)</b>
+                <span class="mut" style="font-size:.74rem">${pabloDebts.length} cuotas pendientes</span>
+              </div>
+              <p class="mut" style="font-size:.76rem;margin:6px 0 10px;line-height:1.4">
+                Pablo tiene cuotas de crédito pendientes en la plataforma. Puedes compensar automáticamente esta deuda descontándola de sus comisiones por cobrar.
+              </p>
+              <label style="display:flex;align-items:center;gap:8px;font-size:.84rem;cursor:pointer">
+                <input type="checkbox" id="chkCompensarDeuda" checked>
+                <b>Cruzar y cancelar créditos de Pablo (-$${maxCompensacion.toFixed(2)} USD)</b>
+              </label>
+              <div id="boxNetoCompensado" style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.15);display:flex;justify-content:space-between;align-items:center">
+                <span class="mut" style="font-size:.82rem">Neto Real a Transferir a Pablo:</span>
+                <b style="color:#fde047;font-size:1.15rem" id="lblNetoUsd">$${netoInicial.toFixed(2)} USD</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:.76rem;color:#00f5a0;margin-top:2px">
+                <span>Equivalente en Bolívares:</span>
+                <b id="lblNetoBs">Bs. ${netoInicialBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</b>
+              </div>
+            </div>
+          ` : ''}
+
           <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Método de Pago / Destino:</label>
           <select id="selLiqMetodo" style="width:100%;margin-bottom:12px;padding:8px 10px;background:rgba(3,8,18,.8);border-radius:8px;border:1px solid rgba(255,255,255,.15);color:#fff">
             ${isGregory ? `
@@ -6447,7 +6547,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             `}
           </select>
           <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Referencia de Pago / Comprobante:</label>
-          <input id="inpLiqRef" placeholder="Ej: Pago Móvil #928374 / Binance Pay ID / Transferencia" style="width:100%;margin-bottom:12px" required>
+          <input id="inpLiqRef" placeholder="Ej: Pago Móvil #928374 / Binance Pay ID / Compensación" style="width:100%;margin-bottom:12px" required>
           <label class="mut" style="font-size:.8rem;display:block;margin-bottom:4px">Notas u Observaciones (opcional):</label>
           <input id="inpLiqNotas" placeholder="Ej: Pago quincenal de utilidades personales / Pago socio" style="width:100%;margin-bottom:14px">
           <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -6457,6 +6557,18 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             </button>
           </div>
         `;
+
+        const chkComp = $('#chkCompensarDeuda');
+        if (chkComp) {
+          chkComp.onchange = (e) => {
+            const isComp = e.target.checked;
+            const finalUsd = isComp ? Math.max(0, sTotUsd - pabloTotalDeuda) : sTotUsd;
+            const finalBs = finalUsd * curRate;
+            if ($('#lblNetoUsd')) $('#lblNetoUsd').textContent = `$${finalUsd.toFixed(2)} USD`;
+            if ($('#lblNetoBs')) $('#lblNetoBs').textContent = `Bs. ${finalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+          };
+        }
+
         dlg.showModal();
 
         $('#btnConfirmLiquidation').onclick = async () => {
@@ -6469,6 +6581,33 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           btn.disabled = true;
           btn.textContent = '⏳ Procesando...';
 
+          const doCompensate = !isGregory && $('#chkCompensarDeuda')?.checked;
+          const compensatedDebts = [];
+          if (doCompensate) {
+            let remOffset = maxCompensacion;
+            for (const debt of pabloDebts) {
+              if (remOffset <= 0) break;
+              const dMonto = Number(debt.monto_usd || 0);
+              try {
+                let { error: rpcErr } = await sb.rpc('approve_installment', { p_installment_id: debt.id });
+                if (rpcErr) {
+                  await sb.from('installments').update({
+                    estado: 'pagada',
+                    pagada_at: new Date().toISOString(),
+                    referencia: (debt.referencia ? debt.referencia + ' · ' : '') + `Compensado Liq: ${ref}`
+                  }).eq('id', debt.id);
+                }
+                compensatedDebts.push(debt);
+              } catch(eComp) {
+                console.warn('Error compensando cuota:', eComp);
+              }
+              remOffset -= dMonto;
+            }
+          }
+
+          const finalUsdPaid = doCompensate ? Math.max(0, sTotUsd - pabloTotalDeuda) : sTotUsd;
+          const finalBsPaid = finalUsdPaid * curRate;
+
           const updateData = isGregory ? {
             metodo_pago: metodo,
             pagado_gregory_usd: sTotUsd,
@@ -6479,10 +6618,12 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             estado: 'liquidada',
             liquidada_at: new Date().toISOString(),
             metodo_pago: metodo,
-            pagado_usd: sTotUsd,
-            pagado_bs: sTotBs,
+            pagado_usd: finalUsdPaid,
+            pagado_bs: finalBsPaid,
             referencia_pago: ref,
-            notas: notas || `Liquidado a socio Pablo Gonzalez vía ${metodo}`
+            notas: notas || (compensatedDebts.length > 0 
+              ? `Liquidado a socio Pablo vía ${metodo}. Compensado -$${maxCompensacion.toFixed(2)} USD en ${compensatedDebts.length} créditos adeudados.`
+              : `Liquidado a socio Pablo Gonzalez vía ${metodo}`)
           };
 
           const { error: updErr } = await sb.from('partner_commissions')
@@ -6495,7 +6636,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             return toast('Error al registrar liquidación: ' + updErr.message);
           }
 
-          toast(`Liquidación registrada con éxito (${isGregory ? 'Ganancia Gregory' : 'Socio Pablo'}). Se actualizaron ${targetComms.length} comisiones.`);
+          toast(`Liquidación registrada con éxito (${isGregory ? 'Ganancia Gregory' : 'Socio Pablo'}). ${compensatedDebts.length > 0 ? `Se compensaron $${maxCompensacion.toFixed(2)} USD de créditos de Pablo.` : ''}`);
           selectedIds.clear();
           dlg.close();
           EXTRA.liquidaciones(box);
@@ -6528,9 +6669,9 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         bDo.onclick = () => {
           const idsToPay = selectedIds.size > 0 
             ? Array.from(selectedIds) 
-            : filtered.filter(c => c.estado === 'pendiente').map(c => c.id);
+            : filtered.filter(c => c.estado === 'pendiente' && !c.isCreditPending).map(c => c.id);
           if (!idsToPay.length) {
-            return toast('No hay comisiones pendientes para liquidar a Pablo.');
+            return toast('No hay comisiones pendientes y liberadas para liquidar a Pablo.');
           }
           triggerLiquidationModal(idsToPay, 'pablo');
         };
@@ -6565,15 +6706,23 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           const totUsdt = commsBin.reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
 
           const fechaHoy = new Date().toLocaleDateString('es-VE');
-          const itemsTxt = sComms.slice(0, 15).map((x, i) => `  ${i + 1}. ${x.servicio_nombre} (${x.customers?.nombre || 'Cliente'}): +$${Number(x.ganancia_vendedor_usd).toFixed(2)} [${x.metodo_origen === 'binance' ? 'Binance USDT' : 'Bs.'}]`).join('\n');
+          const itemsTxt = sComms.slice(0, 15).map((x, i) => `  ${i + 1}. ${x.servicio_nombre} (${x.customers?.nombre || 'Cliente'}): +$${Number(x.ganancia_vendedor_usd).toFixed(2)} [${x.metodo_origen === 'binance' ? 'Binance USDT' : 'Bs.'}]${x.isCreditPending ? ' ⏳(Cuota en calle)' : ''}`).join('\n');
 
-          const msg = `¡Hola ${targetSeller.nombre || 'Pablo'}! 👋 Te comparto tu *Corte de Liquidación de Comisiones* al ${fechaHoy}:\n\n` +
-            `🛒 *Ventas Pendientes Seleccionadas:* ${sComms.length}\n` +
+          let msg = `¡Hola ${targetSeller.nombre || 'Pablo'}! 👋 Te comparto tu *Corte de Liquidación de Comisiones* al ${fechaHoy}:\n\n` +
+            `🛒 *Ventas Seleccionadas:* ${sComms.length}\n` +
             (itemsTxt ? `${itemsTxt}\n\n` : '') +
-            (commsBs.length ? `🇻🇪 *Por Transferir en Bolívares (Pago Móvil):* Bs. ${totBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (Tasa BCV: ${curRate.toFixed(2)})\n` : '') +
-            (commsBin.length ? `🟡 *Por Transferir en Binance Pay (USDT):* $${totUsdt.toFixed(2)} USDT\n` : '') +
-            `💵 *Total Consolidado en Dólares:* $${totUsd.toFixed(2)} USD\n\n` +
-            `Avísame para coordinar el pago. ¡Seguimos creciendo socio! 🚀`;
+            (commsBs.length ? `🇻🇪 *Comisiones en Bolívares:* Bs. ${totBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (Tasa BCV: ${curRate.toFixed(2)})\n` : '') +
+            (commsBin.length ? `🟡 *Comisiones en Binance Pay (USDT):* $${totUsdt.toFixed(2)} USDT\n` : '') +
+            `💵 *Total Bruto en Dólares:* $${totUsd.toFixed(2)} USD\n`;
+
+          if (pabloTotalDeuda > 0) {
+            const neto = totUsd - pabloTotalDeuda;
+            msg += `\n💳 *Deudas por Créditos Pendientes:* -$${pabloTotalDeuda.toFixed(2)} USD (${pabloDebts.length} cuotas activas)\n` +
+                   `👉 *Saldo Neto Liquidable:* ${neto >= 0 ? `*$${neto.toFixed(2)} USD* a tu favor` : `*$${Math.abs(neto).toFixed(2)} USD* a pagar a Gregory`}\n` +
+                   (neto > 0 ? `🇻🇪 *Neto a Transferir en Bs:* Bs. ${(neto * curRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n` : '');
+          }
+
+          msg += `\nAvísame para coordinar el pago o cruzar con tus créditos. ¡Seguimos creciendo socio! 🚀`;
 
           navigator.clipboard.writeText(msg).catch(() => {});
 
