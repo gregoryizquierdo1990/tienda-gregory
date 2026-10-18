@@ -26,6 +26,7 @@ alter table public.purchases add column if not exists monto_pagado_bs numeric(16
 alter table public.purchases add column if not exists pagado_at timestamptz;
 alter table public.purchases add column if not exists comprobante_pago text;
 alter table public.profiles_inventory add column if not exists created_at timestamptz default now();
+alter table public.orders add column if not exists entregado_at timestamptz default now();
 
 create index if not exists idx_purchases_estado_pago on public.purchases(estado_pago);
 create index if not exists idx_purchases_fecha_limite on public.purchases(fecha_limite_pago);
@@ -210,7 +211,7 @@ begin
     insert into orders (
       customer_id, vendedor_id, profile_id, product_id,
       total_usd, tasa_bs, total_bs, estado,
-      referencia, vence, proximo_pago, pagado_at, entregado_at
+      referencia, vence, proximo_pago, pagado_at
     ) values (
       coalesce(v_assigned_cli, v_user_id),
       case when v_is_reseller then v_user_id else v_prof.vendedor_id end,
@@ -223,7 +224,6 @@ begin
       '[RENOVACIÓN ZENY] ' || v_srv_nom || ' - ' || coalesce(v_cli_nom, 'Cliente') || ' (Mismas Credenciales)',
       v_next_vence,
       v_next_vence,
-      now(),
       now()
     ) returning id into v_order_id;
 
@@ -271,7 +271,7 @@ begin
     insert into orders (
       customer_id, vendedor_id, profile_id, product_id,
       total_usd, tasa_bs, total_bs, estado,
-      referencia, vence, proximo_pago, pagado_at, entregado_at
+      referencia, vence, proximo_pago, pagado_at
     ) values (
       coalesce(v_assigned_cli, v_user_id),
       v_user_id,
@@ -284,7 +284,6 @@ begin
       '[RENOVACIÓN CRÉDITO REVENDEDOR] ' || coalesce(v_cli_nom, 'Cliente') || ' - ' || v_srv_nom || ' ($' || v_precio || ' USD)',
       v_next_vence,
       v_next_vence,
-      now(),
       now()
     ) returning id into v_order_id;
 
@@ -498,7 +497,7 @@ begin
     insert into public.orders (
       customer_id, vendedor_id, profile_id, product_id,
       total_usd, tasa_bs, total_bs, estado,
-      referencia, vence, proximo_pago, pagado_at, entregado_at
+      referencia, vence, proximo_pago, pagado_at
     ) values (
       coalesce(v_angelo_cust_id, v_pablo_id),
       v_pablo_id,
@@ -511,7 +510,6 @@ begin
       '[RENOVACIÓN CRÉDITO REVENDEDOR] ANGELO - Disney+ Premium ($4.50 USD)',
       (current_date + interval '30 days')::date,
       (current_date + interval '30 days')::date,
-      now(),
       now()
     ) returning id into v_order_angelo;
 

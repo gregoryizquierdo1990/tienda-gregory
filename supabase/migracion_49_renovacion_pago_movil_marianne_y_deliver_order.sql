@@ -1,20 +1,25 @@
 -- ==============================================================================
 -- MIGRACIÓN 49: RESOLUCIÓN DEFINITIVA DE RENOVACIONES POR PAGO MÓVIL / TRANSFERENCIA,
--- CONCILIACIÓN EN _deliver() PARA PERFILES EXISTENTES Y SANEAMIENTO MARIANNE AGUDO
+-- CONCILIACIÓN EN _deliver() PARA PERFILES EXISTENTES, ENTREGA DIRECTA A CRÉDITO DESDE PANEL ADMIN
+-- Y SANEAMIENTO MARIANNE AGUDO + ANGELO
 -- ==============================================================================
--- 1. Actualizar `_deliver(p_order uuid)` para soportar renovaciones de perfiles existentes
+-- 1. Asegurar columnas created_at en profiles_inventory y entregado_at en orders
+-- 2. Actualizar `_deliver(p_order uuid)` para soportar renovaciones de perfiles existentes
 --    (evitando que resetee a NULL o intente buscar stock nuevo cuando ya hay un profile_id).
--- 2. Actualizar `my_reseller_clients()` para retornar el estado de órdenes pendientes
+-- 3. Actualizar `my_reseller_clients()` para retornar el estado de órdenes pendientes
 --    de verificación (`tiene_pendiente`, `orden_pendiente_id`, `orden_pendiente_ref`).
--- 3. Blindar `renovar_suscripcion_perfil()` para todos los métodos de pago.
--- 4. Saneamiento inmediato de Marianne Agudo (Perfil Extra Netflix) con Pago Móvil entregado.
--- 5. Saneamiento de Angelo (Disney+ Premium) con cuota a crédito agendada.
+-- 4. Nueva RPC `admin_deliver_profile_credit()` para entregar perfiles a crédito directamente
+--    a cualquier cliente desde el Panel Administrativo sin necesidad de pedido previo.
+-- 5. Nueva RPC `admin_deliver_profile_cash()` para entregar perfiles al contado directamente.
+-- 6. Saneamiento inmediato de Marianne Agudo (Perfil Extra Netflix) con Pago Móvil entregado.
+-- 7. Saneamiento de Angelo (Disney+ Premium) con cuota a crédito agendada.
 -- ==============================================================================
 
 begin;
 
--- Asegurar created_at en profiles_inventory
+-- Asegurar columnas necesarias en profiles_inventory y orders
 alter table public.profiles_inventory add column if not exists created_at timestamptz default now();
+alter table public.orders add column if not exists entregado_at timestamptz default now();
 
 -- ------------------------------------------------------------------------------
 -- SECCIÓN 1: REFACTORIZACIÓN DEFINITIVA DE _deliver(p_order uuid)
@@ -148,8 +153,7 @@ begin
       inicia = coalesce(inicia, current_date),
       vence = coalesce(v_new_vence, vence, current_date + v_duracion),
       proximo_pago = coalesce(v_new_vence, proximo_pago, current_date + v_duracion),
-      pagado_at = coalesce(pagado_at, now()),
-      entregado_at = coalesce(entregado_at, now())
+      pagado_at = coalesce(pagado_at, now())
   where id = p_order;
 
   -- 4. Conciliar saldo Zeny retenido en compra
@@ -308,7 +312,288 @@ revoke execute on function public.my_reseller_clients() from public, anon;
 grant execute on function public.my_reseller_clients() to authenticated;
 
 -- ------------------------------------------------------------------------------
--- SECCIÓN 3: SANEAMIENTO DIRECTO EN PRODUCCIÓN: MARIANNE AGUDO Y ANGELO
+-- SECCIÓN 3: RPC admin_deliver_profile_credit() PARA ENTREGA DIRECTA A CRÉDITO DESDE PANEL ADMIN
+-- ------------------------------------------------------------------------------
+create or replace function public.admin_deliver_profile_credit(
+  p_profile_id uuid,
+  p_customer_id uuid,
+  p_dias int default 7,
+  p_monto_usd numeric default null,
+  p_notas text default null
+)
+returns jsonb
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  v_prof profiles_inventory%rowtype;
+  v_cust customers%rowtype;
+  v_prod products%rowtype;
+  v_mother mother_accounts%rowtype;
+  v_rate numeric := 1;
+  v_precio numeric := 0;
+  v_dias int := coalesce(p_dias, 7);
+  v_f_vence date;
+  v_f_credito date;
+  v_order_id uuid;
+  v_srv_name text;
+  v_cred_usado numeric := 0;
+  v_clv_plain text;
+  v_pin_plain text;
+begin
+  if not is_admin() then
+    raise exception 'Solo el Administrador puede realizar entregas directas a crédito.';
+  end if;
+
+  perform set_config('app.internal', '1', true);
+
+  -- 1. Obtener perfil
+  select * into v_prof from profiles_inventory where id = p_profile_id for update;
+  if not found then
+    raise exception 'Perfil no encontrado en inventario.';
+  end if;
+
+  -- 2. Obtener cliente
+  select * into v_cust from customers where id = p_customer_id for update;
+  if not found then
+    raise exception 'Cliente no encontrado.';
+  end if;
+
+  -- 3. Obtener producto y cuenta madre
+  select * into v_prod from products where id = v_prof.product_id;
+  select * into v_mother from mother_accounts where id = v_prof.mother_id;
+  v_srv_name := coalesce(v_prod.nombre, v_mother.plataforma, 'Servicio Digital');
+
+  -- 4. Determinar precio en USD
+  if p_monto_usd is not null and p_monto_usd > 0 then
+    v_precio := p_monto_usd;
+  elsif coalesce(v_cust.es_revendedor, false) and v_prod.precio_revendedor_usd is not null and v_prod.precio_revendedor_usd > 0 then
+    v_precio := v_prod.precio_revendedor_usd;
+  else
+    v_precio := coalesce(v_prod.precio_usd, 5.00);
+  end if;
+
+  -- 5. Tasa BCV
+  select bs_por_usd into v_rate from exchange_rates order by fecha desc limit 1;
+  v_rate := coalesce(v_rate, 1);
+
+  -- 6. Fechas: vencimiento de la cuenta y límite del crédito
+  v_f_vence := (current_date + coalesce(v_prod.duracion_dias, 30))::date;
+  v_f_credito := (current_date + make_interval(days => v_dias))::date;
+
+  -- 7. Actualizar cupo si es necesario
+  select coalesce(sum(monto_usd), 0) into v_cred_usado
+  from installments
+  where (customer_id = p_customer_id or reseller_id = p_customer_id)
+    and estado in ('pendiente', 'en_revision');
+
+  if (v_cred_usado + v_precio) > coalesce(v_cust.limite_credito, 0) then
+    update customers set limite_credito = (v_cred_usado + v_precio) where id = p_customer_id;
+  end if;
+
+  -- 8. Actualizar perfil en profiles_inventory
+  update profiles_inventory set
+    estado = 'vendido',
+    inicia = current_date,
+    vence = v_f_vence,
+    assigned_customer_id = p_customer_id,
+    vendedor_id = case when coalesce(v_cust.es_revendedor, false) then p_customer_id else null end,
+    vendedor = case when coalesce(v_cust.es_revendedor, false) then coalesce(v_cust.nombre, 'Revendedor') else 'Directo Tienda' end,
+    no_renueva = false,
+    no_renueva_reportado_at = null,
+    no_renueva_motivo = null
+  where id = p_profile_id;
+
+  -- 9. Cerrar órdenes activas anteriores de este perfil
+  update orders set estado = 'vencido', no_renueva = false
+  where profile_id = p_profile_id and estado in ('entregado', 'pagado');
+
+  -- 10. Crear orden entregada a crédito
+  insert into orders (
+    customer_id, vendedor_id, profile_id, product_id,
+    total_usd, tasa_bs, total_bs, estado,
+    referencia, inicia, vence, proximo_pago, pagado_at
+  ) values (
+    p_customer_id,
+    case when coalesce(v_cust.es_revendedor, false) then p_customer_id else null end,
+    p_profile_id,
+    v_prof.product_id,
+    v_precio,
+    v_rate,
+    round(v_precio * v_rate, 2),
+    'entregado',
+    '[CRÉDITO ADMIN] ' || coalesce(v_cust.nombre, 'Cliente') || ' - ' || v_srv_name || ' ($' || v_precio || ' USD a ' || v_dias || 'd)',
+    current_date,
+    v_f_credito,
+    v_f_credito,
+    now()
+  ) returning id into v_order_id;
+
+  -- 11. Factura
+  insert into invoices (order_id, customer_id, total_usd, total_bs, tasa_bs, estado)
+  values (v_order_id, p_customer_id, v_precio, round(v_precio * v_rate, 2), v_rate, 'emitida')
+  on conflict (order_id) do nothing;
+
+  -- 12. Insertar deuda en installments (Cobranza / Línea de Crédito)
+  insert into installments (
+    order_id, customer_id, reseller_id, numero_cuota, total_cuotas,
+    monto_usd, monto_bs, tasa_bs, fecha_vencimiento, estado, referencia
+  ) values (
+    v_order_id,
+    p_customer_id,
+    case when coalesce(v_cust.es_revendedor, false) then p_customer_id else null end,
+    1, 1,
+    v_precio,
+    round(v_precio * v_rate, 2),
+    v_rate,
+    v_f_credito,
+    'pendiente',
+    '[CRÉDITO ADMIN] ' || v_srv_name || ' (' || coalesce(v_prof.nombre_perfil, 'P1') || ') - ' || coalesce(v_cust.nombre, 'Cliente')
+  );
+
+  -- Desencriptar credenciales para retorno inmediato
+  v_clv_plain := case when v_mother.clave like 'enc:%' then dec_text(v_mother.clave) else v_mother.clave end;
+  v_pin_plain := case when v_prof.pin like 'enc:%' then dec_text(v_prof.pin) else v_prof.pin end;
+
+  return jsonb_build_object(
+    'success', true,
+    'order_id', v_order_id,
+    'servicio', v_srv_name,
+    'perfil', coalesce(v_prof.nombre_perfil, 'Perfil 1'),
+    'correo', v_mother.correo,
+    'clave', v_clv_plain,
+    'pin', coalesce(v_pin_plain, 'Sin PIN'),
+    'cliente_nombre', coalesce(v_cust.nombre, 'Cliente'),
+    'cliente_telefono', coalesce(v_cust.telefono, ''),
+    'monto_usd', v_precio,
+    'monto_bs', round(v_precio * v_rate, 2),
+    'fecha_limite_pago', v_f_credito,
+    'vence_servicio', v_f_vence,
+    'dias_credito', v_dias
+  );
+end;
+$$;
+
+revoke execute on function public.admin_deliver_profile_credit(uuid, uuid, int, numeric, text) from public, anon;
+grant execute on function public.admin_deliver_profile_credit(uuid, uuid, int, numeric, text) to authenticated;
+
+-- ------------------------------------------------------------------------------
+-- SECCIÓN 4: RPC admin_deliver_profile_cash() PARA ENTREGA CONTADO DESDE PANEL ADMIN
+-- ------------------------------------------------------------------------------
+create or replace function public.admin_deliver_profile_cash(
+  p_profile_id uuid,
+  p_customer_id uuid,
+  p_monto_usd numeric default null,
+  p_metodo_id uuid default null,
+  p_referencia text default null
+)
+returns jsonb
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  v_prof profiles_inventory%rowtype;
+  v_cust customers%rowtype;
+  v_prod products%rowtype;
+  v_mother mother_accounts%rowtype;
+  v_rate numeric := 1;
+  v_precio numeric := 0;
+  v_f_vence date;
+  v_order_id uuid;
+  v_srv_name text;
+  v_clv_plain text;
+  v_pin_plain text;
+begin
+  if not is_admin() then
+    raise exception 'Solo el Administrador puede realizar entregas directas.';
+  end if;
+
+  perform set_config('app.internal', '1', true);
+
+  select * into v_prof from profiles_inventory where id = p_profile_id for update;
+  if not found then raise exception 'Perfil no encontrado.'; end if;
+
+  select * into v_cust from customers where id = p_customer_id for update;
+  if not found then raise exception 'Cliente no encontrado.'; end if;
+
+  select * into v_prod from products where id = v_prof.product_id;
+  select * into v_mother from mother_accounts where id = v_prof.mother_id;
+  v_srv_name := coalesce(v_prod.nombre, v_mother.plataforma, 'Servicio Digital');
+
+  if p_monto_usd is not null and p_monto_usd > 0 then
+    v_precio := p_monto_usd;
+  elsif coalesce(v_cust.es_revendedor, false) and v_prod.precio_revendedor_usd is not null and v_prod.precio_revendedor_usd > 0 then
+    v_precio := v_prod.precio_revendedor_usd;
+  else
+    v_precio := coalesce(v_prod.precio_usd, 5.00);
+  end if;
+
+  select bs_por_usd into v_rate from exchange_rates order by fecha desc limit 1;
+  v_rate := coalesce(v_rate, 1);
+
+  v_f_vence := (current_date + coalesce(v_prod.duracion_dias, 30))::date;
+
+  update profiles_inventory set
+    estado = 'vendido',
+    inicia = current_date,
+    vence = v_f_vence,
+    assigned_customer_id = p_customer_id,
+    vendedor_id = case when coalesce(v_cust.es_revendedor, false) then p_customer_id else null end,
+    vendedor = case when coalesce(v_cust.es_revendedor, false) then coalesce(v_cust.nombre, 'Revendedor') else 'Directo Tienda' end,
+    no_renueva = false,
+    no_renueva_reportado_at = null,
+    no_renueva_motivo = null
+  where id = p_profile_id;
+
+  update orders set estado = 'vencido', no_renueva = false
+  where profile_id = p_profile_id and estado in ('entregado', 'pagado');
+
+  insert into orders (
+    customer_id, vendedor_id, profile_id, product_id, metodo_id,
+    total_usd, tasa_bs, total_bs, estado,
+    referencia, inicia, vence, proximo_pago, pagado_at
+  ) values (
+    p_customer_id,
+    case when coalesce(v_cust.es_revendedor, false) then p_customer_id else null end,
+    p_profile_id,
+    v_prof.product_id,
+    p_metodo_id,
+    v_precio,
+    v_rate,
+    round(v_precio * v_rate, 2),
+    'entregado',
+    coalesce(p_referencia, '[VENTA DIRECTA ADMIN] ' || coalesce(v_cust.nombre, 'Cliente') || ' - ' || v_srv_name || ' ($' || v_precio || ' USD)'),
+    current_date,
+    v_f_vence,
+    v_f_vence,
+    now()
+  ) returning id into v_order_id;
+
+  insert into invoices (order_id, customer_id, total_usd, total_bs, tasa_bs, estado)
+  values (v_order_id, p_customer_id, v_precio, round(v_precio * v_rate, 2), v_rate, 'emitida')
+  on conflict (order_id) do nothing;
+
+  v_clv_plain := case when v_mother.clave like 'enc:%' then dec_text(v_mother.clave) else v_mother.clave end;
+  v_pin_plain := case when v_prof.pin like 'enc:%' then dec_text(v_prof.pin) else v_prof.pin end;
+
+  return jsonb_build_object(
+    'success', true,
+    'order_id', v_order_id,
+    'servicio', v_srv_name,
+    'perfil', coalesce(v_prof.nombre_perfil, 'Perfil 1'),
+    'correo', v_mother.correo,
+    'clave', v_clv_plain,
+    'pin', coalesce(v_pin_plain, 'Sin PIN'),
+    'cliente_nombre', coalesce(v_cust.nombre, 'Cliente'),
+    'cliente_telefono', coalesce(v_cust.telefono, ''),
+    'monto_usd', v_precio,
+    'monto_bs', round(v_precio * v_rate, 2),
+    'vence_servicio', v_f_vence
+  );
+end;
+$$;
+
+revoke execute on function public.admin_deliver_profile_cash(uuid, uuid, numeric, uuid, text) from public, anon;
+grant execute on function public.admin_deliver_profile_cash(uuid, uuid, numeric, uuid, text) to authenticated;
+
+-- ------------------------------------------------------------------------------
+-- SECCIÓN 5: SANEAMIENTO DIRECTO EN PRODUCCIÓN: MARIANNE AGUDO Y ANGELO
 -- ------------------------------------------------------------------------------
 do $$
 declare
@@ -341,21 +626,18 @@ begin
   -- ============================================================================
   -- CASO 1: MARIANNE AGUDO (PERFIL EXTRA NETFLIX) - PAGO MÓVIL
   -- ============================================================================
-  -- Localizar producto Perfil Extra Netflix
   select id into v_prod_netflix_id from public.products
   where lower(nombre) like '%perfil extra netflix%'
      or lower(nombre) like '%netflix perfil extra%'
      or lower(nombre) like '%netflix extra%'
   order by id limit 1;
 
-  -- Localizar perfil de Marianne Agudo
   select pi.id into v_marianne_prof_id
   from public.profiles_inventory pi
   join public.mother_accounts m on m.id = pi.mother_id
   where (lower(m.correo) = 'solucionservnet+ext603@gmail.com' or lower(pi.nombre_perfil) like '%marianne%')
   order by pi.vence desc nulls last, pi.id desc limit 1;
 
-  -- Localizar o crear cliente Marianne Agudo vinculado a Pablo González
   select id into v_marianne_cust_id from public.customers
   where lower(trim(nombre)) like '%marianne agudo%'
      or telefono like '%4245621381%'
@@ -375,7 +657,6 @@ begin
     where id = v_marianne_cust_id;
   end if;
 
-  -- Actualizar perfil de Marianne Agudo a +30 días
   if v_marianne_prof_id is not null then
     update public.profiles_inventory set
       vence = (current_date + interval '30 days')::date,
@@ -388,7 +669,6 @@ begin
       no_renueva_motivo = null
     where id = v_marianne_prof_id;
 
-    -- Verificar si existe una orden en estado pendiente para conciliarla
     select id into v_pend_order_marianne
     from public.orders
     where (profile_id = v_marianne_prof_id or lower(referencia) like '%marianne%')
@@ -398,7 +678,6 @@ begin
     perform set_config('app.internal', '1', true);
 
     if v_pend_order_marianne is not null then
-      -- Conciliar orden existente de Pago Móvil
       update public.orders set
         estado = 'entregado',
         profile_id = v_marianne_prof_id,
@@ -406,8 +685,7 @@ begin
         vendedor_id = v_pablo_id,
         vence = (current_date + interval '30 days')::date,
         proximo_pago = (current_date + interval '30 days')::date,
-        pagado_at = coalesce(pagado_at, now()),
-        entregado_at = coalesce(entregado_at, now())
+        pagado_at = coalesce(pagado_at, now())
       where id = v_pend_order_marianne;
 
       insert into public.invoices (order_id, customer_id, total_usd, total_bs, tasa_bs, estado)
@@ -415,17 +693,15 @@ begin
       from public.orders where id = v_pend_order_marianne
       on conflict (order_id) do nothing;
     else
-      -- Cerrar órdenes anteriores de este perfil
       update public.orders set
         estado = 'vencido',
         no_renueva = false
       where profile_id = v_marianne_prof_id and estado in ('entregado', 'pagado');
 
-      -- Crear la orden de renovación entregada por Pago Móvil
       insert into public.orders (
         customer_id, vendedor_id, profile_id, product_id,
         total_usd, tasa_bs, total_bs, estado,
-        referencia, vence, proximo_pago, pagado_at, entregado_at
+        referencia, vence, proximo_pago, pagado_at
       ) values (
         coalesce(v_marianne_cust_id, v_pablo_id),
         v_pablo_id,
@@ -438,7 +714,6 @@ begin
         '[RENOVACIÓN PAGO MÓVIL] MARIANNE AGUDO - Perfil Extra Netflix ($7.00 USD - Conciliado)',
         (current_date + interval '30 days')::date,
         (current_date + interval '30 days')::date,
-        now(),
         now()
       ) returning id into v_order_marianne;
 
@@ -502,7 +777,7 @@ begin
     insert into public.orders (
       customer_id, vendedor_id, profile_id, product_id,
       total_usd, tasa_bs, total_bs, estado,
-      referencia, vence, proximo_pago, pagado_at, entregado_at
+      referencia, vence, proximo_pago, pagado_at
     ) values (
       coalesce(v_angelo_cust_id, v_pablo_id),
       v_pablo_id,
@@ -515,7 +790,6 @@ begin
       '[RENOVACIÓN CRÉDITO REVENDEDOR] ANGELO - Disney+ Premium ($4.50 USD)',
       (current_date + interval '30 days')::date,
       (current_date + interval '30 days')::date,
-      now(),
       now()
     ) returning id into v_order_angelo;
 

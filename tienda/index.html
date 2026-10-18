@@ -5890,7 +5890,7 @@ const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
 const NOADD=['transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'&&r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'';
+const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
@@ -6067,6 +6067,253 @@ async function ensureAdminSession(){
   }
 }
 
+async function openAdminDirectCreditModal(opts = {}) {
+  const isCredit = opts.isCredit !== false;
+  let targetProfileId = opts.profileId || '';
+  let targetCustomerId = opts.customerId || '';
+  let defaultPrice = opts.price ? Number(opts.price) : 0;
+
+  let profList = [];
+  try {
+    const { data: pData } = await sb.from('profiles_inventory')
+      .select('id, nombre_perfil, pin, product_id, mother_id, products(nombre, precio_usd, precio_revendedor_usd), mother_accounts(plataforma, correo)')
+      .eq('estado', 'disponible')
+      .order('id');
+    profList = pData || [];
+  } catch(e){}
+
+  if(targetProfileId && !profList.some(p => p.id === targetProfileId)){
+    try {
+      const { data: pSingle } = await sb.from('profiles_inventory')
+        .select('id, nombre_perfil, pin, product_id, mother_id, products(nombre, precio_usd, precio_revendedor_usd), mother_accounts(plataforma, correo)')
+        .eq('id', targetProfileId)
+        .maybeSingle();
+      if(pSingle) profList.unshift(pSingle);
+    } catch(e){}
+  }
+
+  let custList = [];
+  try {
+    const { data: cData } = await sb.from('customers')
+      .select('id, nombre, email, telefono, es_revendedor, limite_credito, codigo_identificacion')
+      .order('nombre');
+    custList = cData || [];
+  } catch(e){}
+
+  const bcvRate = Number(S.rate || 1);
+
+  const profOptions = profList.map(p => {
+    const srv = p.products?.nombre || p.mother_accounts?.plataforma || 'Servicio';
+    const acc = p.mother_accounts?.correo ? ` (${p.mother_accounts.correo})` : '';
+    const label = `${srv} - ${p.nombre_perfil || 'P1'}${acc}`;
+    const sel = p.id === targetProfileId ? 'selected' : '';
+    const prUsd = p.products?.precio_usd || 5.00;
+    const rvdUsd = p.products?.precio_revendedor_usd || prUsd;
+    return `<option value="${p.id}" data-srv="${esc(srv)}" data-prof="${esc(p.nombre_perfil||'')}" data-price="${prUsd}" data-rvd="${rvdUsd}" ${sel}>${esc(label)}</option>`;
+  }).join('');
+
+  const custOptions = custList.map(c => {
+    const tag = c.es_revendedor ? `⭐ REVENDEDOR (${c.codigo_identificacion || 'RVD'})` : `👤 CLIENTE (${c.codigo_identificacion || 'CLT'})`;
+    const tel = c.telefono ? ` · ${c.telefono}` : '';
+    const label = `${c.nombre || c.email} - ${tag}${tel}`;
+    const sel = c.id === targetCustomerId ? 'selected' : '';
+    return `<option value="${c.id}" data-is-reseller="${c.es_revendedor?'1':'0'}" ${sel}>${esc(label)}</option>`;
+  }).join('');
+
+  if(!defaultPrice && profList.length > 0){
+    defaultPrice = profList[0].products?.precio_usd || 5.00;
+  }
+
+  $('#dlgBody').innerHTML = `
+    <div style="padding:4px 0">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span style="font-size:2rem">${isCredit ? '💳' : '⚡'}</span>
+        <div>
+          <h3 style="margin:0;color:${isCredit ? '#facc15' : '#00f5a0'}">
+            ${isCredit ? 'Entregar Perfil / Cuenta a Crédito' : 'Entregar Perfil / Cuenta al Contado'}
+          </h3>
+          <p class="mut" style="font-size:.82rem;margin:2px 0 0">
+            ${isCredit ? 'Asigna el servicio de inmediato y agenda la deuda en Cobranza / Línea de Crédito.' : 'Asigna el servicio de inmediato y emite la factura cancelada.'}
+          </p>
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;margin-bottom:14px;display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="display:block;font-size:.78rem;font-weight:700;color:var(--mut);margin-bottom:4px">
+            1. Seleccionar Perfil o Cuenta Disponible:
+          </label>
+          <select id="selDirectProf" style="width:100%;padding:9px;background:rgba(3,8,18,.9);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:.85rem">
+            ${profList.length ? profOptions : '<option value="">⚠️ No hay perfiles disponibles en stock</option>'}
+          </select>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:.78rem;font-weight:700;color:var(--mut);margin-bottom:4px">
+            2. Seleccionar Cliente o Revendedor Receptor:
+          </label>
+          <select id="selDirectCust" style="width:100%;padding:9px;background:rgba(3,8,18,.9);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:.85rem">
+            ${custList.length ? custOptions : '<option value="">⚠️ No hay clientes registrados</option>'}
+          </select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="display:block;font-size:.78rem;font-weight:700;color:var(--mut);margin-bottom:4px">
+              3. Precio Acordado ($ USD):
+            </label>
+            <input id="numDirectPrice" type="number" step="0.5" min="0.5" value="${defaultPrice.toFixed(2)}" style="width:100%;padding:9px;background:rgba(3,8,18,.9);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#00f5a0;font-weight:800;font-size:1.05rem">
+            <div id="lblDirectBs" style="font-size:.74rem;color:#facc15;margin-top:4px">
+              Equiv: Bs. ${(defaultPrice * bcvRate).toFixed(2)}
+            </div>
+          </div>
+
+          ${isCredit ? `
+            <div>
+              <label style="display:block;font-size:.78rem;font-weight:700;color:var(--mut);margin-bottom:4px">
+                4. Días de Crédito:
+              </label>
+              <input id="numDirectDias" type="number" step="1" min="1" max="60" value="7" style="width:100%;padding:9px;background:rgba(3,8,18,.9);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#facc15;font-weight:800;font-size:1.05rem">
+              <div style="display:flex;gap:4px;margin-top:4px">
+                <button type="button" class="g" style="padding:2px 6px;font-size:.68rem" onclick="$('#numDirectDias').value=3">3d</button>
+                <button type="button" class="g" style="padding:2px 6px;font-size:.68rem" onclick="$('#numDirectDias').value=7">7d</button>
+                <button type="button" class="g" style="padding:2px 6px;font-size:.68rem" onclick="$('#numDirectDias').value=15">15d</button>
+                <button type="button" class="g" style="padding:2px 6px;font-size:.68rem" onclick="$('#numDirectDias').value=30">30d</button>
+              </div>
+            </div>
+          ` : `
+            <div>
+              <label style="display:block;font-size:.78rem;font-weight:700;color:var(--mut);margin-bottom:4px">
+                4. Referencia o Nota:
+              </label>
+              <input id="txtDirectRef" placeholder="Ej: Pago Móvil, Efectivo, Binance" style="width:100%;padding:9px;background:rgba(3,8,18,.9);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:.85rem">
+            </div>
+          `}
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="g" onclick="dlg.close()">Cancelar</button>
+        <button id="btnConfirmDirectDeliver" style="background:${isCredit ? '#facc15' : '#00f5a0'};color:#000;font-weight:800;padding:10px 18px;border-radius:10px;border:none">
+          ${isCredit ? '✅ Confirmar Entrega a Crédito' : '✅ Confirmar Entrega Inmediata'}
+        </button>
+      </div>
+    </div>
+  `;
+  dlg.showModal();
+
+  const updateBs = () => {
+    const p = parseFloat($('#numDirectPrice')?.value || 0);
+    const bsEl = $('#lblDirectBs');
+    if(bsEl) bsEl.textContent = `Equiv: Bs. ${(p * bcvRate).toFixed(2)}`;
+  };
+  $('#numDirectPrice').oninput = updateBs;
+
+  const updateSuggestedPrice = () => {
+    const selP = $('#selDirectProf');
+    const selC = $('#selDirectCust');
+    const optP = selP?.options[selP.selectedIndex];
+    const optC = selC?.options[selC.selectedIndex];
+    if(optP && optC){
+      const isReseller = optC.dataset.isReseller === '1';
+      const pr = parseFloat(isReseller ? (optP.dataset.rvd || optP.dataset.price) : optP.dataset.price) || 5.00;
+      if($('#numDirectPrice')) $('#numDirectPrice').value = pr.toFixed(2);
+      updateBs();
+    }
+  };
+  $('#selDirectProf').onchange = updateSuggestedPrice;
+  $('#selDirectCust').onchange = updateSuggestedPrice;
+
+  $('#btnConfirmDirectDeliver').onclick = async () => {
+    const profId = $('#selDirectProf')?.value;
+    const custId = $('#selDirectCust')?.value;
+    const priceUsd = parseFloat($('#numDirectPrice')?.value || 0);
+    const dias = parseInt($('#numDirectDias')?.value || 7) || 7;
+    const refTxt = ($('#txtDirectRef')?.value || '').trim();
+
+    if(!profId) return toast('⚠️ Debes seleccionar un perfil.');
+    if(!custId) return toast('⚠️ Debes seleccionar un cliente.');
+    if(priceUsd <= 0) return toast('⚠️ Ingresa un precio válido en USD.');
+
+    const btn = $('#btnConfirmDirectDeliver');
+    btn.disabled = true;
+    btn.textContent = '⏳ Procesando entrega...';
+
+    try {
+      let rpcName = isCredit ? 'admin_deliver_profile_credit' : 'admin_deliver_profile_cash';
+      let rpcParams = isCredit
+        ? { p_profile_id: profId, p_customer_id: custId, p_dias: dias, p_monto_usd: priceUsd }
+        : { p_profile_id: profId, p_customer_id: custId, p_monto_usd: priceUsd, p_referencia: refTxt };
+
+      const { data: res, error } = await sb.rpc(rpcName, rpcParams);
+      if(error){
+        btn.disabled = false;
+        btn.textContent = isCredit ? '✅ Confirmar Entrega a Crédito' : '✅ Confirmar Entrega Inmediata';
+        return toast('⚠️ Error al entregar: ' + error.message);
+      }
+
+      toast('🎉 ¡Servicio entregado con éxito!');
+
+      const waMsg = isCredit
+        ? `🌟 *ENTREGA DE SERVICIO A CRÉDITO* 🌟\n━━━━━━━━━━━━━━━━━━━━\n👤 *Cliente:* ${res.cliente_nombre}\n📺 *Servicio:* ${res.servicio}\n👤 *Perfil:* ${res.perfil}${res.pin ? ` (PIN: ${res.pin})` : ''}\n✉️ *Correo:* ${res.correo}\n🔑 *Clave:* ${res.clave}\n━━━━━━━━━━━━━━━━━━━━\n📅 *Vencimiento Servicio:* ${res.vence_servicio}\n💵 *Monto Acordado:* $${Number(res.monto_usd).toFixed(2)} USD (Bs. ${Number(res.monto_bs).toFixed(2)})\n⏰ *Fecha Límite de Pago:* ${res.fecha_limite_pago} (${res.dias_credito} días)\n━━━━━━━━━━━━━━━━━━━━\n¡Gracias por tu preferencia! Recuerda reportar tu pago antes del vencimiento.\n✨ *Emprendimiento Gregory Izquierdo*`
+        : `🌟 *ENTREGA DE SERVICIO* 🌟\n━━━━━━━━━━━━━━━━━━━━\n👤 *Cliente:* ${res.cliente_nombre}\n📺 *Servicio:* ${res.servicio}\n👤 *Perfil:* ${res.perfil}${res.pin ? ` (PIN: ${res.pin})` : ''}\n✉️ *Correo:* ${res.correo}\n🔑 *Clave:* ${res.clave}\n━━━━━━━━━━━━━━━━━━━━\n📅 *Vencimiento:* ${res.vence_servicio}\n💵 *Monto:* $${Number(res.monto_usd).toFixed(2)} USD\n━━━━━━━━━━━━━━━━━━━━\n¡Gracias por tu compra!\n✨ *Emprendimiento Gregory Izquierdo*`;
+
+      const cleanPhone = (res.cliente_telefono || '').replace(/\D/g, '');
+      const waTarget = cleanPhone.startsWith('58') ? cleanPhone : (cleanPhone ? '58' + cleanPhone.replace(/^0+/, '') : '');
+      const waUrl = waTarget ? `https://wa.me/${waTarget}?text=${encodeURIComponent(waMsg)}` : '';
+
+      $('#dlgBody').innerHTML = `
+        <div style="text-align:center;padding:10px 0">
+          <div style="font-size:3rem">🎉</div>
+          <h3 style="margin:8px 0;color:${isCredit ? '#facc15' : '#00f5a0'}">
+            ${isCredit ? '¡Entrega a Crédito Exitosa!' : '¡Servicio Entregado con Éxito!'}
+          </h3>
+          <p class="mut" style="font-size:.85rem;margin:0 0 16px">
+            El perfil fue asignado a <b>${esc(res.cliente_nombre)}</b> ${isCredit ? `con crédito a <b>${res.dias_credito} días</b> (Vence pago: ${res.fecha_limite_pago}).` : 'y la factura fue emitida.'}
+          </p>
+
+          <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:left;margin-bottom:16px;font-size:.83rem">
+            <div>📺 <b>Servicio:</b> ${esc(res.servicio)} (${esc(res.perfil)})</div>
+            <div>✉️ <b>Correo:</b> <code>${esc(res.correo)}</code></div>
+            <div>🔑 <b>Clave:</b> <code>${esc(res.clave)}</code></div>
+            <div>🔢 <b>PIN:</b> <code>${esc(res.pin)}</code></div>
+            <div>📅 <b>Vencimiento del Servicio:</b> <b style="color:#00f5a0">${res.vence_servicio}</b></div>
+            <div>💵 <b>Total:</b> $${Number(res.monto_usd).toFixed(2)} USD (Bs. ${Number(res.monto_bs).toFixed(2)})</div>
+            ${isCredit ? `<div>⏰ <b>Límite Pago Crédito:</b> <b style="color:#facc15">${res.fecha_limite_pago}</b></div>` : ''}
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button class="clean-copy-btn" data-clean-copy="${esc(waMsg)}" style="width:100%;padding:10px;font-size:.85rem;background:rgba(0,245,160,.12);color:#00f5a0;border:1.5px solid rgba(0,245,160,.4);border-radius:10px;cursor:pointer;font-weight:700">
+              📋 Copiar Credenciales y Condiciones
+            </button>
+            ${waUrl ? `
+              <a href="${waUrl}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;padding:10px;font-size:.85rem;background:#25D366;color:#fff;border-radius:10px;text-decoration:none;font-weight:800">
+                💬 Enviar Accesos por WhatsApp
+              </a>
+            ` : ''}
+            <button class="g" id="btnCloseDirectDeliver" style="width:100%;margin-top:6px;padding:9px;border-radius:10px">
+              Cerrar y Actualizar
+            </button>
+          </div>
+        </div>
+      `;
+
+      setupCleanCopy();
+      $('#btnCloseDirectDeliver').onclick = () => {
+        dlg.close();
+        if(S.view === 'admin') admin(S.adminTab || 'profiles_inventory');
+      };
+
+    } catch(err){
+      console.error('Error entregando a crédito:', err);
+      btn.disabled = false;
+      btn.textContent = isCredit ? '✅ Confirmar Entrega a Crédito' : '✅ Confirmar Entrega Inmediata';
+      toast('⚠️ Error inesperado: ' + err.message);
+    }
+  };
+}
+window.openAdminDirectCreditModal = openAdminDirectCreditModal;
+
 async function admin(t){
   if(t === 'installments') t = 'cuotas';
   if(t === 'google_integrations') t = 'google';
@@ -6095,7 +6342,9 @@ async function admin(t){
     ? `<button class="g" id="btnLoadOfficialPM" style="background:rgba(0,245,160,.12);border-color:#00f5a0;color:#00f5a0;font-weight:700">⚡ Cargar los 9 Métodos Oficiales</button>`
     : (t === 'customers'
       ? `<button class="g" id="btnPreRegWhatsApp" style="background:linear-gradient(135deg,rgba(37,211,102,.15),rgba(18,140,126,.2));border-color:#25d366;color:#25d366;font-weight:700">📲 Pre-registro WhatsApp</button>`
-      : '');
+      : ((t === 'profiles_inventory' || t === 'orders')
+        ? `<button class="g" id="btnAdminDirectCreditHead" style="background:rgba(250,204,21,.15);border-color:#facc15;color:#facc15;font-weight:700;display:inline-flex;align-items:center;gap:4px">💳 Entregar a Crédito Directo</button>`
+        : ''));
   const cols=TABLES[t];
   let q=sb.from(t).select(SEL[t]||'*');
   if(t==='customers'){
@@ -6211,6 +6460,33 @@ async function admin(t){
   app.querySelectorAll('[data-pay-purchase]').forEach(b=>b.onclick=()=>window.openPayPurchaseModal(b.dataset.payPurchase,b.dataset.prov,b.dataset.usdt,b.dataset.vence,()=>admin(t)));
   app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));
   app.querySelectorAll('[data-tr-prof]').forEach(b=>b.onclick=()=>openTransferModal({profileId:b.dataset.trProf,done:()=>admin(t)}));
+  if($('#btnAdminDirectCreditHead')){
+    $('#btnAdminDirectCreditHead').onclick = () => openAdminDirectCreditModal({ isCredit: true });
+  }
+  app.querySelectorAll('[data-admin-deliver-credit]').forEach(b => {
+    b.onclick = () => openAdminDirectCreditModal({
+      profileId: b.dataset.adminDeliverCredit,
+      srv: b.dataset.srv,
+      prof: b.dataset.prof,
+      price: b.dataset.price,
+      isCredit: true
+    });
+  });
+  app.querySelectorAll('[data-admin-deliver-cash]').forEach(b => {
+    b.onclick = () => openAdminDirectCreditModal({
+      profileId: b.dataset.adminDeliverCash,
+      srv: b.dataset.srv,
+      prof: b.dataset.prof,
+      price: b.dataset.price,
+      isCredit: false
+    });
+  });
+  app.querySelectorAll('[data-admin-cust-credit]').forEach(b => {
+    b.onclick = () => openAdminDirectCreditModal({
+      customerId: b.dataset.adminCustCredit,
+      isCredit: true
+    });
+  });
   app.querySelectorAll('[data-release-prof]').forEach(b => b.onclick = () => {
     const profId = b.dataset.releaseProf;
     const nom = b.dataset.nom || 'Perfil';
