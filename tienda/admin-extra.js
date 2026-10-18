@@ -2915,23 +2915,56 @@ Cobrar antes de ${fVenceCred}`;
     });
   },
   async finanzas(box) {
-    let data = [], error = null, mcOpsRes = { data: [] }, mcCfgRow = { data: null };
+    let data = [], error = null, mcOpsRes = { data: [] }, mcCfgRow = { data: null }, instRes = { data: [] };
     try {
       const res = await Promise.all([
         sb.rpc('finanzas', { p_meses: 12 }),
         sb.from('mesa_cambio_operaciones').select('*').eq('estado', 'completado_enviado'),
-        sb.from('settings').select('value').eq('key', 'mesa_cambio_config').maybeSingle()
+        sb.from('settings').select('value').eq('key', 'mesa_cambio_config').maybeSingle(),
+        sb.from('installments').select('monto_usd, estado, pagada_at, fecha_vencimiento, created_at')
       ]);
       data = res[0]?.data || [];
       error = res[0]?.error || null;
       mcOpsRes = res[1] || { data: [] };
       mcCfgRow = res[2] || { data: null };
+      instRes = res[3] || { data: [] };
     } catch(errFin) {
       console.warn('Error cargando finanzas:', errFin);
       return box.innerHTML = '<p>Error al cargar finanzas: ' + esc(errFin.message) + '</p>';
     }
     if (error) return box.innerHTML = '<p>' + esc(error.message) + '</p>';
-    const m = data[0] || {}, f = n => (n < 0 ? '-$' : '$') + Math.abs(Number(n || 0)).toFixed(2), cards = [['Ventas', m.ventas], ['Devoluciones', m.devoluciones], ['Gastos', m.gastos], ['Compras', m.compras]];
+
+    // Calcular cuotas pagadas y pendientes por mes
+    const allInsts = instRes?.data || [];
+    const curMonthStr = new Date().toISOString().slice(0, 7);
+
+    // Ajustar datos mensuales si la función SQL aún no incluye cuotas_cobradas
+    data.forEach(row => {
+      const rowMesStr = String(row.mes || '').slice(0, 7);
+      const instPagadasMes = allInsts.filter(i => i.estado === 'pagada' && String(i.pagada_at || i.created_at || '').slice(0, 7) === rowMesStr);
+      const sumInstPagadas = instPagadasMes.reduce((a, b) => a + Number(b.monto_usd || 0), 0);
+      
+      if (row.cuotas_cobradas == null) {
+        row.cuotas_cobradas = sumInstPagadas;
+        row.ventas = Number(row.ventas || 0) + sumInstPagadas;
+        row.ganancia = Number(row.ganancia || 0) + sumInstPagadas;
+      }
+    });
+
+    const m = data[0] || {};
+    const f = n => (n < 0 ? '-$' : '$') + Math.abs(Number(n || 0)).toFixed(2);
+    
+    const cuotasCobradasMes = Number(m.cuotas_cobradas || 0);
+    const cuotasPendientesCalle = allInsts.filter(i => ['pendiente', 'en_revision', 'vencida'].includes(i.estado)).reduce((a, b) => a + Number(b.monto_usd || 0), 0);
+
+    const cards = [
+      ['Ventas Cobradas', m.ventas],
+      ['Cuotas Cobradas', cuotasCobradasMes],
+      ['Por Cobrar (Calle)', cuotasPendientesCalle],
+      ['Devoluciones', m.devoluciones],
+      ['Gastos', m.gastos],
+      ['Compras', m.compras]
+    ];
 
     // Métricas de Mesa de Cambio USDT
     const mcCfg = mcCfgRow?.data?.value || S.settings?.mesa_cambio_config || {};
@@ -2951,9 +2984,20 @@ Cobrar antes de ${fVenceCred}`;
     const mcFloat = Number(mcCfg.fondo_caja_usdt || 0);
 
     box.innerHTML = `
-      <div class="grid">
-        <div class="card"><div class="mut">Ganancia de ${esc(String(m.mes || '').slice(0, 7))}</div><div class="price" style="color:${m.ganancia < 0 ? '#f87171' : 'var(--a)'}">${f(m.ganancia)}</div></div>
-        ${cards.map(([n, v]) => `<div class="card"><div class="mut">${n}</div><div class="price">${f(v)}</div></div>`).join('')}
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+        <div class="card" style="background:rgba(0,245,160,.08);border:1.5px solid rgba(0,245,160,.35)">
+          <div class="mut" style="font-size:.76rem;font-weight:700;text-transform:uppercase">Ganancia Neta (${esc(String(m.mes || '').slice(0, 7))})</div>
+          <div class="price" style="font-size:1.8rem;color:${m.ganancia < 0 ? '#f87171' : 'var(--a)'}">${f(m.ganancia)}</div>
+          <div class="mut" style="font-size:.7rem;margin-top:2px">Ingresos reales − egresos totales</div>
+        </div>
+        ${cards.map(([n, v]) => `
+          <div class="card" style="padding:14px">
+            <div class="mut" style="font-size:.74rem;font-weight:700;text-transform:uppercase">${n}</div>
+            <div class="price" style="font-size:1.45rem;color:${n.includes('Calle') ? '#fbbf24' : (n.includes('Cuotas') ? '#38bdf8' : 'inherit')}">${f(v)}</div>
+            ${n.includes('Calle') ? '<div class="mut" style="font-size:.68rem;color:#fde047">Deudas activas y plazos</div>' : ''}
+            ${n.includes('Cuotas') ? '<div class="mut" style="font-size:.68rem;color:#38bdf8">Recaudado este mes</div>' : ''}
+          </div>
+        `).join('')}
       </div>
 
       <!-- PANEL FINANCIERO MESA DE CAMBIO USDT -->
@@ -2995,11 +3039,49 @@ Cobrar antes de ${fVenceCred}`;
         </div>
       </div>
 
-      <p class="mut" style="margin-top:14px">Ganancia = ventas − devoluciones − gastos − compras (USD). Las ventas cuentan al confirmar el pago; las devoluciones, el día que las registras. Las recargas Zeny no son venta hasta que se usan. Las cuentas madre con costo se anotan solas como compra.</p>
-      <div class="row"><button class="g" id="g1">+ Gasto</button><button class="g" id="g2">+ Compra</button><button class="g" id="g3">Ver devoluciones</button></div>
-      <div class="wrap" style="margin-top:12px"><table><tr><th>Mes</th><th>Ventas</th><th>Devol.</th><th>Gastos</th><th>Compras</th><th>Ganancia</th></tr>${data.map(r => `<tr><td>${esc(String(r.mes).slice(0, 7))}</td><td>${f(r.ventas)}</td><td>${f(r.devoluciones)}</td><td>${f(r.gastos)}</td><td>${f(r.compras)}</td><td><b>${f(r.ganancia)}</b></td></tr>`).join('')}</table></div>
+      <p class="mut" style="margin-top:14px;font-size:.82rem">
+        💡 <b>Fórmula Contable:</b> Ganancia Neta = (Ventas Directas + Cuotas y Créditos Cobrados) − Devoluciones − Gastos Operativos − Compras Cuentas Madre. Las cuotas y deudas se suman a la ganancia en el momento exacto en que son conciliadas y marcadas como pagadas.
+      </p>
+      <div class="row" style="margin-bottom:12px">
+        <button class="g" id="g1">+ Gasto</button>
+        <button class="g" id="g2">+ Compra</button>
+        <button class="g" id="g3">Ver devoluciones</button>
+        <button class="g" id="g4" style="color:var(--c);border-color:rgba(0,212,255,.35)">💳 Ver Cuotas por Cobrar</button>
+      </div>
+
+      <div class="wrap" style="margin-top:12px">
+        <table>
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th>Ventas Totales</th>
+              <th>Cuotas Cobradas</th>
+              <th>Devoluciones</th>
+              <th>Gastos</th>
+              <th>Compras</th>
+              <th>Ganancia Neta</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(r => `
+              <tr>
+                <td><b>${esc(String(r.mes).slice(0, 7))}</b></td>
+                <td><b style="color:var(--c)">${f(r.ventas)}</b></td>
+                <td><span style="color:#38bdf8;font-weight:700">${f(r.cuotas_cobradas || 0)}</span></td>
+                <td>${f(r.devoluciones)}</td>
+                <td>${f(r.gastos)}</td>
+                <td>${f(r.compras)}</td>
+                <td><b style="color:${r.ganancia < 0 ? '#f87171' : '#00f5a0'}">${f(r.ganancia)}</b></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
     `;
-    $('#g1').onclick = () => admin('expenses'); $('#g2').onclick = () => admin('purchases'); $('#g3').onclick = () => admin('refunds');
+    $('#g1').onclick = () => admin('expenses');
+    $('#g2').onclick = () => admin('purchases');
+    $('#g3').onclick = () => admin('refunds');
+    $('#g4').onclick = () => admin('cuotas');
     const bGoMesa = $('#btnGoMesaFromFin');
     if (bGoMesa) bGoMesa.onclick = () => admin('mesa_cambio');
   },
