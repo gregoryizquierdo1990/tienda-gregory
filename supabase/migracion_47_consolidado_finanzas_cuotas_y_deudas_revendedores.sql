@@ -5,7 +5,11 @@
 -- 1. Actualizar la función finanzas() para que sume:
 --    - Ventas directas de contado en orders
 --    - MÁS todas las cuotas y créditos efectivamente cobrados y conciliados en installments
---    - Y devuelva cuotas_cobradas y cuotas_por_cobrar
+-- Eliminar la versión anterior porque PostgreSQL no permite cambiar las columnas de retorno con CREATE OR REPLACE
+drop function if exists public.finanzas(int);
+drop function if exists public.finanzas(integer);
+drop function if exists public.finanzas();
+
 create or replace function public.finanzas(p_meses int default 12)
 returns table(
   mes date,
