@@ -6929,7 +6929,11 @@ async function admin(t){
 // ---------- TIEMPO REAL, BADGE DE PENDIENTES E INSTALACION ----------
 let _rt; const refresh=()=>{clearTimeout(_rt);_rt=setTimeout(async()=>{ if(!S.user) return;
   S.me=(await sb.from('customers').select('*').eq('id',S.user.id).maybeSingle()).data||S.me;
-  if(S.view==='portal') portal(); else if(S.view==='admin'&&!dlg.open&&(TABLES[S.t]||S.t==='finanzas')) admin(S.t); badge(); },600);};
+  if(S.view==='portal') portal();
+  else if(S.view==='home') loadPublic().then(()=>{ if(S.view==='home') home(); });
+  else if(S.view==='admin'&&!dlg.open&&(TABLES[S.t]||EXTRA[S.t])) admin(S.t);
+  badge();
+},600);};
 async function badge(){ if(!S.isAdmin) return; const c=(t,f)=>f(sb.from(t).select('id',{count:'exact',head:true}));
   const [a,b,i]=await Promise.all([c('orders',x=>x.eq('estado','pendiente')),c('zeny_ledger',x=>x.eq('estado','pendiente').eq('tipo','recarga')),c('incidents',x=>x.eq('estado','abierta'))]);
   const n=(a.count||0)+(b.count||0)+(i.count||0); $('#bAdmin').textContent=(n?`Admin (${n})`:'Admin')+(S.venc?` ⏰${S.venc}`:'');
@@ -6957,6 +6961,7 @@ function notify(kind,msg){ beep(kind); banner(msg); try{ if(navigator.vibrate) n
   if('Notification' in window&&Notification.permission==='granted'&&document.hidden) new Notification('Gregory Izquierdo',{body:msg,icon:'/icon-192.png',tag:kind}); }catch{}
   document.title='🔔 '+msg; setTimeout(()=>document.title='Emprendimiento Gregory Izquierdo',8000); badge(); }
 const ALERTS={orders:{ok:r=>r.estado==='pendiente',kind:'order',msg:'Nuevo pedido pendiente de conciliación'},
+  installments:{ok:r=>r.estado==='en_revision',kind:'recarga',msg:'Nueva cuota o crédito por conciliar'},
   zeny_ledger:{ok:r=>r.tipo==='recarga'&&r.estado==='pendiente',kind:'recarga',msg:'Nueva recarga Zeny por aprobar'},
   incidents:{ok:()=>true,kind:'incidencia',msg:'Nueva incidencia reportada por un cliente'}};
 Object.entries(ALERTS).reduce((ch,[t,a])=>ch.on('postgres_changes',{event:'INSERT',schema:'public',table:t},p=>{ if(S.isAdmin&&a.ok(p.new)) notify(a.kind,a.msg); }),sb.channel('alerts')).subscribe();
@@ -6984,7 +6989,7 @@ async function checkVenc(){
   }
 }
 setInterval(checkVenc,3600000);
-['orders','zeny_ledger','customers','incidents','profiles_inventory','refunds','expenses','purchases','transfers'].reduce((ch,t)=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},refresh),sb.channel('live')).subscribe();
+['orders','installments','partner_commissions','zeny_ledger','customers','incidents','profiles_inventory','mother_accounts','franchises','refunds','expenses','purchases','transfers'].reduce((ch,t)=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},refresh),sb.channel('live')).subscribe();
 let _dip; addEventListener('beforeinstallprompt',e=>{e.preventDefault();_dip=e;});
 if(matchMedia('(display-mode: standalone)').matches||navigator.standalone) $('#bInstall').classList.add('hide');
 $('#bInstall').onclick=()=>{ const apk=S.settings.app?.apk_url||'', ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
