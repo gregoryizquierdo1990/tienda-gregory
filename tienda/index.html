@@ -4467,6 +4467,7 @@ async function portal(){
                   const isExp = rc.vence && rc.vence < todayStr;
                   const isProx = rc.vence && rc.vence > todayStr && rc.vence <= in3DaysStr;
                   const isNoRen = rc.no_renueva === true;
+                  const isPend = rc.tiene_pendiente === true;
 
                   const tplKey = isHoy ? 'aviso_vencimiento_hoy' : 'datos_limpios_revendedor';
                   const cleanMsg = isHoy
@@ -4488,8 +4489,15 @@ async function portal(){
 
                   const waUrl = waTarget ? `https://wa.me/${waTarget}?text=${encodeURIComponent(cleanMsg)}` : '';
 
+                  const gregoryTel = (S.settings?.negocio?.telefono || '584142302384').replace(/\D/g, '');
+                  const gregoryWaTarget = gregoryTel.startsWith('58') ? gregoryTel : ('58' + gregoryTel.replace(/^0+/, ''));
+                  const pendWaMsg = `Hola Gregory! 👋 Te escribe *${S.me?.nombre || 'Revendedor'}* (${S.me?.codigo_identificacion || 'RVD'}).\n\nReporté el Pago Móvil de renovación para:\n👤 *Cliente:* ${rc.cliente_nombre || 'Cliente'}\n📺 *Servicio:* ${rc.servicio || rc.plataforma}\n🔖 *Referencia:* ${rc.orden_pendiente_ref || 'Pago Móvil'}\n\nPor favor concíliamelo cuando puedas. ¡Quedo atento!`;
+                  const waGregoryUrl = `https://wa.me/${gregoryWaTarget}?text=${encodeURIComponent(pendWaMsg)}`;
+
                   let pillStatus = '<span class="pill" style="font-size:.7rem;color:#00f5a0;border-color:rgba(0,245,160,.3)">🟢 Activo</span>';
-                  if (isNoRen) {
+                  if (isPend) {
+                    pillStatus = '<span class="pill" style="font-size:.7rem;background:rgba(234,179,8,.18);color:#facc15;border:1.5px solid rgba(234,179,8,.5);font-weight:700">⏳ PAGO EN VERIFICACIÓN</span>';
+                  } else if (isNoRen) {
                     pillStatus = '<span class="pill" style="font-size:.7rem;background:rgba(239,68,68,.18);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800">🔴 NO RENUEVA</span>';
                   } else if (isHoy) {
                     pillStatus = '<span class="pill" style="font-size:.7rem;background:rgba(239,68,68,.2);color:#f87171;border:1.5px solid rgba(239,68,68,.5);font-weight:800">⏰ VENCE HOY</span>';
@@ -4499,10 +4507,10 @@ async function portal(){
                     pillStatus = '<span class="pill" style="font-size:.7rem;background:rgba(245,158,11,.15);color:#f59e0b;border-color:rgba(245,158,11,.3);font-weight:700">⏳ Vence pronto</span>';
                   }
 
-                  const rowCat = isNoRen ? 'norenueva' : (isHoy ? 'hoy' : (isProx ? 'proximos' : (isExp ? 'vencido' : 'activo')));
+                  const rowCat = isPend ? 'pendiente' : (isNoRen ? 'norenueva' : (isHoy ? 'hoy' : (isProx ? 'proximos' : (isExp ? 'vencido' : 'activo'))));
 
                   return `
-                    <tr data-rc-cat="${rowCat}" style="${isNoRen ? 'background:rgba(239,68,68,.05)' : (isHoy ? 'background:rgba(239,68,68,.08)' : '')}">
+                    <tr data-rc-cat="${rowCat}" style="${isPend ? 'background:rgba(234,179,8,.06)' : (isNoRen ? 'background:rgba(239,68,68,.05)' : (isHoy ? 'background:rgba(239,68,68,.08)' : ''))}">
                       <td>
                         <b>${esc(rc.cliente_nombre || 'Cliente')}</b>
                         ${rc.cliente_telefono ? `<div style="font-size:.76rem;color:#38bdf8;margin-top:2px">📱 ${esc(rc.cliente_telefono)}</div>` : ''}
@@ -4526,9 +4534,18 @@ async function portal(){
                       </td>
                       <td>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-                          <button class="g" data-reseller-renovar="${rc.profile_id}" data-nom="${esc(rc.cliente_nombre||'Cliente')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-prof="${esc(rc.nombre_perfil||'')}" data-pin="${esc(rc.pin||'')}" data-mail="${esc(rc.correo||'')}" data-tel="${esc(rc.cliente_telefono||'')}" data-vence="${esc(rc.vence||'')}" style="padding:5px 9px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700;display:inline-flex;align-items:center;gap:3px" title="Renovar suscripción por 30 días manteniendo las mismas credenciales">
-                            🔄 Renovar (+30d)
-                          </button>
+                          ${isPend ? `
+                            <div style="font-size:.73rem;color:#facc15;background:rgba(234,179,8,.12);padding:5px 9px;border-radius:8px;border:1px solid rgba(234,179,8,.35);font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Pago Móvil / Transferencia reportado. Gregory lo conciliará en breve.">
+                              ⏳ Pago en Revisión
+                            </div>
+                            <a class="g" href="${waGregoryUrl}" target="_blank" rel="noopener noreferrer" style="padding:5px 9px;font-size:.73rem;color:#facc15;border:1px solid rgba(234,179,8,.4);border-radius:8px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px" title="Avisar a Gregory por WhatsApp para agilizar la conciliación">
+                              📲 Avisar WA
+                            </a>
+                          ` : `
+                            <button class="g" data-reseller-renovar="${rc.profile_id}" data-nom="${esc(rc.cliente_nombre||'Cliente')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-prof="${esc(rc.nombre_perfil||'')}" data-pin="${esc(rc.pin||'')}" data-mail="${esc(rc.correo||'')}" data-tel="${esc(rc.cliente_telefono||'')}" data-vence="${esc(rc.vence||'')}" style="padding:5px 9px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700;display:inline-flex;align-items:center;gap:3px" title="Renovar suscripción por 30 días manteniendo las mismas credenciales">
+                              🔄 Renovar (+30d)
+                            </button>
+                          `}
                           <button class="clean-copy-btn" data-clean-copy="${esc(cleanMsg)}" title="Copiar datos para el cliente">
                             📋 Copiar
                           </button>
