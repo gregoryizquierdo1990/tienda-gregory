@@ -7721,16 +7721,18 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     box.innerHTML = '<p class="mut">Cargando red de revendedores…</p>';
 
     try {
-      // 1. Consultar revendedores, clientes asignados y perfiles activos
-      const [resellersRes, clientsRes, profilesRes] = await Promise.all([
+      // 1. Consultar revendedores, clientes asignados, perfiles activos y cuentas por cobrar
+      const [resellersRes, clientsRes, profilesRes, debtsRes] = await Promise.all([
         sb.from('customers').select('*').eq('es_revendedor', true).order('codigo_identificacion'),
         sb.from('customers').select('id, nombre, email, telefono, vendedor_id, vendedor_nombre, limite_credito').not('vendedor_id', 'is', null),
-        sb.from('profiles_inventory').select('id, nombre_perfil, pin, vendedor_id, vendedor, estado, vence, assigned_customer_id, products(nombre), mother_accounts(plataforma, correo)').eq('estado', 'vendido')
+        sb.from('profiles_inventory').select('id, nombre_perfil, pin, vendedor_id, vendedor, estado, vence, assigned_customer_id, products(nombre), mother_accounts(plataforma, correo)').eq('estado', 'vendido'),
+        sb.from('installments').select('id, order_id, customer_id, reseller_id, numero_cuota, total_cuotas, monto_usd, monto_bs, fecha_vencimiento, estado, referencia, pagada_at, orders(referencia, products(nombre)), customers!customer_id(nombre, email, telefono)')
       ]);
 
       const resellers = resellersRes.data || [];
       const allAssignedClients = clientsRes.data || [];
       const allAssignedProfiles = profilesRes.data || [];
+      const allDebts = debtsRes.data || [];
 
       // Mapear clientes por revendedor
       const clientsBySeller = {};
@@ -7750,11 +7752,26 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         }
       });
 
+      // Mapear deudas por revendedor
+      const debtsBySeller = {};
+      resellers.forEach(r => {
+        const isPablo = r.nombre?.toLowerCase().includes('pablo') || r.email?.toLowerCase().includes('pacun');
+        const rDebts = allDebts.filter(d => {
+          if (d.reseller_id === r.id) return true;
+          if (d.customer_id === r.id && d.referencia && d.referencia.toUpperCase().includes('CRÉDITO')) return true;
+          if (isPablo && d.referencia && /pablo\s*gonzalez|\[crédito pablo/i.test(d.referencia)) return true;
+          return false;
+        });
+        debtsBySeller[r.id] = rDebts;
+      });
+
       // Totales para KPIs
       const totalResellers = resellers.length;
       const totalClients = allAssignedClients.length;
       const totalProfiles = allAssignedProfiles.length;
-      const totalCredit = resellers.reduce((sum, r) => sum + Number(r.limite_credito || 0), 0);
+      const totalCredit = resellers.reduce((sum, r) => sum + Number(r.limite_credito || (r.nombre?.toLowerCase().includes('pablo') ? 30.00 : 0.00)), 0);
+      const totalUsedCredit = Object.values(debtsBySeller).flat().filter(d => d.estado !== 'pagada').reduce((sum, d) => sum + Number(d.monto_usd || 0), 0);
+      const totalAvailable = Math.max(0, totalCredit - totalUsedCredit);
 
       const render = (filterQuery = '') => {
         const q = filterQuery.toLowerCase().trim();
@@ -7776,7 +7793,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                 </span>
               </h3>
               <p class="mut" style="margin:0;font-size:.82rem">
-                Gestión exclusiva de socios comerciales con código oficial <b>RVD:100x</b>, líneas de crédito mayorista y carteras de clientes.
+                Gestión integral de socios comerciales con código oficial <b>RVD:100x</b>, líneas de crédito mayorista rotativas y carteras de clientes.
               </p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -7789,7 +7806,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
             </div>
           </div>
 
-          <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:20px">
+          <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px">
             <div class="card" style="padding:14px;background:rgba(15,23,42,.6);border:1px solid rgba(56,189,248,.25)">
               <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">🤝 Revendedores Activos</div>
               <div style="font-size:1.5rem;font-weight:800;color:#38bdf8;margin-top:4px">${totalResellers}</div>
@@ -7800,15 +7817,15 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               <div style="font-size:1.5rem;font-weight:800;color:#c084fc;margin-top:4px">${totalClients}</div>
               <div class="mut" style="font-size:.72rem;margin-top:2px">Asignados a revendedores</div>
             </div>
-            <div class="card" style="padding:14px;background:rgba(15,23,42,.6);border:1px solid rgba(34,197,94,.25)">
-              <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">👤 Perfiles Gestionados</div>
-              <div style="font-size:1.5rem;font-weight:800;color:#4ade80;margin-top:4px">${totalProfiles}</div>
-              <div class="mut" style="font-size:.72rem;margin-top:2px">Pantallas activas en red</div>
+            <div class="card" style="padding:14px;background:rgba(15,23,42,.6);border:1px solid rgba(239,68,68,.25)">
+              <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">🔴 Deuda Activa en Red</div>
+              <div style="font-size:1.5rem;font-weight:800;color:#f87171;margin-top:4px">$${totalUsedCredit.toFixed(2)} USD</div>
+              <div class="mut" style="font-size:.72rem;margin-top:2px">Por cobrar a revendedores</div>
             </div>
-            <div class="card" style="padding:14px;background:rgba(15,23,42,.6);border:1px solid rgba(245,158,11,.25)">
-              <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">💳 Crédito Mayorista Global</div>
-              <div style="font-size:1.5rem;font-weight:800;color:#fbbf24;margin-top:4px">$${totalCredit.toFixed(2)} USD</div>
-              <div class="mut" style="font-size:.72rem;margin-top:2px">Límite rotativo total otorgado</div>
+            <div class="card" style="padding:14px;background:rgba(15,23,42,.6);border:1px solid rgba(34,197,94,.25)">
+              <div class="mut" style="font-size:.76rem;text-transform:uppercase;font-weight:700">🟢 Crédito Disponible</div>
+              <div style="font-size:1.5rem;font-weight:800;color:#4ade80;margin-top:4px">$${totalAvailable.toFixed(2)} USD</div>
+              <div class="mut" style="font-size:.72rem;margin-top:2px">Cupo libre de $${totalCredit.toFixed(2)} USD</div>
             </div>
           </div>
 
@@ -7827,7 +7844,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                   <th style="padding:10px 14px">Revendedor</th>
                   <th style="padding:10px 14px">Contacto WA</th>
                   <th style="padding:10px 14px">Cartera Asignada</th>
-                  <th style="padding:10px 14px">Límite Crédito</th>
+                  <th style="padding:10px 14px">Línea de Crédito (Deuda / Cupo)</th>
                   <th style="padding:10px 14px">Saldo Zeny</th>
                   <th style="padding:10px 14px;text-align:right">Acciones</th>
                 </tr>
@@ -7838,9 +7855,16 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                 ` : filtered.map(r => {
                   const cList = clientsBySeller[r.id] || [];
                   const pList = profilesBySeller[r.id] || [];
+                  const rDebts = debtsBySeller[r.id] || [];
+                  const pendDebts = rDebts.filter(d => d.estado !== 'pagada');
+                  const usedCredit = pendDebts.reduce((sum, d) => sum + Number(d.monto_usd || 0), 0);
+                  const isPablo = r.nombre?.toLowerCase().includes('pablo') || r.email?.toLowerCase().includes('pacun');
+                  const limitCredit = Number(r.limite_credito || (isPablo ? 30.00 : 0.00));
+                  const availableCredit = Math.max(0, limitCredit - usedCredit);
+
                   const cleanPhone = (r.telefono || '').replace(/\D/g, '');
                   const waUrl = cleanPhone ? `https://wa.me/${cleanPhone.startsWith('58') ? cleanPhone : ('58' + cleanPhone.replace(/^0+/, ''))}` : '';
-                  const code = r.codigo_identificacion || 'RVD:1001';
+                  const code = r.codigo_identificacion || (isPablo ? 'RVD:1001' : 'RVD');
                   return `
                     <tr style="border-bottom:1px solid rgba(255,255,255,.05)">
                       <td style="padding:10px 14px">
@@ -7870,18 +7894,37 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                         </div>
                       </td>
                       <td style="padding:10px 14px">
-                        <b style="color:#fbbf24">$${Number(r.limite_credito || 0).toFixed(2)} USD</b>
+                        <div style="font-size:.82rem">
+                          <span class="mut" style="font-size:.68rem;display:block">Límite Otorgado:</span>
+                          <b style="color:#fbbf24">$${limitCredit.toFixed(2)} USD</b>
+                        </div>
+                        ${usedCredit > 0 ? `
+                          <div style="font-size:.76rem;margin-top:2px">
+                            <span style="color:#f87171;font-weight:800">Debe: $${usedCredit.toFixed(2)} USD</span>
+                            <span class="mut" style="font-size:.68rem">(${pendDebts.length} cuotas)</span>
+                          </div>
+                          <div style="font-size:.7rem;color:#00f5a0;font-weight:700">
+                            Disponible: $${availableCredit.toFixed(2)} USD
+                          </div>
+                        ` : `
+                          <div style="font-size:.7rem;color:#00f5a0;font-weight:700;margin-top:2px">
+                            ✓ 100% Disponible ($${limitCredit.toFixed(2)})
+                          </div>
+                        `}
                       </td>
                       <td style="padding:10px 14px">
                         <b style="color:#00f5a0">${Number(r.zeny_balance || 0).toFixed(2)} pts</b>
                       </td>
                       <td style="padding:10px 14px;text-align:right">
                         <div class="row" style="justify-content:flex-end;gap:4px">
+                          <button class="g" data-reseller-debts="${esc(r.id)}" data-nom="${esc(r.nombre)}" data-tel="${esc(r.telefono || '')}" style="padding:4px 8px;font-size:.74rem;background:${usedCredit > 0 ? 'rgba(239,68,68,.18)' : 'rgba(255,255,255,.05)'};color:${usedCredit > 0 ? '#f87171' : 'var(--tx)'};border-color:${usedCredit > 0 ? 'rgba(239,68,68,.4)' : 'var(--line)'};font-weight:700" title="Ver deudas y conciliar créditos de este revendedor">
+                            💳 Créditos (${pendDebts.length})
+                          </button>
                           <button class="g" data-view-portfolio="${esc(r.id)}" data-nom="${esc(r.nombre)}" data-code="${esc(code)}" style="padding:4px 8px;font-size:.74rem" title="Ver clientes y perfiles">
                             👥 Cartera
                           </button>
-                          <button class="g" data-reseller-credit="${esc(r.id)}" data-cur="${r.limite_credito || 0}" data-nom="${esc(r.nombre)}" style="padding:4px 8px;font-size:.74rem" title="Ajustar límite de crédito">
-                            💳 Crédito
+                          <button class="g" data-reseller-credit="${esc(r.id)}" data-cur="${limitCredit}" data-nom="${esc(r.nombre)}" style="padding:4px 8px;font-size:.74rem" title="Ajustar límite de crédito">
+                            ⚙️ Línea
                           </button>
                           <button class="g" data-reseller-pw="${esc(r.id)}" data-nom="${esc(r.nombre)}" data-tel="${esc(r.telefono || '')}" style="padding:4px 8px;font-size:.74rem" title="Restablecer clave">
                             🔑 Clave
@@ -8089,6 +8132,183 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               </div>
             `;
             dlg.showModal();
+          };
+        });
+
+        box.querySelectorAll('[data-reseller-debts]').forEach(b => {
+          b.onclick = () => {
+            const sellerId = b.dataset.resellerDebts;
+            const nom = b.dataset.nom;
+            const tel = (b.dataset.tel || '').trim();
+            const cleanTel = tel.replace(/\D/g, '');
+            const waPhone = cleanTel ? (cleanTel.startsWith('58') ? cleanTel : ('58' + cleanTel.replace(/^0+/, ''))) : '';
+
+            const showDebtsDialog = (currentDebts) => {
+              const debts = currentDebts || debtsBySeller[sellerId] || [];
+              const pendDebts = debts.filter(d => d.estado !== 'pagada');
+              const paidDebts = debts.filter(d => d.estado === 'pagada');
+              const usedCredit = pendDebts.reduce((sum, d) => sum + Number(d.monto_usd || 0), 0);
+              const seller = resellers.find(r => r.id === sellerId);
+              const isPablo = nom.toLowerCase().includes('pablo') || seller?.email?.toLowerCase().includes('pacun');
+              const limitCredit = Number(seller?.limite_credito || (isPablo ? 30.00 : 0.00));
+              const availableCredit = Math.max(0, limitCredit - usedCredit);
+
+              // Generar mensaje detallado para WhatsApp
+              let waMsg = `👋 Hola *${nom}*, te comparto tu estado de cuenta actual en *Gregory Shop*:\n\n` +
+                          `💳 *Línea de Crédito Otorgada:* $${limitCredit.toFixed(2)} USD\n` +
+                          `🔴 *Deuda Pendiente:* $${usedCredit.toFixed(2)} USD (${pendDebts.length} cuotas)\n` +
+                          `🟢 *Crédito Disponible:* $${availableCredit.toFixed(2)} USD\n\n`;
+
+              if (pendDebts.length > 0) {
+                waMsg += `📋 *Detalle de Cuotas por Conciliar:*\n` +
+                         pendDebts.map((d, i) => {
+                           const srv = d.orders?.products?.nombre || (d.referencia && d.referencia.split('·')[0]) || 'Servicio';
+                           return `${i + 1}. *${srv.trim()}* — Cuota ${d.numero_cuota}/${d.total_cuotas}: *$${Number(d.monto_usd).toFixed(2)} USD* (Vence: ${d.fecha_vencimiento || 'Inmediato'})`;
+                         }).join('\n') + `\n\n` +
+                         `🏦 *Formas de Pago:* Pago Móvil / Binance USDT / Zinli.\n` +
+                         `Al transferir, envíanos el comprobante por acá para conciliar tu saldo y reactivar tu cupo de inmediato. ¡Muchas gracias!`;
+              } else {
+                waMsg += `🎉 ¡Excelente! No tienes cuotas pendientes. Tu línea está 100% disponible ($${availableCredit.toFixed(2)} USD).`;
+              }
+
+              const waUrl = waPhone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waMsg)}` : '';
+
+              $('#dlgBody').innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+                  <div>
+                    <h3 style="margin:0;display:flex;align-items:center;gap:8px">
+                      💳 Línea de Crédito y Cuotas: ${esc(nom)}
+                    </h3>
+                    <div class="mut" style="font-size:.78rem;margin-top:2px">
+                      Auditoría directa y conciliación de créditos mayoristas
+                    </div>
+                  </div>
+                  <button class="g" onclick="dlg.close()" style="padding:4px 8px">✕</button>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-bottom:14px">
+                  <div class="card" style="padding:10px;background:rgba(15,23,42,.6);border:1px solid rgba(251,191,36,.25)">
+                    <div class="mut" style="font-size:.7rem;text-transform:uppercase;font-weight:700">Límite Otorgado</div>
+                    <div style="font-size:1.2rem;font-weight:800;color:#fbbf24">$${limitCredit.toFixed(2)} USD</div>
+                  </div>
+                  <div class="card" style="padding:10px;background:rgba(15,23,42,.6);border:1px solid ${usedCredit > 0 ? 'rgba(239,68,68,.3)' : 'rgba(255,255,255,.1)'}">
+                    <div class="mut" style="font-size:.7rem;text-transform:uppercase;font-weight:700">Deuda Activa</div>
+                    <div style="font-size:1.2rem;font-weight:800;color:${usedCredit > 0 ? '#f87171' : '#fff'}">$${usedCredit.toFixed(2)} USD</div>
+                    <div class="mut" style="font-size:.66rem">${pendDebts.length} cuotas pendientes</div>
+                  </div>
+                  <div class="card" style="padding:10px;background:rgba(15,23,42,.6);border:1px solid rgba(34,197,94,.25)">
+                    <div class="mut" style="font-size:.7rem;text-transform:uppercase;font-weight:700">Cupo Disponible</div>
+                    <div style="font-size:1.2rem;font-weight:800;color:#4ade80">$${availableCredit.toFixed(2)} USD</div>
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+                  ${waUrl ? `
+                    <a href="${waUrl}" target="_blank" class="g" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(37,211,102,.15);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:8px;text-decoration:none;font-weight:700;font-size:.82rem">
+                      💬 Cobrar Estado de Cuenta por WhatsApp
+                    </a>
+                  ` : ''}
+                </div>
+
+                <div style="max-height:360px;overflow-y:auto;border:1px solid rgba(255,255,255,.08);border-radius:8px">
+                  <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+                    <thead style="background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.08)">
+                      <tr>
+                        <th style="padding:8px 10px;text-align:left">Servicio / Ref</th>
+                        <th style="padding:8px 10px;text-align:left">Cuota</th>
+                        <th style="padding:8px 10px;text-align:left">Vence</th>
+                        <th style="padding:8px 10px;text-align:left">Monto</th>
+                        <th style="padding:8px 10px;text-align:left">Estado</th>
+                        <th style="padding:8px 10px;text-align:right">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${debts.length === 0 ? `
+                        <tr><td colspan="6" style="padding:20px;text-align:center" class="mut">No hay registros de cuotas ni créditos cargados para este revendedor.</td></tr>
+                      ` : debts.map(d => {
+                        const isPaid = d.estado === 'pagada';
+                        const srvName = d.orders?.products?.nombre || (d.referencia && d.referencia.split('·')[0]) || 'Servicio';
+                        return `
+                          <tr style="border-bottom:1px solid rgba(255,255,255,.04);background:${isPaid ? 'transparent' : 'rgba(239,68,68,.03)'}">
+                            <td style="padding:8px 10px">
+                              <b style="color:var(--tx)">${esc(srvName)}</b>
+                              ${d.referencia ? `<div class="mut" style="font-size:.7rem;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(d.referencia)}">${esc(d.referencia)}</div>` : ''}
+                            </td>
+                            <td style="padding:8px 10px">
+                              ${d.numero_cuota}/${d.total_cuotas}
+                            </td>
+                            <td style="padding:8px 10px">
+                              <span style="font-size:.78rem">${esc(d.fecha_vencimiento || '—')}</span>
+                            </td>
+                            <td style="padding:8px 10px">
+                              <b style="color:${isPaid ? '#4ade80' : '#fbbf24'}">$${Number(d.monto_usd || 0).toFixed(2)}</b>
+                              ${d.monto_bs ? `<div class="mut" style="font-size:.68rem">Bs. ${Number(d.monto_bs).toLocaleString('es-VE')}</div>` : ''}
+                            </td>
+                            <td style="padding:8px 10px">
+                              <span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:.7rem;font-weight:700;background:${isPaid ? 'rgba(34,197,94,.15)' : 'rgba(239,68,68,.15)'};color:${isPaid ? '#4ade80' : '#f87171'}">
+                                ${isPaid ? '✓ PAGADA' : '⏳ PENDIENTE'}
+                              </span>
+                              ${isPaid && d.pagada_at ? `<div class="mut" style="font-size:.66rem">${d.pagada_at.slice(0, 10)}</div>` : ''}
+                            </td>
+                            <td style="padding:8px 10px;text-align:right">
+                              ${!isPaid ? `
+                                <button class="g" data-conciliar-inst="${esc(d.id)}" style="padding:4px 8px;font-size:.72rem;background:rgba(34,197,94,.18);color:#4ade80;border-color:rgba(34,197,94,.4);font-weight:700">
+                                  ✅ Conciliar
+                                </button>
+                              ` : `
+                                <span class="mut" style="font-size:.7rem">Conciliada</span>
+                              `}
+                            </td>
+                          </tr>
+                        `;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+                  <div class="mut" style="font-size:.74rem">
+                    💡 Al conciliar una cuota, el ingreso se suma automáticamente a Finanzas y se libera el cupo del revendedor.
+                  </div>
+                  <button class="g" onclick="dlg.close()">Cerrar</button>
+                </div>
+              `;
+
+              // Listeners dentro del modal
+              $('#dlgBody').querySelectorAll('[data-conciliar-inst]').forEach(cBtn => {
+                cBtn.onclick = async () => {
+                  const instId = cBtn.dataset.conciliarInst;
+                  cBtn.disabled = true;
+                  cBtn.textContent = 'Conciliando…';
+                  try {
+                    let { error: rpcErr } = await sb.rpc('approve_installment', { p_installment_id: instId });
+                    if (rpcErr) {
+                      const { error: updErr } = await sb.from('installments').update({
+                        estado: 'pagada',
+                        pagada_at: new Date().toISOString()
+                      }).eq('id', instId);
+                      if (updErr) throw updErr;
+                    }
+                    toast('✅ Cuota conciliada con éxito. Venta agregada a Finanzas y crédito liberado.');
+                    const target = debts.find(x => x.id === instId);
+                    if (target) {
+                      target.estado = 'pagada';
+                      target.pagada_at = new Date().toISOString();
+                    }
+                    showDebtsDialog(debts);
+                    EXTRA.resellers(box);
+                  } catch (err) {
+                    toast('Error conciliando cuota: ' + err.message);
+                    cBtn.disabled = false;
+                    cBtn.textContent = '✅ Conciliar';
+                  }
+                };
+              });
+
+              dlg.showModal();
+            };
+
+            showDebtsDialog();
           };
         });
 
