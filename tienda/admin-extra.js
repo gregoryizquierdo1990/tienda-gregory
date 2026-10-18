@@ -1718,7 +1718,22 @@ const EXTRA = {
       btn.onclick = () => run(btn, async () => {
         const ordId = btn.dataset.ord;
         if (!confirm('¿Seguro que deseas eliminar permanentemente esta orden del sistema?')) return;
-        await sb.from('installments').delete().eq('order_id', ordId);
+        try {
+          const { error: rpcErr } = await sb.rpc('admin_delete_order', { p_order_id: ordId });
+          if (!rpcErr) {
+            toast('Orden eliminada correctamente.');
+            return render();
+          }
+        } catch(e) {
+          console.warn('RPC admin_delete_order no disponible, usando fallback manual:', e);
+        }
+        // Fallback manual limpiando dependencias hijas primero
+        try { await sb.from('invoices').delete().eq('order_id', ordId); } catch(e){}
+        try { await sb.from('installments').delete().eq('order_id', ordId); } catch(e){}
+        try { await sb.from('refunds').delete().eq('order_id', ordId); } catch(e){}
+        try { await sb.from('transfers').delete().eq('order_id', ordId); } catch(e){}
+        try { await sb.from('incidents').update({ order_id: null }).eq('order_id', ordId); } catch(e){}
+        try { await sb.from('zeny_ledger').update({ order_id: null }).eq('order_id', ordId); } catch(e){}
         const { error } = await sb.from('orders').delete().eq('id', ordId);
         if (error) throw error;
         toast('Orden eliminada correctamente.');

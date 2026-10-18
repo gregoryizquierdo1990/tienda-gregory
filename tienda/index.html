@@ -7200,8 +7200,25 @@ async function admin(t){
     }
     form(null);
   };
-  app.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>form(data.find(r=>String(r[pk])===b.dataset.e)));
-  app.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(confirm('¿Eliminar registro?')){const {error:e}=await sb.from(t).delete().eq(pk,b.dataset.x);e?toast(e.message):admin(t);}});
+  app.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{
+    if(confirm('¿Eliminar registro?')){
+      if (t === 'orders') {
+        const ordId = b.dataset.x;
+        try {
+          const { error: rpcErr } = await sb.rpc('admin_delete_order', { p_order_id: ordId });
+          if (!rpcErr) { toast('Orden eliminada correctamente.'); return admin(t); }
+        } catch(e){}
+        try { await sb.from('invoices').delete().eq('order_id', ordId); } catch(e){}
+        try { await sb.from('installments').delete().eq('order_id', ordId); } catch(e){}
+        try { await sb.from('refunds').delete().eq('order_id', ordId); } catch(e){}
+        try { await sb.from('transfers').delete().eq('order_id', ordId); } catch(e){}
+        try { await sb.from('incidents').update({ order_id: null }).eq('order_id', ordId); } catch(e){}
+        try { await sb.from('zeny_ledger').update({ order_id: null }).eq('order_id', ordId); } catch(e){}
+      }
+      const {error:e}=await sb.from(t).delete().eq(pk,b.dataset.x);
+      e?toast(e.message):admin(t);
+    }
+  });
 }
 // ---------- TIEMPO REAL, BADGE DE PENDIENTES E INSTALACION ----------
 let _rt; const refresh=()=>{clearTimeout(_rt);_rt=setTimeout(async()=>{

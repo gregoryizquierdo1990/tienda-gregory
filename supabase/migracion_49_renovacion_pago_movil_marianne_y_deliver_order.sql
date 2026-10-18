@@ -21,6 +21,25 @@ begin;
 alter table public.profiles_inventory add column if not exists created_at timestamptz default now();
 alter table public.orders add column if not exists entregado_at timestamptz default now();
 
+-- Asegurar eliminación en cascada para evitar violación de foreign key al eliminar órdenes
+alter table public.invoices drop constraint if exists invoices_order_id_fkey;
+alter table public.invoices add constraint invoices_order_id_fkey foreign key (order_id) references public.orders(id) on delete cascade;
+
+alter table public.installments drop constraint if exists installments_order_id_fkey;
+alter table public.installments add constraint installments_order_id_fkey foreign key (order_id) references public.orders(id) on delete cascade;
+
+alter table public.refunds drop constraint if exists refunds_order_id_fkey;
+alter table public.refunds add constraint refunds_order_id_fkey foreign key (order_id) references public.orders(id) on delete cascade;
+
+alter table public.transfers drop constraint if exists transfers_order_id_fkey;
+alter table public.transfers add constraint transfers_order_id_fkey foreign key (order_id) references public.orders(id) on delete cascade;
+
+alter table public.incidents drop constraint if exists incidents_order_id_fkey;
+alter table public.incidents add constraint incidents_order_id_fkey foreign key (order_id) references public.orders(id) on delete set null;
+
+alter table public.zeny_ledger drop constraint if exists zeny_ledger_order_id_fkey;
+alter table public.zeny_ledger add constraint zeny_ledger_order_id_fkey foreign key (order_id) references public.orders(id) on delete set null;
+
 -- ------------------------------------------------------------------------------
 -- SECCIÓN 1: REFACTORIZACIÓN DEFINITIVA DE _deliver(p_order uuid)
 -- ------------------------------------------------------------------------------
@@ -591,6 +610,53 @@ $$;
 
 revoke execute on function public.admin_deliver_profile_cash(uuid, uuid, numeric, uuid, text) from public, anon;
 grant execute on function public.admin_deliver_profile_cash(uuid, uuid, numeric, uuid, text) to authenticated;
+
+-- RPC para eliminar pedidos limpiando en cascada de forma atómica y segura
+create or replace function public.admin_delete_order(p_order_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_profile_id uuid;
+  v_order_estado text;
+begin
+  if not is_admin() then
+    raise exception 'Solo administradores pueden eliminar pedidos.';
+  end if;
+
+  select profile_id, estado into v_profile_id, v_order_estado
+  from public.orders where id = p_order_id for update;
+
+  if not found then
+    return jsonb_build_object('success', false, 'message', 'Pedido no encontrado');
+  end if;
+
+  -- Si el pedido retenía un perfil reservado o pendiente y se elimina, liberar el perfil
+  if v_profile_id is not null then
+    if not exists (
+      select 1 from public.orders
+      where profile_id = v_profile_id and id <> p_order_id and estado in ('entregado', 'pagado')
+    ) then
+      update public.profiles_inventory
+      set estado = 'disponible',
+          assigned_customer_id = null
+      where id = v_profile_id and estado in ('reservado', 'pendiente');
+    end if;
+  end if;
+
+  -- Limpiar dependencias asociadas a este pedido
+  delete from public.installments where order_id = p_order_id;
+  delete from public.invoices where order_id = p_order_id;
+  delete from public.refunds where order_id = p_order_id;
+  delete from public.transfers where order_id = p_order_id;
+  update public.incidents set order_id = null where order_id = p_order_id;
+  update public.zeny_ledger set order_id = null where order_id = p_order_id;
+
+  -- Eliminar la orden
+  delete from public.orders where id = p_order_id;
+
+  return jsonb_build_object('success', true, 'order_id', p_order_id);
+end $$;
+
+grant execute on function public.admin_delete_order(uuid) to authenticated;
 
 -- ------------------------------------------------------------------------------
 -- SECCIÓN 5: SANEAMIENTO DIRECTO EN PRODUCCIÓN: MARIANNE AGUDO Y ANGELO
