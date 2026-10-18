@@ -6353,6 +6353,7 @@ async function admin(t){
         alert('Error al liberar perfil: ' + (err.message || err));
       }
     };
+  });
   app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
   app.querySelectorAll('[data-notify-mother]').forEach(b=>b.onclick=()=>notifyMotherClients(b.dataset.notifyMother));
   app.querySelectorAll('[data-assign-seller]').forEach(b => b.onclick = async () => {
