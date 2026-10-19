@@ -6685,12 +6685,21 @@ async function admin(t){
         ? `<button class="g" id="btnAdminDirectCreditHead" style="background:rgba(250,204,21,.15);border-color:#facc15;color:#facc15;font-weight:700;display:inline-flex;align-items:center;gap:4px">💳 Entregar a Crédito Directo</button>`
         : ''));
   const cols=TABLES[t];
+  const pk = PK[t] || 'id';
   let q=sb.from(t).select(SEL[t]||'*');
   if(t==='customers'){
     q=q.or('es_revendedor.is.null,es_revendedor.eq.false');
   }
   const orderCol = cols.includes('created_at')?'created_at':(cols.includes('creado')?'creado':cols[0]);
-  const {data,error}=await q.order(orderCol,{ascending:false}).limit(300);
+  let data = [], error = null;
+  try {
+    const res = await q.order(orderCol,{ascending:false}).limit(300);
+    data = res.data;
+    error = res.error;
+  } catch(err) {
+    console.error('Error cargando tabla admin:', err);
+    error = err;
+  }
   const colHeader = c => {
     const map = {
       datos_recarga: 'Datos Activación / Recarga',
@@ -7582,6 +7591,10 @@ async function admin(t){
     }
     form(null);
   };
+  app.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{
+    const rec = (data||[]).find(r => String(r[pk]) === b.dataset.e);
+    if(rec) form(rec);
+  });
   app.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{
     if(confirm('¿Eliminar registro?')){
       if (t === 'orders') {
