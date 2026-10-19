@@ -327,9 +327,11 @@ export default async function handler(req, res) {
         })
       });
 
+      const isDemo = cust.es_demo === true;
       const successMsg = `✅ <b>¡Inicio de sesión exitoso!</b>\n` +
-        `Bienvenido/a <b>${escHtml(cust.nombre)}</b> al Asistente Interactivo.\n\n` +
-        `Puedes consultar tus servicios, deudas, saldo o tasa en cualquier momento usando los botones abajo 👇`;
+        `Bienvenido/a <b>${escHtml(cust.nombre)}</b> al Asistente Interactivo.` +
+        (isDemo ? `\n\n🔒 <b>Modo Demostración Activo:</b> Esta cuenta es para visualización y pruebas. Puedes consultar saldos, cuotas y catálogo con total libertad.` : '') +
+        `\n\nPuedes consultar tus servicios, deudas, saldo o tasa en cualquier momento usando los botones abajo 👇`;
       await sendTelegram(token, chatId, successMsg, MAIN_KEYBOARD);
       return res.status(200).end();
     } else {

@@ -1989,14 +1989,14 @@ async function onSession(session){
     $('#bPortal').textContent = '⚙️ Panel Admin';
     $('#bPortal').title = 'Panel de Administración Central';
   } else if(S.me?.es_revendedor) {
-    $('#bPortal').textContent = '💼 Mi Portal Revendedor';
+    $('#bPortal').textContent = S.me?.es_demo ? '💼 Portal Revendedor (Demo)' : '💼 Mi Portal Revendedor';
     $('#bPortal').title = 'Portal de Revendedor Oficial';
   } else {
-    $('#bPortal').textContent = 'Mi portal';
+    $('#bPortal').textContent = S.me?.es_demo ? '👤 Mi Portal (Demo)' : 'Mi portal';
     $('#bPortal').title = 'Mi portal de cliente';
   }
-  // El boton Admin siempre permanece visible y accesible para el administrador
-  $('#bAdmin').classList.remove('hide');
+  // El boton Admin permanece visible para el administrador, pero se oculta en cuentas de prueba
+  $('#bAdmin').classList.toggle('hide', Boolean(S.me?.es_demo));
   $('#bSnd').classList.toggle('hide', !S.isAdmin && !S.me?.es_revendedor); updSnd(); badge(); checkVenc();
 }
 document.addEventListener('visibilitychange', async () => {
@@ -2456,6 +2456,34 @@ function getPaymentIcon(name=''){
     if(n.includes(k)) return icon;
   }
   return '💳';
+}
+
+function openDemoNoticeModal(actionType = 'compra'){
+  let title = '🔒 Modo Demostración Activo';
+  let desc = 'Has completado todo el flujo de compra. En una cuenta de cliente o revendedor regular, en este paso el sistema valida el pago, genera la factura y entrega el servicio o perfil de inmediato.<br><br><b>La confirmación final está bloqueada en cuentas de prueba para proteger el inventario de la tienda.</b>';
+  if(actionType === 'recarga'){
+    desc = 'En una cuenta regular, al registrar tu comprobante de pago el saldo ZenyPoints se acredita automáticamente en tu billetera para compras instantáneas.<br><br><b>La recarga de saldo real está inhabilitada en cuentas de prueba.</b>';
+  } else if(actionType === 'mesa_cambio'){
+    desc = 'En una cuenta regular, aquí se procesa tu solicitud de compra de USDT a tasa preferencial y se transfiere el monto a tu Binance Pay.<br><br><b>La compra de USDT está inhabilitada en cuentas de prueba.</b>';
+  } else if(actionType === 'incidencia'){
+    desc = 'En una cuenta regular, al reportar una incidencia nuestro sistema genera un ticket de soporte técnico y notifica de inmediato al equipo.<br><br><b>El soporte técnico real está inhabilitado en cuentas de prueba.</b>';
+  }
+
+  $('#dlgBody').innerHTML = `
+    <div style="text-align:center;padding:14px 8px">
+      <div style="font-size:3rem;margin-bottom:8px">🛡️</div>
+      <h3 style="margin:0 0 10px;color:#38bdf8">${title}</h3>
+      <p style="font-size:.88rem;line-height:1.5;color:var(--tx);margin:0 0 16px">${desc}</p>
+      <div style="background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3);border-radius:12px;padding:12px;font-size:.8rem;color:#b3e9ff;text-align:left;margin-bottom:16px">
+        ✨ <b>Acceso de Demostración Completo:</b><br>
+        Puedes explorar libremente todas las secciones: catálogo de servicios, combos, panel de cuotas, tarjeta TDC Zeny y estado de cuenta.
+      </div>
+      <button class="g" onclick="$('#dlg').close()" style="width:100%;background:var(--grad);color:#03121c;font-weight:800;border:none;padding:10px 16px;border-radius:10px;cursor:pointer">
+        Entendido, continuar explorando
+      </button>
+    </div>
+  `;
+  $('#dlg').showModal();
 }
 
 async function buyDlg(id){
@@ -3114,6 +3142,11 @@ async function buyDlg(id){
         zenySubmit.onclick = async () => {
           syncRecharge();
           if(isRechargeService && !validateRecharge()) return;
+          if(S.me?.es_demo){
+            checkoutDlg.close();
+            openDemoNoticeModal('compra');
+            return;
+          }
           zenySubmit.disabled = true;
           const refText = payPlan === 'cuotas' ? `Inicial Cuota 1 (Zeny)` : 'Pago completo Zeny';
           const {data: ordId, error} = await sb.rpc('create_order', {
@@ -3150,6 +3183,11 @@ async function buyDlg(id){
         cardDirectBtn.onclick = async () => {
           syncRecharge();
           if(isRechargeService && !validateRecharge()) return;
+          if(S.me?.es_demo){
+            checkoutDlg.close();
+            openDemoNoticeModal('compra');
+            return;
+          }
           cardDirectBtn.disabled = true;
           const refCard = `[TDC Zeny] ${userCard.numero_tarjeta}`;
           const {data: ordId, error} = await sb.rpc('create_order', {
@@ -3345,6 +3383,11 @@ async function buyDlg(id){
       const btn = $('#coSubmitBtn');
       syncRecharge();
       if(isRechargeService && !validateRecharge()) return;
+      if(S.me?.es_demo){
+        checkoutDlg.close();
+        openDemoNoticeModal('compra');
+        return;
+      }
       btn.disabled = true;
       const refVal = $('#coRefInput')?.value?.trim() || '';
       if(!refVal){
@@ -3903,6 +3946,12 @@ function openMesaCambioModal(){
         mcDlg.close();
         loginDlg('login');
         return toast('Debes iniciar sesión con tu cuenta para procesar operaciones en la mesa de cambio.');
+      }
+
+      if(S.me?.es_demo){
+        mcDlg.close();
+        openDemoNoticeModal('mesa_cambio');
+        return;
       }
 
       const usdt = parseFloat($('#mcUsdtInput').value);
@@ -5032,6 +5081,16 @@ async function portal(){
       </div>
     </div>
 
+    ${S.me?.es_demo ? `
+      <div style="background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(217,119,6,.2));border:1.5px solid #f59e0b;border-radius:14px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:1.8rem">🔒</span>
+        <div style="font-size:.84rem;color:#fef3c7;line-height:1.4">
+          <b style="color:#fbbf24;text-transform:uppercase;letter-spacing:.5px">Cuenta en Modo Demostración (${esc(S.me?.codigo_identificacion || 'DEMO')})</b><br>
+          Esta cuenta está configurada para visualización y demostración interna. Puedes explorar el portal, revisar precios con descuento, consultar límites y navegar el proceso de compra. Las transacciones reales están simuladas.
+        </div>
+      </div>
+    ` : ''}
+
     <!-- 3 RECUADROS PRINCIPALES DEL PORTAL: SALDO ZENY, PRÓXIMO VENCIMIENTO Y TARJETA TDC WALLET ZENY -->
     <div class="portal-summary-grid">
       <!-- 1. Saldo Billetera Zeny -->
@@ -6061,6 +6120,10 @@ async function portal(){
     });
   });
   $('#rec').onclick=()=>{
+    if(S.me?.es_demo){
+      openDemoNoticeModal('recarga');
+      return;
+    }
     $('#dlgBody').innerHTML='<h3>Recargar Billetera Zeny</h3><input id="m" type="number" min="1" step="0.5" placeholder="Monto en USD (1 ZP = $1)"><input id="r" placeholder="Referencia del pago móvil o comprobante" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Solicitar recarga</button>'; dlg.showModal();
     $('#ok').onclick=async()=>{
       const montoVal = +$('#m').value;
@@ -6090,6 +6153,10 @@ async function portal(){
   };
 
   $('#ni').onclick=()=>{
+    if(S.me?.es_demo){
+      openDemoNoticeModal('incidencia');
+      return;
+    }
     $('#dlgBody').innerHTML='<h3>Reportar Incidencia o Falla</h3><input id="a" placeholder="Asunto o Servicio afectado (ej: Pantalla caída)"><textarea id="d" placeholder="Describe detalladamente qué problema presenta..." style="margin-top:8px"></textarea><input id="f" type="file" accept="image/*" style="margin-top:8px"><button id="ok" style="margin-top:8px;width:100%">Enviar Reporte</button>'; dlg.showModal();
     $('#ok').onclick=async()=>{
       const asuntoVal = ($('#a').value||'').trim();
