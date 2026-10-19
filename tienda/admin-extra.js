@@ -4055,30 +4055,47 @@ create policy franchises_public_select on franchises for select to anon using (t
             <tr>
               <th>Negocio / Aspirante</th>
               <th>Contacto</th>
-              <th>Telegram</th>
-              <th>Notas / Experiencia</th>
+              <th>Documento / Ciudad</th>
+              <th>Verificación KYC</th>
               <th>Fecha</th>
-              <th>Acción Inmediata</th>
+              <th>Acciones</th>
             </tr>
             ${apps.map(app => {
               const waNum = (app.phone || '').replace(/[^\d]/g, '');
               const waDirectUrl = `https://wa.me/${waNum}?text=${encodeURIComponent(`Hola ${app.owner_name}, un gusto saludarte. Te escribe Gregory Izquierdo respecto a tu solicitud para la franquicia ${app.business_name}.`)}`;
+              const hasKyc = !!(app.doc_frontal_url || app.selfie_doc_url);
               return `
                 <tr>
                   <td>
                     <b>${esc(app.business_name)}</b>
                     <span class="mut" style="display:block;font-size:.75rem">Titular: ${esc(app.owner_name)}</span>
+                    ${app.subdominio_deseado ? `<span style="font-size:.72rem;color:var(--c)">🔗 ${esc(app.subdominio_deseado)}.${esc(baseDomain)}</span>` : ''}
                   </td>
                   <td>
                     <b>${esc(app.phone)}</b>
                     <span class="mut" style="display:block;font-size:.73rem">${esc(app.email)}</span>
                   </td>
-                  <td>${app.telegram_user ? `<a href="https://t.me/${esc(app.telegram_user.replace(/^@/,''))}" target="_blank" style="color:var(--c)">@${esc(app.telegram_user.replace(/^@/,''))}</a>` : '<span class="mut">—</span>'}</td>
-                  <td style="max-width:240px;font-size:.78rem" class="mut">${esc(app.notes || 'Sin notas')}</td>
-                  <td style="font-size:.75rem">${new Date(app.created_at).toLocaleDateString('es-VE')}</td>
                   <td>
-                    <a href="${waDirectUrl}" target="_blank" rel="noopener noreferrer" class="g" style="color:#25d366;border-color:rgba(37,211,102,.4);font-weight:700;font-size:.78rem;padding:5px 11px;border-radius:10px;text-decoration:none;display:inline-flex;align-items:center;gap:5px">
-                      💬 WhatsApp
+                    <b>${esc(app.cedula_rif || 'No especificada')}</b>
+                    <span class="mut" style="display:block;font-size:.73rem">📍 ${esc(app.ciudad || 'Venezuela')}</span>
+                  </td>
+                  <td>
+                    ${hasKyc ? `
+                      <span class="pill" style="background:rgba(16,185,129,.15);color:#10b981;border-color:rgba(16,185,129,.35);font-size:.72rem;font-weight:700">
+                        🛡️ 4 Fotos KYC
+                      </span>
+                      <button class="g" data-app-kyc="${app.id}" style="padding:3px 7px;font-size:.7rem;margin-left:4px" title="Ver fotos del documento y selfie">🔍 Ver</button>
+                    ` : `
+                      <span class="pill off" style="font-size:.72rem">Sin fotos</span>
+                    `}
+                  </td>
+                  <td style="font-size:.75rem">${new Date(app.created_at).toLocaleDateString('es-VE')}</td>
+                  <td class="row">
+                    <button class="cta" data-app-approve="${app.id}" style="padding:5px 10px;font-size:.76rem" title="Aprobar postulación y crear franquicia activa">
+                      ✅ Aprobar & Crear
+                    </button>
+                    <a href="${waDirectUrl}" target="_blank" rel="noopener noreferrer" class="g" style="color:#25d366;border-color:rgba(37,211,102,.4);font-weight:700;font-size:.76rem;padding:5px 10px;border-radius:10px;text-decoration:none">
+                      💬 WA
                     </a>
                   </td>
                 </tr>
@@ -4088,20 +4105,44 @@ create policy franchises_public_select on franchises for select to anon using (t
         </div>
       </div>
 
-      <!-- Tabla de Franquicias -->
+      <!-- Tabla de Franquicias SaaS -->
       <div class="wrap">
         <table>
           <tr>
             <th>Franquicia / URL</th>
             <th>Titular / Contacto</th>
-            <th>Canon Mensual</th>
-            <th>Vencimiento</th>
+            <th>Billetera Central / Nivel</th>
+            <th>Canon & Ciclo</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
           ${list.map(f => {
             const franqUrl = `https://${f.subdominio}.${baseDomain}`;
             const stLabel = f.estado === 'activo' ? '🟢 Activo' : (f.estado === 'suspendido_fraude' ? '🚨 Suspendido Fraude' : (f.estado === 'suspendido_mora' ? '🟡 Suspendido Mora' : 'En revisión'));
+            
+            // Cálculo de días de canon
+            const now = new Date();
+            const vencDate = f.fecha_vencimiento_canon ? new Date(f.fecha_vencimiento_canon + 'T23:59:59') : new Date();
+            const diffDays = Math.ceil((vencDate - now) / (1000 * 60 * 60 * 24));
+            let canonBadge = '';
+            if (diffDays > 5) {
+              canonBadge = `<span class="pill" style="background:rgba(16,185,129,.15);color:#10b981;font-size:.7rem;font-weight:700">🟢 Al día (${diffDays}d)</span>`;
+            } else if (diffDays >= 0) {
+              canonBadge = `<span class="pill" style="background:rgba(245,158,11,.15);color:#f59e0b;font-size:.7rem;font-weight:800">🟡 Vence en ${diffDays}d</span>`;
+            } else {
+              canonBadge = `<span class="pill" style="background:rgba(239,68,68,.2);color:#f87171;font-size:.7rem;font-weight:900">🔴 En mora (+${Math.abs(diffDays)}d)</span>`;
+            }
+
+            // Nivel de volumen
+            const tier = f.nivel_volumen || 'bronce';
+            const tierBadge = tier === 'oro' 
+              ? '<span class="pill" style="background:rgba(245,158,11,.2);color:#fbbf24;border-color:rgba(245,158,11,.4);font-size:.68rem;font-weight:800">🥇 ORO (-6%)</span>'
+              : (tier === 'plata'
+                ? '<span class="pill" style="background:rgba(148,163,184,.2);color:#cbd5e1;border-color:rgba(148,163,184,.4);font-size:.68rem;font-weight:800">🥈 PLATA (-3%)</span>'
+                : '<span class="pill" style="font-size:.68rem;color:#94a3b8">🥉 BRONCE</span>');
+
+            const saldoBilletera = Number(f.saldo_billetera_usd || 0).toFixed(2);
+
             return `
               <tr>
                 <td>
@@ -4117,15 +4158,24 @@ create policy franchises_public_select on franchises for select to anon using (t
                   <span class="mut" style="display:block;font-size:.73rem">${esc(f.titular_telefono)} · ${esc(f.titular_correo)}</span>
                 </td>
                 <td>
-                  <b>$${Number(f.canon_mensual_usd).toFixed(2)} USD/mes</b>
-                  <button class="g" data-edit-canon="${f.id}" data-cur="${f.canon_mensual_usd}" data-nom="${esc(f.nombre_comercial)}" style="padding:2px 6px;font-size:.7rem;margin-left:4px" title="Modificar canon de esta franquicia">✏️</button>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <b style="color:#00f5a0;font-size:.95rem">$${saldoBilletera} USD</b>
+                    <button class="g" data-fq-wallet="${f.id}" data-nom="${esc(f.nombre_comercial)}" data-saldo="${saldoBilletera}" style="padding:2px 7px;font-size:.7rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Recargar Billetera Mayorista Prepago">+ Recargar</button>
+                  </div>
+                  <div style="margin-top:4px">${tierBadge}</div>
                 </td>
-                <td>${esc(f.fecha_vencimiento_canon)}</td>
+                <td>
+                  <div><b>$${Number(f.canon_mensual_usd).toFixed(2)} USD/mes</b></div>
+                  <div style="margin-top:3px;display:flex;align-items:center;gap:4px">
+                    ${canonBadge}
+                    <button class="g" data-fq-pay-canon="${f.id}" data-nom="${esc(f.nombre_comercial)}" style="padding:2px 6px;font-size:.68rem;color:#38bdf8" title="Registrar pago y sumar 30 días">💳 Cobro</button>
+                  </div>
+                </td>
                 <td><span class="pill ${f.estado === 'activo' ? '' : 'off'}">${stLabel}</span></td>
                 <td class="row">
-                  <button class="g" data-fq-invoice="${f.id}" title="Emitir Factura / Recibo de Arrendamiento SaaS">🧾 Factura Canon</button>
+                  <button class="g" data-fq-invoice="${f.id}" title="Emitir Factura / Recibo de Arrendamiento SaaS">🧾 Factura</button>
                   <button class="g" data-fq-view="${f.id}" title="Ver expediente, contrato y detalles comerciales">📄 Expediente</button>
-                  <button class="g" data-fq-reset="${f.id}" data-email="${esc(f.titular_correo)}" title="Restaurar clave de acceso del franquiciado">🔑 Reset Clave</button>
+                  <button class="g" data-fq-reset="${f.id}" data-email="${esc(f.titular_correo)}" title="Restaurar clave de acceso del franquiciado">🔑 Clave</button>
                   ${f.estado === 'activo' ? `
                     <button class="d" data-fq-kill="${f.id}" data-sub="${esc(f.subdominio)}" title="Kill-Switch: suspender inmediatamente">🚨 Suspender</button>
                   ` : `
@@ -4566,6 +4616,215 @@ Contacto Oficial: emprendimientogregoryizquierdo@gmail.com`;
           const { error } = await sb.from('franchises').update({ canon_mensual_usd: val }).eq('id', id);
           if (error) return toast('Error: ' + error.message);
           toast(`Canon de ${nom} actualizado a $${val.toFixed(2)} USD/mes`);
+          dlg.close();
+          EXTRA.franquicias(box);
+        };
+      };
+    });
+
+    // 1. Visor de Expediente KYC Digital
+    box.querySelectorAll('[data-app-kyc]').forEach(btn => {
+      btn.onclick = () => {
+        const app = apps.find(a => a.id === btn.dataset.appKyc);
+        if(!app) return;
+        $('#dlgBody').innerHTML = `
+          <div style="max-width:680px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="font-size:1.4rem">🛡️</span>
+              <div>
+                <h3 style="margin:0;color:#fff">Expediente de Verificación KYC</h3>
+                <span class="mut" style="font-size:.76rem">${esc(app.business_name)} · Titular: <b>${esc(app.owner_name)}</b></span>
+              </div>
+            </div>
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;font-size:.82rem;margin-bottom:14px">
+              <div>🪪 <b>Documento:</b> ${esc(app.cedula_rif || 'No especificado')}</div>
+              <div>📱 <b>Contacto:</b> ${esc(app.phone)} · ${esc(app.email)}</div>
+              <div>📍 <b>Ubicación:</b> ${esc(app.ciudad || 'No especificada')}</div>
+              ${app.redes_sociales ? `<div>🌐 <b>Redes / Canal:</b> <a href="${esc(app.redes_sociales)}" target="_blank" style="color:var(--c)">${esc(app.redes_sociales)}</a></div>` : ''}
+              ${app.notes ? `<div class="mut" style="margin-top:6px;font-size:.76rem"><b>Notas del postulante:</b> ${esc(app.notes)}</div>` : ''}
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+              <div style="background:#02050b;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);text-align:center">
+                <span style="font-size:.75rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px">1. Cédula Frontal</span>
+                ${app.doc_frontal_url ? `<img src="${app.doc_frontal_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.doc_frontal_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
+              </div>
+              <div style="background:#02050b;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);text-align:center">
+                <span style="font-size:.75rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px">2. Cédula Reverso</span>
+                ${app.doc_reverso_url ? `<img src="${app.doc_reverso_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.doc_reverso_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
+              </div>
+              <div style="background:#02050b;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);text-align:center">
+                <span style="font-size:.75rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px">3. Selfie con Documento (Prueba de vida)</span>
+                ${app.selfie_doc_url ? `<img src="${app.selfie_doc_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.selfie_doc_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
+              </div>
+              <div style="background:#02050b;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);text-align:center">
+                <span style="font-size:.75rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px">4. Comprobante Domicilio / Recibo</span>
+                ${app.comprobante_domicilio_url ? `<img src="${app.comprobante_domicilio_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.comprobante_domicilio_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end">
+              <button class="g" onclick="dlg.close()">Cerrar</button>
+              <button class="cta" id="btnApproveKycModal">✅ Aprobar KYC y Crear Franquicia</button>
+            </div>
+          </div>
+        `;
+
+        $('#btnApproveKycModal').onclick = () => {
+          dlg.close();
+          const btnApprove = box.querySelector(`[data-app-approve="${app.id}"]`);
+          if(btnApprove) btnApprove.click();
+        };
+
+        dlg.showModal();
+      };
+    });
+
+    // 2. Aprobar KYC y Crear Franquicia Pre-llenada
+    box.querySelectorAll('[data-app-approve]').forEach(btn => {
+      btn.onclick = () => {
+        const app = apps.find(a => a.id === btn.dataset.appApprove);
+        if(!app) return;
+        $('#btnNewFranq').click();
+        setTimeout(() => {
+          if($('#fqName')) $('#fqName').value = app.business_name || '';
+          if($('#fqSub')) {
+            const sub = (app.subdominio_deseado || app.business_name.toLowerCase().replace(/[^a-z0-9]/g, '')).slice(0, 20);
+            $('#fqSub').value = sub;
+            $('#fqSub').dispatchEvent(new Event('input'));
+          }
+          if($('#fqOwner')) $('#fqOwner').value = app.owner_name || '';
+          if($('#fqDoc')) $('#fqDoc').value = app.cedula_rif || '';
+          if($('#fqTel')) $('#fqTel').value = app.phone || '';
+          if($('#fqEmail')) $('#fqEmail').value = app.email || '';
+          if($('#fqCity')) $('#fqCity').value = app.ciudad || '';
+          if($('#fqNotes')) $('#fqNotes').value = `KYC Aprobado de solicitud web. Notas: ${app.notes || 'Ninguna'}`;
+        }, 150);
+      };
+    });
+
+    // 3. Recarga de Billetera Prepago Central (Zero-Stock)
+    box.querySelectorAll('[data-fq-wallet]').forEach(btn => {
+      btn.onclick = () => {
+        const fId = btn.dataset.fqWallet;
+        const nom = btn.dataset.nom;
+        const saldoAct = parseFloat(btn.dataset.saldo || 0);
+
+        $('#dlgBody').innerHTML = `
+          <h3>💎 Billetera Mayorista Prepago Central</h3>
+          <p class="mut" style="font-size:.82rem;margin:0 0 14px">
+            Acredita saldo en dólares para que la franquicia <b>${esc(nom)}</b> pueda despachar inventario desde la central en modo Zero-Stock.
+          </p>
+
+          <div style="background:rgba(0,245,160,.08);border:1px solid rgba(0,245,160,.25);border-radius:12px;padding:12px;margin-bottom:14px">
+            <span class="mut" style="font-size:.72rem">Saldo actual en Billetera Central:</span>
+            <div style="font-size:1.4rem;font-weight:900;color:#00f5a0">$${saldoAct.toFixed(2)} USD</div>
+          </div>
+
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Monto a Acreditar ($ USD):</label>
+          <input id="inputWalletAmount" type="number" step="0.50" min="1" placeholder="Ej: 30.00" style="width:100%;font-size:1.1rem;font-weight:700;margin-bottom:10px">
+
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Método y Referencia del Pago recibido:</label>
+          <input id="inputWalletRef" placeholder="Ej: Binance USDT - Ref #9837123" style="width:100%;margin-bottom:14px">
+
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnConfirmWalletTopup" style="background:var(--grad);color:#03121c;font-weight:800">
+              ✅ Acreditar Saldo en Billetera
+            </button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnConfirmWalletTopup').onclick = async () => {
+          const btnSave = $('#btnConfirmWalletTopup');
+          const addUsd = parseFloat($('#inputWalletAmount').value);
+          const ref = $('#inputWalletRef').value.trim();
+
+          if(isNaN(addUsd) || addUsd <= 0) return toast('Ingresa un monto válido mayor a 0.');
+          btnSave.disabled = true;
+          btnSave.textContent = '⏳ Acreditando...';
+
+          const newSaldo = saldoAct + addUsd;
+          const { error: fErr } = await sb.from('franchises').update({ saldo_billetera_usd: newSaldo }).eq('id', fId);
+          if(fErr){
+            btnSave.disabled = false;
+            return toast('Error al actualizar billetera: ' + fErr.message);
+          }
+
+          try {
+            await sb.from('franchise_wallet_ledger').insert([{
+              franchise_id: fId,
+              tipo: 'recarga',
+              monto_usd: addUsd,
+              saldo_previo_usd: saldoAct,
+              saldo_posterior_usd: newSaldo,
+              descripcion: `Recarga de saldo mayorista prepago (${nom})`,
+              referencia: ref || 'Recarga administrativa'
+            }]);
+          } catch(errLedger){}
+
+          toast(`¡Saldo acreditado! Nueva billetera: $${newSaldo.toFixed(2)} USD.`);
+          dlg.close();
+          EXTRA.franquicias(box);
+        };
+      };
+    });
+
+    // 4. Registro de Pago de Canon (Billing Engine)
+    box.querySelectorAll('[data-fq-pay-canon]').forEach(btn => {
+      btn.onclick = () => {
+        const fId = btn.dataset.fqPayCanon;
+        const nom = btn.dataset.nom;
+        const f = list.find(x => x.id === fId);
+        if(!f) return;
+
+        const curCanon = Number(f.canon_mensual_usd || 25);
+        const curVenc = f.fecha_vencimiento_canon || new Date().toISOString().slice(0, 10);
+        const baseD = new Date(curVenc + 'T12:00:00');
+        baseD.setDate(baseD.getDate() + 30);
+        const nextVenc = baseD.toISOString().slice(0, 10);
+
+        $('#dlgBody').innerHTML = `
+          <h3>💳 Registrar Pago de Canon Mensual</h3>
+          <p class="mut" style="font-size:.82rem;margin:0 0 12px">
+            Registra la renovación de 30 días para la franquicia <b>${esc(nom)}</b>.
+          </p>
+
+          <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;font-size:.82rem;line-height:1.6;margin-bottom:14px">
+            <div>💵 <b>Monto del Canon:</b> $${curCanon.toFixed(2)} USD</div>
+            <div>📅 <b>Vencimiento actual:</b> ${esc(curVenc)}</div>
+            <div style="color:#00f5a0"><b>📅 Nuevo vencimiento (+30 días):</b> <b>${nextVenc}</b></div>
+          </div>
+
+          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">Método de Cobro y Referencia:</label>
+          <input id="inputCanonRef" placeholder="Ej: Pago Móvil BNC - Ref #123456" style="width:100%;margin-bottom:14px">
+
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnConfirmCanonPay" class="cta">
+              ✅ Confirmar Pago y Extender 30 Días
+            </button>
+          </div>
+        `;
+        dlg.showModal();
+
+        $('#btnConfirmCanonPay').onclick = async () => {
+          const btnC = $('#btnConfirmCanonPay');
+          btnC.disabled = true;
+          btnC.textContent = '⏳ Procesando...';
+
+          const { error: updErr } = await sb.from('franchises').update({
+            fecha_vencimiento_canon: nextVenc,
+            estado: 'activo'
+          }).eq('id', fId);
+
+          if(updErr){
+            btnC.disabled = false;
+            return toast('Error al actualizar fecha: ' + updErr.message);
+          }
+
+          toast(`¡Canon renovado exitosamente para ${nom} hasta el ${nextVenc}!`);
           dlg.close();
           EXTRA.franquicias(box);
         };

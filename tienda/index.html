@@ -622,6 +622,146 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
   .cta{padding:5px 6px;font-size:.7rem}
 }
 
+/* 15. Insignia Dorada: Franquicia Oficial Verificada */
+.franchise-gold-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, .15), rgba(217, 119, 6, .25));
+  border: 1.5px solid rgba(245, 158, 11, .5);
+  box-shadow: 0 0 16px rgba(245, 158, 11, .25), inset 0 0 12px rgba(245, 158, 11, .1);
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all .25s ease;
+  user-select: none;
+  margin: 6px 0;
+  text-decoration: none;
+}
+.franchise-gold-badge:hover {
+  transform: translateY(-2px);
+  border-color: #f59e0b;
+  box-shadow: 0 0 24px rgba(245, 158, 11, .45);
+}
+.franchise-gold-badge .gold-shield-icon {
+  font-size: 1.15rem;
+  filter: drop-shadow(0 0 6px #f59e0b);
+  animation: pulseGoldShield 2.4s infinite ease-in-out;
+}
+@keyframes pulseGoldShield {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.franchise-gold-badge .badge-text-col {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.2;
+}
+.franchise-gold-badge .badge-title {
+  font-size: .78rem;
+  font-weight: 800;
+  color: #fbbf24;
+  letter-spacing: .3px;
+}
+.franchise-gold-badge .badge-sub {
+  font-size: .65rem;
+  color: #fef3c7;
+  opacity: .85;
+}
+.franchise-gold-badge .badge-lock {
+  font-size: .82rem;
+  opacity: .9;
+  margin-left: 2px;
+}
+
+/* 16. Diseñador de Flyers y Banners (HTML5 Canvas) */
+.flyer-designer-modal {
+  width: 95vw;
+  max-width: 920px;
+  max-height: 92vh;
+  padding: 0;
+  border: 1.5px solid rgba(0, 245, 160, .35);
+  border-radius: 20px;
+  background: #040914;
+  color: #e2e8f0;
+  box-shadow: 0 25px 60px rgba(0,0,0,.85), 0 0 40px rgba(0, 245, 160, .15);
+  overflow: hidden;
+}
+.flyer-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  padding: 20px;
+  max-height: calc(92vh - 60px);
+  overflow-y: auto;
+}
+@media(max-width: 800px) {
+  .flyer-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.flyer-preview-box {
+  background: #02050b;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.flyer-canvas-container {
+  width: 100%;
+  max-width: 380px;
+  aspect-ratio: 1/1;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,.6);
+  border: 1.5px solid rgba(255,255,255,.1);
+}
+.flyer-canvas-container canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 17. Verificación KYC Digital */
+.kyc-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.kyc-dropzone {
+  border: 1.5px dashed rgba(255,255,255,.2);
+  border-radius: 12px;
+  padding: 14px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  background: rgba(255,255,255,.02);
+  position: relative;
+}
+.kyc-dropzone:hover {
+  border-color: #00f5a0;
+  background: rgba(0, 245, 160, .04);
+}
+.kyc-dropzone.has-file {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, .08);
+}
+.kyc-preview-thumb {
+  width: 100%;
+  max-height: 110px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 8px;
+  border: 1px solid rgba(255,255,255,.15);
+}
+
 @media print {
   body *{visibility:hidden}
   #invoiceDlg, #invoiceDlg *{visibility:visible}
@@ -641,6 +781,7 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 <dialog id="invoiceDlg" class="invoice-dialog"></dialog>
 <dialog id="franchiseDlg" class="checkout-modal"></dialog>
 <dialog id="mesaCambioDlg" class="checkout-modal"></dialog>
+<dialog id="flyerDlg" class="flyer-designer-modal"></dialog>
 
 <script src="/config.js"></script>
 <script>
@@ -654,7 +795,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 </script>
 <script src="/admin-extra.js"></script>
 <script>
-const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg'), invoiceDlg = $('#invoiceDlg'), franchiseDlg = $('#franchiseDlg'), mesaCambioDlg = $('#mesaCambioDlg');
+const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg'), invoiceDlg = $('#invoiceDlg'), franchiseDlg = $('#franchiseDlg'), mesaCambioDlg = $('#mesaCambioDlg'), flyerDlg = $('#flyerDlg');
 const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}, franchise:null};
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -2166,9 +2307,12 @@ function productCard(p){
          </div>
          ${bs}
        </div>
-       ${out?'<span class="pill off" style="padding:6px 12px;font-size:.78rem">Agotado</span>':`<button class="cta" data-buy="${p.id}">${ctaBtnText}</button>`}
-     </div>
-   </div></article>`;
+        <div style="display:flex;align-items:center;gap:4px">
+          ${out?'<span class="pill off" style="padding:6px 12px;font-size:.78rem">Agotado</span>':`<button class="cta" data-buy="${p.id}">${ctaBtnText}</button>`}
+          ${(S.isAdmin || S.me?.es_revendedor || S.franchise) ? `<button class="g" data-flyer="${p.id}" style="padding:7px 10px;font-size:.74rem;color:#f0b90b;border-color:rgba(240,185,11,.4);font-weight:700" title="Crear Flyer Publicitario para WhatsApp / Instagram">🎨</button>` : ''}
+        </div>
+      </div>
+    </div></article>`;
 }
 function renderGrid(){
   const q=(S.q||'').toLowerCase();
@@ -2188,6 +2332,7 @@ function renderGrid(){
   const g=$('#grid'); if(!g) return;
   g.innerHTML=list.map(productCard).join('')||'<p class="mut empty">Aún no hay productos disponibles en esta categoría. Vuelve pronto.</p>';
   g.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>buyDlg(b.dataset.buy));
+  g.querySelectorAll('[data-flyer]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();openFlyerDesignerModal({productId:b.dataset.flyer});});
 }
 function renderTabs(){
   const baseTabs = [
@@ -2250,6 +2395,18 @@ function home(){
     </div>
   ` : ''}
   <section class="hero">
+    ${S.franchise ? `
+      <div style="margin-bottom:14px;display:flex;justify-content:center">
+        <div class="franchise-gold-badge" id="btnHeroGoldBadge" role="button" tabindex="0">
+          <span class="gold-shield-icon">🛡️</span>
+          <div class="badge-text-col">
+            <span class="badge-title">Franquicia Oficial Verificada</span>
+            <span class="badge-sub">Respaldada por Gregory Izquierdo SaaS · Clic para certificar</span>
+          </div>
+          <span class="badge-lock">🔒</span>
+        </div>
+      </div>
+    ` : ''}
     <h2>Perfiles, Cuentas Completas y Aplicaciones en un solo lugar</h2>
     <p>Pantallas, cuentas completas y servicios con Garantía y Soporte</p>
     <div class="hero-rate-box" id="heroRateBox">
@@ -2262,6 +2419,11 @@ function home(){
       <span>⚡ Entrega rápida</span>
       <span>🛡 Garantía incluida</span>
       <span>💬 Soporte por WhatsApp</span>
+      ${(S.isAdmin || S.me?.es_revendedor || S.franchise) ? `
+        <button type="button" class="g" id="btnHeroOpenFlyer" style="background:rgba(240,185,11,.15);border-color:#f0b90b;color:#f0b90b;font-weight:700;padding:4px 10px;font-size:.74rem;display:inline-flex;align-items:center;gap:4px">
+          🎨 Diseñador de Flyers
+        </button>
+      ` : ''}
     </div>
     <input id="q" class="search" type="search" placeholder="Buscar servicio…" value="${esc(S.q||'')}" aria-label="Buscar servicio" autocomplete="off">
   </section>
@@ -2296,6 +2458,8 @@ function home(){
     </a>`:''}
   </div>`;
   $('#q').oninput = e=>{S.q=e.target.value;renderGrid();};
+  if($('#btnHeroGoldBadge')) $('#btnHeroGoldBadge').onclick = () => showFranchiseCertificate(S.franchise);
+  if($('#btnHeroOpenFlyer')) $('#btnHeroOpenFlyer').onclick = () => openFlyerDesignerModal();
   renderTabs(); renderGrid();
 }
 
@@ -3445,76 +3609,142 @@ async function buyDlg(id){
   if(!checkoutDlg.open) checkoutDlg.showModal();
 }
 
-// ---------- SOLICITUD DE FRANQUICIA & CONVERSION WHATSAPP ----------
+// ---------- SOLICITUD DE FRANQUICIA & VERIFICACIÓN DIGITAL KYC EN 2 PASOS ----------
 function openFranchiseModal(){
   const fqDlg = $('#franchiseDlg');
   if(!fqDlg) return;
 
-  const renderForm = () => {
+  const kycFiles = {
+    doc_frontal: '',
+    doc_reverso: '',
+    selfie_doc: '',
+    comprobante_domicilio: ''
+  };
+
+  let formData = {
+    businessName: '',
+    subdomain: '',
+    ownerName: '',
+    cedulaRif: '',
+    phone: '',
+    email: '',
+    city: '',
+    socialLinks: '',
+    telegramUser: '',
+    notes: ''
+  };
+
+  const compressImage = file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1200;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = reject;
+      img.src = ev.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const renderStep1 = () => {
+    const baseDomain = location.hostname.includes('.') ? location.hostname.replace(/^[^.]+\./, '') : 'gregoryizquierdo.xyz';
     fqDlg.innerHTML = `
-      <div class="checkout-card" style="max-width:540px">
+      <div class="checkout-card" style="max-width:560px">
         <div class="checkout-top-bar" style="margin-bottom:12px">
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:1.3rem">💼</span>
+            <span style="font-size:1.3rem">🏢</span>
             <div>
-              <div style="font-size:1.05rem;font-weight:800;color:#fff">Solicitud de Franquicia Oficial</div>
-              <div style="font-size:.72rem;color:#818cf8;font-weight:700">RED DE FRANQUICIADOS ELITE</div>
+              <div style="font-size:1.05rem;font-weight:800;color:#fff">Postulación a Franquicia Digital</div>
+              <div style="font-size:.72rem;color:#38bdf8;font-weight:700">PASO 1 DE 2 · DATOS COMERCIALES</div>
             </div>
           </div>
           <button class="checkout-close-btn" id="fqCloseBtn" type="button">✕</button>
         </div>
 
         <div style="font-size:.82rem;color:var(--mut);line-height:1.45;margin-bottom:12px">
-          Expande tu negocio de streaming con nuestra infraestructura SaaS, precios preferenciales y cobros 100% directos a tus cuentas.
+          Únete a nuestra red de Franquiciados SaaS: obtén tu propia tienda web 24/7 en tu propio subdominio, catálogo automatizado y cobros directos en tus cuentas.
         </div>
 
-        <div class="fq-grid-cards">
+        <div class="fq-grid-cards" style="margin-bottom:14px">
           <div class="fq-feature-box">
-            <h4><span>🛡️</span> Plataforma Propia</h4>
-            <p>Panel administrativo exclusivo para gestionar perfiles, clientes y cuotas.</p>
+            <h4><span>🛡️</span> Franquicia Verificada</h4>
+            <p>Insignia dorada oficial y respaldo tecnológico de la red central.</p>
           </div>
           <div class="fq-feature-box">
-            <h4><span>⚡</span> Cobros 100% Tuyos</h4>
-            <p>Los pagos de tus clientes por Pago Móvil o Binance caen directo en tus cuentas.</p>
+            <h4><span>💎</span> Despacho Zero-Stock</h4>
+            <p>Vende con tu propio stock o con saldo prepago mayorista de la central.</p>
           </div>
         </div>
 
-        <form id="fqForm" style="display:flex;flex-direction:column;gap:11px">
-          <div>
-            <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Nombre del Negocio / Marca *</label>
-            <input id="fqBusiness" required placeholder="Ej: StreamPlus Venezuela" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+        <form id="fqStep1Form" style="display:flex;flex-direction:column;gap:11px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Nombre del Negocio / Marca *</label>
+              <input id="fqBusiness" required placeholder="Ej: MegaStream Vzla" value="${esc(formData.businessName)}" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+            </div>
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Subdominio deseado *</label>
+              <input id="fqSub" required placeholder="Ej: megastream" value="${esc(formData.subdomain)}" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+            </div>
           </div>
-          <div>
-            <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Nombre del Titular / Propietario *</label>
-            <input id="fqOwner" required placeholder="Tu nombre completo" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+
+          <div style="background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:10px;padding:8px 12px;font-size:.78rem">
+            <span class="mut" style="font-size:.7rem;display:block">URL Guía de tu tienda web:</span>
+            <b id="fqSubPreview" style="color:var(--c)">https://${formData.subdomain || 'tumarca'}.${baseDomain}</b>
           </div>
+
+          <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:10px">
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Nombre del Titular / Propietario *</label>
+              <input id="fqOwner" required placeholder="Tu nombre y apellido" value="${esc(formData.ownerName)}" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+            </div>
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Cédula / RIF / DNI *</label>
+              <input id="fqDoc" required placeholder="Ej: V-19876543" value="${esc(formData.cedulaRif)}" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+            </div>
+          </div>
+
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div>
               <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">WhatsApp / Teléfono *</label>
-              <input id="fqPhone" required type="tel" placeholder="+58 412 1234567" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+              <input id="fqPhone" required type="tel" placeholder="+58 412 1234567" value="${esc(formData.phone)}" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
             </div>
             <div>
               <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Correo Electrónico *</label>
-              <input id="fqEmail" required type="email" placeholder="correo@ejemplo.com" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+              <input id="fqEmail" required type="email" placeholder="correo@ejemplo.com" value="${esc(formData.email)}" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
             </div>
           </div>
-          <div>
-            <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Usuario de Telegram (Opcional)</label>
-            <input id="fqTg" placeholder="@tu_usuario" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
-          </div>
-          <div>
-            <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Experiencia o notas sobre tu negocio (Opcional)</label>
-            <textarea id="fqNotes" rows="2" placeholder="Ej: Vendo por WhatsApp y busco automatizar mis entregas..." class="search" style="text-align:left;padding:10px 14px;font-size:.84rem;width:100%;border-radius:12px;resize:vertical"></textarea>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Ciudad / Estado *</label>
+              <input id="fqCity" required placeholder="Ej: Valencia, Carabobo" value="${esc(formData.city)}" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+            </div>
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Instagram / Canal Comercial</label>
+              <input id="fqSocial" placeholder="@tumarca_digital" value="${esc(formData.socialLinks)}" class="search" style="text-align:left;padding:10px 14px;font-size:.88rem;width:100%">
+            </div>
           </div>
 
-          <!-- Opcion 2: Asesoria previa por WhatsApp -->
-          <a href="https://wa.me/584241983648?text=${encodeURIComponent('¡Hola Gregory! 👋 Tengo preguntas y dudas sobre cómo funciona la Franquicia de Streaming antes de postularme en el formulario.')}" target="_blank" rel="noopener noreferrer" class="fq-wa-inquiry-btn">
-            <svg style="width:18px;height:18px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            <span>¿Dudas antes de postularte? Chatea en WhatsApp</span>
-          </a>
+          <div>
+            <label style="display:block;font-size:.75rem;font-weight:700;color:#94a3b8;margin-bottom:4px">Notas / Resumen de experiencia</label>
+            <textarea id="fqNotes" rows="2" placeholder="Cuéntanos brevemente si ya vendes o cómo planeas promocionar tu tienda..." class="search" style="text-align:left;padding:10px 14px;font-size:.84rem;width:100%;border-radius:12px;resize:vertical">${esc(formData.notes)}</textarea>
+          </div>
 
-          <button id="fqSubmitBtn" type="submit" class="cta" style="width:100%;padding:13px;font-size:.95rem;margin-top:4px">
-            🚀 Enviar Solicitud y Agilizar Activación
+          <button id="fqGoStep2Btn" type="submit" class="cta" style="width:100%;padding:13px;font-size:.95rem;margin-top:6px">
+            Continuar a Verificación Digital KYC (Paso 2) ➔
           </button>
         </form>
       </div>
@@ -3522,54 +3752,170 @@ function openFranchiseModal(){
 
     $('#fqCloseBtn').onclick = () => fqDlg.close();
 
-    $('#fqForm').onsubmit = async e => {
+    $('#fqSub').oninput = e => {
+      const clean = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+      e.target.value = clean;
+      $('#fqSubPreview').textContent = `https://${clean || 'tumarca'}.${baseDomain}`;
+    };
+
+    $('#fqStep1Form').onsubmit = e => {
       e.preventDefault();
-      const btn = $('#fqSubmitBtn');
-      btn.disabled = true;
-      btn.textContent = 'Enviando postulación...';
+      formData.businessName = $('#fqBusiness').value.trim();
+      formData.subdomain = $('#fqSub').value.trim().toLowerCase();
+      formData.ownerName = $('#fqOwner').value.trim();
+      formData.cedulaRif = $('#fqDoc').value.trim();
+      formData.phone = $('#fqPhone').value.trim();
+      formData.email = $('#fqEmail').value.trim();
+      formData.city = $('#fqCity').value.trim();
+      formData.socialLinks = $('#fqSocial').value.trim();
+      formData.notes = $('#fqNotes').value.trim();
 
-      const payload = {
-        businessName: $('#fqBusiness').value.trim(),
-        ownerName: $('#fqOwner').value.trim(),
-        phone: $('#fqPhone').value.trim(),
-        email: $('#fqEmail').value.trim(),
-        telegramUser: $('#fqTg').value.trim(),
-        notes: $('#fqNotes').value.trim()
-      };
-
-      let waUrl = `https://wa.me/584241983648?text=${encodeURIComponent('¡Hola Gregory! 👋 Acabo de postularme para la Franquicia Oficial con ' + payload.businessName + ' (' + payload.ownerName + ').')}`;
-
-      try {
-        const res = await fetch('/api/solicitud-franquicia', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json().catch(() => ({}));
-        if(data.whatsappUrl) waUrl = data.whatsappUrl;
-      } catch (err) {
-        console.error('Error enviando al endpoint:', err);
-        try {
-          await sb.from('franchise_applications').insert([{
-            business_name: payload.businessName,
-            owner_name: payload.ownerName,
-            phone: payload.phone,
-            email: payload.email,
-            telegram_user: payload.telegramUser,
-            notes: payload.notes
-          }]);
-        } catch(sbErr){}
-      }
-
-      if(window.confetti) {
-        window.confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
-      }
-
-      renderSuccess(payload, waUrl);
+      renderStep2();
     };
   };
 
-  const renderSuccess = (payload, waUrl) => {
+  const renderStep2 = () => {
+    fqDlg.innerHTML = `
+      <div class="checkout-card" style="max-width:580px">
+        <div class="checkout-top-bar" style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:1.3rem">🛡️</span>
+            <div>
+              <div style="font-size:1.05rem;font-weight:800;color:#fff">Verificación KYC y Documentación</div>
+              <div style="font-size:.72rem;color:#10b981;font-weight:700">PASO 2 DE 2 · IDENTIDAD Y SEGURIDAD</div>
+            </div>
+          </div>
+          <button class="checkout-close-btn" id="fqCloseBtn" type="button">✕</button>
+        </div>
+
+        <div style="font-size:.82rem;color:var(--mut);line-height:1.45;margin-bottom:14px">
+          Para garantizar la seguridad de la red y el cumplimiento con las normativas contra el fraude, carga las 4 fotografías solicitadas. Todas las imágenes se encriptan de forma confidencial.
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <!-- 1. Frontal -->
+          <div class="kyc-dropzone ${kycFiles.doc_frontal ? 'has-file' : ''}" id="zoneFrontal">
+            <div style="font-size:1.4rem">🪪</div>
+            <b style="font-size:.78rem;display:block;margin:4px 0 2px">1. Cédula / DNI (Frontal) *</b>
+            <span class="mut" style="font-size:.68rem" id="lblFrontal">${kycFiles.doc_frontal ? '✅ Foto cargada' : 'Toca para seleccionar foto'}</span>
+            <input type="file" accept="image/*" id="fileFrontal" style="display:none">
+            ${kycFiles.doc_frontal ? `<img src="${kycFiles.doc_frontal}" class="kyc-preview-thumb">` : ''}
+          </div>
+
+          <!-- 2. Reverso -->
+          <div class="kyc-dropzone ${kycFiles.doc_reverso ? 'has-file' : ''}" id="zoneReverso">
+            <div style="font-size:1.4rem">🔄</div>
+            <b style="font-size:.78rem;display:block;margin:4px 0 2px">2. Cédula / DNI (Reverso) *</b>
+            <span class="mut" style="font-size:.68rem" id="lblReverso">${kycFiles.doc_reverso ? '✅ Foto cargada' : 'Toca para seleccionar foto'}</span>
+            <input type="file" accept="image/*" id="fileReverso" style="display:none">
+            ${kycFiles.doc_reverso ? `<img src="${kycFiles.doc_reverso}" class="kyc-preview-thumb">` : ''}
+          </div>
+
+          <!-- 3. Selfie con documento -->
+          <div class="kyc-dropzone ${kycFiles.selfie_doc ? 'has-file' : ''}" id="zoneSelfie">
+            <div style="font-size:1.4rem">🤳</div>
+            <b style="font-size:.78rem;display:block;margin:4px 0 2px">3. Selfie con Documento *</b>
+            <span class="mut" style="font-size:.68rem" id="lblSelfie">${kycFiles.selfie_doc ? '✅ Foto cargada' : 'Prueba de vida con documento'}</span>
+            <input type="file" accept="image/*" id="fileSelfie" style="display:none">
+            ${kycFiles.selfie_doc ? `<img src="${kycFiles.selfie_doc}" class="kyc-preview-thumb">` : ''}
+          </div>
+
+          <!-- 4. Comprobante Domicilio -->
+          <div class="kyc-dropzone ${kycFiles.comprobante_domicilio ? 'has-file' : ''}" id="zoneDomicilio">
+            <div style="font-size:1.4rem">📄</div>
+            <b style="font-size:.78rem;display:block;margin:4px 0 2px">4. Comprobante Domicilio *</b>
+            <span class="mut" style="font-size:.68rem" id="lblDomicilio">${kycFiles.comprobante_domicilio ? '✅ Foto cargada' : 'Recibo de luz/agua o constancia'}</span>
+            <input type="file" accept="image/*" id="fileDomicilio" style="display:none">
+            ${kycFiles.comprobante_domicilio ? `<img src="${kycFiles.comprobante_domicilio}" class="kyc-preview-thumb">` : ''}
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center">
+          <button type="button" class="g" id="btnBackStep1" style="padding:12px 18px">
+            ⬅ Volver
+          </button>
+          <button id="btnSubmitFullKyc" class="cta" style="flex:1;padding:12px;font-size:.92rem">
+            🚀 Enviar Postulación y Expediente KYC
+          </button>
+        </div>
+      </div>
+    `;
+
+    $('#fqCloseBtn').onclick = () => fqDlg.close();
+    $('#btnBackStep1').onclick = () => renderStep1();
+
+    const setupDropzone = (zoneId, fileInputId, key, lblId) => {
+      const zone = $('#' + zoneId);
+      const input = $('#' + fileInputId);
+      const lbl = $('#' + lblId);
+      if(!zone || !input) return;
+      zone.onclick = () => input.click();
+      input.onchange = async e => {
+        const file = e.target.files?.[0];
+        if(!file) return;
+        lbl.textContent = '⏳ Comprimiendo...';
+        try {
+          const b64 = await compressImage(file);
+          kycFiles[key] = b64;
+          renderStep2();
+          toast('Documento cargado correctamente.');
+        } catch(err){
+          lbl.textContent = '⚠️ Error en foto';
+          toast('No se pudo procesar la imagen.');
+        }
+      };
+    };
+
+    setupDropzone('zoneFrontal', 'fileFrontal', 'doc_frontal', 'lblFrontal');
+    setupDropzone('zoneReverso', 'fileReverso', 'doc_reverso', 'lblReverso');
+    setupDropzone('zoneSelfie', 'fileSelfie', 'selfie_doc', 'lblSelfie');
+    setupDropzone('zoneDomicilio', 'fileDomicilio', 'comprobante_domicilio', 'lblDomicilio');
+
+    $('#btnSubmitFullKyc').onclick = async () => {
+      const btn = $('#btnSubmitFullKyc');
+      if (!kycFiles.doc_frontal || !kycFiles.doc_reverso || !kycFiles.selfie_doc || !kycFiles.comprobante_domicilio) {
+        return toast('Por favor carga las 4 fotos requeridas para completar el KYC.');
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Transfiriendo expediente KYC...';
+
+      const payload = {
+        business_name: formData.businessName,
+        subdominio_deseado: formData.subdomain,
+        owner_name: formData.ownerName,
+        cedula_rif: formData.cedulaRif,
+        phone: formData.phone,
+        email: formData.email,
+        ciudad: formData.city,
+        redes_sociales: formData.socialLinks,
+        telegram_user: formData.telegramUser,
+        notes: formData.notes,
+        doc_frontal_url: kycFiles.doc_frontal,
+        doc_reverso_url: kycFiles.doc_reverso,
+        selfie_doc_url: kycFiles.selfie_doc,
+        comprobante_domicilio_url: kycFiles.comprobante_domicilio,
+        kyc_estado: 'en_revision'
+      };
+
+      try {
+        await sb.from('franchise_applications').insert([payload]);
+      } catch(err){
+        console.error('Error insertando en franchise_applications:', err);
+      }
+
+      const waMsg = `¡Hola Gregory! 👋 Acabo de postularme a la Franquicia Oficial con mi negocio *${formData.businessName}* (${formData.ownerName}, C.I: ${formData.cedulaRif}). Ya cargué mi expediente KYC en la plataforma y deseo activar mi tienda web.`;
+      const waUrl = `https://wa.me/584241983648?text=${encodeURIComponent(waMsg)}`;
+
+      if(window.confetti) {
+        window.confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      }
+
+      renderSuccess(formData, waUrl);
+    };
+  };
+
+  const renderSuccess = (data, waUrl) => {
     let secondsLeft = 3;
     let timer = null;
 
@@ -3578,13 +3924,12 @@ function openFranchiseModal(){
         <div style="width:64px;height:64px;border-radius:50%;background:rgba(16,185,129,.15);border:2px solid #10b981;display:grid;place-items:center;margin:0 auto 16px;box-shadow:0 0 20px rgba(16,185,129,.35)">
           <svg style="width:34px;height:34px;color:#10b981" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
         </div>
-        <span class="frb-pill" style="margin-bottom:8px">🎉 ¡SOLICITUD ENVIADA CON ÉXITO!</span>
-        <h2 style="font-size:1.45rem;font-weight:800;color:#fff;margin:6px 0 8px">¡Felicidades, ${esc(payload.ownerName.split(' ')[0] || payload.ownerName)}!</h2>
+        <span class="frb-pill" style="margin-bottom:8px">🎉 ¡EXPEDIENTE KYC ENVIADO!</span>
+        <h2 style="font-size:1.45rem;font-weight:800;color:#fff;margin:6px 0 8px">¡Felicidades, ${esc(data.ownerName.split(' ')[0] || data.ownerName)}!</h2>
         <p style="font-size:.85rem;color:#cbd5e1;line-height:1.45;margin:0 0 16px">
-          Hemos recibido tu solicitud para <b>${esc(payload.businessName)}</b> y notificado a la central en tiempo real. Para completar tu activación y coordinar la entrega de tu tienda, contacta a Gregory directamente por WhatsApp:
+          Hemos recibido los datos y documentos de verificación para <b>${esc(data.businessName)}</b>. Para coordinar la aprobación final y entrega de tu subdominio, contacta a Gregory directamente por WhatsApp:
         </p>
 
-        <!-- Boton estelar con redireccion automatica regresiva (Opcion 1) -->
         <a id="fqWaDirectBtn" href="${waUrl}" target="_blank" rel="noopener noreferrer" class="fq-wa-success-btn">
           <svg style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
           <span>Abrir WhatsApp Oficial (<b id="fqCountdown">${secondsLeft}</b>s)</span>
@@ -3616,9 +3961,419 @@ function openFranchiseModal(){
     };
   };
 
-  renderForm();
+  renderStep1();
   if(!fqDlg.open) fqDlg.showModal();
 }
+
+// ---------- CERTIFICADO OFICIAL DE FRANQUICIA (INSIGNIA DORADA) ----------
+function showFranchiseCertificate(fq = S.franchise){
+  if(!fq) return;
+  $('#dlgBody').innerHTML = `
+    <div style="text-align:center;padding:10px 4px">
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(217,119,6,.35));border:2px solid #f59e0b;display:grid;place-items:center;margin:0 auto 12px;box-shadow:0 0 25px rgba(245,158,11,.45)">
+        <span style="font-size:2.2rem;filter:drop-shadow(0 0 8px #f59e0b)">🛡️</span>
+      </div>
+      <span class="pill" style="background:rgba(245,158,11,.15);color:#fbbf24;border-color:rgba(245,158,11,.4);font-weight:800;font-size:.72rem;letter-spacing:1px">
+        CERTIFICACIÓN OFICIAL SAAS
+      </span>
+      <h2 style="font-size:1.35rem;font-weight:800;color:#fff;margin:8px 0 4px">${esc(fq.nombre_comercial)}</h2>
+      <p class="mut" style="font-size:.8rem;margin:0 0 16px">Franquicia Digital Verificada & Respaldada</p>
+
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(245,158,11,.25);border-radius:14px;padding:14px;text-align:left;font-size:.82rem;line-height:1.6;margin-bottom:16px">
+        <div>🌐 <b>Subdominio Oficial:</b> <span style="color:#00f5a0">${esc(fq.subdominio)}.gregoryizquierdo.xyz</span></div>
+        <div>👤 <b>Titular Comercial:</b> ${esc(fq.titular_nombre)}</div>
+        <div>🪪 <b>Identificación Fiscal:</b> ${esc(fq.titular_cedula_rif || 'Verificado')}</div>
+        <div>📍 <b>Ubicación Registrada:</b> ${esc(fq.titular_ciudad || 'Venezuela')}</div>
+        <div>🔒 <b>Garantía y Cumplimiento:</b> Respaldado por el Proveedor Tecnológico Gregory Izquierdo SaaS con políticas de tolerancia cero al fraude.</div>
+      </div>
+
+      <div style="font-size:.75rem;color:#94a3b8;line-height:1.4;margin-bottom:12px">
+        Esta franquicia opera de forma comercialmente independiente bajo licencia oficial de software. Todos los servicios adquiridos cuentan con soporte activo y garantías transparentes.
+      </div>
+
+      <button class="cta" onclick="dlg.close()" style="width:100%;padding:10px">
+        ✅ Entendido y Continuar en la Tienda
+      </button>
+    </div>
+  `;
+  dlg.showModal();
+}
+window.showFranchiseCertificate = showFranchiseCertificate;
+
+// ---------- GENERADOR RÁPIDO DE FLYERS Y BANNERS (HTML5 CANVAS 1080x1080) ----------
+function openFlyerDesignerModal(initialOpts = {}){
+  const fDlg = $('#flyerDlg');
+  if(!fDlg) return;
+
+  const products = S.products || [];
+  let selectedProduct = products.find(p => p.id === initialOpts.productId) || products[0] || {
+    id: 'sample',
+    nombre: 'Max Platino 30 Días',
+    duracion_dias: 30,
+    garantia_dias: 30,
+    precio_usd: 3.50,
+    imagen_url: ''
+  };
+
+  let theme = 'neon_cyber';
+  let flyerPriceUsd = initialOpts.defaultPrice || selectedProduct.precio_usd || 3.50;
+  let sellerName = initialOpts.sellerName || S.franchise?.nombre_comercial || S.settings?.negocio?.nombre || (S.me?.nombre ? `Aliado ${S.me.nombre}` : 'Emprendimiento Gregory Izquierdo');
+  let sellerPhone = initialOpts.sellerPhone || S.franchise?.titular_telefono || S.settings?.negocio?.telefono || S.me?.telefono || '+58 412 0000000';
+
+  const renderFlyer = () => {
+    const canvas = $('#flyerCanvas');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = 1080, H = 1080;
+
+    // 1. Fondo base según tema
+    ctx.clearRect(0, 0, W, H);
+    if(theme === 'neon_cyber'){
+      const bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#070f1e');
+      bg.addColorStop(0.5, '#030814');
+      bg.addColorStop(1, '#02040a');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Círculos glow neón
+      const g1 = ctx.createRadialGradient(200, 200, 20, 200, 200, 450);
+      g1.addColorStop(0, 'rgba(0, 245, 160, 0.25)');
+      g1.addColorStop(1, 'rgba(0, 245, 160, 0)');
+      ctx.fillStyle = g1;
+      ctx.fillRect(0, 0, W, H);
+
+      const g2 = ctx.createRadialGradient(900, 850, 40, 900, 850, 500);
+      g2.addColorStop(0, 'rgba(168, 85, 247, 0.3)');
+      g2.addColorStop(1, 'rgba(168, 85, 247, 0)');
+      ctx.fillStyle = g2;
+      ctx.fillRect(0, 0, W, H);
+    } else if(theme === 'gold_luxury'){
+      const bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#1c1505');
+      bg.addColorStop(0.6, '#0b0802');
+      bg.addColorStop(1, '#020202');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      const g1 = ctx.createRadialGradient(540, 400, 50, 540, 400, 600);
+      g1.addColorStop(0, 'rgba(245, 158, 11, 0.28)');
+      g1.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = g1;
+      ctx.fillRect(0, 0, W, H);
+    } else if(theme === 'purple_stream'){
+      const bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#2e1065');
+      bg.addColorStop(0.6, '#0f0524');
+      bg.addColorStop(1, '#05020c');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      const g1 = ctx.createRadialGradient(850, 250, 40, 850, 250, 550);
+      g1.addColorStop(0, 'rgba(236, 72, 153, 0.28)');
+      g1.addColorStop(1, 'rgba(236, 72, 153, 0)');
+      ctx.fillStyle = g1;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      // emerald_tech
+      const bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#064e3b');
+      bg.addColorStop(0.6, '#022c22');
+      bg.addColorStop(1, '#021510');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      const g1 = ctx.createRadialGradient(300, 750, 50, 300, 750, 550);
+      g1.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+      g1.addColorStop(1, 'rgba(16, 185, 129, 0)');
+      ctx.fillStyle = g1;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // 2. Marco exterior sutil
+    ctx.strokeStyle = theme === 'gold_luxury' ? 'rgba(245,158,11,.4)' : 'rgba(0,245,160,.35)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(36, 36, W - 72, H - 72);
+
+    // 3. Encabezado de Marca
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 38px Sora, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(sellerName.toUpperCase(), 70, 105);
+
+    // Badge VIP Top Right
+    ctx.fillStyle = theme === 'gold_luxury' ? '#f59e0b' : '#00f5a0';
+    ctx.font = '800 24px Sora, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('⭐ SERVICIO VERIFICADO 24/7', W - 70, 105);
+
+    // Línea separadora
+    ctx.strokeStyle = 'rgba(255,255,255,.12)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(70, 130);
+    ctx.lineTo(W - 70, 130);
+    ctx.stroke();
+
+    // 4. Badge Categoría / Modalidad
+    const isService = selectedProduct.tipo === 'servicio';
+    const isCombo = (selectedProduct.nombre || '').toLowerCase().includes('combo');
+    const badgeText = isCombo ? '🔥 COMBO PROMOCIONAL' : (isService ? '📦 MEMBRESÍA BAJO PEDIDO' : '⚡ PANTALLA EN CUENTA PREMIUM');
+
+    ctx.fillStyle = isCombo ? '#f43f5e' : (isService ? '#c084fc' : '#38bdf8');
+    ctx.font = '800 24px Sora, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(badgeText, 70, 180);
+
+    // 5. Título del Producto (con salto de línea si es largo)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 60px Sora, sans-serif';
+    const titleWords = (selectedProduct.nombre || 'Servicio Digital').split(' ');
+    let line1 = '', line2 = '';
+    for(let word of titleWords){
+      if((line1 + ' ' + word).trim().length <= 22 && !line2){
+        line1 = (line1 + ' ' + word).trim();
+      } else {
+        line2 = (line2 + ' ' + word).trim();
+      }
+    }
+    ctx.fillText(line1, 70, 255);
+    if(line2) ctx.fillText(line2, 70, 325);
+
+    // 6. Badges de Especificaciones (Garantía, Duración, Entrega)
+    const durDias = selectedProduct.duracion_dias || 30;
+    const garDias = selectedProduct.garantia_dias || 30;
+    const chipsY = line2 ? 385 : 320;
+
+    const drawPill = (x, y, text, color) => {
+      ctx.font = '700 24px Sora, sans-serif';
+      const tw = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(255,255,255,.06)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(x, y - 28, tw + 28, 42, 21);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(text, x + 14, y);
+      return tw + 44;
+    };
+
+    let curX = 70;
+    curX += drawPill(curX, chipsY, `⏱️ ${durDias} Días`, '#38bdf8');
+    curX += drawPill(curX, chipsY, `🛡️ Garantía ${garDias} Días`, '#10b981');
+    drawPill(curX, chipsY, `⚡ Activación Rápida`, '#facc15');
+
+    // 7. Imagen del Producto (si existe) o icono central estilizado
+    const imgY = chipsY + 45;
+    const imgBoxH = 340;
+    if(selectedProduct.imagen_url && selectedProduct.imagen_url.startsWith('http')){
+      const pImg = new Image();
+      pImg.crossOrigin = 'anonymous';
+      pImg.onload = () => {
+        // Recalcular y dibujar imagen
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,.75)';
+        ctx.shadowBlur = 30;
+        ctx.beginPath();
+        ctx.roundRect(70, imgY, W - 140, imgBoxH, 20);
+        ctx.clip();
+        ctx.drawImage(pImg, 70, imgY, W - 140, imgBoxH);
+        ctx.restore();
+        // Redibujar caja de precios encima para garantizar superposición perfecta
+        drawPriceAndFooter();
+      };
+      pImg.onerror = () => drawPriceAndFooter();
+      pImg.src = selectedProduct.imagen_url;
+    } else {
+      drawPriceAndFooter();
+    }
+
+    function drawPriceAndFooter(){
+      // 8. Tarjeta de Precio Gigante
+      const boxY = 760;
+      const boxH = 175;
+
+      const pGrad = ctx.createLinearGradient(70, boxY, W - 70, boxY + boxH);
+      pGrad.addColorStop(0, 'rgba(15, 23, 42, 0.95)');
+      pGrad.addColorStop(1, 'rgba(3, 7, 18, 0.98)');
+      ctx.fillStyle = pGrad;
+      ctx.strokeStyle = theme === 'gold_luxury' ? '#f59e0b' : '#00f5a0';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.roundRect(70, boxY, W - 140, boxH, 24);
+      ctx.fill();
+      ctx.stroke();
+
+      // Monto en Dólares
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '700 24px Sora, sans-serif';
+      ctx.fillText('PRECIO DE OFERTA:', 105, boxY + 50);
+
+      ctx.fillStyle = theme === 'gold_luxury' ? '#fbbf24' : '#00f5a0';
+      ctx.font = '900 84px Sora, sans-serif';
+      ctx.fillText(`$${Number(flyerPriceUsd).toFixed(2)}`, 105, boxY + 135);
+
+      // Monto en Bolívares
+      const curRate = S.rate || 0;
+      const priceBs = (flyerPriceUsd * curRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 48px Sora, sans-serif';
+      ctx.fillText(`Bs. ${priceBs}`, W - 105, boxY + 90);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '700 22px Sora, sans-serif';
+      ctx.fillText(`Tasa Oficial BCV: ${curRate ? curRate.toFixed(2) : '--'} Bs/USD`, W - 105, boxY + 130);
+
+      // 9. Barra de Contacto y WhatsApp (Footer)
+      const footY = 960;
+      ctx.fillStyle = '#25d366';
+      ctx.font = '900 36px Sora, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`📲 WhatsApp: ${sellerPhone}`, 70, footY + 45);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '700 26px Sora, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('¡Escríbenos y activa el tuyo hoy!', W - 70, footY + 45);
+    }
+  };
+
+  fDlg.innerHTML = `
+    <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:1.3rem">🎨</span>
+        <div>
+          <h3 style="margin:0;font-size:1.1rem;color:#fff">Diseñador Rápido de Flyers Publicitarios</h3>
+          <span class="mut" style="font-size:.72rem">Exportación HD 1080x1080 para WhatsApp e Instagram</span>
+        </div>
+      </div>
+      <button class="checkout-close-btn" onclick="flyerDlg.close()">✕</button>
+    </div>
+
+    <div class="flyer-layout">
+      <!-- Columna Izquierda: Vista Previa Canvas -->
+      <div class="flyer-preview-box">
+        <div class="flyer-canvas-container">
+          <canvas id="flyerCanvas" width="1080" height="1080"></canvas>
+        </div>
+        <div class="row" style="margin-top:14px;width:100%">
+          <button id="btnDownloadFlyer" style="flex:1;background:var(--grad);color:#03121c;font-weight:800;padding:12px">
+            📥 Descargar Flyer (PNG HD)
+          </button>
+          <button id="btnShareFlyerWa" class="g" style="padding:12px 14px;color:#25d366;border-color:rgba(37,211,102,.4);font-weight:700" title="Compartir texto e imagen en WhatsApp">
+            📲 WhatsApp
+          </button>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Controles de Personalización -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="display:block;font-size:.76rem;font-weight:700;color:#94a3b8;margin-bottom:4px">1. Selecciona el Producto del Catálogo:</label>
+          <select id="selFlyerProduct" style="width:100%">
+            ${products.map(p => `<option value="${p.id}" ${p.id === selectedProduct.id ? 'selected' : ''}>${esc(p.nombre)} ($${Number(p.precio_usd||0).toFixed(2)})</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="display:block;font-size:.76rem;font-weight:700;color:#94a3b8;margin-bottom:4px">2. Precio Venta ($ USD):</label>
+            <input id="inpFlyerPrice" type="number" step="0.10" value="${flyerPriceUsd}" style="width:100%;font-weight:800;font-size:.95rem">
+          </div>
+          <div>
+            <label style="display:block;font-size:.76rem;font-weight:700;color:#94a3b8;margin-bottom:4px">3. Estilo / Tema Neón:</label>
+            <select id="selFlyerTheme" style="width:100%">
+              <option value="neon_cyber" selected>🌌 Neón Cyberpunk</option>
+              <option value="gold_luxury">👑 Oro VIP Zeny</option>
+              <option value="purple_stream">🟣 Púrpura Streaming</option>
+              <option value="emerald_tech">🟢 Verde Esmeralda</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:.76rem;font-weight:700;color:#94a3b8;margin-bottom:4px">4. Nombre Comercial / Marca en el Flyer:</label>
+          <input id="inpFlyerSellerName" value="${esc(sellerName)}" style="width:100%">
+        </div>
+
+        <div>
+          <label style="display:block;font-size:.76rem;font-weight:700;color:#94a3b8;margin-bottom:4px">5. Número de WhatsApp para Clientes:</label>
+          <input id="inpFlyerSellerPhone" value="${esc(sellerPhone)}" style="width:100%">
+        </div>
+
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;font-size:.78rem;line-height:1.4">
+          💡 <b>Consejo de Ventas:</b> Descarga la imagen y súbela de inmediato a tus estados de WhatsApp con el texto: <i>"Disponible con entrega inmediata y garantía. Escríbeme al privado para activar el tuyo ⚡"</i>.
+        </div>
+      </div>
+    </div>
+  `;
+
+  $('#selFlyerProduct').onchange = e => {
+    selectedProduct = products.find(p => p.id === e.target.value) || selectedProduct;
+    flyerPriceUsd = selectedProduct.precio_usd || 3.50;
+    $('#inpFlyerPrice').value = flyerPriceUsd;
+    renderFlyer();
+  };
+
+  $('#inpFlyerPrice').oninput = e => {
+    flyerPriceUsd = parseFloat(e.target.value) || 0;
+    renderFlyer();
+  };
+
+  $('#selFlyerTheme').onchange = e => {
+    theme = e.target.value;
+    renderFlyer();
+  };
+
+  $('#inpFlyerSellerName').oninput = e => {
+    sellerName = e.target.value.trim() || 'Servicios Digitales';
+    renderFlyer();
+  };
+
+  $('#inpFlyerSellerPhone').oninput = e => {
+    sellerPhone = e.target.value.trim() || '+58 412 0000000';
+    renderFlyer();
+  };
+
+  $('#btnDownloadFlyer').onclick = () => {
+    const canvas = $('#flyerCanvas');
+    if(!canvas) return;
+    const a = document.createElement('a');
+    a.download = `Flyer-${selectedProduct.nombre.replace(/[^a-zA-Z0-9]/g, '_')}-${sellerName.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    toast('¡Flyer descargado en alta calidad 1080x1080!');
+  };
+
+  $('#btnShareFlyerWa').onclick = async () => {
+    const cleanNum = sellerPhone.replace(/\D/g, '');
+    const curRate = S.rate || 0;
+    const priceBs = (flyerPriceUsd * curRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const textMsg = `🔥 *OFERTA ESPECIAL: ${selectedProduct.nombre.toUpperCase()}*\n\n⏱️ *Duración:* ${selectedProduct.duracion_dias || 30} Días\n🛡️ *Garantía:* ${selectedProduct.garantia_dias || 30} Días 100% oficial\n⚡ *Activación Inmediata*\n\n💵 *Precio:* $${Number(flyerPriceUsd).toFixed(2)} USD (ó Bs. ${priceBs})\n\n📲 *Pide el tuyo ahora:* https://wa.me/${cleanNum}?text=${encodeURIComponent(`Hola! 👋 Deseo activar ${selectedProduct.nombre} por $${Number(flyerPriceUsd).toFixed(2)} USD.`)}`;
+    
+    // Intentar copiar imagen al portapapeles si el navegador lo soporta
+    const canvas = $('#flyerCanvas');
+    if(canvas && navigator.clipboard && window.ClipboardItem){
+      try {
+        canvas.toBlob(async blob => {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          toast('¡Imagen copiada al portapapeles! Ya puedes pegarla en WhatsApp.');
+        });
+      } catch(e){}
+    }
+
+    const waLink = `https://wa.me/?text=${encodeURIComponent(textMsg)}`;
+    window.open(waLink, '_blank');
+  };
+
+  fDlg.showModal();
+  setTimeout(renderFlyer, 100);
+}
+window.openFlyerDesignerModal = openFlyerDesignerModal;
 
 // ---------- MESA DE CAMBIO USDT ----------
 function openMesaCambioModal(){
