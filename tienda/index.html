@@ -7169,16 +7169,25 @@ async function admin(t){
 
         // Conversiones de tipos seguras para compras y cuentas madre
         if (t === 'purchases') {
-          if (o.dias_credito !== undefined) o.dias_credito = parseInt(o.dias_credito) || 0;
-          if (o.monto_usd !== undefined) o.monto_usd = parseFloat(o.monto_usd) || 0;
-          if (o.monto_usdt !== undefined) o.monto_usdt = parseFloat(o.monto_usdt) || 0;
-          if (o.monto_bs !== undefined) o.monto_bs = parseFloat(o.monto_bs) || 0;
+          o.es_credito = Boolean(o.es_credito === true || o.es_credito === 'true');
+          o.monto_usd = parseFloat(o.monto_usd) || 0;
+          o.monto_usdt = parseFloat(o.monto_usdt) || o.monto_usd;
+          o.monto_bs = parseFloat(o.monto_bs) || 0;
           if (!o.fecha) o.fecha = new Date().toISOString().slice(0, 10);
-          if (o.es_credito === true && !o.estado_pago) o.estado_pago = 'pendiente';
-          if (!o.mother_id) delete o.mother_id;
+          if (o.es_credito) {
+            o.estado_pago = o.estado_pago || 'pendiente';
+            o.dias_credito = parseInt(o.dias_credito) || 0;
+            if (!o.fecha_limite_pago || o.fecha_limite_pago === '') delete o.fecha_limite_pago;
+          } else {
+            o.estado_pago = 'pagado';
+            delete o.fecha_limite_pago;
+            delete o.dias_credito;
+          }
+          if (!o.mother_id || o.mother_id === '') delete o.mother_id;
         } else if (t === 'mother_accounts') {
           if (o.costo_usd !== undefined) o.costo_usd = parseFloat(o.costo_usd) || 0;
           if (o.max_perfiles !== undefined) o.max_perfiles = parseInt(o.max_perfiles) || 5;
+          if (!o.vence || o.vence === '') delete o.vence;
         } else if (t === 'products') {
           if (o.precio_usd !== undefined) o.precio_usd = parseFloat(o.precio_usd) || 0;
           if (o.precio_binance_usd !== undefined) o.precio_binance_usd = parseFloat(o.precio_binance_usd) || 0;
