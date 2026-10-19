@@ -826,6 +826,54 @@ const DEFAULT_MESSAGE_TEMPLATES = {
     descripcion: 'Enviado al revendedor cuando Gregory le concilia y acredita saldo en Recargas247.',
     tags: ['titular', 'nombre_punto', 'usuario_247', 'monto_usd', 'monto_bs', 'referencia', 'negocio'],
     cuerpo: '¡Hola {titular}! ✅\nTu abono de saldo ha sido verificado y acreditado en tu usuario {usuario_247} de Recargas247.\n\n🏪 Punto de Venta: {nombre_punto}\n💵 Monto Acreditado: ${monto_usd} USD (Bs. {monto_bs})\n🔢 Referencia: {referencia}\n\nTu saldo ya se encuentra disponible para emitir recargas a tus clientes. ¡Éxito en las ventas de hoy! 🚀'
+  },
+  pago_recibido_fuera_plataforma: {
+    id: 'pago_recibido_fuera_plataforma',
+    canal: 'whatsapp',
+    titulo: '💵 Confirmación de Pago Recibido (Venta Directa / WhatsApp)',
+    descripcion: 'Enviado al cliente cuando transfiere por Pago Móvil, Binance o Efectivo directamente a Gregory fuera de la web.',
+    tags: ['cliente', 'producto', 'monto_usd', 'monto_bs', 'tasa_bcv', 'referencia', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 👋\nConfirmamos la recepción de tu pago con total éxito en {negocio} ✅\n\n📌 Concepto / Servicio: {producto}\n💵 Monto: ${monto_usd} USD (Bs. {monto_bs})\n🇻🇪 Tasa BCV: Bs. {tasa_bcv}\n🔢 Referencia: {referencia}\n\nEstamos procesando tu solicitud de inmediato. En breves minutos te enviaremos tus datos de acceso oficiales. ¡Muchas gracias por tu compra y confianza! ⭐🍿'
+  },
+  entrega_directa_credenciales: {
+    id: 'entrega_directa_credenciales',
+    canal: 'whatsapp',
+    titulo: '🔑 Entrega de Accesos por Pago Directo',
+    descripcion: 'Entrega limpia de usuario, clave, perfil y PIN cuando un cliente paga fuera de la plataforma.',
+    tags: ['cliente', 'producto', 'correo', 'clave', 'perfil', 'pin', 'vence', 'garantia', 'portal_url', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 🎉 Aquí tienes tus accesos oficiales para disfrutar de {producto} activados por {negocio}:\n\n📺 *Servicio:* {producto}\n✉️ *Correo:* {correo}\n🔑 *Clave:* {clave}\n👤 *Perfil:* {perfil}\n🔒 *PIN:* {pin}\n📅 *Vencimiento:* {vence} (+30 días)\n🛡️ *Garantía:* {garantia} días continuos\n\n⚠️ *Recomendaciones importantes:*\n• Ingresa únicamente a tu perfil asignado ({perfil}).\n• No modificar correo, clave ni otros perfiles.\n• Puedes consultar tu historial y facturas en tu portal: {portal_url}\n\n¡Que disfrutes tu programación favorita! Si tienes alguna duda, estamos a la orden por aquí. ⭐🎬'
+  },
+  solicitud_datos_membresia_personal: {
+    id: 'solicitud_datos_membresia_personal',
+    canal: 'whatsapp',
+    titulo: '✉️ Solicitud de Correo para Membresía a Pedido',
+    descripcion: 'Para membresías bajo demanda (Spotify Familiar, Canva Pro, YouTube Premium, etc.) que se activan al correo personal del cliente.',
+    tags: ['cliente', 'producto', 'monto_usd', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 👋 Tu pago de ${monto_usd} USD para {producto} ha sido confirmado con éxito en {negocio} ✅\n\nPara proceder con la activación personalizada de tu membresía:\n👉 *Por favor indícanos el correo electrónico* al que deseas vincular el servicio (o al que te enviaremos la invitación de activación).\n\nUna vez nos envíes tu correo, activaremos tu cuenta en un lapso estimado de 15 a 30 minutos. ¡Quedamos atentos a tu respuesta! 🚀'
+  },
+  confirmacion_renovacion_fuera_plataforma: {
+    id: 'confirmacion_renovacion_fuera_plataforma',
+    canal: 'whatsapp',
+    titulo: '🔄 Confirmación de Renovación por Pago Directo',
+    descripcion: 'Para clientes directos que pagaron su mensualidad por WhatsApp/Pago Móvil para extender su pantalla existente.',
+    tags: ['cliente', 'producto', 'perfil', 'vence', 'monto_usd', 'referencia', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 🔄✨\nConfirmamos tu pago directo para la RENOVACIÓN de tu servicio en {negocio}.\n\n📺 *Servicio:* {producto}\n👤 *Perfil:* {perfil}\n📅 *Nuevo Vencimiento (+30 días):* {vence}\n💵 *Monto:* ${monto_usd} USD\n🔢 *Referencia:* {referencia}\n\n✅ Tu pantalla continúa activa exactamente con tus mismas credenciales, historial y series guardadas sin interrupción. ¡Gracias por renovar con nosotros! ⭐🍿'
+  },
+  datos_de_pago_cliente_directo: {
+    id: 'datos_de_pago_cliente_directo',
+    canal: 'whatsapp',
+    titulo: '💳 Envío de Cuentas de Pago a Cliente Directo',
+    descripcion: 'Plantilla rápida con todos los métodos de pago (Pago Móvil, Binance, etc.) para pasarle a un cliente por WhatsApp.',
+    tags: ['cliente', 'producto', 'monto_usd', 'monto_bs', 'tasa_bcv', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 👋 Con gusto te facilitamos los datos oficiales de pago para tu servicio {producto} en {negocio}:\n\n💵 *Total a transferir:* ${monto_usd} USD\n🇻🇪 *En Bolívares:* Bs. {monto_bs} (Tasa oficial BCV: {tasa_bcv})\n\n📌 *Opción 1: Pago Móvil (BNC)*\n• Banco: BNC (0191)\n• Teléfono: 04242809333\n• Cédula: V-18931731\n\n📌 *Opción 2: Binance Pay (USDT)*\n• Pay ID: 393089335\n• Correo: gregoryrodriguez2021@gmail.com\n\nAl realizar el pago, envíanos por favor la captura o el número de referencia para activar tu servicio al instante. ¡Muchas gracias! ✨'
+  },
+  invitacion_registro_portal: {
+    id: 'invitacion_registro_portal',
+    canal: 'whatsapp',
+    titulo: '🌐 Invitación y Acceso al Portal de Clientes',
+    descripcion: 'Invita a un cliente que compró por WhatsApp a registrarse o entrar a su portal para ver sus servicios y tarjeta.',
+    tags: ['cliente', 'portal_url', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 👋 Como cliente de {negocio}, tienes a tu disposición nuestro portal web exclusivo:\n🌐 {portal_url}\n\nEn tu portal podrás:\n✅ Ver tus pantallas activas, PIN y fechas de vencimiento 24/7.\n✅ Descargar tus facturas digitales y comprobantes de compra.\n✅ Usar tu Tarjeta Digital Zeny para renovar en 1 clic.\n\nTu usuario es este mismo número de WhatsApp o tu correo. ¡Cualquier duda estamos a tu disposición! 🤝✨'
   }
 };
 
