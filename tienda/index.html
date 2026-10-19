@@ -2044,10 +2044,13 @@ if($('#bFranchise')) $('#bFranchise').onclick = () => openFranchiseModal();
 if($('#bMesaCambio')) $('#bMesaCambio').onclick = () => openMesaCambioModal();
 
 // ---------- TIENDA ----------
-const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Membresía',gaming:'🎮 Gaming & Activos',recarga_telefonica:'📱 Recarga Telefónica'};
+const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',combos:'Combo Dúo',servicio:'Membresía',gaming:'Juegos',recarga_telefonica:'📱 Recarga Telefónica'};
 function getBrandInfo(nombre = ''){
   const n = (nombre||'').toLowerCase();
-  // Gaming
+  // Combos
+  if(n.includes('combo')) return { name: 'Combo Dúo', color: '#FB7185', bg: 'rgba(244,63,94,0.25)' };
+
+  // Gaming / Juegos
   if(n.includes('free fire')) return { name: 'Free Fire', color: '#FF5722', bg: 'rgba(255,87,34,0.2)' };
   if(n.includes('roblox') || n.includes('robux')) return { name: 'Roblox', color: '#E02424', bg: 'rgba(224,36,36,0.2)' };
   if(n.includes('call of duty') || n.includes('cod') || n.includes('warzone')) return { name: 'Call of Duty', color: '#10B981', bg: 'rgba(16,185,129,0.2)' };
@@ -2115,13 +2118,25 @@ function productCard(p){
 
   const out=!(S.stock[p.id]>0||p.tipo==='servicio'||p.tipo==='gaming'||p.tipo==='recarga_telefonica'), bs=S.cur==='USD'&&S.rate?`<div class="sub">≈ Bs. ${(effectivePrice*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`:'';
   
+  const isCombo = (p.nombre || '').toLowerCase().includes('combo');
+  const isServicio = p.tipo === 'servicio' && !isCombo;
+
   const imgHtml = p.imagen_url
     ? `<img src="${esc(p.imagen_url)}" alt="${esc(p.nombre)}" loading="lazy" decoding="async">`
     : `<div class="ph" aria-hidden="true" style="background:radial-gradient(circle at 50% 30%, ${brand.bg.replace('0.25','0.45')} 0%, #071324 100%)">
         <span style="font-size:1.65rem;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:${brand.color};text-shadow:0 0 20px ${brand.color}88,0 4px 10px rgba(0,0,0,.8)">${esc(brand.name)}</span>
        </div>`;
 
-  return `<article class="pc t-${esc(p.tipo)}">
+  const tagLabel = isCombo ? '🔥 Combo' : (TL[p.tipo]||p.tipo);
+  const badgeHtml = isCombo
+    ? '<span class="pill" style="font-size:.65rem;background:rgba(244,63,94,.18);color:#fb7185;border:1px solid rgba(244,63,94,.45);font-weight:800;display:inline-flex;align-items:center;gap:3px">🔥 Combo Dúo</span>'
+    : (isServicio ? '<span class="pill" style="font-size:.65rem;background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.45);font-weight:800;display:inline-flex;align-items:center;gap:3px" title="Este servicio se activa directamente bajo solicitud a tu cuenta o correo personal">📦 Bajo Pedido</span>' : '');
+
+  const ctaBtnText = (p.tipo === 'gaming' || p.tipo === 'recarga_telefonica') 
+    ? '⚡ Recargar' 
+    : (isCombo ? '🔥 Comprar Combo' : (isServicio ? '📦 Comprar y Solicitar' : 'Comprar'));
+
+  return `<article class="pc t-${esc(p.tipo)} ${isCombo ? 'pc-combo' : ''}">
     <div class="pc-brand-indicator" style="background:${brand.bg};color:${brand.color};border-color:${brand.color}88">
       <span class="pc-brand-dot" style="background:${brand.color}"></span>
       <span>${esc(brand.name)}</span>
@@ -2129,8 +2144,8 @@ function productCard(p){
     ${imgHtml}
     <div class="pb">
      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
-       <span class="tag">${esc(TL[p.tipo]||p.tipo)}</span>
-       ${p.tipo === 'servicio' ? '<span class="pill" style="font-size:.65rem;background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.45);font-weight:800;display:inline-flex;align-items:center;gap:3px" title="Este servicio se activa directamente bajo solicitud a tu cuenta o correo personal">📦 Bajo Pedido</span>' : ''}
+       <span class="tag" style="${isCombo ? 'background:rgba(244,63,94,.15);color:#fb7185;border-color:rgba(244,63,94,.35)' : ''}">${esc(tagLabel)}</span>
+       ${badgeHtml}
        ${hasResellerSpecial ? '<span class="reseller-badge">Precio Revendedor</span>' : ''}
        ${hasBinanceSpecial ? `<span class="pill" style="font-size:.65rem;background:rgba(240,185,11,.15);color:#f0b90b;border:1px solid rgba(240,185,11,.3);font-weight:700" title="Precio especial con Binance Pay">🟡 Binance: $${Number(p.precio_binance_usd).toFixed(2)} USDT</span>` : ''}
        ${hasCuotas ? `<span class="pill" style="font-size:.65rem;background:rgba(0,212,255,.12);color:#00d4ff;border:1px solid rgba(0,212,255,.3);font-weight:700" title="Plan financiado en cuotas quincenales">💳 En Cuotas</span>` : ''}
@@ -2140,7 +2155,7 @@ function productCard(p){
      <div class="meta">
        <span>⏱ ${p.duracion_dias || 30} días</span>
        <span>🛡 Garantía ${p.garantia_dias != null ? p.garantia_dias : (p.duracion_dias || 30)} días</span>
-       ${p.tipo === 'servicio' ? '<span style="color:#c084fc;font-weight:700">⚡ A tu correo</span>' : ''}
+       ${isCombo ? '<span style="color:#fb7185;font-weight:700">⚡ 2 Servicios</span>' : (isServicio ? '<span style="color:#c084fc;font-weight:700">⚡ A tu correo</span>' : '')}
      </div>
      <div class="buy">
        <div>
@@ -2151,7 +2166,7 @@ function productCard(p){
          </div>
          ${bs}
        </div>
-       ${out?'<span class="pill off" style="padding:6px 12px;font-size:.78rem">Agotado</span>':`<button class="cta" data-buy="${p.id}">${(p.tipo === 'gaming' || p.tipo === 'recarga_telefonica') ? '⚡ Recargar' : (p.tipo === 'servicio' ? '📦 Comprar y Solicitar' : 'Comprar')}</button>`}
+       ${out?'<span class="pill off" style="padding:6px 12px;font-size:.78rem">Agotado</span>':`<button class="cta" data-buy="${p.id}">${ctaBtnText}</button>`}
      </div>
    </div></article>`;
 }
@@ -2159,7 +2174,16 @@ function renderGrid(){
   const q=(S.q||'').toLowerCase();
   const list=S.products.filter(p=>{
     if(S.franchise && (p.es_exclusivo_central || p.tipo === 'gaming' || p.tipo === 'recarga_telefonica')) return false;
-    return (S.tipo?p.tipo===S.tipo:true)&&(p.nombre||'').toLowerCase().includes(q);
+    const isCombo = (p.nombre || '').toLowerCase().includes('combo');
+    let matchesType = true;
+    if(S.tipo === 'combos'){
+      matchesType = isCombo;
+    } else if(S.tipo === 'servicio'){
+      matchesType = p.tipo === 'servicio' && !isCombo;
+    } else if(S.tipo){
+      matchesType = p.tipo === S.tipo && !isCombo;
+    }
+    return matchesType && (p.nombre||'').toLowerCase().includes(q);
   });
   const g=$('#grid'); if(!g) return;
   g.innerHTML=list.map(productCard).join('')||'<p class="mut empty">Aún no hay productos disponibles en esta categoría. Vuelve pronto.</p>';
@@ -2170,10 +2194,11 @@ function renderTabs(){
     ['', 'Todo'],
     ['pantalla', 'Pantallas'],
     ['cuenta_completa', 'Cuentas completas'],
+    ['combos', '🔥 Combos'],
     ['servicio', '📦 Bajo Pedido']
   ];
   if(!S.franchise){
-    baseTabs.push(['gaming', '🎮 Gaming & Activos']);
+    baseTabs.push(['gaming', 'Juegos']);
     baseTabs.push(['recarga_telefonica', '📱 Recargas Telefónicas']);
   }
   $('#tabs').innerHTML=baseTabs.map(([v,t])=>`<button class="${(S.tipo||'')===v?'':'g'}" data-t="${v}">${t}</button>`).join('');
@@ -2470,11 +2495,12 @@ async function buyDlg(id){
   let splitRef1 = '';
   let splitRef2 = '';
 
-  // Variables y sincronización de datos de recarga (Gaming, Telefonía y Servicios Bajo Pedido)
+  // Variables y sincronización de datos de recarga (Gaming, Telefonía, Combos y Servicios Bajo Pedido)
   let rechargeData = { player_id: '', servidor: '', nickname: '', operadora: 'Movistar', telefono: '', correo_activacion: '', texto_activacion: '', datos_activacion: '' };
   const isGaming = p.tipo === 'gaming';
   const isTelecom = p.tipo === 'recarga_telefonica';
-  const isServicio = p.tipo === 'servicio';
+  const isCombo = (p.nombre || '').toLowerCase().includes('combo');
+  const isServicio = p.tipo === 'servicio' && !isCombo;
   const isRechargeService = isGaming || isTelecom;
 
   const syncRecharge = () => {
@@ -2500,7 +2526,7 @@ async function buyDlg(id){
   const getOrderDatosRecarga = () => {
     syncRecharge();
     if(isRechargeService) return rechargeData;
-    if(isServicio){
+    if(isServicio || isCombo){
       const val = (rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || '').trim();
       return val ? { texto_activacion: val, datos_activacion: val, correo_activacion: val } : {};
     }
@@ -2756,6 +2782,23 @@ async function buyDlg(id){
                 <div>
                   <label style="display:block;font-size:.72rem;color:#cbd5e1;margin-bottom:3px">Texto (opcional):</label>
                   <input id="recServicioTexto" class="checkout-input" style="font-size:.86rem;padding:8px 10px" placeholder="Ej: Correo, cuenta, teléfono, número o nota" value="${esc(rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || '')}">
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Detalle para Combo Dúo -->
+            ${isCombo ? `
+              <div class="checkout-recharge-card" style="margin-bottom:14px;padding:12px 14px;background:rgba(244,63,94,0.15);border:1px solid rgba(244,63,94,0.4);border-radius:14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="font-size:1.3rem">🔥</span>
+                  <div>
+                    <div style="font-size:.84rem;font-weight:700;color:#fb7185">Combo Especial Dúo</div>
+                    <div style="font-size:.72rem;color:#cbd5e1">Incluye 2 servicios digitales con garantía y entrega coordinada.</div>
+                  </div>
+                </div>
+                <div>
+                  <label style="display:block;font-size:.72rem;color:#cbd5e1;margin-bottom:3px">Nota o WhatsApp para entrega (opcional):</label>
+                  <input id="recServicioTexto" class="checkout-input" style="font-size:.86rem;padding:8px 10px" placeholder="Ej: Mi WhatsApp o indicación especial" value="${esc(rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || '')}">
                 </div>
               </div>
             ` : ''}
@@ -3024,7 +3067,7 @@ async function buyDlg(id){
         const elOp = $('#recOperator'); if(elOp) elOp.onchange = () => rechargeData.operadora = elOp.value;
         const elPhone = $('#recPhone'); if(elPhone) elPhone.oninput = () => rechargeData.telefono = elPhone.value.trim();
       }
-      if(isServicio){
+      if(isServicio || isCombo){
         const elServTexto = $('#recServicioTexto') || $('#recServicioEmail');
         if(elServTexto){
           elServTexto.oninput = () => {
@@ -3171,6 +3214,17 @@ async function buyDlg(id){
               <div style="font-size:.78rem">
                 <span style="color:#c084fc;font-weight:700">📦 Membresía Bajo Pedido:</span>
                 <b style="color:#fff;margin-left:4px">${esc(rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || 'A coordinar por WhatsApp / Portal')}</b>
+              </div>
+              <button type="button" class="g" id="btnEditRecharge" style="font-size:.7rem;padding:3px 8px">Modificar</button>
+            </div>
+          ` : ''}
+
+          <!-- Resumen de Combo si aplica -->
+          ${isCombo ? `
+            <div style="margin-bottom:12px;padding:10px 12px;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.35);border-radius:12px;display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:.78rem">
+                <span style="color:#fb7185;font-weight:700">🔥 Combo Dúo:</span>
+                <b style="color:#fff;margin-left:4px">${esc(rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || 'Entrega coordinada')}</b>
               </div>
               <button type="button" class="g" id="btnEditRecharge" style="font-size:.7rem;padding:3px 8px">Modificar</button>
             </div>
@@ -6041,8 +6095,13 @@ const NOADD=['transfers'];
 const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
-  if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||'');
-  if(c==='product_id') return esc(r.products?.nombre||'') + (r.products?.tipo==='servicio' ? ' <span class="pill" style="font-size:.65rem;background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.4);font-weight:800">📦 Bajo Pedido</span>' : '');
+  if(c==='product_id'){
+    const nom = esc(r.products?.nombre||'');
+    const isC = (r.products?.nombre||'').toLowerCase().includes('combo');
+    if(isC) return nom + ' <span class="pill" style="font-size:.65rem;background:rgba(244,63,94,.18);color:#fb7185;border:1px solid rgba(244,63,94,.4);font-weight:800">🔥 Combo</span>';
+    if(r.products?.tipo==='servicio') return nom + ' <span class="pill" style="font-size:.65rem;background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.4);font-weight:800">📦 Bajo Pedido</span>';
+    return nom;
+  }
   if(c==='datos_recarga'){
     const d=r.datos_recarga;
     const servVal = d ? (d.texto_activacion || d.datos_activacion || d.correo_activacion) : null;
