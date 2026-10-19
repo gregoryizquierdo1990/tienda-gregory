@@ -6008,16 +6008,22 @@ const ADMIN_MENU = [
 ];
 
 function getTabInfo(t){
+  const ALIAS = { installments: 'cuotas', google_integrations: 'google' };
+  const effectiveKey = ALIAS[t] || t;
   for(const g of ADMIN_MENU){
-    const f=g.items.find(x=>x.id===t);
+    const f=g.items.find(x=>x.id===effectiveKey);
     if(f) return f;
   }
   return { id: t, label: t, icon: '📄' };
 }
 
 function renderAdminSidebar(curTab, allTabs){
+  const ALIAS_TO_MODULE = {
+    installments: 'cuotas',
+    google_integrations: 'google'
+  };
   const known = new Set(ADMIN_MENU.flatMap(g => g.items.map(i => i.id)));
-  const extra = allTabs.filter(k => !known.has(k));
+  const extra = allTabs.filter(k => !known.has(k) && !known.has(ALIAS_TO_MODULE[k]));
   const groups = [...ADMIN_MENU];
   if(extra.length) groups.push({ group: 'Otras tablas', items: extra.map(k => ({ id: k, label: k, icon: '📄' })) });
   return `<div class="admin-backdrop" id="adminBackdrop"></div><aside class="admin-sidebar" id="adminSidebar"><div class="admin-sidebar-head"><div class="admin-sidebar-brand"><div class="admin-sb-icon"><img src="/logo-badge.png" alt="Logo"></div><div><div class="admin-sb-title">Panel Admin</div><div class="admin-sb-sub">Emprendimiento Gregory</div></div></div><button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button></div><div style="padding:8px 12px 4px"><input id="adminSidebarSearch" placeholder="🔍 Buscar módulo..." style="width:100%;font-size:.76rem;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#fff"></div><nav class="admin-nav-scroll">${groups.map(g=>`<div class="admin-sb-group">${esc(g.group)}</div>${g.items.map(it=>{
