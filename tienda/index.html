@@ -2044,7 +2044,7 @@ if($('#bFranchise')) $('#bFranchise').onclick = () => openFranchiseModal();
 if($('#bMesaCambio')) $('#bMesaCambio').onclick = () => openMesaCambioModal();
 
 // ---------- TIENDA ----------
-const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Servicio Digital',gaming:'🎮 Gaming & Activos',recarga_telefonica:'📱 Recarga Telefónica'};
+const TL={pantalla:'Pantalla',cuenta_completa:'Cuenta completa',servicio:'Membresía',gaming:'🎮 Gaming & Activos',recarga_telefonica:'📱 Recarga Telefónica'};
 function getBrandInfo(nombre = ''){
   const n = (nombre||'').toLowerCase();
   // Gaming
@@ -2119,16 +2119,21 @@ function productCard(p){
       <span>${esc(brand.name)}</span>
     </div>
     ${imgHtml}
-   <div class="pb">
+    <div class="pb">
      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
        <span class="tag">${esc(TL[p.tipo]||p.tipo)}</span>
+       ${p.tipo === 'servicio' ? '<span class="pill" style="font-size:.65rem;background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.45);font-weight:800;display:inline-flex;align-items:center;gap:3px" title="Este servicio se activa directamente bajo solicitud a tu cuenta o correo personal">📦 Bajo Pedido</span>' : ''}
        ${hasResellerSpecial ? '<span class="reseller-badge">Precio Revendedor</span>' : ''}
        ${hasBinanceSpecial ? `<span class="pill" style="font-size:.65rem;background:rgba(240,185,11,.15);color:#f0b90b;border:1px solid rgba(240,185,11,.3);font-weight:700" title="Precio especial con Binance Pay">🟡 Binance: $${Number(p.precio_binance_usd).toFixed(2)} USDT</span>` : ''}
        ${hasCuotas ? `<span class="pill" style="font-size:.65rem;background:rgba(0,212,255,.12);color:#00d4ff;border:1px solid rgba(0,212,255,.3);font-weight:700" title="Plan financiado en cuotas quincenales">💳 En Cuotas</span>` : ''}
      </div>
      <h3>${esc(p.nombre)}</h3>
      ${p.descripcion ? `<p class="mut">${esc(p.descripcion)}</p>` : ''}
-     <div class="meta"><span>⏱ ${p.duracion_dias} días</span><span>🛡 Garantía ${p.garantia_dias||0} días</span></div>
+     <div class="meta">
+       <span>⏱ ${p.duracion_dias} días</span>
+       <span>🛡 Garantía ${p.garantia_dias||0} días</span>
+       ${p.tipo === 'servicio' ? '<span style="color:#c084fc;font-weight:700">⚡ A tu correo</span>' : ''}
+     </div>
      <div class="buy">
        <div>
          <div class="price">
@@ -2138,7 +2143,7 @@ function productCard(p){
          </div>
          ${bs}
        </div>
-       ${out?'<span class="pill off" style="padding:6px 12px;font-size:.78rem">Agotado</span>':`<button class="cta" data-buy="${p.id}">${(p.tipo === 'gaming' || p.tipo === 'recarga_telefonica') ? '⚡ Recargar' : 'Comprar'}</button>`}
+       ${out?'<span class="pill off" style="padding:6px 12px;font-size:.78rem">Agotado</span>':`<button class="cta" data-buy="${p.id}">${(p.tipo === 'gaming' || p.tipo === 'recarga_telefonica') ? '⚡ Recargar' : (p.tipo === 'servicio' ? '📦 Solicitar' : 'Comprar')}</button>`}
      </div>
    </div></article>`;
 }
@@ -2157,7 +2162,7 @@ function renderTabs(){
     ['', 'Todo'],
     ['pantalla', 'Pantallas'],
     ['cuenta_completa', 'Cuentas completas'],
-    ['servicio', 'Servicios Digitales']
+    ['servicio', '📦 Bajo Pedido']
   ];
   if(!S.franchise){
     baseTabs.push(['gaming', '🎮 Gaming & Activos']);
@@ -2457,10 +2462,11 @@ async function buyDlg(id){
   let splitRef1 = '';
   let splitRef2 = '';
 
-  // Variables y sincronización de datos de recarga (Gaming y Telefonía)
-  let rechargeData = { player_id: '', servidor: '', nickname: '', operadora: 'Movistar', telefono: '' };
+  // Variables y sincronización de datos de recarga (Gaming, Telefonía y Servicios Bajo Pedido)
+  let rechargeData = { player_id: '', servidor: '', nickname: '', operadora: 'Movistar', telefono: '', correo_activacion: '' };
   const isGaming = p.tipo === 'gaming';
   const isTelecom = p.tipo === 'recarga_telefonica';
+  const isServicio = p.tipo === 'servicio';
   const isRechargeService = isGaming || isTelecom;
 
   const syncRecharge = () => {
@@ -2469,11 +2475,13 @@ async function buyDlg(id){
     const elNick = $('#recNickname');
     const elOp = $('#recOperator');
     const elPhone = $('#recPhone');
+    const elServMail = $('#recServicioEmail');
     if(elPlayer) rechargeData.player_id = elPlayer.value.trim();
     if(elServer) rechargeData.servidor = elServer.value.trim();
     if(elNick) rechargeData.nickname = elNick.value.trim();
     if(elOp) rechargeData.operadora = elOp.value;
     if(elPhone) rechargeData.telefono = elPhone.value.trim();
+    if(elServMail) rechargeData.correo_activacion = elServMail.value.trim();
   };
 
   const validateRecharge = () => {
@@ -2712,6 +2720,23 @@ async function buyDlg(id){
               </div>
             ` : ''}
 
+            <!-- Datos para Membresía / Servicio Bajo Pedido -->
+            ${isServicio ? `
+              <div class="checkout-recharge-card" style="margin-bottom:14px;padding:12px 14px;background:rgba(88,28,135,0.22);border:1px solid rgba(168,85,247,0.45);border-radius:14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="font-size:1.3rem">📦</span>
+                  <div>
+                    <div style="font-size:.84rem;font-weight:700;color:#c084fc">Membresía Bajo Pedido</div>
+                    <div style="font-size:.72rem;color:#cbd5e1">Se activa a tu cuenta o correo una vez validado tu pago.</div>
+                  </div>
+                </div>
+                <div>
+                  <label style="display:block;font-size:.72rem;color:#cbd5e1;margin-bottom:3px">Tu correo o cuenta a activar (opcional):</label>
+                  <input id="recServicioEmail" class="checkout-input" style="font-size:.86rem;padding:8px 10px" placeholder="Ej: micorreo@gmail.com" value="${esc(rechargeData.correo_activacion || '')}">
+                </div>
+              </div>
+            ` : ''}
+
             <!-- Resumen de compra -->
             <div class="checkout-summary-box">
               <div class="checkout-summary-row">
@@ -2909,6 +2934,7 @@ async function buyDlg(id){
       const subMixedBtn = $('#coSubmitMixedBtn');
       if (subMixedBtn) {
         subMixedBtn.onclick = async () => {
+          syncRecharge();
           if (isRechargeService && !validateRecharge()) return;
           const ref1 = $('#inputSplitRef1')?.value?.trim() || splitRef1;
           const ref2 = $('#inputSplitRef2')?.value?.trim() || splitRef2;
@@ -2923,7 +2949,7 @@ async function buyDlg(id){
             p_metodo: m1.id,
             p_ref: combinedRef,
             p_zeny: appliedZeny,
-            p_datos_recarga: isRechargeService ? rechargeData : {},
+            p_datos_recarga: isRechargeService ? rechargeData : (isServicio && rechargeData.correo_activacion ? { correo_activacion: rechargeData.correo_activacion } : {}),
             p_es_cuotas: payPlan === 'cuotas',
             p_franchise_id: S.franchise?.id || null
           });
@@ -2974,6 +3000,9 @@ async function buyDlg(id){
         const elOp = $('#recOperator'); if(elOp) elOp.onchange = () => rechargeData.operadora = elOp.value;
         const elPhone = $('#recPhone'); if(elPhone) elPhone.oninput = () => rechargeData.telefono = elPhone.value.trim();
       }
+      if(isServicio){
+        const elServMail = $('#recServicioEmail'); if(elServMail) elServMail.oninput = () => rechargeData.correo_activacion = elServMail.value.trim();
+      }
 
       const btnPlanContado = $('#pmPlanContado');
       if(btnPlanContado) btnPlanContado.onclick = () => { payPlan = 'contado'; appliedZeny = 0; renderCheckout(); };
@@ -2982,6 +3011,7 @@ async function buyDlg(id){
 
       checkoutDlg.querySelectorAll('[data-pm-choose]').forEach(el => {
         el.onclick = () => {
+          syncRecharge();
           if(isRechargeService && !validateRecharge()) return;
           selectedMethodId = el.dataset.pmChoose;
           currentStep = 'details';
@@ -3007,6 +3037,7 @@ async function buyDlg(id){
       const zenySubmit = $('#coSubmitZenyBtn');
       if(zenySubmit){
         zenySubmit.onclick = async () => {
+          syncRecharge();
           if(isRechargeService && !validateRecharge()) return;
           zenySubmit.disabled = true;
           const refText = payPlan === 'cuotas' ? `Inicial Cuota 1 (Zeny)` : 'Pago completo Zeny';
@@ -3015,7 +3046,7 @@ async function buyDlg(id){
             p_metodo: null,
             p_ref: refText,
             p_zeny: appliedZeny,
-            p_datos_recarga: isRechargeService ? rechargeData : {},
+            p_datos_recarga: isRechargeService ? rechargeData : (isServicio && rechargeData.correo_activacion ? { correo_activacion: rechargeData.correo_activacion } : {}),
             p_es_cuotas: payPlan === 'cuotas',
             p_franchise_id: S.franchise?.id || null
           });
@@ -3042,6 +3073,7 @@ async function buyDlg(id){
       const cardDirectBtn = $('#coPayCardDirectBtn');
       if(cardDirectBtn){
         cardDirectBtn.onclick = async () => {
+          syncRecharge();
           if(isRechargeService && !validateRecharge()) return;
           cardDirectBtn.disabled = true;
           const refCard = `[TDC Zeny] ${userCard.numero_tarjeta}`;
@@ -3050,7 +3082,7 @@ async function buyDlg(id){
             p_metodo: null,
             p_ref: refCard,
             p_zeny: totalToPayToday,
-            p_datos_recarga: isRechargeService ? rechargeData : {},
+            p_datos_recarga: isRechargeService ? rechargeData : (isServicio && rechargeData.correo_activacion ? { correo_activacion: rechargeData.correo_activacion } : {}),
             p_es_cuotas: payPlan === 'cuotas',
             p_franchise_id: S.franchise?.id || null
           });
@@ -3096,6 +3128,17 @@ async function buyDlg(id){
                 <span style="color:#38bdf8;font-weight:700">${isGaming ? '🎮 Recarga:' : '📱 Recarga:'}</span>
                 <b style="color:#fff;margin-left:4px">${isGaming ? esc(rechargeData.player_id) : (esc(rechargeData.operadora) + ' ' + esc(rechargeData.telefono))}</b>
                 ${rechargeData.servidor ? `<span style="color:#94a3b8;font-size:.72rem"> (${esc(rechargeData.servidor)})</span>` : ''}
+              </div>
+              <button type="button" class="g" id="btnEditRecharge" style="font-size:.7rem;padding:3px 8px">Modificar</button>
+            </div>
+          ` : ''}
+
+          <!-- Resumen de servicio Bajo Pedido si aplica -->
+          ${isServicio ? `
+            <div style="margin-bottom:12px;padding:10px 12px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.35);border-radius:12px;display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:.78rem">
+                <span style="color:#c084fc;font-weight:700">📦 Membresía Bajo Pedido:</span>
+                <b style="color:#fff;margin-left:4px">${esc(rechargeData.correo_activacion || 'A coordinar por WhatsApp / Portal')}</b>
               </div>
               <button type="button" class="g" id="btnEditRecharge" style="font-size:.7rem;padding:3px 8px">Modificar</button>
             </div>
@@ -3163,7 +3206,7 @@ async function buyDlg(id){
             ${payPlan === 'cuotas' ? 'Enviar Pago de Cuota Inicial' : 'Enviar Pedido para Conciliación'}
           </button>
           <p class="mut" style="text-align:center;font-size:.72rem;margin:10px 0 0">
-            🛡 ${isRechargeService ? 'La recarga se procesará tan pronto el administrador verifique tu pago.' : 'Las credenciales se entregarán en tu portal tan pronto el administrador verifique tu pago.'}
+            🛡 ${isRechargeService ? 'La recarga se procesará tan pronto el administrador verifique tu pago.' : (isServicio ? 'Tu membresía se activará tan pronto el administrador verifique tu pago.' : 'Las credenciales se entregarán en tu portal tan pronto el administrador verifique tu pago.')}
           </p>
         </div>
       </div>
@@ -3214,6 +3257,7 @@ async function buyDlg(id){
 
     $('#coSubmitBtn').onclick = async () => {
       const btn = $('#coSubmitBtn');
+      syncRecharge();
       if(isRechargeService && !validateRecharge()) return;
       btn.disabled = true;
       const refVal = $('#coRefInput')?.value?.trim() || '';
@@ -3229,7 +3273,7 @@ async function buyDlg(id){
         p_metodo: selectedMethodId,
         p_ref: orderRef,
         p_zeny: appliedZeny,
-        p_datos_recarga: isRechargeService ? rechargeData : {},
+        p_datos_recarga: isRechargeService ? rechargeData : (isServicio && rechargeData.correo_activacion ? { correo_activacion: rechargeData.correo_activacion } : {}),
         p_es_cuotas: payPlan === 'cuotas',
         p_franchise_id: S.franchise?.id || null
       });
@@ -5224,10 +5268,11 @@ async function portal(){
           let info = '';
           if(d.player_id) info = `<div style="font-size:.74rem;color:#38bdf8;margin-top:2px">🎮 ID: <b>${esc(d.player_id)}</b>${d.servidor ? ' ('+esc(d.servidor)+')' : ''}${d.nickname ? ' ['+esc(d.nickname)+']' : ''}</div>`;
           else if(d.telefono) info = `<div style="font-size:.74rem;color:#38bdf8;margin-top:2px">📱 ${esc(d.operadora||'Línea')}: <b>${esc(d.telefono)}</b></div>`;
+          else if(d.correo_activacion) info = `<div style="font-size:.74rem;color:#c084fc;margin-top:2px">✉️ Correo activación: <b>${esc(d.correo_activacion)}</b></div>`;
           
           const stLabel = x.estado === 'pendiente' 
             ? '<span class="pill" style="font-size:.7rem;background:rgba(234,179,8,.15);color:#fde047">⏳ En revisión</span>' 
-            : (x.estado === 'entregado' ? `<span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.15);color:#00f5a0">${info ? '⚡ Recargado' : '✅ Entregado'}</span>` : `<span class="pill off" style="font-size:.7rem">${esc(x.estado)}</span>`);
+            : (x.estado === 'entregado' ? `<span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.15);color:#00f5a0">${info ? '⚡ Procesado' : '✅ Entregado'}</span>` : `<span class="pill off" style="font-size:.7rem">${esc(x.estado)}</span>`);
 
           return `
             <tr>
@@ -5962,12 +6007,13 @@ const NOADD=['transfers'];
 const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
-  if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||''); if(c==='product_id') return esc(r.products?.nombre||'');
+  if(c==='customer_id') return esc(r.customers?.email||r.customers?.nombre||'');
+  if(c==='product_id') return esc(r.products?.nombre||'') + (r.products?.tipo==='servicio' ? ' <span class="pill" style="font-size:.65rem;background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.4);font-weight:800">📦 Bajo Pedido</span>' : '');
   if(c==='datos_recarga'){
     const d=r.datos_recarga;
-    if(!d||(!d.player_id&&!d.telefono&&!d.operadora)) return '<span class="mut">—</span>';
-    const info=d.player_id?`🎮 ID: ${d.player_id}${d.servidor?' ('+d.servidor+')':''}${d.nickname?' ['+d.nickname+']':''}`:`📱 ${d.operadora||''}: ${d.telefono||''}`;
-    const copyVal=d.player_id||d.telefono||'';
+    if(!d||(!d.player_id&&!d.telefono&&!d.operadora&&!d.correo_activacion)) return '<span class="mut">—</span>';
+    const info=d.player_id?`🎮 ID: ${d.player_id}${d.servidor?' ('+d.servidor+')':''}${d.nickname?' ['+d.nickname+']':''}`:(d.telefono?`📱 ${d.operadora||''}: ${d.telefono||''}`:`✉️ Activar: ${d.correo_activacion||''}`);
+    const copyVal=d.player_id||d.telefono||d.correo_activacion||'';
     return `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem"><b>${esc(info)}</b><button type="button" class="g" style="padding:2px 6px;font-size:.7rem" data-clean-copy="${esc(copyVal)}" title="Copiar dato">📋</button></div>`;
   }
   if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):'');
@@ -7048,6 +7094,19 @@ async function admin(t){
         `;
       }
       if(fks[c]) return `<select data-c="${c}"><option value="">—</option>${fks[c].map(o=>`<option value="${o.id}" ${row&&row[c]===o.id?'selected':''}>${esc(o[FK[c][1]])}</option>`).join('')}</select>`;
+      if(t==='products'&&c==='tipo'){
+        const tipoLabels = {
+          pantalla: 'Pantalla (Perfil de Streaming)',
+          cuenta_completa: 'Cuenta Completa (Streaming)',
+          servicio: '📦 Bajo Pedido / Membresía (Sin cuenta madre previa)',
+          gaming: '🎮 Gaming & Activos Digitales',
+          recarga_telefonica: '📱 Recarga Telefónica'
+        };
+        return `
+          <select data-c="${c}">${(ENUM['products.tipo']||[]).map(o=>`<option value="${o}" ${v===o?'selected':''}>${tipoLabels[o]||o}</option>`).join('')}</select>
+          <div style="font-size:.72rem;color:#c084fc;margin:4px 0 10px;line-height:1.3">💡 <b>Bajo Pedido (servicio):</b> Siempre visible y con stock disponible en la tienda sin requerir cuentas madre creadas previamente. Al comprar, el cliente puede indicar su correo o cuenta para que le actives la membresía.</div>
+        `;
+      }
       if(ENUM[t+'.'+c]) return `<select data-c="${c}">${ENUM[t+'.'+c].map(o=>`<option ${v===o?'selected':''}>${o}</option>`).join('')}</select>`;
       if(BOOL.includes(c)) return `<select data-c="${c}"><option value="true" ${v!==false?'selected':''}>Sí</option><option value="false" ${v===false?'selected':''}>No</option></select>`;
       if(c==='imagen_url') return `<input data-c="${c}" value="${esc(v)}" placeholder="URL"><input type="file" accept="image/*" data-up style="margin-top:6px">`;
