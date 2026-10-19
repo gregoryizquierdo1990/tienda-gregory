@@ -1218,15 +1218,25 @@ async function openRenewalModal(opts = {}) {
     btn.disabled = true;
     btn.textContent = '⏳ Procesando renovación...';
 
+    // Limpiar alertas previas
+    const oldErr = $('#renewErrMsg');
+    if(oldErr) oldErr.remove();
+
     try {
       let result = null;
-      // 1. Invocar RPC maestro en base de datos
-      const { data: rpcData, error: rpcErr } = await sb.rpc('renovar_suscripcion_perfil', {
+      // 1. Invocar RPC maestro con timeout guard de 20s para prevenir que la UI quede congelada
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('El servidor tardó en responder. Por favor verifica tu conexión o el estado en tu portal.')), 20000)
+      );
+
+      const rpcPromise = sb.rpc('renovar_suscripcion_perfil', {
         p_profile_id: profileId,
         p_metodo: selMetodo,
         p_metodo_id: pmId,
         p_referencia: refVal
       });
+
+      const { data: rpcData, error: rpcErr } = await Promise.race([rpcPromise, timeoutPromise]);
 
       if(!rpcErr && rpcData?.success) {
         result = rpcData;
@@ -1235,7 +1245,12 @@ async function openRenewalModal(opts = {}) {
         console.error('Error renovación:', errMsg);
         btn.disabled = false;
         btn.textContent = 'Confirmar Renovación (+30d)';
-        return toast('⚠️ No se pudo procesar la renovación: ' + errMsg);
+        const errDiv = document.createElement('div');
+        errDiv.id = 'renewErrMsg';
+        errDiv.style = 'background:rgba(239,68,68,.15);border:1px solid #ef4444;color:#fca5a5;padding:10px 12px;border-radius:10px;margin-bottom:12px;font-size:.82rem;line-height:1.4';
+        errDiv.innerHTML = `⚠️ <b>No se pudo renovar:</b> ${esc(errMsg)}`;
+        btn.parentNode.parentNode.insertBefore(errDiv, btn.parentNode);
+        return;
       }
 
       // Refrescar el portal de inmediato para reflejar cuotas y nuevo vencimiento
@@ -1314,7 +1329,13 @@ async function openRenewalModal(opts = {}) {
       console.error('Error al renovar:', err);
       btn.disabled = false;
       btn.textContent = 'Confirmar Renovación (+30d)';
-      toast('⚠️ Error al renovar: ' + err.message);
+      const errDiv = document.createElement('div');
+      errDiv.id = 'renewErrMsg';
+      errDiv.style = 'background:rgba(239,68,68,.15);border:1px solid #ef4444;color:#fca5a5;padding:10px 12px;border-radius:10px;margin-bottom:12px;font-size:.82rem;line-height:1.4';
+      errDiv.innerHTML = `⚠️ <b>Error:</b> ${esc(err.message || 'Error de conexión')}`;
+      if(btn.parentNode && btn.parentNode.parentNode) {
+        btn.parentNode.parentNode.insertBefore(errDiv, btn.parentNode);
+      }
     }
   };
 }
