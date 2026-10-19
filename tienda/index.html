@@ -2138,8 +2138,8 @@ function productCard(p){
      <h3>${esc(p.nombre)}</h3>
      ${p.descripcion ? `<p class="mut">${esc(p.descripcion)}</p>` : ''}
      <div class="meta">
-       <span>⏱ ${p.duracion_dias} días</span>
-       <span>🛡 Garantía ${p.garantia_dias||0} días</span>
+       <span>⏱ ${p.duracion_dias || 30} días</span>
+       <span>🛡 Garantía ${p.garantia_dias != null ? p.garantia_dias : (p.duracion_dias || 30)} días</span>
        ${p.tipo === 'servicio' ? '<span style="color:#c084fc;font-weight:700">⚡ A tu correo</span>' : ''}
      </div>
      <div class="buy">
@@ -2151,7 +2151,7 @@ function productCard(p){
          </div>
          ${bs}
        </div>
-       ${out?'<span class="pill off" style="padding:6px 12px;font-size:.78rem">Agotado</span>':`<button class="cta" data-buy="${p.id}">${(p.tipo === 'gaming' || p.tipo === 'recarga_telefonica') ? '⚡ Recargar' : (p.tipo === 'servicio' ? '📦 Solicitar' : 'Comprar')}</button>`}
+       ${out?'<span class="pill off" style="padding:6px 12px;font-size:.78rem">Agotado</span>':`<button class="cta" data-buy="${p.id}">${(p.tipo === 'gaming' || p.tipo === 'recarga_telefonica') ? '⚡ Recargar' : (p.tipo === 'servicio' ? '📦 Comprar y Solicitar' : 'Comprar')}</button>`}
      </div>
    </div></article>`;
 }
