@@ -5166,6 +5166,27 @@ async function portal(){
           </button>
         ` : '')}
       </div>
+
+      <!-- 4. Asistente Interactivo Diego_bot (Telegram) -->
+      <div class="card portal-summary-card" style="border:1.5px solid rgba(0,136,204,.35);background:linear-gradient(135deg,rgba(0,136,204,.08),rgba(15,23,42,.6))">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span class="mut" style="font-size:.82rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#38bdf8">🤖 Diego_bot Telegram</span>
+          <span class="pill" style="font-size:.7rem;${S.me?.telegram_chat_id ? 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.35)' : 'background:rgba(0,136,204,.15);color:#38bdf8;border-color:rgba(0,136,204,.35)'}">
+            ${S.me?.telegram_chat_id ? '🟢 Conectado' : '⚡ 1 Clic'}
+          </span>
+        </div>
+        <div>
+          <div style="font-weight:800;font-size:1.15rem;color:#fff;margin:4px 0">@Diego1asistente_bot</div>
+          <div class="mut" style="font-size:.8rem;line-height:1.35">
+            ${S.me?.telegram_chat_id ? 'Tu cuenta está sincronizada. Consulta tus credenciales activas, PINs, saldos en Wallet Zeny y deudas en tiempo real.' : 'Conecta tu cuenta para consultar tus membresías, PINs, deudas y saldo en tiempo real desde Telegram.'}
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <button id="btnConnectTelegram" style="width:100%;background:linear-gradient(135deg,#0088cc,#00a884);color:#fff;font-weight:800;border:none;border-radius:10px;padding:9px 12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+            ✈️ ${S.me?.telegram_chat_id ? 'Abrir @Diego1asistente_bot' : 'Conectar con Diego_bot'}
+          </button>
+        </div>
+      </div>
     </div>
 
   <!-- Sección Mis Cuotas -->
@@ -5501,6 +5522,42 @@ async function portal(){
     btnFlip.onclick = (e) => {
       e.stopPropagation();
       zStage.classList.toggle('flipped');
+    };
+  }
+
+  // Conectar con Asistente Telegram Diego_bot
+  const btnTg = $('#btnConnectTelegram');
+  if(btnTg){
+    btnTg.onclick = async () => {
+      if(S.me?.telegram_chat_id){
+        window.open('https://t.me/Diego1asistente_bot', '_blank');
+        return;
+      }
+      const prevHtml = btnTg.innerHTML;
+      btnTg.disabled = true;
+      btnTg.innerHTML = '⏳ Conectando...';
+      try {
+        const sess = (await sb.auth.getSession())?.data?.session;
+        if(!sess?.access_token) throw new Error('No hay sesión');
+        const r = await fetch('/api/telegram-link', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sess.access_token}` }
+        });
+        const d = await r.json();
+        if(d?.url){
+          window.open(d.url, '_blank');
+          toast('Redirigiendo a Telegram... Presiona INICIAR para vincular.');
+        } else {
+          window.open('https://t.me/Diego1asistente_bot', '_blank');
+          toast('Escribe /start en el bot e ingresa tu ID o correo.');
+        }
+      } catch(err){
+        window.open('https://t.me/Diego1asistente_bot', '_blank');
+        toast('Escribe /start en el bot e ingresa tu ID o correo.');
+      } finally {
+        btnTg.disabled = false;
+        btnTg.innerHTML = prevHtml;
+      }
     };
   }
 

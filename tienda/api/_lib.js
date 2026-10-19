@@ -1,5 +1,5 @@
 // Utilidades del servidor. Usan la clave service_role (solo en variables de Vercel, nunca en el navegador)
-const U = process.env.SUPABASE_URL, K = process.env.SUPABASE_SERVICE_KEY;
+export const U = process.env.SUPABASE_URL, K = process.env.SUPABASE_SERVICE_KEY;
 export const sbRest = async (path, opts = {}) => {
   const r = await fetch(`${U}/rest/v1/${path}`, { ...opts, headers: { apikey: K, Authorization: `Bearer ${K}`, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
   if (!r.ok) throw new Error(await r.text());
