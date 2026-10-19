@@ -1457,10 +1457,16 @@ const EXTRA = {
                 }
 
                 let gamingHtml = '';
-                if (o.datos_recarga && (o.datos_recarga.player_id || o.datos_recarga.telefono)) {
+                if (o.datos_recarga) {
                   const d = o.datos_recarga;
-                  const gText = d.player_id ? `🎮 ID: ${d.player_id}${d.servidor ? ' ('+d.servidor+')' : ''}` : `📱 ${d.operadora||''}: ${d.telefono||''}`;
-                  gamingHtml = `<div style="margin-top:3px;font-size:.72rem;color:#fde047"><b>${esc(gText)}</b></div>`;
+                  const servVal = d.texto_activacion || d.datos_activacion || d.correo_activacion;
+                  if (d.player_id || d.telefono) {
+                    const gText = d.player_id ? `🎮 ID: ${d.player_id}${d.servidor ? ' ('+d.servidor+')' : ''}` : `📱 ${d.operadora||''}: ${d.telefono||''}`;
+                    const copyVal = d.player_id || d.telefono;
+                    gamingHtml = `<div style="margin-top:3px;font-size:.72rem;color:#fde047;display:flex;align-items:center;gap:4px"><b>${esc(gText)}</b><button type="button" class="g" style="padding:1px 5px;font-size:.65rem" data-clean-copy="${esc(copyVal)}" title="Copiar dato">📋</button></div>`;
+                  } else if (servVal) {
+                    gamingHtml = `<div style="margin-top:3px;font-size:.72rem;color:#c084fc;display:flex;align-items:center;gap:4px"><b>📝 Dato: ${esc(servVal)}</b><button type="button" class="g" style="padding:1px 5px;font-size:.65rem" data-clean-copy="${esc(servVal)}" title="Copiar dato de activación">📋</button></div>`;
+                  }
                 }
 
                 return `

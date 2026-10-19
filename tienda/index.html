@@ -2471,7 +2471,7 @@ async function buyDlg(id){
   let splitRef2 = '';
 
   // Variables y sincronización de datos de recarga (Gaming, Telefonía y Servicios Bajo Pedido)
-  let rechargeData = { player_id: '', servidor: '', nickname: '', operadora: 'Movistar', telefono: '', correo_activacion: '' };
+  let rechargeData = { player_id: '', servidor: '', nickname: '', operadora: 'Movistar', telefono: '', correo_activacion: '', texto_activacion: '', datos_activacion: '' };
   const isGaming = p.tipo === 'gaming';
   const isTelecom = p.tipo === 'recarga_telefonica';
   const isServicio = p.tipo === 'servicio';
@@ -2483,13 +2483,28 @@ async function buyDlg(id){
     const elNick = $('#recNickname');
     const elOp = $('#recOperator');
     const elPhone = $('#recPhone');
-    const elServMail = $('#recServicioEmail');
+    const elServTexto = $('#recServicioTexto') || $('#recServicioEmail');
     if(elPlayer) rechargeData.player_id = elPlayer.value.trim();
     if(elServer) rechargeData.servidor = elServer.value.trim();
     if(elNick) rechargeData.nickname = elNick.value.trim();
     if(elOp) rechargeData.operadora = elOp.value;
     if(elPhone) rechargeData.telefono = elPhone.value.trim();
-    if(elServMail) rechargeData.correo_activacion = elServMail.value.trim();
+    if(elServTexto){
+      const val = elServTexto.value.trim();
+      rechargeData.texto_activacion = val;
+      rechargeData.datos_activacion = val;
+      rechargeData.correo_activacion = val;
+    }
+  };
+
+  const getOrderDatosRecarga = () => {
+    syncRecharge();
+    if(isRechargeService) return rechargeData;
+    if(isServicio){
+      const val = (rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || '').trim();
+      return val ? { texto_activacion: val, datos_activacion: val, correo_activacion: val } : {};
+    }
+    return {};
   };
 
   const validateRecharge = () => {
@@ -2735,12 +2750,12 @@ async function buyDlg(id){
                   <span style="font-size:1.3rem">📦</span>
                   <div>
                     <div style="font-size:.84rem;font-weight:700;color:#c084fc">Membresía Bajo Pedido</div>
-                    <div style="font-size:.72rem;color:#cbd5e1">Se activa a tu cuenta o correo una vez validado tu pago.</div>
+                    <div style="font-size:.72rem;color:#cbd5e1">Se activa una vez validado tu pago.</div>
                   </div>
                 </div>
                 <div>
-                  <label style="display:block;font-size:.72rem;color:#cbd5e1;margin-bottom:3px">Tu correo o cuenta a activar (opcional):</label>
-                  <input id="recServicioEmail" class="checkout-input" style="font-size:.86rem;padding:8px 10px" placeholder="Ej: micorreo@gmail.com" value="${esc(rechargeData.correo_activacion || '')}">
+                  <label style="display:block;font-size:.72rem;color:#cbd5e1;margin-bottom:3px">Texto (opcional):</label>
+                  <input id="recServicioTexto" class="checkout-input" style="font-size:.86rem;padding:8px 10px" placeholder="Ej: Correo, cuenta, teléfono, número o nota" value="${esc(rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || '')}">
                 </div>
               </div>
             ` : ''}
@@ -2957,7 +2972,7 @@ async function buyDlg(id){
             p_metodo: m1.id,
             p_ref: combinedRef,
             p_zeny: appliedZeny,
-            p_datos_recarga: isRechargeService ? rechargeData : (isServicio && rechargeData.correo_activacion ? { correo_activacion: rechargeData.correo_activacion } : {}),
+            p_datos_recarga: getOrderDatosRecarga(),
             p_es_cuotas: payPlan === 'cuotas',
             p_franchise_id: S.franchise?.id || null
           });
@@ -2985,6 +3000,7 @@ async function buyDlg(id){
                 cliente: S.user?.user_metadata?.nombre || S.me?.nombre || S.user?.email || 'Cliente',
                 email: S.user?.email,
                 telefono: S.me?.telefono || (isRechargeService ? rechargeData.telefono : ''),
+                datos_activacion: isServicio ? (rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || '') : (isGaming ? `ID: ${rechargeData.player_id}` : (isTelecom ? `Tlf: ${rechargeData.telefono}` : '')),
                 total_usd: restUsd,
                 metodo: `Pago Mixto (${m1.nombre} + ${m2.nombre})`,
                 referencia: combinedRef,
@@ -3009,7 +3025,15 @@ async function buyDlg(id){
         const elPhone = $('#recPhone'); if(elPhone) elPhone.oninput = () => rechargeData.telefono = elPhone.value.trim();
       }
       if(isServicio){
-        const elServMail = $('#recServicioEmail'); if(elServMail) elServMail.oninput = () => rechargeData.correo_activacion = elServMail.value.trim();
+        const elServTexto = $('#recServicioTexto') || $('#recServicioEmail');
+        if(elServTexto){
+          elServTexto.oninput = () => {
+            const val = elServTexto.value.trim();
+            rechargeData.texto_activacion = val;
+            rechargeData.datos_activacion = val;
+            rechargeData.correo_activacion = val;
+          };
+        }
       }
 
       const btnPlanContado = $('#pmPlanContado');
@@ -3054,7 +3078,7 @@ async function buyDlg(id){
             p_metodo: null,
             p_ref: refText,
             p_zeny: appliedZeny,
-            p_datos_recarga: isRechargeService ? rechargeData : (isServicio && rechargeData.correo_activacion ? { correo_activacion: rechargeData.correo_activacion } : {}),
+            p_datos_recarga: getOrderDatosRecarga(),
             p_es_cuotas: payPlan === 'cuotas',
             p_franchise_id: S.franchise?.id || null
           });
@@ -3090,7 +3114,7 @@ async function buyDlg(id){
             p_metodo: null,
             p_ref: refCard,
             p_zeny: totalToPayToday,
-            p_datos_recarga: isRechargeService ? rechargeData : (isServicio && rechargeData.correo_activacion ? { correo_activacion: rechargeData.correo_activacion } : {}),
+            p_datos_recarga: getOrderDatosRecarga(),
             p_es_cuotas: payPlan === 'cuotas',
             p_franchise_id: S.franchise?.id || null
           });
@@ -3146,7 +3170,7 @@ async function buyDlg(id){
             <div style="margin-bottom:12px;padding:10px 12px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.35);border-radius:12px;display:flex;align-items:center;justify-content:space-between">
               <div style="font-size:.78rem">
                 <span style="color:#c084fc;font-weight:700">📦 Membresía Bajo Pedido:</span>
-                <b style="color:#fff;margin-left:4px">${esc(rechargeData.correo_activacion || 'A coordinar por WhatsApp / Portal')}</b>
+                <b style="color:#fff;margin-left:4px">${esc(rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || 'A coordinar por WhatsApp / Portal')}</b>
               </div>
               <button type="button" class="g" id="btnEditRecharge" style="font-size:.7rem;padding:3px 8px">Modificar</button>
             </div>
@@ -3281,7 +3305,7 @@ async function buyDlg(id){
         p_metodo: selectedMethodId,
         p_ref: orderRef,
         p_zeny: appliedZeny,
-        p_datos_recarga: isRechargeService ? rechargeData : (isServicio && rechargeData.correo_activacion ? { correo_activacion: rechargeData.correo_activacion } : {}),
+        p_datos_recarga: getOrderDatosRecarga(),
         p_es_cuotas: payPlan === 'cuotas',
         p_franchise_id: S.franchise?.id || null
       });
@@ -3302,6 +3326,7 @@ async function buyDlg(id){
             cliente: S.user?.user_metadata?.nombre || S.me?.nombre || S.user?.email || 'Cliente',
             email: S.user?.email,
             telefono: S.me?.telefono || (isRechargeService ? rechargeData.telefono : ''),
+            datos_activacion: isServicio ? (rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || '') : (isGaming ? `ID: ${rechargeData.player_id}` : (isTelecom ? `Tlf: ${rechargeData.telefono}` : '')),
             total_usd: restUsd,
             total_bs: restBs,
             metodo: displayMethodName,
@@ -5274,9 +5299,10 @@ async function portal(){
         ${(o.data||[]).map(x => {
           const d = x.datos_recarga || {};
           let info = '';
+          const servVal = d.texto_activacion || d.datos_activacion || d.correo_activacion;
           if(d.player_id) info = `<div style="font-size:.74rem;color:#38bdf8;margin-top:2px">🎮 ID: <b>${esc(d.player_id)}</b>${d.servidor ? ' ('+esc(d.servidor)+')' : ''}${d.nickname ? ' ['+esc(d.nickname)+']' : ''}</div>`;
           else if(d.telefono) info = `<div style="font-size:.74rem;color:#38bdf8;margin-top:2px">📱 ${esc(d.operadora||'Línea')}: <b>${esc(d.telefono)}</b></div>`;
-          else if(d.correo_activacion) info = `<div style="font-size:.74rem;color:#c084fc;margin-top:2px">✉️ Correo activación: <b>${esc(d.correo_activacion)}</b></div>`;
+          else if(servVal) info = `<div style="font-size:.74rem;color:#c084fc;margin-top:2px">📝 Datos para activación: <b>${esc(servVal)}</b></div>`;
           
           const stLabel = x.estado === 'pendiente' 
             ? '<span class="pill" style="font-size:.7rem;background:rgba(234,179,8,.15);color:#fde047">⏳ En revisión</span>' 
@@ -6019,10 +6045,11 @@ const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) r
   if(c==='product_id') return esc(r.products?.nombre||'') + (r.products?.tipo==='servicio' ? ' <span class="pill" style="font-size:.65rem;background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.4);font-weight:800">📦 Bajo Pedido</span>' : '');
   if(c==='datos_recarga'){
     const d=r.datos_recarga;
-    if(!d||(!d.player_id&&!d.telefono&&!d.operadora&&!d.correo_activacion)) return '<span class="mut">—</span>';
-    const info=d.player_id?`🎮 ID: ${d.player_id}${d.servidor?' ('+d.servidor+')':''}${d.nickname?' ['+d.nickname+']':''}`:(d.telefono?`📱 ${d.operadora||''}: ${d.telefono||''}`:`✉️ Activar: ${d.correo_activacion||''}`);
-    const copyVal=d.player_id||d.telefono||d.correo_activacion||'';
-    return `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem"><b>${esc(info)}</b><button type="button" class="g" style="padding:2px 6px;font-size:.7rem" data-clean-copy="${esc(copyVal)}" title="Copiar dato">📋</button></div>`;
+    const servVal = d ? (d.texto_activacion || d.datos_activacion || d.correo_activacion) : null;
+    if(!d||(!d.player_id&&!d.telefono&&!d.operadora&&!servVal)) return '<span class="mut">—</span>';
+    const info=d.player_id?`🎮 ID: ${d.player_id}${d.servidor?' ('+d.servidor+')':''}${d.nickname?' ['+d.nickname+']':''}`:(d.telefono?`📱 ${d.operadora||''}: ${d.telefono||''}`:`📝 Dato: ${servVal}`);
+    const copyVal=d.player_id||d.telefono||servVal||'';
+    return `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem"><b style="word-break:break-word">${esc(info)}</b><button type="button" class="g" style="padding:2px 6px;font-size:.7rem;flex-shrink:0" data-clean-copy="${esc(copyVal)}" title="Copiar dato de activación">📋</button></div>`;
   }
   if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):'');
   if(c==='vendedor_nombre') return v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 ${esc(v)}</span>` : '<span class="mut" style="font-size:.75rem">Directo Tienda</span>';
@@ -6481,8 +6508,28 @@ async function admin(t){
   }
   const orderCol = cols.includes('created_at')?'created_at':(cols.includes('creado')?'creado':cols[0]);
   const {data,error}=await q.order(orderCol,{ascending:false}).limit(300);
-  const pk=PK[t]||'id', hasAct=t==='orders'||t==='zeny_ledger';
-  app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2><span class="mut">${error?esc(error.message):(data||[]).length+' registros'}</span></div><div class="row">${extraHeadBtn}${NOADD.includes(t)?'':'<button id="add">+ Agregar</button>'}</div></div><div class="wrap"><table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th></th></tr>${(data||[]).map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c)}</td>`).join('')}<td class="row">${acts(t,r)}${NOADD.includes(t)?'':`<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}</table></div></div></div></div>`;
+  const colHeader = c => {
+    const map = {
+      datos_recarga: 'Datos Activación / Recarga',
+      customer_id: 'Cliente',
+      product_id: 'Producto / Servicio',
+      total_usd: 'Total ($)',
+      zeny_aplicado: 'Zeny ($)',
+      referencia: 'Referencia',
+      estado: 'Estado',
+      estado_recarga: 'Est. Recarga',
+      conciliado_por: 'Conciliado Por',
+      inicia: 'Inicia',
+      vence: 'Vence',
+      proximo_pago: 'Próx. Pago',
+      vendedor_nombre: 'Vendedor',
+      es_credito: 'Modalidad',
+      estado_pago: 'Est. Pago',
+      fecha_limite_pago: 'Límite Pago'
+    };
+    return map[c] || c;
+  };
+  app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2><span class="mut">${error?esc(error.message):(data||[]).length+' registros'}</span></div><div class="row">${extraHeadBtn}${NOADD.includes(t)?'':'<button id="add">+ Agregar</button>'}</div></div><div class="wrap"><table><tr>${cols.map(c=>`<th>${esc(colHeader(c))}</th>`).join('')}<th></th></tr>${(data||[]).map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c)}</td>`).join('')}<td class="row">${acts(t,r)}${NOADD.includes(t)?'':`<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}</table></div></div></div></div>`;
   setupAdminEvents();
   if($('#btnLoadOfficialPM')){
     $('#btnLoadOfficialPM').onclick = async () => {
@@ -7088,7 +7135,8 @@ async function admin(t){
         'purchases.estado_pago':'Estado del Pago al Proveedor',
         'purchases.monto_usdt':'Costo de Compra en USDT (Base Deuda)',
         'purchases.monto_usd':'Costo de Compra en Dólares ($ USD)',
-        'purchases.monto_bs':'Costo de Compra en Bolívares (Bs)'
+        'purchases.monto_bs':'Costo de Compra en Bolívares (Bs)',
+        'orders.datos_recarga':'Datos de Activación / Recarga / Texto (Bajo Pedido)'
       };
       return m[t+'.'+c]||c;
     };

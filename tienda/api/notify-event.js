@@ -30,15 +30,16 @@ export default async function handler(req, res) {
       const bs = data.total_bs ? Number(data.total_bs).toLocaleString('es-VE', { minimumFractionDigits: 2 }) : '';
       const metodo = escHtml(data.metodo || 'Pago Móvil');
       const ref = escHtml(data.referencia || 'N/A');
+      const datosAct = escHtml(data.datos_activacion || data.datos_recarga || '');
 
-      plainMsg = `🛒 ¡NUEVA COMPRA! ${prod} - $${usd} USD. Cliente: ${nom} (${cleanPhone}). Ref: ${ref}`;
+      plainMsg = `🛒 ¡NUEVA COMPRA! ${prod} - $${usd} USD. Cliente: ${nom} (${cleanPhone}). Ref: ${ref}${datosAct ? ` [Dato: ${datosAct}]` : ''}`;
       htmlMsg = `🛒 <b>¡NUEVA COMPRA DE SERVICIO!</b>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 👤 <b>Cliente:</b> ${nom}
 📱 <b>WhatsApp:</b> ${waLink ? `<a href="${waLink}">+${cleanPhone}</a>` : 'No registrado'}
 ✉️ <b>Correo:</b> <code>${correo}</code>
 📦 <b>Servicio:</b> <b>${prod}</b>
-💵 <b>Total:</b> <b>$${usd} USD</b>${bs ? ` (Bs. ${bs})` : ''}
+${datosAct ? `📝 <b>Datos / Activación:</b> <code>${datosAct}</code>\n` : ''}💵 <b>Total:</b> <b>$${usd} USD</b>${bs ? ` (Bs. ${bs})` : ''}
 💳 <b>Método:</b> ${metodo}
 🔢 <b>Referencia:</b> <code>${ref}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
