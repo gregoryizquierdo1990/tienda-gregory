@@ -4329,19 +4329,29 @@ Accede a tu tienda a través de tu subdominio asignado (ej: https://tumarca.${ba
 
       $('#btnSaveFranq').onclick = async () => {
         const btn = $('#btnSaveFranq');
-        btn.disabled = true;
-        const sub = $('#fqSub').value.trim().toLowerCase();
-        const name = $('#fqName').value.trim();
-        const owner = $('#fqOwner').value.trim();
-        const email = $('#fqEmail').value.trim();
-        const tel = $('#fqTel').value.trim();
-        const canon = Number($('#fqCanon').value || 25);
+        if (btn.disabled) return;
+
+        const sub = ($('#fqSub').value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+        const name = ($('#fqName').value || '').trim();
+        const owner = ($('#fqOwner').value || '').trim();
+        const email = ($('#fqEmail').value || '').trim();
+        const tel = ($('#fqTel').value || '').trim();
+        const doc = ($('#fqDoc')?.value || '').trim();
+        const city = ($('#fqCity')?.value || '').trim();
+        const notes = ($('#fqNotes')?.value || '').trim();
+        const canon = Number($('#fqCanon')?.value || 25);
         const stockMode = $('#fqStockMode')?.value || 'hibrido';
 
-        if (!sub || !name || !owner || !email || !tel) {
-          btn.disabled = false;
-          return toast('Por favor completa todos los campos requeridos.');
-        }
+        if (!sub) return toast('Ingresa el subdominio para la franquicia.');
+        if (sub.length < 2) return toast('El subdominio debe tener al menos 2 caracteres.');
+        if (!name) return toast('Ingresa el nombre comercial de la franquicia.');
+        if (!owner) return toast('Ingresa el nombre del propietario o titular.');
+        if (!email) return toast('Ingresa el correo oficial de la franquicia.');
+        if (!tel) return toast('Ingresa el teléfono o WhatsApp de contacto.');
+
+        btn.disabled = true;
+        const originalBtnText = btn.innerHTML;
+        btn.innerHTML = '⏳ Guardando y generando contrato...';
 
         const contractText = `CONTRATO DE LICENCIA DE SOFTWARE Y FRANQUICIA DIGITAL MARCA BLANCA
 
@@ -4354,28 +4364,90 @@ Entre EMPRENDIMIENTO GREGORY IZQUIERDO (en adelante "El Proveedor Tecnológico")
 5. MODALIDAD DE INVENTARIO HÍBRIDO (${stockMode.toUpperCase()}): El Franquiciado comercializa servicios con cuentas y perfiles propios o, ante falta de stock, despacha directamente con respaldo del inventario central a tarifa mayorista preferencial.
 Fecha de asentamiento: ${new Date().toISOString().slice(0, 10)}.`;
 
-        const { error: insErr } = await sb.from('franchises').insert({
-          subdominio: sub,
-          nombre_comercial: name,
-          titular_nombre: owner,
-          titular_cedula_rif: $('#fqDoc').value.trim(),
-          titular_telefono: tel,
-          titular_correo: email,
-          titular_ciudad: $('#fqCity').value.trim(),
-          canon_mensual_usd: canon,
-          notas_internas: $('#fqNotes').value.trim(),
-          contrato_texto: contractText,
-          estado: 'activo'
-        });
+        try {
+          let created = false;
+          let errMsg = '';
 
-        if (insErr) {
+          // 1. Intentar primero con RPC admin_create_franchise (seguridad definer)
+          try {
+            const rpcPromise = sb.rpc('admin_create_franchise', {
+              p_subdominio: sub,
+              p_nombre_comercial: name,
+              p_titular_nombre: owner,
+              p_titular_cedula_rif: doc,
+              p_titular_telefono: tel,
+              p_titular_correo: email,
+              p_titular_ciudad: city,
+              p_canon_mensual_usd: canon,
+              p_notas_internas: notes,
+              p_contrato_texto: contractText,
+              p_modalidad_inventario: stockMode
+            });
+
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Tiempo de espera agotado al conectar con el servidor')), 12000)
+            );
+
+            const rpcRes = await Promise.race([rpcPromise, timeoutPromise]);
+            if (rpcRes && !rpcRes.error) {
+              const resData = rpcRes.data;
+              if (resData?.error) {
+                errMsg = resData.error;
+              } else if (resData?.success || resData?.franchise) {
+                created = true;
+              }
+            } else if (rpcRes?.error) {
+              errMsg = rpcRes.error.message || 'Error en RPC';
+            }
+          } catch(rpcErr) {
+            console.warn('RPC admin_create_franchise no completó, intentando directo:', rpcErr);
+            errMsg = rpcErr?.message || '';
+          }
+
+          // 2. Si RPC no logró crearlo, intentar inserción directa en la tabla
+          if (!created && (!errMsg || errMsg.includes('function') || errMsg.includes('RPC'))) {
+            const { error: insErr } = await sb.from('franchises').insert({
+              subdominio: sub,
+              nombre_comercial: name,
+              titular_nombre: owner,
+              titular_cedula_rif: doc,
+              titular_telefono: tel,
+              titular_correo: email,
+              titular_ciudad: city,
+              canon_mensual_usd: canon,
+              notas_internas: notes,
+              contrato_texto: contractText,
+              estado: 'activo',
+              saldo_billetera_usd: 0.00,
+              nivel_volumen: 'bronce',
+              compras_mes_usd: 0.00,
+              kyc_estado: 'verificado'
+            });
+
+            if (!insErr) {
+              created = true;
+            } else {
+              errMsg = insErr.message || 'Error al insertar en la base de datos';
+            }
+          }
+
+          if (!created) {
+            if (errMsg.includes('unique') || errMsg.includes('ya está en uso') || errMsg.includes('ya está registrado')) {
+              return toast(`El subdominio "${sub}" ya está en uso. Elige otro.`);
+            }
+            return toast(`Error al registrar franquicia: ${errMsg || 'Verifica la conexión'}`);
+          }
+
+          dlg.close();
+          toast(`🎉 ¡Franquicia ${name} creada exitosamente en ${sub}.${baseDomain}!`);
+          EXTRA.franquicias(box);
+        } catch (fatalErr) {
+          console.error('Error fatal guardando franquicia:', fatalErr);
+          toast(`Error inesperado: ${fatalErr.message || 'Intente nuevamente'}`);
+        } finally {
           btn.disabled = false;
-          return toast(insErr.message.includes('unique') ? 'Ese subdominio ya está en uso. Elige otro.' : insErr.message);
+          btn.innerHTML = originalBtnText || 'Crear Franquicia y Generar Contrato';
         }
-
-        dlg.close();
-        toast(`¡Franquicia ${name} creada exitosamente!`);
-        EXTRA.franquicias(box);
       };
 
       dlg.showModal();
