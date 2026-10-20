@@ -7411,7 +7411,35 @@ async function openAdminDirectCreditModal(opts = {}) {
 }
 window.openAdminDirectCreditModal = openAdminDirectCreditModal;
 
-async function admin(t){
+// ==================== CACHÉ SWR DE ADMINISTRACIÓN (300 SEGUNDOS) ====================
+const ADMIN_CACHE_TTL = 300000; // 300 segundos = 5 minutos de retención
+const adminDataCache = new Map();
+
+function getAdminCache(key){
+  const item = adminDataCache.get(key);
+  if(!item) return null;
+  const isFresh = (Date.now() - item.timestamp) < ADMIN_CACHE_TTL;
+  return { ...item, isFresh };
+}
+
+function setAdminCache(key, data, error = null){
+  adminDataCache.set(key, { timestamp: Date.now(), data, error });
+}
+
+function invalidateAdminCache(pattern){
+  if(!pattern){
+    adminDataCache.clear();
+    return;
+  }
+  for(const k of Array.from(adminDataCache.keys())){
+    if(k === pattern || k === 'table_' + pattern || k.startsWith(pattern) || pattern === '*') {
+      adminDataCache.delete(k);
+    }
+  }
+}
+window.invalidateAdminCache = invalidateAdminCache;
+
+async function admin(t, opts = {}){
   if(t === 'installments') t = 'cuotas';
   if(t === 'google_integrations') t = 'google';
   if(!t || (!TABLES[t] && !EXTRA[t])) t = 'finanzas';
@@ -7421,20 +7449,70 @@ async function admin(t){
   }
   if(facetDlg && facetDlg.open) facetDlg.close();
   document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
-  const tabs=[...Object.keys(TABLES),...Object.keys(EXTRA)];
-  const tabInfo=getTabInfo(t), sideHtml=renderAdminSidebar(t,tabs);
-  const mobBar=`<div class="admin-mobile-bar"><button class="admin-mobile-toggle" id="adminToggle" type="button"><span>☰ Menú: <strong>${tabInfo.icon} ${esc(tabInfo.label)}</strong></span><span class="mut" style="font-size:.74rem">Abrir ▾</span></button></div>`;
+  const tabs = [...Object.keys(TABLES), ...Object.keys(EXTRA)];
+  const tabInfo = getTabInfo(t);
+
+  // 1. SIDEBAR PERSISTENTE: Comprobar si el layout del panel ya existe en el DOM
+  const hasLayout = !!(document.querySelector('.admin-wrapper') && document.querySelector('.admin-sidebar') && $('#adminMain') && $('#adminContent'));
+
+  if(!hasLayout){
+    const sideHtml = renderAdminSidebar(t, tabs);
+    const mobBar = `<div class="admin-mobile-bar"><button class="admin-mobile-toggle" id="adminToggle" type="button"><span>☰ Menú: <strong>${tabInfo.icon} ${esc(tabInfo.label)}</strong></span><span class="mut" style="font-size:.74rem">Abrir ▾</span></button></div>`;
+    app.innerHTML = `<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main" id="adminMain"><div class="admin-main-head" id="adminMainHead"></div><div id="adminContent"></div></div></div></div>`;
+    setupAdminEvents();
+  } else {
+    // Si ya existe: Actualizar botones activos sin destruir ni re-renderizar la barra lateral
+    document.querySelectorAll('.admin-sb-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.k === t);
+    });
+    const mobToggle = $('#adminToggle');
+    if(mobToggle) mobToggle.innerHTML = `<span>☰ Menú: <strong>${tabInfo.icon} ${esc(tabInfo.label)}</strong></span><span class="mut" style="font-size:.74rem">Abrir ▾</span>`;
+    $('#adminSidebar')?.classList.remove('open');
+    $('#adminBackdrop')?.classList.remove('open');
+    const activeBtn = document.querySelector(`.admin-sb-btn[data-k="${t}"]`);
+    if(activeBtn){ try{ activeBtn.scrollIntoView({ block:'nearest' }); }catch(e){} }
+  }
+
+  const mainHead = $('#adminMainHead');
+  const mainContent = $('#adminContent');
+
+  if(opts.forceRefresh){
+    invalidateAdminCache(t);
+  }
+
+  const refreshBtn = `<button class="g" id="btnAdminQuickRefresh" type="button" style="padding:6px 12px;font-size:.75rem;border-radius:10px;display:inline-flex;align-items:center;gap:4px" title="Refrescar datos (limpiar caché de 300 segundos)">🔄 <span>Refrescar</span></button>`;
 
   if(EXTRA[t]){
-    app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2></div></div><div id="ex"></div></div></div></div>`;
-    setupAdminEvents();
+    if(mainHead){
+      mainHead.innerHTML = `
+        <div class="admin-main-title">
+          <h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2>
+        </div>
+        <div class="row">
+          ${refreshBtn}
+        </div>
+      `;
+      const bRef = $('#btnAdminQuickRefresh');
+      if(bRef) bRef.onclick = () => {
+        invalidateAdminCache(t);
+        admin(t, { forceRefresh: true });
+        toast(`Caché de ${tabInfo.label} actualizada.`);
+      };
+    }
+
+    if(mainContent) mainContent.innerHTML = `<div id="ex"></div>`;
     try {
       return await EXTRA[t]($('#ex'));
     } catch(err) {
       console.error('Error cargando módulo admin:', err);
-      $('#ex').innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:24px;border-radius:14px;max-width:640px;margin:20px auto;text-align:center"><h3 style="margin:0 0 8px;color:#f87171">⚠️ Error al cargar el módulo ${esc(tabInfo.label)}</h3><p class="mut" style="margin:0 0 16px;font-size:.85rem">${esc(err.message)}</p><button class="g" onclick="admin('${esc(t)}')">🔄 Reintentar</button></div>`;
+      if(mainContent){
+        mainContent.innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:24px;border-radius:14px;max-width:640px;margin:20px auto;text-align:center"><h3 style="margin:0 0 8px;color:#f87171">⚠️ Error al cargar el módulo ${esc(tabInfo.label)}</h3><p class="mut" style="margin:0 0 16px;font-size:.85rem">${esc(err.message)}</p><button class="g" onclick="admin('${esc(t)}', {forceRefresh:true})">🔄 Reintentar</button></div>`;
+      }
+      return;
     }
   }
+
+  // 2. MÓDULOS DE TABLA ESTÁNDAR CON CACHÉ DE 300 SEGUNDOS
   const extraHeadBtn = t === 'payment_methods'
     ? `<button class="g" id="btnLoadOfficialPM" style="background:rgba(0,245,160,.12);border-color:#00f5a0;color:#00f5a0;font-weight:700">⚡ Cargar los 9 Métodos Oficiales</button>`
     : (t === 'customers'
@@ -7442,22 +7520,61 @@ async function admin(t){
       : ((t === 'profiles_inventory' || t === 'orders')
         ? `<button class="g" id="btnAdminDirectCreditHead" style="background:rgba(250,204,21,.15);border-color:#facc15;color:#facc15;font-weight:700;display:inline-flex;align-items:center;gap:4px">💳 Entregar a Crédito Directo</button>`
         : ''));
-  const cols=TABLES[t];
+
+  const cols = TABLES[t];
   const pk = PK[t] || 'id';
-  let q=sb.from(t).select(SEL[t]||'*');
-  if(t==='customers'){
-    q=q.or('es_revendedor.is.null,es_revendedor.eq.false');
-  }
-  const orderCol = cols.includes('created_at')?'created_at':(cols.includes('creado')?'creado':cols[0]);
+  const orderCol = cols.includes('created_at') ? 'created_at' : (cols.includes('creado') ? 'creado' : cols[0]);
+
+  const cacheKey = 'table_' + t;
+  const cached = opts.forceRefresh ? null : getAdminCache(cacheKey);
   let data = [], error = null;
-  try {
-    const res = await q.order(orderCol,{ascending:false}).limit(300);
-    data = res.data;
-    error = res.error;
-  } catch(err) {
-    console.error('Error cargando tabla admin:', err);
-    error = err;
+
+  if(cached && cached.data){
+    data = cached.data;
+    error = cached.error;
+  } else {
+    if(mainContent){
+      mainContent.innerHTML = `
+        <div style="padding:16px">
+          <div class="sk" style="height:36px;border-radius:10px;margin-bottom:12px;max-width:320px"></div>
+          <div class="sk" style="height:260px;border-radius:14px"></div>
+        </div>
+      `;
+    }
+
+    let q = sb.from(t).select(SEL[t]||'*');
+    if(t === 'customers'){
+      q = q.or('es_revendedor.is.null,es_revendedor.eq.false');
+    }
+    try {
+      const res = await q.order(orderCol, { ascending: false }).limit(300);
+      data = res.data || [];
+      error = res.error;
+      setAdminCache(cacheKey, data, error);
+    } catch(err) {
+      console.error('Error cargando tabla admin:', err);
+      error = err;
+    }
   }
+
+  // Refresco silencioso en background si expiró la frescura de 300s
+  if(cached && !cached.isFresh){
+    (async () => {
+      try {
+        let qBg = sb.from(t).select(SEL[t]||'*');
+        if(t === 'customers') qBg = qBg.or('es_revendedor.is.null,es_revendedor.eq.false');
+        const resBg = await qBg.order(orderCol, { ascending: false }).limit(300);
+        if(!resBg.error && resBg.data){
+          setAdminCache(cacheKey, resBg.data, null);
+          if(S.view === 'admin' && S.t === t){
+            const cntSpan = $('#adminRecordCount');
+            if(cntSpan) cntSpan.textContent = (resBg.data.length) + ' registros';
+          }
+        }
+      } catch(eBg){}
+    })();
+  }
+
   const colHeader = c => {
     const map = {
       datos_recarga: 'Datos Activación / Recarga',
@@ -7479,8 +7596,37 @@ async function admin(t){
     };
     return map[c] || c;
   };
-  app.innerHTML=`<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main"><div class="admin-main-head"><div class="admin-main-title"><h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2><span class="mut">${error?esc(error.message):(data||[]).length+' registros'}</span></div><div class="row">${extraHeadBtn}${NOADD.includes(t)?'':'<button id="add">+ Agregar</button>'}</div></div><div class="wrap"><table><tr>${cols.map(c=>`<th>${esc(colHeader(c))}</th>`).join('')}<th></th></tr>${(data||[]).map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c)}</td>`).join('')}<td class="row">${acts(t,r)}${NOADD.includes(t)?'':`<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}</table></div></div></div></div>`;
-  setupAdminEvents();
+
+  if(mainHead){
+    mainHead.innerHTML = `
+      <div class="admin-main-title">
+        <h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2>
+        <span class="mut" id="adminRecordCount">${error ? esc(error.message) : (data||[]).length + ' registros'}</span>
+      </div>
+      <div class="row">
+        ${refreshBtn}
+        ${extraHeadBtn}
+        ${NOADD.includes(t) ? '' : '<button id="add">+ Agregar</button>'}
+      </div>
+    `;
+    const bRefTab = $('#btnAdminQuickRefresh');
+    if(bRefTab) bRefTab.onclick = () => {
+      invalidateAdminCache(t);
+      admin(t, { forceRefresh: true });
+      toast(`Caché de ${tabInfo.label} actualizada.`);
+    };
+  }
+
+  if(mainContent){
+    mainContent.innerHTML = `
+      <div class="wrap">
+        <table>
+          <tr>${cols.map(c => `<th>${esc(colHeader(c))}</th>`).join('')}<th></th></tr>
+          ${(data||[]).map(r => `<tr>${cols.map(c => `<td>${cell(r, c)}</td>`).join('')}<td class="row">${acts(t, r)}${NOADD.includes(t) ? '' : `<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}
+        </table>
+      </div>
+    `;
+  }
   if($('#btnLoadOfficialPM')){
     $('#btnLoadOfficialPM').onclick = async () => {
       if(!confirm('¿Cargar o actualizar los 9 métodos de pago oficiales (BNC, Binance, Guayaquil, ApoloPay, Zinli, Wally, Uglycash, Lead Bank, PM Jurídico)?')) return;
@@ -7504,11 +7650,12 @@ async function admin(t){
         }
       }
       toast('✅ 9 Métodos de pago oficiales cargados y sincronizados en la base de datos.');
+      invalidateAdminCache('payment_methods');
       admin('payment_methods');
     };
   }
   app.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const {data:v,error:e}=await sb.rpc('reveal_secret',{p:b.dataset.rv});toast(e?e.message:v);});
-  app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!confirm(t==='orders'?`¿Verificaste el pago? Total $${b.dataset.tot} (ZenyPoints aplicados: $${b.dataset.z}). Se entregarán las credenciales al cliente.`:'¿Verificaste el pago de esta recarga?'))return;const {error:e}=t==='orders'?await sb.rpc('deliver_order',{p_order:b.dataset.ok}):await sb.from(t).update({estado:'aprobado'}).eq('id',b.dataset.ok);e?toast(e.message):admin(t);});
+  app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!confirm(t==='orders'?`¿Verificaste el pago? Total $${b.dataset.tot} (ZenyPoints aplicados: $${b.dataset.z}). Se entregarán las credenciales al cliente.`:'¿Verificaste el pago de esta recarga?'))return;const {error:e}=t==='orders'?await sb.rpc('deliver_order',{p_order:b.dataset.ok}):await sb.from(t).update({estado:'aprobado'}).eq('id',b.dataset.ok);invalidateAdminCache(t);invalidateAdminCache('orders');invalidateAdminCache('zeny_ledger');e?toast(e.message):admin(t);});
   app.querySelectorAll('[data-ok-inst]').forEach(b => b.onclick = async () => {
     if(!confirm('¿Confirmas la conciliación y aprobación de esta cuota?')) return;
     b.disabled = true;
@@ -7523,6 +7670,8 @@ async function admin(t){
         if(updErr) throw updErr;
       }
       toast('✅ Cuota aprobada con éxito.');
+      invalidateAdminCache('cuotas');
+      invalidateAdminCache('installments');
       admin(t);
     } catch(err) {
       toast('Error al aprobar cuota: ' + err.message);
@@ -7579,9 +7728,12 @@ async function admin(t){
     });
     openWhatsApp(tel, rawMsg);
     toast(`Servicio entregado a CRÉDITO a ${nom}. Plazo: ${dias} días (hasta ${fVence}).`);
+    invalidateAdminCache('orders');
+    invalidateAdminCache('cuotas');
+    invalidateAdminCache('installments');
     admin(t);
   });
-  app.querySelectorAll('[data-rej]').forEach(b=>b.onclick=async()=>{if(confirm('¿Rechazar pedido y liberar el perfil reservado?')){const {error:e}=await sb.rpc('reject_order',{p_order:b.dataset.rej});e?toast(e.message):admin(t);}});
+  app.querySelectorAll('[data-rej]').forEach(b=>b.onclick=async()=>{if(confirm('¿Rechazar pedido y liberar el perfil reservado?')){const {error:e}=await sb.rpc('reject_order',{p_order:b.dataset.rej});invalidateAdminCache('orders');invalidateAdminCache('profiles_inventory');e?toast(e.message):admin(t);}});
   app.querySelectorAll('[data-ref]').forEach(b=>b.onclick=()=>refundDlg(b.dataset.ref,b.dataset.tot,()=>admin(t)));
   app.querySelectorAll('[data-pay-purchase]').forEach(b=>b.onclick=()=>window.openPayPurchaseModal(b.dataset.payPurchase,b.dataset.prov,b.dataset.usdt,b.dataset.vence,()=>admin(t)));
   app.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>transferDlg(b.dataset.tr,()=>admin(t)));
@@ -8334,6 +8486,7 @@ async function admin(t){
         } else {
           dlg.close();
           toast('Guardado con éxito.');
+          invalidateAdminCache(t);
           admin(t);
         }
       } catch (fatalErr) {
@@ -8345,7 +8498,7 @@ async function admin(t){
     };};
   if($('#add')) $('#add').onclick=()=>{
     if(t==='refunds'){
-      return refundDlg(null, 0, ()=>admin(t));
+      return refundDlg(null, 0, ()=>{ invalidateAdminCache(t); admin(t); });
     }
     form(null);
   };
@@ -8359,7 +8512,7 @@ async function admin(t){
         const ordId = b.dataset.x;
         try {
           const { error: rpcErr } = await sb.rpc('admin_delete_order', { p_order_id: ordId });
-          if (!rpcErr) { toast('Orden eliminada correctamente.'); return admin(t); }
+          if (!rpcErr) { toast('Orden eliminada correctamente.'); invalidateAdminCache('orders'); return admin(t); }
         } catch(e){}
         try { await sb.from('invoices').delete().eq('order_id', ordId); } catch(e){}
         try { await sb.from('installments').delete().eq('order_id', ordId); } catch(e){}
@@ -8369,6 +8522,7 @@ async function admin(t){
         try { await sb.from('zeny_ledger').update({ order_id: null }).eq('order_id', ordId); } catch(e){}
       }
       const {error:e}=await sb.from(t).delete().eq(pk,b.dataset.x);
+      invalidateAdminCache(t);
       e?toast(e.message):admin(t);
     }
   });
@@ -8382,7 +8536,7 @@ let _rt; const refresh=()=>{clearTimeout(_rt);_rt=setTimeout(async()=>{
   S.me=(await sb.from('customers').select('*').eq('id',S.user.id).maybeSingle()).data||S.me;
   if(S.view==='portal') portal();
   else if(S.view==='home') loadPublic().then(()=>{ if(S.view==='home') home(); });
-  else if(S.view==='admin'&&!dlg.open&&(TABLES[S.t]||EXTRA[S.t])) admin(S.t);
+  else if(S.view==='admin'&&!dlg.open&&(TABLES[S.t]||EXTRA[S.t])){ invalidateAdminCache(S.t); admin(S.t); }
   badge();
 },600);};
 async function badge(){ if(!S.isAdmin) return; const c=(t,f)=>f(sb.from(t).select('id',{count:'exact',head:true}));
