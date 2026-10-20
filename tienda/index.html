@@ -5098,10 +5098,12 @@ function forceChangePasswordDlg(){
       // 2. Marcar en base de datos que ya completó el cambio obligatorio y registrar email opcional
       const { error: rpcErr } = await sb.rpc('completar_primer_cambio_clave', { p_nuevo_email: optEmail || null });
       if(rpcErr){
-        await sb.from('customers').update({
-          debe_cambiar_password: false,
-          ...(optEmail ? { email: optEmail } : {})
-        }).eq('id', S.user.id).catch(()=>{});
+        try {
+          await sb.from('customers').update({
+            debe_cambiar_password: false,
+            ...(optEmail ? { email: optEmail } : {})
+          }).eq('id', S.user.id);
+        } catch(e){}
       }
 
       if(S.me){
@@ -6829,11 +6831,12 @@ async function portal(){
                 no_renueva_motivo: motivo,
                 no_renueva_por: S.me?.nombre || S.user?.email || 'Revendedor'
               }).eq('id', profId);
-              if(updErr) throw updErr;
-              await sb.from('orders').update({
-                no_renueva: true,
-                no_renueva_reportado_at: new Date().toISOString()
-              }).eq('profile_id', profId).catch(()=>{});
+              try {
+                await sb.from('orders').update({
+                  no_renueva: true,
+                  no_renueva_reportado_at: new Date().toISOString()
+                }).eq('profile_id', profId);
+              } catch(e){}
             }
 
             fetch('/api/notify-event', {

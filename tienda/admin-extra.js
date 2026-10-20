@@ -815,13 +815,15 @@ async function openTransferModal({ profileId, orderId, done } = {}) {
               }).eq('id', curOrder.id);
             }
 
-            await sb.from('transfers').insert({
-              order_id: curOrder?.id || null,
-              customer_id: curOrder?.customers?.id || null,
-              from_profile: curSource.id,
-              to_profile: targetId,
-              motivo: motivoVal
-            }).catch(() => {});
+            try {
+              await sb.from('transfers').insert({
+                order_id: curOrder?.id || null,
+                customer_id: curOrder?.customers?.id || null,
+                from_profile: curSource.id,
+                to_profile: targetId,
+                motivo: motivoVal
+              });
+            } catch(e) {}
           }
 
           // Obtener credenciales reveladas
@@ -2850,7 +2852,7 @@ Cobrar antes de ${fVenceCred}`;
             if (mErr) throw mErr;
 
             if (shouldPurchase && costVal > 0) {
-              await sb.from('purchases').insert({
+              const { error: pErr } = await sb.from('purchases').insert({
                 fecha: new Date().toISOString().slice(0, 10),
                 proveedor: provVal || 'Proveedor',
                 plataforma: plat,
@@ -2860,7 +2862,8 @@ Cobrar antes de ${fVenceCred}`;
                 es_credito: isCred,
                 estado_pago: isCred ? 'pendiente' : 'pagado',
                 notas: `Renovación cuenta madre (+30d hasta ${nextDateStr})`
-              }).catch(e => console.warn('Error insert purchase:', e));
+              });
+              if (pErr) console.warn('Error insert purchase:', pErr);
             }
 
             toast(`✅ Cuenta madre ${plat} renovada hasta ${nextDateStr}.`);
