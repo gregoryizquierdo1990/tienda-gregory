@@ -1128,7 +1128,8 @@ window.openWhatsApp = openWhatsApp;
 
 function setupCleanCopy(container = document) {
   container.querySelectorAll('[data-clean-copy]').forEach(btn => {
-    btn.onclick = async () => {
+    btn.onclick = async (e) => {
+      if (e) e.stopPropagation();
       const text = btn.dataset.cleanCopy;
       try {
         if(navigator.clipboard && navigator.clipboard.writeText){
@@ -1835,12 +1836,19 @@ function openResellerEditClientModal(opts = {}) {
     btn.textContent = '⏳ Guardando...';
 
     try {
-      const { data, error } = await sb.rpc('reseller_set_cliente_final', {
+      let rpcRes = await sb.rpc('reseller_update_client_info', {
         p_profile_id: profId,
         p_cliente_nombre: nuevoNombre,
         p_cliente_telefono: nuevoTel || null
       });
-      if (error) throw error;
+      if (rpcRes.error) {
+        rpcRes = await sb.rpc('reseller_set_cliente_final', {
+          p_profile_id: profId,
+          p_cliente_nombre: nuevoNombre,
+          p_cliente_telefono: nuevoTel || null
+        });
+        if (rpcRes.error) throw rpcRes.error;
+      }
 
       if (S.resellerClientsList) {
         const item = S.resellerClientsList.find(x => x.profile_id === profId);
@@ -1850,7 +1858,7 @@ function openResellerEditClientModal(opts = {}) {
         }
       }
 
-      toast(nuevoNombre ? `✅ Cliente asignado: "${nuevoNombre}"` : '✅ Perfil actualizado.');
+      toast(nuevoNombre ? `✅ Cliente guardado: "${nuevoNombre}"` : '✅ Perfil actualizado.');
       if (typeof onSaved === 'function') {
         onSaved({ nuevoNombre, nuevoTel });
       } else {
@@ -2035,41 +2043,45 @@ async function openResellerClientDossier(profId) {
     <!-- BANNER DE STATUS Y VIGENCIA -->
     ${statusCardHtml}
 
-    <!-- BLOQUE 1: DATOS DEL CLIENTE FINAL -->
-    <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px;margin-bottom:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div style="font-size:.75rem;font-weight:700;color:#38bdf8;text-transform:uppercase;letter-spacing:.5px">
-          👤 Cliente Final Asignado
+    <!-- BLOQUE 1: DATOS DEL CLIENTE FINAL (EDITABLE DIRECTO) -->
+    <div style="background:rgba(255,255,255,.03);border:1.5px solid rgba(56,189,248,.35);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:.76rem;font-weight:700;color:#38bdf8;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px">
+          👤 Cliente Final de Este Perfil
         </div>
-        <button id="btnDossierEditClient" class="g" style="padding:3px 9px;font-size:.72rem;border-radius:6px;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700;cursor:pointer">
-          ✏️ Editar Datos
-        </button>
+        <span class="pill" style="font-size:.66rem;background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)">
+          ✏️ Editable
+        </span>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:10px">
         <div>
-          <span class="mut" style="font-size:.72rem;display:block">Nombre del Cliente:</span>
-          <b style="font-size:.95rem;color:${clienteNombreDisplay !== 'Sin identificar (Asignar)' ? '#00f5a0' : '#facc15'}">
-            ${esc(clienteNombreDisplay)}
-          </b>
+          <label style="font-size:.73rem;color:#cbd5e1;font-weight:600;display:block;margin-bottom:4px">Nombre / Identificador:</label>
+          <input id="inDossierClienteNombre" value="${esc(rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? rc.cliente_nombre : '')}" placeholder="Ej: Carlos Mendoza" style="width:100%;padding:8px 10px;font-size:.85rem;border-radius:8px;box-sizing:border-box">
         </div>
         <div>
-          <span class="mut" style="font-size:.72rem;display:block">WhatsApp de Contacto:</span>
+          <label style="font-size:.73rem;color:#cbd5e1;font-weight:600;display:block;margin-bottom:4px">WhatsApp de Contacto:</label>
+          <input id="inDossierClienteTel" value="${esc(rc.cliente_telefono || '')}" placeholder="Ej: 04141234567 o +58414..." style="width:100%;padding:8px 10px;font-size:.85rem;border-radius:8px;box-sizing:border-box">
+        </div>
+      </div>
+
+      ${rc.cliente_email && !rc.cliente_email.includes('@cliente.gregoryizquierdo.xyz') ? `
+        <div style="font-size:.73rem;color:#94a3b8;margin-bottom:8px">
+          ✉️ Correo asociado: <span style="color:#cbd5e1">${esc(rc.cliente_email)}</span>
+        </div>
+      ` : ''}
+
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-top:6px;border-top:1px dashed rgba(255,255,255,.08)">
+        <div>
           ${cleanPhone ? `
-            <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-              <b style="font-size:.88rem;color:#38bdf8">📱 ${esc(rc.cliente_telefono)}</b>
-              <a href="https://wa.me/${cleanPhone}" target="_blank" rel="noopener noreferrer" style="font-size:.72rem;color:#00f5a0;text-decoration:none;font-weight:700;background:rgba(0,245,160,.1);padding:2px 6px;border-radius:4px;border:1px solid rgba(0,245,160,.25)">
-                Abrir Chat ↗
-              </a>
-            </div>
-          ` : '<span style="font-size:.84rem;color:#64748b">No registrado</span>'}
+            <a href="https://wa.me/${cleanPhone}" target="_blank" rel="noopener noreferrer" style="font-size:.73rem;color:#00f5a0;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px">
+              📱 Abrir WhatsApp directo ↗
+            </a>
+          ` : '<span class="mut" style="font-size:.72rem">Ingresa su número para habilitar WhatsApp</span>'}
         </div>
-        ${rc.cliente_email && !rc.cliente_email.includes('@cliente.gregoryizquierdo.xyz') ? `
-          <div>
-            <span class="mut" style="font-size:.72rem;display:block">Correo del Cliente:</span>
-            <span style="font-size:.82rem;color:#cbd5e1">${esc(rc.cliente_email)}</span>
-          </div>
-        ` : ''}
+        <button id="btnDossierSaveClient" style="background:#00f5a0;color:#0b0f19;font-weight:800;border:none;border-radius:8px;padding:7px 14px;font-size:.78rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
+          💾 Guardar Datos del Cliente
+        </button>
       </div>
     </div>
 
@@ -2194,22 +2206,55 @@ async function openResellerClientDossier(profId) {
     };
   }
 
-  const btnEditClient = $('#btnDossierEditClient');
-  if (btnEditClient) {
-    btnEditClient.onclick = () => {
-      openResellerEditClientModal({
-        profId: rc.profile_id,
-        curName: rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? rc.cliente_nombre : '',
-        curTel: rc.cliente_telefono || '',
-        srv: rc.servicio || rc.plataforma,
-        prof: rc.nombre_perfil,
-        onSaved: ({ nuevoNombre, nuevoTel }) => {
-          rc.cliente_nombre = nuevoNombre || 'Cliente Asignado';
-          rc.cliente_telefono = nuevoTel || null;
-          openResellerClientDossier(rc.profile_id);
-          portal();
+  const btnSaveClient = $('#btnDossierSaveClient');
+  if (btnSaveClient) {
+    btnSaveClient.onclick = async () => {
+      const nuevoNombre = $('#inDossierClienteNombre')?.value?.trim() || '';
+      const nuevoTel = $('#inDossierClienteTel')?.value?.trim() || '';
+      btnSaveClient.disabled = true;
+      btnSaveClient.innerHTML = '⏳ Guardando...';
+
+      try {
+        let rpcRes = await sb.rpc('reseller_update_client_info', {
+          p_profile_id: rc.profile_id,
+          p_cliente_nombre: nuevoNombre,
+          p_cliente_telefono: nuevoTel || null
+        });
+        if (rpcRes.error) {
+          rpcRes = await sb.rpc('reseller_set_cliente_final', {
+            p_profile_id: rc.profile_id,
+            p_cliente_nombre: nuevoNombre,
+            p_cliente_telefono: nuevoTel || null
+          });
+          if (rpcRes.error) throw rpcRes.error;
         }
-      });
+
+        // Actualizar datos en memoria
+        rc.cliente_nombre = nuevoNombre || 'Cliente Asignado';
+        rc.cliente_telefono = nuevoTel || null;
+        if (S.resellerClientsList) {
+          const item = S.resellerClientsList.find(x => x.profile_id === rc.profile_id);
+          if (item) {
+            item.cliente_nombre = nuevoNombre || 'Cliente Asignado';
+            item.cliente_telefono = nuevoTel || null;
+          }
+        }
+
+        toast(nuevoNombre ? `✅ Cliente guardado: "${nuevoNombre}"` : '✅ Perfil actualizado.');
+        btnSaveClient.disabled = false;
+        btnSaveClient.innerHTML = '✅ Guardado';
+
+        // Reabrir la ficha para reflejar los nuevos mensajes y botones de WhatsApp actualizados
+        setTimeout(() => {
+          openResellerClientDossier(rc.profile_id);
+          if (typeof portal === 'function') portal();
+        }, 300);
+      } catch (err) {
+        console.error('Error al guardar cliente en ficha:', err);
+        btnSaveClient.disabled = false;
+        btnSaveClient.innerHTML = '💾 Guardar Datos del Cliente';
+        toast('⚠️ Error al guardar: ' + (err.message || err));
+      }
     };
   }
 
@@ -6182,7 +6227,7 @@ async function portal(){
                           <b style="font-size:.88rem;color:${rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? '#00f5a0' : '#f8fafc'}">
                             ${esc(rc.cliente_nombre || 'Cliente Asignado')}
                           </b>
-                          <button class="g" data-reseller-edit-client="${rc.profile_id}" data-current-name="${esc(rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? rc.cliente_nombre : '')}" data-current-tel="${esc(rc.cliente_telefono || '')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-prof="${esc(rc.nombre_perfil||'')}" style="padding:2px 7px;font-size:.7rem;border-radius:6px;color:#38bdf8;border-color:rgba(56,189,248,.35);white-space:nowrap;font-weight:700;cursor:pointer" title="Identificar o asignar el nombre del cliente para este perfil">
+                          <button class="g" data-reseller-edit-client="${rc.profile_id}" data-current-name="${esc(rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? rc.cliente_nombre : '')}" data-current-tel="${esc(rc.cliente_telefono || '')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-prof="${esc(rc.nombre_perfil||'')}" onclick="event.stopPropagation()" style="padding:2px 7px;font-size:.7rem;border-radius:6px;color:#38bdf8;border-color:rgba(56,189,248,.35);white-space:nowrap;font-weight:700;cursor:pointer" title="Identificar o asignar el nombre del cliente para este perfil">
                             ✏️ ${rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? 'Editar' : 'Asignar'}
                           </button>
                         </div>
@@ -6208,25 +6253,25 @@ async function portal(){
                         <b>${esc(rc.vence || '—')}</b>
                         <div style="margin-top:3px">${pillStatus}</div>
                       </td>
-                      <td>
+                      <td class="rc-actions-cell" onclick="event.stopPropagation()">
                         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
                           ${isPend ? `
                             <div style="font-size:.73rem;color:#facc15;background:rgba(234,179,8,.12);padding:5px 9px;border-radius:8px;border:1px solid rgba(234,179,8,.35);font-weight:700;display:inline-flex;align-items:center;gap:4px" title="Pago Móvil / Transferencia reportado. Gregory lo conciliará en breve.">
                               ⏳ Pago en Revisión
                             </div>
-                            <a class="g" href="${waGregoryUrl}" target="_blank" rel="noopener noreferrer" style="padding:5px 9px;font-size:.73rem;color:#facc15;border:1px solid rgba(234,179,8,.4);border-radius:8px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px" title="Avisar a Gregory por WhatsApp para agilizar la conciliación">
+                            <a class="g" href="${waGregoryUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="padding:5px 9px;font-size:.73rem;color:#facc15;border:1px solid rgba(234,179,8,.4);border-radius:8px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px" title="Avisar a Gregory por WhatsApp para agilizar la conciliación">
                               📲 Avisar WA
                             </a>
                           ` : `
-                            <button class="g" data-reseller-renovar="${rc.profile_id}" data-nom="${esc(rc.cliente_nombre||'Cliente')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-prof="${esc(rc.nombre_perfil||'')}" data-pin="${esc(rc.pin||'')}" data-mail="${esc(rc.correo||'')}" data-tel="${esc(rc.cliente_telefono||'')}" data-vence="${esc(rc.vence||'')}" style="padding:5px 9px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700;display:inline-flex;align-items:center;gap:3px" title="Renovar suscripción por 30 días manteniendo las mismas credenciales">
+                            <button class="g" data-reseller-renovar="${rc.profile_id}" data-nom="${esc(rc.cliente_nombre||'Cliente')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-prof="${esc(rc.nombre_perfil||'')}" data-pin="${esc(rc.pin||'')}" data-mail="${esc(rc.correo||'')}" data-tel="${esc(rc.cliente_telefono||'')}" data-vence="${esc(rc.vence||'')}" onclick="event.stopPropagation()" style="padding:5px 9px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700;display:inline-flex;align-items:center;gap:3px" title="Renovar suscripción por 30 días manteniendo las mismas credenciales">
                               🔄 Renovar (+30d)
                             </button>
                           `}
-                          <button class="clean-copy-btn" data-clean-copy="${esc(cleanMsg)}" title="Copiar datos para el cliente">
+                          <button class="clean-copy-btn" data-clean-copy="${esc(cleanMsg)}" onclick="event.stopPropagation()" title="Copiar datos para el cliente">
                             📋 Copiar
                           </button>
                           ${waUrl ? `
-                            <a class="g" href="${waUrl}" target="_blank" rel="noopener noreferrer" style="padding:6px 10px;font-size:.76rem;color:${isHoy ? '#f87171' : '#00f5a0'};border:1px solid ${isHoy ? 'rgba(239,68,68,.4)' : 'rgba(0,245,160,.35)'};border-radius:8px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center" title="${isHoy ? 'Enviar recordatorio de cobro hoy por WA' : 'Enviar accesos por WA'}">
+                            <a class="g" href="${waUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="padding:6px 10px;font-size:.76rem;color:${isHoy ? '#f87171' : '#00f5a0'};border:1px solid ${isHoy ? 'rgba(239,68,68,.4)' : 'rgba(0,245,160,.35)'};border-radius:8px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center" title="${isHoy ? 'Enviar recordatorio de cobro hoy por WA' : 'Enviar accesos por WA'}">
                               ${isHoy ? '⏰ Cobrar WA' : '💬 WA'}
                             </a>
                           ` : ''}
@@ -6235,7 +6280,7 @@ async function portal(){
                               Reportado a Admin
                             </span>
                           ` : `
-                            <button class="g" data-reseller-no-renueva="${rc.profile_id}" data-nom="${esc(rc.cliente_nombre||'Cliente')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-vence="${esc(rc.vence||'')}" style="padding:5px 9px;font-size:.73rem;color:#f87171;border-color:rgba(239,68,68,.4);font-weight:700" title="Reportar que este cliente no desea renovar para que Gregory libere el perfil">
+                            <button class="g" data-reseller-no-renueva="${rc.profile_id}" data-nom="${esc(rc.cliente_nombre||'Cliente')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-vence="${esc(rc.vence||'')}" onclick="event.stopPropagation()" style="padding:5px 9px;font-size:.73rem;color:#f87171;border-color:rgba(239,68,68,.4);font-weight:700" title="Reportar que este cliente no desea renovar para que Gregory libere el perfil">
                               ❌ No Renueva
                             </button>
                           `}
@@ -7432,20 +7477,24 @@ async function portal(){
     });
 
     app.querySelectorAll('[data-reseller-renovar]').forEach(b => {
-      b.onclick = () => openRenewalModal({
-        profileId: b.dataset.resellerRenovar,
-        nom: b.dataset.nom,
-        srv: b.dataset.srv,
-        prof: b.dataset.prof,
-        pin: b.dataset.pin,
-        mail: b.dataset.mail,
-        tel: b.dataset.tel,
-        curVence: b.dataset.vence
-      });
+      b.onclick = (e) => {
+        if (e) e.stopPropagation();
+        openRenewalModal({
+          profileId: b.dataset.resellerRenovar,
+          nom: b.dataset.nom,
+          srv: b.dataset.srv,
+          prof: b.dataset.prof,
+          pin: b.dataset.pin,
+          mail: b.dataset.mail,
+          tel: b.dataset.tel,
+          curVence: b.dataset.vence
+        });
+      };
     });
 
     app.querySelectorAll('[data-reseller-no-renueva]').forEach(b => {
-      b.onclick = () => {
+      b.onclick = (e) => {
+        if (e) e.stopPropagation();
         const profId = b.dataset.resellerNoRenueva;
         const nom = b.dataset.nom || 'Cliente';
         const srv = b.dataset.srv || 'Servicio';
@@ -7526,10 +7575,10 @@ async function portal(){
       };
     });
 
-    // Clic en la fila o en la credencial para abrir la Ficha Digital
+    // Clic en la fila o en la credencial para abrir la Ficha Digital (sin interferir con botones)
     tblRc.querySelectorAll('tbody tr[data-rc-profile-id]').forEach(tr => {
       tr.onclick = (e) => {
-        if (e.target.closest('button, a, input, select, textarea, label')) return;
+        if (e.target.closest('button, a, input, select, textarea, label, .rc-actions-cell, [data-reseller-renovar], [data-reseller-no-renueva], [data-reseller-edit-client], .clean-copy-btn')) return;
         const profId = tr.dataset.rcProfileId;
         if (profId) openResellerClientDossier(profId);
       };
@@ -7538,7 +7587,7 @@ async function portal(){
     app.querySelectorAll('[data-open-dossier]').forEach(el => {
       el.style.cursor = 'pointer';
       el.onclick = (e) => {
-        e.stopPropagation();
+        if (e) e.stopPropagation();
         const profId = el.dataset.openDossier;
         if (profId) openResellerClientDossier(profId);
       };
@@ -7546,7 +7595,7 @@ async function portal(){
 
     app.querySelectorAll('[data-reseller-edit-client]').forEach(b => {
       b.onclick = (e) => {
-        e.stopPropagation();
+        if (e) e.stopPropagation();
         openResellerEditClientModal({
           profId: b.dataset.resellerEditClient,
           curName: b.dataset.currentName || '',
@@ -7636,6 +7685,8 @@ async function portal(){
       portal();
     };
   };
+
+  setupCleanCopy(app);
   } catch(portalErr) {
     console.error('Error al cargar portal:', portalErr);
     app.innerHTML = `
