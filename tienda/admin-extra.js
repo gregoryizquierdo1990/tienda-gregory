@@ -4180,7 +4180,7 @@ create policy franchises_public_select on franchises for select to anon using (t
                   <button class="g" data-fq-view="${f.id}" title="Ver expediente, contrato y detalles comerciales">📄 Expediente</button>
                   <button class="g" data-fq-reset="${f.id}" data-email="${esc(f.titular_correo)}" title="Restaurar clave de acceso del franquiciado">🔑 Clave</button>
                   ${f.estado === 'activo' ? `
-                    <button class="d" data-fq-kill="${f.id}" data-sub="${esc(f.subdominio)}" title="Kill-Switch: suspender inmediatamente">🚨 Suspender</button>
+                    <button class="d" data-fq-kill="${f.id}" data-sub="${esc(f.subdominio)}" title="Kill-Switch: suspender inmediatamente">🚨 Kill-Switch</button>
                   ` : `
                     <button data-fq-reactivate="${f.id}">✅ Reactivar</button>
                   `}
@@ -4533,18 +4533,39 @@ Fecha de asentamiento: ${new Date().toISOString().slice(0, 10)}.`;
       btn.onclick = async () => {
         const id = btn.dataset.fqKill, sub = btn.dataset.sub;
         if (!confirm(`🚨 ¿ACTIVAR KILL-SWITCH PARA ${sub}?\n\nLa tienda quedará inaccesible de inmediato y se bloqueará el acceso del propietario.`)) return;
-        await sb.from('franchises').update({ estado: 'suspendido_fraude' }).eq('id', id);
-        toast(`Franquicia ${sub} suspendida preventivamente.`);
-        EXTRA.franquicias(box);
+        btn.disabled = true;
+        btn.textContent = 'Suspendiendo…';
+        try {
+          const { error: killErr } = await sb.from('franchises').update({ estado: 'suspendido_fraude' }).eq('id', id);
+          if (killErr) throw killErr;
+          if (typeof invalidateAdminCache === 'function') invalidateAdminCache('franchises');
+          toast(`Franquicia ${sub} suspendida preventivamente con Kill-Switch.`);
+          await EXTRA.franquicias(box);
+        } catch(err) {
+          btn.disabled = false;
+          btn.textContent = '🚨 Kill-Switch';
+          toast('Error al suspender: ' + (err.message || 'Error de conexión'));
+        }
       };
     });
 
     // Reactivar
     box.querySelectorAll('[data-fq-reactivate]').forEach(btn => {
       btn.onclick = async () => {
-        await sb.from('franchises').update({ estado: 'activo' }).eq('id', btn.dataset.fqReactivate);
-        toast('Franquicia reactivada exitosamente.');
-        EXTRA.franquicias(box);
+        const id = btn.dataset.fqReactivate;
+        btn.disabled = true;
+        btn.textContent = 'Reactivando…';
+        try {
+          const { error: reactErr } = await sb.from('franchises').update({ estado: 'activo' }).eq('id', id);
+          if (reactErr) throw reactErr;
+          if (typeof invalidateAdminCache === 'function') invalidateAdminCache('franchises');
+          toast('Franquicia reactivada exitosamente.');
+          await EXTRA.franquicias(box);
+        } catch(err) {
+          btn.disabled = false;
+          btn.textContent = '✅ Reactivar';
+          toast('Error al reactivar: ' + (err.message || 'Error de conexión'));
+        }
       };
     });
 

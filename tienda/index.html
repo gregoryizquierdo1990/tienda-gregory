@@ -2511,6 +2511,8 @@ function openInvoiceModal(invData){
 }
 
 function detectSubdomain(){
+  const urlParam = new URLSearchParams(window.location.search).get('franchise') || new URLSearchParams(window.location.search).get('sub');
+  if(urlParam) return urlParam.toLowerCase().trim();
   const host = window.location.hostname.toLowerCase();
   const parts = host.split('.');
   // Ignora localhost, 127.0.0.1, y hosts sin subdominio o www
@@ -2955,7 +2957,7 @@ function home(){
   ` : ''}
   <section class="hero">
     ${S.franchise ? `
-      <div style="margin-bottom:14px;display:flex;justify-content:center">
+      <div style="margin-bottom:14px;display:flex;justify-content:center;flex-direction:column;align-items:center;gap:10px">
         <div class="franchise-gold-badge" id="btnHeroGoldBadge" role="button" tabindex="0">
           <span class="gold-shield-icon">🛡️</span>
           <div class="badge-text-col">
@@ -2964,6 +2966,22 @@ function home(){
           </div>
           <span class="badge-lock">🔒</span>
         </div>
+        ${S.franchise.subdominio === 'demo' ? `
+          <div style="background:linear-gradient(135deg,rgba(168,85,247,.22),rgba(59,130,246,.22));border:1.5px solid #a855f7;border-radius:14px;padding:12px 18px;max-width:680px;width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div style="text-align:left">
+              <div style="font-weight:800;color:#e9d5ff;font-size:.88rem;display:flex;align-items:center;gap:6px">
+                <span>🏢 Franquicia Demo Interactiva</span>
+                <span class="pill" style="font-size:.66rem;background:#9333ea;color:#fff;border:none">ACCESO PROSPECTOS</span>
+              </div>
+              <div class="mut" style="font-size:.76rem;margin-top:2px">
+                Explora el panel administrativo interno con el usuario demo y recorre todos los menús.
+              </div>
+            </div>
+            <button id="btnEnterDemoAdmin" type="button" class="g" style="background:#a855f7;color:#fff;border:none;font-weight:800;padding:8px 14px;border-radius:10px;font-size:.8rem;cursor:pointer">
+              ⚙️ Probar Panel Admin (Demo) ➔
+            </button>
+          </div>
+        ` : ''}
       </div>
     ` : ''}
     <h2>Perfiles, Cuentas Completas y Aplicaciones en un solo lugar</h2>
@@ -3019,6 +3037,33 @@ function home(){
   $('#q').oninput = e=>{S.q=e.target.value;renderGrid();};
   if($('#btnHeroGoldBadge')) $('#btnHeroGoldBadge').onclick = () => showFranchiseCertificate(S.franchise);
   if($('#btnHeroOpenFlyer')) $('#btnHeroOpenFlyer').onclick = () => openFlyerDesignerModal();
+  if($('#btnEnterDemoAdmin')){
+    $('#btnEnterDemoAdmin').onclick = async () => {
+      if(S.isAdmin){
+        history.replaceState(null, '', location.pathname + '#admin');
+        return admin('finanzas');
+      }
+      const b = $('#btnEnterDemoAdmin');
+      b.disabled = true;
+      b.textContent = 'Accediendo al Panel…';
+      try {
+        const { data, error } = await sb.auth.signInWithPassword({
+          email: 'admin.demo@gregoryizquierdo.xyz',
+          password: 'AdminDemo2026*'
+        });
+        if(error) throw error;
+        await onSession(data.session);
+        history.replaceState(null, '', location.pathname + '#admin');
+        admin('finanzas');
+      } catch(err){
+        toast('Iniciando sesión demo: ' + (err.message || 'Error'));
+        adminLoginDlg();
+      } finally {
+        b.disabled = false;
+        b.textContent = '⚙️ Probar Panel Admin (Demo) ➔';
+      }
+    };
+  }
   renderTabs(); renderGrid();
 }
 
@@ -5409,11 +5454,25 @@ function renderFacetShell({title, subtitle, contentHtml, linksHtml='', closable=
 
 function loginDlg(mode = 'login'){
   const isReg = mode === 'register';
+  const isDemoFq = S.franchise?.subdominio === 'demo' || detectSubdomain() === 'demo';
   const title = isReg ? 'REGISTER' : 'LOGIN';
   const subtitle = isReg ? 'Crear cuenta cliente' : 'Acceso clientes';
   const actionLabel = isReg ? 'REGISTRARME' : 'SIGN IN';
 
   const contentHtml = `
+    ${(!isReg && isDemoFq) ? `
+    <div style="background:rgba(168,85,247,.16);border:1px solid #a855f7;border-radius:12px;padding:10px 12px;margin-bottom:12px;text-align:left">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <b style="color:#c084fc;font-size:.78rem">🏢 Acceso de Prueba Franquiciado:</b>
+        <button id="btnAutoDemoAdminClient" type="button" class="g" style="padding:3px 8px;font-size:.7rem;background:#9333ea;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">
+          ⚡ Autocompletar
+        </button>
+      </div>
+      <div style="font-size:.72rem;color:#e9d5ff">
+        <code>admin.demo@gregoryizquierdo.xyz</code> · <code>AdminDemo2026*</code>
+      </div>
+    </div>
+    ` : ''}
     ${isReg ? `
     <div class="facet-input-wrap">
       <input id="facetNm" class="facet-input" placeholder="FULL NAME / NOMBRE COMPLETO" autocomplete="name" required>
@@ -5448,6 +5507,14 @@ function loginDlg(mode = 'login'){
   $('#facetToggleMode').onclick = () => loginDlg(isReg ? 'login' : 'register');
 
   $('#facetGoogle').onclick = () => sb.auth.signInWithOAuth({provider:'google', options:{redirectTo: location.origin + '/'}});
+
+  if($('#btnAutoDemoAdminClient')){
+    $('#btnAutoDemoAdminClient').onclick = () => {
+      $('#facetId').value = 'admin.demo@gregoryizquierdo.xyz';
+      $('#facetPw').value = 'AdminDemo2026*';
+      $('#facetAction').click();
+    };
+  }
 
   $('#facetAction').onclick = async () => {
     const inputId = ($('#facetId')?.value || '').trim();
@@ -5695,11 +5762,29 @@ function adminLoginDlg(){
   const subtitle = 'Acceso de Administrador';
   const curUserEmail = S.user?.email || '';
   const isLoggedNonAdmin = !!S.user && !S.isAdmin;
+  const isDemoFq = S.franchise?.subdominio === 'demo' || detectSubdomain() === 'demo';
 
   const contentHtml = `
     <p class="mut" style="text-align:center;font-size:.82rem;margin:0 0 16px;line-height:1.4">
       El acceso al panel administrativo está reservado para el correo oficial con sincronización de servicios y control de la plataforma.
     </p>
+    ${isDemoFq ? `
+      <div style="background:rgba(168,85,247,.16);border:1.5px solid #a855f7;border-radius:12px;padding:12px;margin-bottom:14px;text-align:left">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <b style="color:#c084fc;font-size:.82rem">🏢 Acceso de Prueba Franquiciado:</b>
+          <button id="btnAutoDemoAdmin" type="button" class="g" style="padding:4px 9px;font-size:.72rem;background:#9333ea;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer">
+            ⚡ Autocompletar
+          </button>
+        </div>
+        <div style="font-size:.75rem;color:#e9d5ff;line-height:1.5">
+          Usuario: <code>admin.demo@gregoryizquierdo.xyz</code><br>
+          Clave: <code>AdminDemo2026*</code>
+        </div>
+        <div class="mut" style="font-size:.7rem;margin-top:4px">
+          Acceso habilitado para que los interesados puedan interactuar y recorrer la interfaz interna.
+        </div>
+      </div>
+    ` : ''}
     ${isLoggedNonAdmin ? `
       <div style="background:rgba(239,68,68,.12);border:1px solid #ef4444;border-radius:12px;padding:12px;margin-bottom:14px;text-align:center;font-size:.8rem;color:#fca5a5">
         ⚠️ Has iniciado sesión con <b>${esc(curUserEmail)}</b>, pero este usuario no tiene permisos de administrador.<br>
@@ -5724,6 +5809,15 @@ function adminLoginDlg(){
 
   facetDlg.innerHTML = renderFacetShell({title, subtitle, contentHtml});
   $('#facetCloseBtn').onclick = () => facetDlg.close();
+
+  if($('#btnAutoDemoAdmin')){
+    $('#btnAutoDemoAdmin').onclick = () => {
+      $('#facetAdminEmail').value = 'admin.demo@gregoryizquierdo.xyz';
+      $('#facetAdminPw').value = 'AdminDemo2026*';
+      $('#facetAdminPwBtn').click();
+    };
+  }
+
   $('#facetAdminGoogle').onclick = async () => {
     if(isLoggedNonAdmin){
       await sb.auth.signOut().catch(()=>{});
@@ -8088,11 +8182,22 @@ async function admin(t, opts = {}){
     invalidateAdminCache(t);
   }
 
+  const demoBannerHtml = S.me?.es_demo ? `
+    <div style="background:rgba(168,85,247,.18);border:1.5px solid #a855f7;border-radius:12px;padding:8px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;width:100%;box-sizing:border-box">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:1.1rem">🏢</span>
+        <span style="font-size:.78rem;color:#e9d5ff"><b>Modo Demostración Franquicia Activo:</b> Explora libremente todos los módulos, menús, finanzas y catálogo.</span>
+      </div>
+      <a href="/" class="g" style="font-size:.72rem;padding:3px 9px;border-radius:8px;text-decoration:none">← Volver a la Tienda</a>
+    </div>
+  ` : '';
+
   const refreshBtn = `<button class="g" id="btnAdminQuickRefresh" type="button" style="padding:6px 12px;font-size:.75rem;border-radius:10px;display:inline-flex;align-items:center;gap:4px" title="Refrescar datos (limpiar caché de 300 segundos)">🔄 <span>Refrescar</span></button>`;
 
   if(EXTRA[t]){
     if(mainHead){
       mainHead.innerHTML = `
+        ${demoBannerHtml}
         <div class="admin-main-title">
           <h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2>
         </div>
@@ -8209,6 +8314,7 @@ async function admin(t, opts = {}){
 
   if(mainHead){
     mainHead.innerHTML = `
+      ${demoBannerHtml}
       <div class="admin-main-title">
         <h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2>
         <span class="mut" id="adminRecordCount">${error ? esc(error.message) : (data||[]).length + ' registros'}</span>
@@ -9193,6 +9299,9 @@ async function admin(t, opts = {}){
     if(rec) form(rec);
   });
   app.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{
+    if(S.me?.es_demo){
+      return toast('🔒 Modo Demostración: La eliminación de registros está deshabilitada en la cuenta demo.');
+    }
     if(confirm('¿Eliminar registro?')){
       if (t === 'orders') {
         const ordId = b.dataset.x;
