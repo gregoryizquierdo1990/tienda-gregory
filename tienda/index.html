@@ -933,8 +933,8 @@ const DEFAULT_MESSAGE_TEMPLATES = {
     canal: 'whatsapp',
     titulo: 'Formato Reenvío de Revendedor a Cliente Final',
     descripcion: 'Estructura limpia sin marcas que el revendedor copia para entregar a sus propios clientes.',
-    tags: ['servicio', 'correo', 'clave', 'perfil', 'pin', 'vence'],
-    cuerpo: '*{servicio}*\nCorreo: {correo}\nClave: {clave}\nPerfil: {perfil}\nPIN: {pin}\nVence: {vence}\n\n⚠️ Cuida tus accesos y disfruta tu servicio. Garantía activa durante todo el período.'
+    tags: ['servicio', 'correo', 'clave', 'perfil', 'pin', 'vence', 'vendedor'],
+    cuerpo: '*{servicio}*\nCorreo: {correo}\nClave: {clave}\nPerfil: {perfil}\nPIN: {pin}\nVence: {vence}\nVendedor: {vendedor}\n\n⚠️ Cuida tus accesos y disfruta tu servicio. Garantía activa durante todo el período.'
   },
   notificacion_telegram_bot: {
     id: 'notificacion_telegram_bot',
@@ -1089,6 +1089,7 @@ function formatMessageTemplate(key, data = {}) {
     telefono_negocio: S.settings?.negocio?.telefono || '+584241983648',
     rif: S.settings?.negocio?.rif || 'J-50639379-4',
     portal_url: S.franchise ? location.origin : 'https://www.gregoryizquierdo.xyz',
+    vendedor: S.me?.nombre || S.user?.user_metadata?.full_name || 'Revendedor Autorizado',
     servicio: srv,
     producto: srv,
     ...data
@@ -5475,6 +5476,7 @@ async function portal(){
                   const isNoRen = rc.no_renueva === true;
                   const isPend = rc.tiene_pendiente === true;
 
+                  const resellerName = S.me?.nombre || S.user?.user_metadata?.full_name || 'Revendedor Autorizado';
                   const tplKey = isHoy ? 'aviso_vencimiento_hoy' : 'datos_limpios_revendedor';
                   const cleanMsg = isHoy
                     ? formatMessageTemplate('aviso_vencimiento_hoy', {
@@ -5482,7 +5484,8 @@ async function portal(){
                         producto: rc.servicio || rc.plataforma || 'Servicio Digital',
                         vence: rc.vence || 'Hoy',
                         monto_usd: '—',
-                        monto_bs: '—'
+                        monto_bs: '—',
+                        vendedor: resellerName
                       })
                     : formatMessageTemplate('datos_limpios_revendedor', {
                         servicio: rc.servicio || rc.plataforma || 'Servicio Digital',
@@ -5490,7 +5493,8 @@ async function portal(){
                         clave: rc.clave,
                         perfil: rc.nombre_perfil || 'Perfil 1',
                         pin: rc.pin || 'Sin PIN',
-                        vence: rc.vence || '30 días'
+                        vence: rc.vence || '30 días',
+                        vendedor: resellerName
                       });
 
                   const waUrl = waTarget ? `https://wa.me/${waTarget}?text=${encodeURIComponent(cleanMsg)}` : '';
@@ -5518,7 +5522,14 @@ async function portal(){
                   return `
                     <tr data-rc-cat="${rowCat}" style="${isPend ? 'background:rgba(234,179,8,.06)' : (isNoRen ? 'background:rgba(239,68,68,.05)' : (isHoy ? 'background:rgba(239,68,68,.08)' : ''))}">
                       <td>
-                        <b>${esc(rc.cliente_nombre || 'Cliente')}</b>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+                          <b style="font-size:.88rem;color:${rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? '#00f5a0' : '#f8fafc'}">
+                            ${esc(rc.cliente_nombre || 'Cliente Asignado')}
+                          </b>
+                          <button class="g" data-reseller-edit-client="${rc.profile_id}" data-current-name="${esc(rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? rc.cliente_nombre : '')}" data-current-tel="${esc(rc.cliente_telefono || '')}" data-srv="${esc(rc.servicio||rc.plataforma)}" data-prof="${esc(rc.nombre_perfil||'')}" style="padding:2px 7px;font-size:.7rem;border-radius:6px;color:#38bdf8;border-color:rgba(56,189,248,.35);white-space:nowrap;font-weight:700;cursor:pointer" title="Identificar o asignar el nombre del cliente para este perfil">
+                            ✏️ ${rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? 'Editar' : 'Asignar'}
+                          </button>
+                        </div>
                         ${rc.cliente_telefono ? `<div style="font-size:.76rem;color:#38bdf8;margin-top:2px">📱 ${esc(rc.cliente_telefono)}</div>` : ''}
                         ${rc.cliente_email && !rc.cliente_email.includes('@cliente.gregoryizquierdo.xyz') ? `<div class="mut" style="font-size:.72rem">${esc(rc.cliente_email)}</div>` : ''}
                       </td>
@@ -6152,7 +6163,8 @@ async function portal(){
             clave: x.clave,
             perfil: x.perfil || 'Perfil 1',
             pin: x.pin || 'Sin PIN',
-            vence: x.vence || '30 días'
+            vence: x.vence || '30 días',
+            vendedor: S.me?.nombre || S.user?.user_metadata?.full_name || 'Revendedor Autorizado'
           });
           return `
             <tr>
@@ -6860,6 +6872,73 @@ async function portal(){
             btn.disabled = false;
             btn.textContent = 'Confirmar Reporte';
             toast('⚠️ Error al reportar: ' + err.message);
+          }
+        };
+      };
+    });
+
+    app.querySelectorAll('[data-reseller-edit-client]').forEach(b => {
+      b.onclick = () => {
+        const profId = b.dataset.resellerEditClient;
+        const curName = b.dataset.currentName || '';
+        const curTel = b.dataset.currentTel || '';
+        const srv = b.dataset.srv || 'Servicio Digital';
+        const prof = b.dataset.prof || 'Perfil';
+
+        $('#dlgBody').innerHTML = `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div style="font-size:2.2rem;background:rgba(56,189,248,.12);border-radius:12px;width:48px;height:48px;display:flex;align-items:center;justify-content:center">👤</div>
+            <div>
+              <h3 style="margin:0;color:#38bdf8">Identificar Cliente Final</h3>
+              <p class="mut" style="font-size:.82rem;margin:3px 0 0">
+                <b>${esc(srv)}</b> · ${esc(prof)}
+              </p>
+            </div>
+          </div>
+          <p class="mut" style="font-size:.84rem;margin:0 0 16px;line-height:1.45">
+            Ingresa el nombre o identificación de tu cliente final para este perfil. Esto te permitirá saber exactamente a quién le pertenecen los accesos y enviar las credenciales personalizadas por WhatsApp.
+          </p>
+          <div style="margin-bottom:12px">
+            <label style="font-size:.78rem;font-weight:700;color:#cbd5e1;display:block;margin-bottom:5px">Nombre del Cliente Final:</label>
+            <input id="inResellerClienteFinal" value="${esc(curName)}" placeholder="Ej: Carlos Mendoza / Hermanos Pérez" style="width:100%;padding:10px 12px;font-size:.9rem;border-radius:8px">
+          </div>
+          <div style="margin-bottom:18px">
+            <label style="font-size:.78rem;font-weight:700;color:#cbd5e1;display:block;margin-bottom:5px">WhatsApp del Cliente (Opcional):</label>
+            <input id="inResellerClienteTel" value="${esc(curTel)}" placeholder="Ej: 04141234567 o +584141234567" style="width:100%;padding:10px 12px;font-size:.9rem;border-radius:8px">
+            <div class="mut" style="font-size:.72rem;margin-top:4px">Si lo agregas, el botón de WhatsApp se activará para enviarle sus datos en 1 clic.</div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="g" onclick="dlg.close()">Cancelar</button>
+            <button id="btnSaveResellerClienteFinal" style="background:#00f5a0;color:#0b0f19;font-weight:800;border:none;border-radius:8px;padding:9px 18px;cursor:pointer">
+              💾 Guardar Cliente
+            </button>
+          </div>
+        `;
+        dlg.showModal();
+        setTimeout(() => $('#inResellerClienteFinal')?.focus(), 100);
+
+        $('#btnSaveResellerClienteFinal').onclick = async () => {
+          const btn = $('#btnSaveResellerClienteFinal');
+          const nuevoNombre = $('#inResellerClienteFinal')?.value?.trim() || '';
+          const nuevoTel = $('#inResellerClienteTel')?.value?.trim() || '';
+          btn.disabled = true;
+          btn.textContent = '⏳ Guardando...';
+
+          try {
+            const { data, error } = await sb.rpc('reseller_set_cliente_final', {
+              p_profile_id: profId,
+              p_cliente_nombre: nuevoNombre,
+              p_cliente_telefono: nuevoTel || null
+            });
+            if (error) throw error;
+
+            dlg.close();
+            toast(nuevoNombre ? `✅ Cliente asignado: "${nuevoNombre}"` : '✅ Perfil actualizado.');
+            portal();
+          } catch(err) {
+            btn.disabled = false;
+            btn.textContent = '💾 Guardar Cliente';
+            toast('⚠️ Error al guardar: ' + (err.message || err));
           }
         };
       };
