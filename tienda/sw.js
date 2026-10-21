@@ -1,6 +1,6 @@
 // Service worker: solo guarda la "cascara" de la app (mismo origen). Los datos viven en Supabase y NUNCA se guardan aqui,
 // por eso la app siempre muestra informacion en tiempo real y no se cachean credenciales ni datos personales.
-const V = 'gi-v5', SHELL = ['/', '/index.html', '/config.js', '/admin-extra.js', '/manifest.webmanifest', '/icon-192.png'];
+const V = 'gi-v6', SHELL = ['/', '/index.html', '/config.js', '/manifest.webmanifest', '/icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== V).map(x => caches.delete(x)))).then(() => clients.claim())); });
 self.addEventListener('fetch', e => {

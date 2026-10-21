@@ -794,8 +794,41 @@ if (location.hash.includes('access_token=') && !location.hash.startsWith('#acces
   history.replaceState(null, '', location.pathname + location.search + cleanHash);
 }
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ==================== LAZY LOADING DE ADMIN-EXTRA.JS BAJO DEMANDA ====================
+// Los clientes y revendedores NO descargan admin-extra.js (ahorro inmediato de 517 KB).
+// Se descarga e inyecta dinámicamente solo cuando un Administrador abre el Panel Admin.
+window.EXTRA = window.EXTRA || {};
+let _loadingAdminExtraPromise = null;
+
+async function ensureAdminExtraLoaded() {
+  if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) return true;
+  if (_loadingAdminExtraPromise) return await _loadingAdminExtraPromise;
+
+  _loadingAdminExtraPromise = new Promise((resolve, reject) => {
+    let existing = document.querySelector('script[src*="admin-extra.js"]');
+    if (existing) {
+      if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) return resolve(true);
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', (e) => reject(e));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = '/admin-extra.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = (err) => {
+      console.error('Error cargando admin-extra.js bajo demanda:', err);
+      _loadingAdminExtraPromise = null;
+      reject(new Error('No se pudo descargar el módulo administrativo. Por favor verifica tu conexión.'));
+    };
+    document.head.appendChild(script);
+  });
+
+  return await _loadingAdminExtraPromise;
+}
+window.ensureAdminExtraLoaded = ensureAdminExtraLoaded;
 </script>
-<script src="/admin-extra.js"></script>
 <script>
 const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg'), invoiceDlg = $('#invoiceDlg'), franchiseDlg = $('#franchiseDlg'), mesaCambioDlg = $('#mesaCambioDlg'), flyerDlg = $('#flyerDlg');
 const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}, franchise:null};
@@ -2700,22 +2733,65 @@ async function loadPublic(){
     } catch(err){}
   }
 
-  const [r,p,s,bn,st] = await Promise.all([
+  const applyCatalog = (rData, pData, sData, bnData, stData) => {
+    S.banners = bnData || [];
+    S.stock = Object.fromEntries((stData || []).map(x => [x.product_id, Number(x.disponibles)]));
+    S.rate = Number(rData?.[0]?.bs_por_usd || 0);
+    S.products = pData || [];
+    S.rateDateRaw = rData?.[0]?.fecha || '';
+    S.rateDate = formatBcvDate(S.rateDateRaw);
+    S.settings = Object.fromEntries((sData || []).map(x => [x.key, x.value]));
+    const rateStr = S.rate ? `Tasa oficial BCV: ${S.rate.toLocaleString('es-VE')} Bs/USD · ${S.rateDate}` : 'Tasa BCV no disponible';
+    if($('#rate')) $('#rate').textContent = rateStr;
+    const hText = $('#heroRateText');
+    if(hText) hText.innerHTML = S.rate ? `Tasa oficial BCV: <b>${S.rate.toLocaleString('es-VE')} Bs/USD</b> <span class="rate-date">· ${esc(S.rateDate)}</span>` : 'Tasa BCV no disponible';
+    if(!S.franchise && S.settings.negocio && $('#biz')) $('#biz').textContent = S.settings.negocio.nombre;
+  };
+
+  // Caché de catálogo estático (3 minutos) para renderizado instantáneo en 0ms
+  const CAT_CACHE_KEY = 'gi_static_catalog_v1';
+  let hasFreshCat = false;
+  try {
+    const rawCat = sessionStorage.getItem(CAT_CACHE_KEY);
+    if(rawCat){
+      const cached = JSON.parse(rawCat);
+      if(Date.now() - cached.ts < 180000 && cached.products?.length){
+        hasFreshCat = true;
+        applyCatalog(cached.r, cached.p, cached.s, cached.bn, cached.st);
+      }
+    }
+  } catch(e){}
+
+  const fetchPromise = Promise.all([
     sb.from('exchange_rates').select('*').order('fecha',{ascending:false}).limit(1),
     sb.from('products').select('*').eq('activo',true).order('orden'),
     sb.from('settings').select('*'),
     sb.from('banners').select('*').order('orden'),
-    sb.rpc('stock')]);
-  S.banners = bn.data||[]; S.stock = Object.fromEntries((st.data||[]).map(x=>[x.product_id,Number(x.disponibles)]));
-  S.rate = Number(r.data?.[0]?.bs_por_usd||0); S.products = p.data||[];
-  S.rateDateRaw = r.data?.[0]?.fecha || '';
-  S.rateDate = formatBcvDate(S.rateDateRaw);
-  S.settings = Object.fromEntries((s.data||[]).map(x=>[x.key,x.value]));
-  const rateStr = S.rate ? `Tasa oficial BCV: ${S.rate.toLocaleString('es-VE')} Bs/USD · ${S.rateDate}` : 'Tasa BCV no disponible';
-  $('#rate').textContent = rateStr;
-  const hText = $('#heroRateText');
-  if(hText) hText.innerHTML = S.rate ? `Tasa oficial BCV: <b>${S.rate.toLocaleString('es-VE')} Bs/USD</b> <span class="rate-date">· ${esc(S.rateDate)}</span>` : 'Tasa oficial BCV no disponible';
-  if(!S.franchise && S.settings.negocio) $('#biz').textContent = S.settings.negocio.nombre;
+    sb.rpc('stock')
+  ]);
+
+  if(!hasFreshCat){
+    const [r,p,s,bn,st] = await fetchPromise;
+    applyCatalog(r.data, p.data, s.data, bn.data, st.data);
+    try {
+      sessionStorage.setItem(CAT_CACHE_KEY, JSON.stringify({
+        ts: Date.now(),
+        r: r.data, p: p.data, s: s.data, bn: bn.data, st: st.data
+      }));
+    } catch(e){}
+  } else {
+    // Revalidación silenciosa en background para mantener tasa y stock al día
+    fetchPromise.then(([r,p,s,bn,st]) => {
+      applyCatalog(r.data, p.data, s.data, bn.data, st.data);
+      try {
+        sessionStorage.setItem(CAT_CACHE_KEY, JSON.stringify({
+          ts: Date.now(),
+          r: r.data, p: p.data, s: s.data, bn: bn.data, st: st.data
+        }));
+      } catch(e){}
+      if(S.view === 'home' && typeof renderGrid === 'function') renderGrid();
+    }).catch(()=>{});
+  }
 }
 async function onSession(session){
   if(session?.provider_token) sessionStorage.setItem('gtk',session.provider_token);
@@ -8217,11 +8293,31 @@ window.invalidateAdminCache = invalidateAdminCache;
 async function admin(t, opts = {}){
   if(t === 'installments') t = 'cuotas';
   if(t === 'google_integrations') t = 'google';
-  if(!t || (!TABLES[t] && !EXTRA[t])) t = 'finanzas';
   if(!S.isAdmin){
     const ok = await ensureAdminSession();
     if(!ok) return toast('Acceso solo para el administrador');
   }
+
+  // Carga Perezosa (Lazy Loading) de admin-extra.js bajo demanda solo para administradores
+  if(typeof EXTRA === 'undefined' || Object.keys(EXTRA).length === 0){
+    if(app && !document.querySelector('.admin-wrapper')){
+      app.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:65vh;text-align:center;padding:20px">
+          <div class="sk" style="width:56px;height:56px;border-radius:14px;margin-bottom:14px"></div>
+          <h3 style="margin:0 0 6px;color:#00f5a0;font-size:1.1rem">Cargando Panel de Administración</h3>
+          <p class="mut" style="margin:0;font-size:.8rem">Descargando herramientas administrativas...</p>
+        </div>
+      `;
+    }
+    try {
+      await ensureAdminExtraLoaded();
+    } catch(errLoad){
+      console.error(errLoad);
+      return toast('Error al cargar panel de administración: ' + (errLoad.message || errLoad));
+    }
+  }
+
+  if(!t || (!TABLES[t] && !EXTRA[t])) t = 'finanzas';
   if(facetDlg && facetDlg.open) facetDlg.close();
   document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
   const tabs = [...Object.keys(TABLES), ...Object.keys(EXTRA)];
