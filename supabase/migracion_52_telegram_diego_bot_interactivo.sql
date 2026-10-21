@@ -32,6 +32,29 @@ DROP POLICY IF EXISTS telegram_sessions_service_role ON public.telegram_sessions
 CREATE POLICY telegram_sessions_service_role ON public.telegram_sessions
 FOR ALL USING (auth.role() = 'service_role');
 
+-- 2.1 Helper seguro de descifrado que no lanza excepciones
+CREATE OR REPLACE FUNCTION public.safe_dec_text(t text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'extensions'
+AS $$
+BEGIN
+  IF t IS NULL THEN
+    RETURN NULL;
+  END IF;
+  IF t LIKE 'enc:%' THEN
+    BEGIN
+      RETURN pgp_sym_decrypt(decode(substr(t, 5), 'base64'), (SELECT value FROM secrets WHERE name = 'enc_key'));
+    EXCEPTION WHEN OTHERS THEN
+      RETURN t;
+    END;
+  ELSE
+    RETURN t;
+  END IF;
+END;
+$$;
+
 -- 3. Función RPC: Obtener credenciales activas descifradas para el bot
 CREATE OR REPLACE FUNCTION public.bot_get_customer_credentials(p_customer_id uuid)
 RETURNS TABLE (
@@ -56,26 +79,50 @@ BEGIN
   RETURN QUERY
   SELECT 
     o.id AS order_id,
-    COALESCE(p.nombre, s.nombre, 'Servicio Digital') AS servicio,
-    o.tipo::text,
+    COALESCE(prod.nombre, ma.plataforma, 'Servicio Digital')::text AS servicio,
+    COALESCE(prod.tipo, 'perfil')::text AS tipo,
     COALESCE(o.datos_recarga, '{}'::jsonb) AS datos_recarga,
-    COALESCE(dec_text(a.correo_cifrado), a.correo) AS correo,
-    COALESCE(dec_text(a.clave_cifrada), a.clave) AS clave,
-    prof.nombre_perfil AS perfil,
-    COALESCE(dec_text(prof.pin_cifrado), prof.pin) AS pin,
-    o.fecha_inicio AS inicia,
-    o.fecha_vencimiento AS vence,
-    (o.fecha_vencimiento - CURRENT_DATE)::integer AS dias_restantes,
+    COALESCE(safe_dec_text(ma.correo), ma.correo, '')::text AS correo,
+    COALESCE(safe_dec_text(ma.clave), ma.clave, '')::text AS clave,
+    COALESCE(prof.nombre_perfil, '')::text AS perfil,
+    COALESCE(safe_dec_text(prof.pin), prof.pin, '')::text AS pin,
+    o.inicia AS inicia,
+    o.vence AS vence,
+    CASE WHEN o.vence IS NOT NULL THEN (o.vence - CURRENT_DATE)::integer ELSE NULL END AS dias_restantes,
     o.estado::text
   FROM orders o
-  LEFT JOIN products p ON p.id = o.product_id
-  LEFT JOIN services s ON s.id = p.servicio_id
-  LEFT JOIN accounts a ON a.id = o.account_id
-  LEFT JOIN account_profiles prof ON prof.id = o.profile_id
+  LEFT JOIN products prod ON prod.id = o.product_id
+  LEFT JOIN profiles_inventory prof ON prof.id = o.profile_id
+  LEFT JOIN mother_accounts ma ON ma.id = prof.mother_id
   WHERE o.customer_id = p_customer_id
     AND o.estado IN ('entregado', 'pagado')
-    AND (o.fecha_vencimiento IS NULL OR o.fecha_vencimiento >= CURRENT_DATE - 1)
-  ORDER BY o.fecha_vencimiento ASC NULLS LAST;
+    AND (o.vence IS NULL OR o.vence >= CURRENT_DATE - 1)
+
+  UNION ALL
+
+  SELECT 
+    prof2.id AS order_id,
+    COALESCE(prod2.nombre, ma2.plataforma, 'Servicio Digital')::text AS servicio,
+    COALESCE(prod2.tipo, 'perfil')::text AS tipo,
+    '{}'::jsonb AS datos_recarga,
+    COALESCE(safe_dec_text(ma2.correo), ma2.correo, '')::text AS correo,
+    COALESCE(safe_dec_text(ma2.clave), ma2.clave, '')::text AS clave,
+    COALESCE(prof2.nombre_perfil, '')::text AS perfil,
+    COALESCE(safe_dec_text(prof2.pin), prof2.pin, '')::text AS pin,
+    prof2.inicia AS inicia,
+    prof2.vence AS vence,
+    CASE WHEN prof2.vence IS NOT NULL THEN (prof2.vence - CURRENT_DATE)::integer ELSE NULL END AS dias_restantes,
+    prof2.estado::text
+  FROM profiles_inventory prof2
+  LEFT JOIN products prod2 ON prod2.id = prof2.product_id
+  LEFT JOIN mother_accounts ma2 ON ma2.id = prof2.mother_id
+  WHERE prof2.assigned_customer_id = p_customer_id
+    AND prof2.estado = 'vendido'
+    AND (prof2.vence IS NULL OR prof2.vence >= CURRENT_DATE - 1)
+    AND prof2.id NOT IN (
+      SELECT o2.profile_id FROM orders o2 WHERE o2.customer_id = p_customer_id AND o2.profile_id IS NOT NULL
+    )
+  ORDER BY vence ASC NULLS LAST;
 END;
 $$;
 
@@ -99,23 +146,29 @@ BEGIN
   WHERE id = p_customer_id;
 
   SELECT 
-    COALESCE(SUM(monto_usd), 0),
+    COALESCE(SUM(i.monto_usd), 0),
     COALESCE(jsonb_agg(
       jsonb_build_object(
-        'id', id,
-        'order_id', order_id,
-        'monto_usd', monto_usd,
-        'fecha_vencimiento', fecha_vencimiento,
-        'estado', estado,
-        'plataforma', plataforma_nombre,
-        'perfil', nombre_perfil,
-        'vencida', (fecha_vencimiento < CURRENT_DATE)
-      ) ORDER BY fecha_vencimiento ASC
+        'id', i.id,
+        'order_id', i.order_id,
+        'monto_usd', i.monto_usd,
+        'fecha_vencimiento', i.fecha_vencimiento,
+        'estado', i.estado,
+        'numero_cuota', i.numero_cuota,
+        'total_cuotas', i.total_cuotas,
+        'plataforma', COALESCE(ma.plataforma, prod.nombre, 'Servicio'),
+        'perfil', prof.nombre_perfil,
+        'vencida', (i.fecha_vencimiento < CURRENT_DATE)
+      ) ORDER BY i.fecha_vencimiento ASC
     ), '[]'::jsonb)
   INTO v_deuda, v_cuotas
-  FROM installments
-  WHERE customer_id = p_customer_id
-    AND estado != 'pagada';
+  FROM installments i
+  LEFT JOIN orders o ON o.id = i.order_id
+  LEFT JOIN products prod ON prod.id = o.product_id
+  LEFT JOIN profiles_inventory prof ON prof.id = o.profile_id
+  LEFT JOIN mother_accounts ma ON ma.id = prof.mother_id
+  WHERE i.customer_id = p_customer_id
+    AND i.estado != 'pagada';
 
   v_disp := GREATEST(0, v_limite - v_deuda);
 

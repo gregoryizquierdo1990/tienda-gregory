@@ -80,9 +80,15 @@ async function findCustomerByIdentifier(raw) {
   const byEmail = await sbRest(`customers?email=ilike.${encodeURIComponent(clean)}&limit=1`);
   if (byEmail?.[0]) return byEmail[0];
 
-  // 2. Búsqueda por Código de Identificación (ej: CLT-008, RVD-1002, etc.)
+  // 2. Búsqueda por Código de Identificación (ej: CLT-008, RVD:1002, etc.)
   const byCode = await sbRest(`customers?codigo_identificacion=ilike.${encodeURIComponent(clean)}&limit=1`);
   if (byCode?.[0]) return byCode[0];
+
+  const altCode = clean.includes('-') ? clean.replace(/-/g, ':') : (clean.includes(':') ? clean.replace(/:/g, '-') : null);
+  if (altCode) {
+    const byAltCode = await sbRest(`customers?codigo_identificacion=ilike.${encodeURIComponent(altCode)}&limit=1`);
+    if (byAltCode?.[0]) return byAltCode[0];
+  }
 
   // 3. Búsqueda por Teléfono o cuenta virtual telefónica
   const digits = clean.replace(/\D/g, '');
@@ -106,17 +112,29 @@ export default async function handler(req, res) {
     return res.status(401).end();
   }
 
-  const msg = req.body?.message;
+  const isCallback = !!req.body?.callback_query;
+  const cb = req.body?.callback_query;
+  const msg = cb ? cb.message : req.body?.message;
   if (!msg?.chat?.id) return res.status(200).end();
 
   const chatId = msg.chat.id;
-  const fromId = msg.from?.id || chatId;
-  const username = msg.from?.username ? `@${msg.from.username}` : null;
-  const rawText = (msg.text || '').trim();
+  const fromId = (cb ? cb.from?.id : msg.from?.id) || chatId;
+  const username = (cb ? cb.from?.username : msg.from?.username) ? `@${cb ? cb.from.username : msg.from.username}` : null;
+  const rawText = (cb ? (cb.data || '') : (msg.text || '')).trim();
   const lowerText = rawText.toLowerCase();
 
   const token = await getSecret('telegram_token');
   if (!token) return res.status(200).end();
+
+  if (isCallback && cb?.id) {
+    await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: cb.id })
+    }).catch(() => {});
+  }
+
+  try {
 
   // 1. Obtener o resolver la sesión actual del chat
   let sessions = await sbRest(`telegram_sessions?chat_id=eq.${chatId}&limit=1`);
@@ -582,4 +600,13 @@ export default async function handler(req, res) {
     `• 💬 <b>Contactar Soporte</b>: Enlace directo con Gregory.`;
   await sendTelegram(token, chatId, fallbackMsg, MAIN_KEYBOARD);
   return res.status(200).end();
+} catch (err) {
+  console.error('Error en webhook de Telegram:', err);
+  try {
+    if (token && chatId) {
+      await sendTelegram(token, chatId, '⚠️ Ocurrió un error temporal al procesar tu solicitud. Por favor intenta de nuevo en un momento o escribe /start.');
+    }
+  } catch {}
+  return res.status(200).json({ ok: false, error: err.message });
+}
 }
