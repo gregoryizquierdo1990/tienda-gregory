@@ -1258,15 +1258,24 @@ async function pushSub() {
 
 const EXTRA = {
   async notificaciones(box) {
+    if (!box) return;
     const { data: cfg } = await sb.from('settings').select('value').eq('key', 'notificaciones').maybeSingle();
     const { data: subs } = await sb.from('push_subscriptions').select('id,user_agent,created_at').order('created_at', { ascending: false });
+    if (!box.isConnected) {
+      const activeBox = document.querySelector('#ex');
+      if (activeBox) box = activeBox;
+      else return;
+    }
     box.innerHTML = `<p class="mut">Avisos de pedidos, recargas, incidencias y vencimientos del día por <b>Telegram</b> y <b>push</b>: llegan aunque la app esté cerrada. Para Telegram, el bot debe estar conectado (pestaña telegram) y debes haberle escrito /start.</p>
     <label class="mut">Tu ID de Telegram</label><input id="tg" value="${esc(cfg?.value?.telegram_chat_id || '')}" inputmode="numeric" style="max-width:260px">
     <div class="row" style="margin:10px 0"><button id="n1">1. Activar / guardar</button><button id="n2">2. Activar push en este dispositivo</button><button class="g" id="n3">Enviar prueba</button></div>
     <h3>Dispositivos con push (${(subs || []).length})</h3>${(subs || []).map(s => `<div class="row card" style="margin-bottom:6px;justify-content:space-between"><span class="mut">${esc((s.user_agent || '').slice(0, 70))} · ${esc(String(s.created_at).slice(0, 10))}</span><button class="d" data-del="${s.id}">Quitar</button></div>`).join('') || '<p class="mut">Ninguno todavía.</p>'}`;
-    $('#n1').onclick = e => run(e.target, async () => { await api('/api/notify-setup', { telegram_chat_id: $('#tg').value.trim() }); return 'Notificaciones activadas y datos guardados.'; });
-    $('#n2').onclick = e => run(e.target, async () => { await pushSub(); EXTRA.notificaciones(box); return 'Este dispositivo recibirá notificaciones push.'; });
-    $('#n3').onclick = e => run(e.target, async () => { const r = await api('/api/notify-test', {}); return `Prueba enviada. Telegram: ${r.telegram ? 'sí' : 'no'} · Push: ${r.push} dispositivo(s).` + (r.errores?.length ? '\n' + r.errores.join(' | ') : ''); });
+    const bN1 = box.querySelector('#n1') || document.querySelector('#n1');
+    if (bN1) bN1.onclick = e => run(e.target, async () => { await api('/api/notify-setup', { telegram_chat_id: ($('#tg')?.value || '').trim() }); return 'Notificaciones activadas y datos guardados.'; });
+    const bN2 = box.querySelector('#n2') || document.querySelector('#n2');
+    if (bN2) bN2.onclick = e => run(e.target, async () => { await pushSub(); EXTRA.notificaciones(box); return 'Este dispositivo recibirá notificaciones push.'; });
+    const bN3 = box.querySelector('#n3') || document.querySelector('#n3');
+    if (bN3) bN3.onclick = e => run(e.target, async () => { const r = await api('/api/notify-test', {}); return `Prueba enviada. Telegram: ${r.telegram ? 'sí' : 'no'} · Push: ${r.push} dispositivo(s).` + (r.errores?.length ? '\n' + r.errores.join(' | ') : ''); });
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await sb.from('push_subscriptions').delete().eq('id', b.dataset.del); EXTRA.notificaciones(box); });
   },
   async orders(box) {
@@ -2939,6 +2948,7 @@ Cobrar antes de ${fVenceCred}`;
     });
   },
   async finanzas(box) {
+    if (!box) return;
     let data = [], error = null, mcOpsRes = { data: [] }, mcCfgRow = { data: null }, instRes = { data: [] };
     try {
       const res = await Promise.all([
@@ -2954,9 +2964,21 @@ Cobrar antes de ${fVenceCred}`;
       instRes = res[3] || { data: [] };
     } catch(errFin) {
       console.warn('Error cargando finanzas:', errFin);
-      return box.innerHTML = '<p>Error al cargar finanzas: ' + esc(errFin.message) + '</p>';
+      if (box && box.isConnected) box.innerHTML = '<p>Error al cargar finanzas: ' + esc(errFin.message) + '</p>';
+      return;
     }
-    if (error) return box.innerHTML = '<p>' + esc(error.message) + '</p>';
+
+    // Si el contenedor se desconectó del DOM durante el fetch de red, reasociar al contenedor activo
+    if (!box.isConnected) {
+      const activeBox = document.querySelector('#ex');
+      if (activeBox) box = activeBox;
+      else return; // El usuario navegó a otra vista o cerró el módulo
+    }
+
+    if (error) {
+      box.innerHTML = '<p>' + esc(error.message) + '</p>';
+      return;
+    }
 
     // Calcular cuotas pagadas y pendientes por mes
     const allInsts = instRes?.data || [];
@@ -3102,11 +3124,19 @@ Cobrar antes de ${fVenceCred}`;
         </table>
       </div>
     `;
-    $('#g1').onclick = () => admin('expenses');
-    $('#g2').onclick = () => admin('purchases');
-    $('#g3').onclick = () => admin('refunds');
-    $('#g4').onclick = () => admin('cuotas');
-    const bGoMesa = $('#btnGoMesaFromFin');
+    const bG1 = box.querySelector('#g1') || document.querySelector('#g1');
+    if (bG1) bG1.onclick = () => admin('expenses');
+
+    const bG2 = box.querySelector('#g2') || document.querySelector('#g2');
+    if (bG2) bG2.onclick = () => admin('purchases');
+
+    const bG3 = box.querySelector('#g3') || document.querySelector('#g3');
+    if (bG3) bG3.onclick = () => admin('refunds');
+
+    const bG4 = box.querySelector('#g4') || document.querySelector('#g4');
+    if (bG4) bG4.onclick = () => admin('cuotas');
+
+    const bGoMesa = box.querySelector('#btnGoMesaFromFin') || document.querySelector('#btnGoMesaFromFin');
     if (bGoMesa) bGoMesa.onclick = () => admin('mesa_cambio');
   },
   async google(box) {
@@ -3335,12 +3365,20 @@ Cobrar antes de ${fVenceCred}`;
   },
 
   async telegram(box) {
+    if (!box) return;
     const { data } = await sb.from('settings').select('value').eq('key', 'bot').maybeSingle();
+    if (!box.isConnected) {
+      const activeBox = document.querySelector('#ex');
+      if (activeBox) box = activeBox;
+      else return;
+    }
     box.innerHTML = `<p class="mut">Bot: ${data?.value?.username ? '✅ @' + esc(data.value.username) : '⚠️ sin conectar'}. El token se guarda cifrado en el servidor y nunca vuelve al navegador.</p>
     <div class="row"><input id="tk" type="password" placeholder="Token de @BotFather" autocomplete="off" style="max-width:420px"><button id="cn">Conectar bot</button><button class="g" id="cm">Editar respuestas</button></div>
     <p class="mut">Variables en las respuestas: {tasa} {telefono} {correo}. El comando * es la respuesta por defecto.</p>`;
-    $('#cm').onclick = () => admin('bot_commands');
-    $('#cn').onclick = e => run(e.target, async () => { const r = await api('/api/telegram-setup', { token: $('#tk').value.trim() }); $('#tk').value = ''; EXTRA.telegram(box); return 'Conectado: @' + r.bot; });
+    const bCm = box.querySelector('#cm') || document.querySelector('#cm');
+    if (bCm) bCm.onclick = () => admin('bot_commands');
+    const bCn = box.querySelector('#cn') || document.querySelector('#cn');
+    if (bCn) bCn.onclick = e => run(e.target, async () => { const r = await api('/api/telegram-setup', { token: ($('#tk')?.value || '').trim() }); if ($('#tk')) $('#tk').value = ''; EXTRA.telegram(box); return 'Conectado: @' + r.bot; });
   },
 
   async cuotas(box) {

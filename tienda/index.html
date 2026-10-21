@@ -8322,6 +8322,8 @@ async function admin(t, opts = {}){
   document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
   const tabs = [...Object.keys(TABLES), ...Object.keys(EXTRA)];
   const tabInfo = getTabInfo(t);
+  admin._loadSeq = (admin._loadSeq || 0) + 1;
+  const currentSeq = admin._loadSeq;
 
   // 1. SIDEBAR PERSISTENTE: Comprobar si el layout del panel ya existe en el DOM
   const hasLayout = !!(document.querySelector('.admin-wrapper') && document.querySelector('.admin-sidebar') && $('#adminMain') && $('#adminContent'));
@@ -8383,9 +8385,13 @@ async function admin(t, opts = {}){
     }
 
     if(mainContent) mainContent.innerHTML = `<div id="ex"></div>`;
+    const targetEx = $('#ex');
     try {
-      return await EXTRA[t]($('#ex'));
+      const res = await EXTRA[t](targetEx);
+      if(admin._loadSeq !== currentSeq) return;
+      return res;
     } catch(err) {
+      if(admin._loadSeq !== currentSeq) return;
       console.error('Error cargando módulo admin:', err);
       if(mainContent){
         mainContent.innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:24px;border-radius:14px;max-width:640px;margin:20px auto;text-align:center"><h3 style="margin:0 0 8px;color:#f87171">⚠️ Error al cargar el módulo ${esc(tabInfo.label)}</h3><p class="mut" style="margin:0 0 16px;font-size:.85rem">${esc(err.message)}</p><button class="g" onclick="admin('${esc(t)}', {forceRefresh:true})">🔄 Reintentar</button></div>`;
@@ -8438,6 +8444,8 @@ async function admin(t, opts = {}){
       error = err;
     }
   }
+
+  if(admin._loadSeq !== currentSeq) return;
 
   // Refresco silencioso en background si expiró la frescura de 300s
   if(cached && !cached.isFresh){
