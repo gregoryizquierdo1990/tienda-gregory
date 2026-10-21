@@ -6964,12 +6964,12 @@ const TABLES = {
  banners:['titulo','texto','imagen_url','enlace','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
  payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
- profiles_inventory:['mother_id','product_id','nombre_perfil','pin','vendedor','inicia','vence','estado'],
+ profiles_inventory:['mother_id','product_id','nombre_perfil','pin','cliente_final','vendedor','inicia','vence','estado'],
   customers:['codigo_identificacion','nombre','email','telefono','vendedor_nombre','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
   bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
   exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','monto_bs','notas'], purchases:['fecha','proveedor','plataforma','mother_id','es_credito','dias_credito','fecha_limite_pago','estado_pago','monto_usdt','monto_usd','monto_bs','notas'],
   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
-const SEL={orders:'*,customers!customer_id(nombre,email,telefono),products(nombre,tipo)',installments:'*,customers!customer_id(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
+const SEL={orders:'*,customers!customer_id(nombre,email,telefono),products(nombre,tipo)',installments:'*,customers!customer_id(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre),customers!assigned_customer_id(nombre,email,telefono)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
@@ -6993,6 +6993,15 @@ const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) r
     return `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem"><b style="word-break:break-word">${esc(info)}</b><button type="button" class="g" style="padding:2px 6px;font-size:.7rem;flex-shrink:0" data-clean-copy="${esc(copyVal)}" title="Copiar dato de activación">📋</button></div>`;
   }
   if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):'');
+  if(c==='cliente_final'){
+    if(v) return `<b style="color:#00f5a0;font-size:.78rem">👤 ${esc(v)}</b>`;
+    const cNom = r.customers?.nombre || r.customers?.email;
+    if(cNom) return `<span style="font-size:.75rem;color:#38bdf8" title="Cliente asignado">👤 ${esc(cNom)}</span>`;
+    return '<span class="mut" style="font-size:.75rem">—</span>';
+  }
+  if(c==='vendedor'){
+    return v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 ${esc(v)}</span>` : '<span class="mut" style="font-size:.75rem">Tienda Central</span>';
+  }
   if(c==='vendedor_nombre') return v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 ${esc(v)}</span>` : '<span class="mut" style="font-size:.75rem">Directo Tienda</span>';
   if(c==='es_credito') return `<span class="pill" style="font-size:.72rem;${r.es_credito?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">${r.es_credito?'💳 A Crédito':'💵 Contado'}</span>`;
   if(c==='estado_pago') return `<span class="pill" style="font-size:.72rem;${r.estado_pago==='pendiente'?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':(r.estado_pago==='vencido'?'background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)')}">${r.estado_pago==='pendiente'?'🟡 Por Pagar':(r.estado_pago==='vencido'?'🔴 Vencido':'🟢 Pagado')}</span>`;
@@ -7579,6 +7588,7 @@ async function admin(t, opts = {}){
     const map = {
       datos_recarga: 'Datos Activación / Recarga',
       customer_id: 'Cliente',
+      cliente_final: 'Cliente Final',
       product_id: 'Producto / Servicio',
       total_usd: 'Total ($)',
       zeny_aplicado: 'Zeny ($)',
@@ -7589,6 +7599,7 @@ async function admin(t, opts = {}){
       inicia: 'Inicia',
       vence: 'Vence',
       proximo_pago: 'Próx. Pago',
+      vendedor: 'Vendedor',
       vendedor_nombre: 'Vendedor',
       es_credito: 'Modalidad',
       estado_pago: 'Est. Pago',
@@ -7839,6 +7850,9 @@ async function admin(t, opts = {}){
             inicia: null,
             vence: null,
             assigned_customer_id: null,
+            vendedor: null,
+            vendedor_id: null,
+            cliente_final: null,
             no_renueva: false,
             no_renueva_reportado_at: null,
             no_renueva_motivo: null,
@@ -7863,6 +7877,7 @@ async function admin(t, opts = {}){
         }
 
         dlg.close();
+        invalidateAdminCache('profiles_inventory');
         toast(`✅ Perfil "${newNom || nom}" liberado con éxito. Ya está disponible en la tienda.`);
         setTimeout(() => {
           try {
@@ -8238,11 +8253,15 @@ async function admin(t, opts = {}){
         'purchases.monto_usdt':'Costo de Compra en USDT (Base Deuda)',
         'purchases.monto_usd':'Costo de Compra en Dólares ($ USD)',
         'purchases.monto_bs':'Costo de Compra en Bolívares (Bs)',
-        'orders.datos_recarga':'Datos de Activación / Recarga / Texto (Bajo Pedido)'
+        'orders.datos_recarga':'Datos de Activación / Recarga / Texto (Bajo Pedido)',
+        'profiles_inventory.cliente_final':'👤 Nombre Real del Cliente Final (Uso Interno)',
+        'profiles_inventory.vendedor':'🤝 Vendedor / Revendedor (dejar vacío si es Tienda Central)'
       };
       return m[t+'.'+c]||c;
     };
     const inp=c=>{const v=row?row[c]:''; const ro=(READONLY[t]||[]).includes(c)&&row;
+      if(t==='profiles_inventory'&&c==='cliente_final') return `<input data-c="${c}" value="${esc(v)}" placeholder="Ej: Pedro Pérez (0414-1234567)">`;
+      if(t==='profiles_inventory'&&c==='vendedor') return `<input data-c="${c}" value="${esc(v)}" placeholder="Dejar vacío si pertenece a Tienda Central">`;
       if(t==='expenses'&&c==='categoria'){
         return `
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
@@ -8431,11 +8450,32 @@ async function admin(t, opts = {}){
       try {
         const o = {};
         for (const i of dlg.querySelectorAll('[data-c]')) {
-          let v = i.value;
-          if (v === '' || i.disabled) continue;
+          if (i.disabled) continue;
+          let v = typeof i.value === 'string' ? i.value.trim() : i.value;
+          if (v === '') {
+            if (row) o[i.dataset.c] = null;
+            continue;
+          }
           if (v === 'true' || v === 'false') v = (v === 'true');
           else if (/^[\[{]/.test(v)) { try { v = JSON.parse(v); } catch(err){} }
           o[i.dataset.c] = v;
+        }
+
+        if (t === 'profiles_inventory') {
+          if (!o.vendedor || o.vendedor === '') {
+            o.vendedor = null;
+            o.vendedor_id = null;
+          }
+          if (o.cliente_final === '') o.cliente_final = null;
+          if (o.estado === 'disponible') {
+            o.vendedor = null;
+            o.vendedor_id = null;
+            o.cliente_final = null;
+            o.assigned_customer_id = null;
+            o.inicia = null;
+            o.vence = null;
+            o.no_renueva = false;
+          }
         }
 
         // Conversiones de tipos seguras para compras y cuentas madre
