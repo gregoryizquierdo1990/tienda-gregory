@@ -2137,9 +2137,8 @@ async function onSession(session){
     $('#bPortal').textContent = S.me?.es_demo ? '👤 Mi Portal (Demo)' : 'Mi portal';
     $('#bPortal').title = 'Mi portal de cliente';
   }
-  // El boton Admin permanece visible para el administrador, pero se oculta en cuentas de prueba
-  $('#bAdmin').classList.toggle('hide', Boolean(S.me?.es_demo));
-  $('#bSnd').classList.toggle('hide', !S.isAdmin && !S.me?.es_revendedor); updSnd(); badge(); checkVenc();
+  // Boton de Notificaciones visible para todos los usuarios autenticados
+  $('#bSnd').classList.toggle('hide', !S.user); updSnd(); badge(); checkVenc();
 }
 document.addEventListener('visibilitychange', async () => {
   if(!document.hidden && S.user){
@@ -5845,6 +5844,9 @@ async function portal(){
           <button id="btnVerBeneficios" class="g" style="font-size:.76rem;padding:4px 10px;border-radius:99px;border:1px solid ${curLevel.color}55;color:${curLevel.color};display:inline-flex;align-items:center;gap:5px;cursor:pointer">
             🎖️ Ver mis beneficios & Comparativa
           </button>
+          <button id="btnPortalNotif" class="g" style="font-size:.76rem;padding:4px 10px;border-radius:99px;border:1px solid rgba(0,245,160,.4);color:#00f5a0;display:inline-flex;align-items:center;gap:5px;cursor:pointer" title="Configurar notificaciones en vivo y alertas en este teléfono">
+            🔔 Alertas & Notificaciones
+          </button>
         </div>
       </div>
     </div>
@@ -6498,6 +6500,11 @@ async function portal(){
     };
   }
 
+  const bPortalNotif = $('#btnPortalNotif');
+  if(bPortalNotif){
+    bPortalNotif.onclick = () => openNotificationSettingsModal();
+  }
+
   // Solicitar Tarjeta Zeny
   const reqBtn = $('#btnReqCard');
   if(reqBtn){
@@ -6712,25 +6719,7 @@ async function portal(){
 
     const bResPush = app.querySelector('#btnResellerActPush');
     if(bResPush){
-      bResPush.onclick = async () => {
-        if(!('Notification' in window)){
-          return toast('Tu dispositivo o navegador no soporta notificaciones de sistema.');
-        }
-        try {
-          const perm = await Notification.requestPermission();
-          if(perm === 'granted'){
-            new Notification('Emprendimiento Gregory Izquierdo', {
-              body: '✅ ¡Alertas activadas! Recibirás notificaciones en este teléfono de los vencimientos de tus clientes.',
-              icon: '/icon-192.png'
-            });
-            toast('✅ Alertas activadas con éxito en tu dispositivo.');
-          } else {
-            toast('⚠️ Permiso de notificaciones denegado en el navegador.');
-          }
-        } catch(e){
-          toast('Error al activar notificaciones: ' + e.message);
-        }
-      };
+      bResPush.onclick = () => openNotificationSettingsModal();
     }
 
     const btnScroll = app.querySelector('#btnScrollToDebts');
@@ -8667,13 +8656,219 @@ async function badge(){ if(!S.isAdmin) return; const c=(t,f)=>f(sb.from(t).selec
   if(bz){ bz.textContent=b.count||0; bz.classList.toggle('hide',!b.count); }
   if(bi){ bi.textContent=i.count||0; bi.classList.toggle('hide',!i.count); }
 }
-// ---------- ALERTAS SONORAS (solo administrador, mientras la app o pestaña esté abierta) ----------
+// ---------- CENTRO DE NOTIFICACIONES Y ALERTAS EN TIEMPO REAL ----------
 let _ac; const sndOn=()=>localStorage.getItem('snd')!=='0';
 const unlock=()=>{ try{ _ac=_ac||new (window.AudioContext||window.webkitAudioContext)(); if(_ac.state==='suspended') _ac.resume(); }catch{} updSnd(); };
 addEventListener('pointerdown',unlock,{passive:true});
-function updSnd(){ const b=$('#bSnd'); if(b) b.textContent=!sndOn()?'🔕 Sin sonido':(_ac&&_ac.state==='running'?'🔔 Sonido':'🔔 Toca para activar'); }
-$('#bSnd').onclick=async()=>{ localStorage.setItem('snd',sndOn()?'0':'1'); unlock(); updSnd();
-  if(sndOn()){ beep('order'); if('Notification' in window&&Notification.permission==='default') Notification.requestPermission(); } };
+
+function updSnd(){
+  const b=$('#bSnd');
+  if(!b) return;
+  const active = sndOn();
+  b.textContent = !active ? '🔕 Notificaciones off' : '🔔 Notificaciones';
+  b.title = 'Configuración de Notificaciones y Alertas en Vivo';
+}
+
+$('#bSnd').onclick = () => openNotificationSettingsModal();
+
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function subscribeDeviceToPush() {
+  if (!('Notification' in window)) {
+    throw new Error('Este dispositivo o navegador no soporta notificaciones de sistema.');
+  }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') {
+    throw new Error('Permiso de notificaciones no concedido en el navegador.');
+  }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return { type: 'local', ok: true };
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let key = null;
+    try {
+      const res = await fetch('/api/push-key');
+      const data = await res.json();
+      key = data?.key;
+    } catch(e){}
+
+    if (!key) return { type: 'local', ok: true };
+
+    const pubKeyBytes = urlB64ToUint8Array(key);
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: pubKeyBytes
+      });
+    }
+    const subJson = sub.toJSON();
+    await sb.rpc('save_my_push_subscription', {
+      p_endpoint: subJson.endpoint,
+      p_p256dh: subJson.keys?.p256dh || '',
+      p_auth: subJson.keys?.auth || '',
+      p_user_agent: navigator.userAgent.slice(0, 140)
+    });
+    return { type: 'webpush', ok: true, subscription: sub };
+  } catch(e) {
+    console.warn('Fallo suscripción push avanzada, usando notificaciones de navegador:', e);
+    return { type: 'local', ok: true };
+  }
+}
+
+function openNotificationSettingsModal(){
+  unlock();
+  const hasNotif = 'Notification' in window;
+  const curPerm = hasNotif ? Notification.permission : 'unsupported';
+  const isSnd = sndOn();
+
+  let permHtml = '';
+  if (curPerm === 'granted') {
+    permHtml = `
+      <div style="background:rgba(0,245,160,.1);border:1.5px solid rgba(0,245,160,.4);border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1.8rem">🟢</span>
+          <div>
+            <b style="color:#00f5a0;font-size:.9rem">Alertas de Sistema ACTIVADAS</b>
+            <div class="mut" style="font-size:.76rem;margin-top:2px">Este teléfono o navegador tiene permisos concedidos para recibir avisos directos.</div>
+          </div>
+        </div>
+        <button class="g" id="btnTestNotif" style="padding:6px 12px;font-size:.76rem;font-weight:700;white-space:nowrap;color:#00f5a0;border-color:rgba(0,245,160,.4)">🔔 Probar</button>
+      </div>
+    `;
+  } else if (curPerm === 'denied') {
+    permHtml = `
+      <div style="background:rgba(239,68,68,.12);border:1.5px solid rgba(239,68,68,.4);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <span style="font-size:1.8rem">🔴</span>
+        <div>
+          <b style="color:#f87171;font-size:.9rem">Notificaciones Bloqueadas en este Navegador</b>
+          <div class="mut" style="font-size:.76rem;margin-top:2px">Para recibirlas, toca el candado o ajustes al lado del enlace web y activa "Notificaciones: Permitir".</div>
+        </div>
+      </div>
+    `;
+  } else {
+    permHtml = `
+      <div style="background:rgba(56,189,248,.1);border:1.5px solid rgba(56,189,248,.35);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:1.8rem">📲</span>
+            <div>
+              <b style="color:#38bdf8;font-size:.92rem">Activar Alertas en este Dispositivo</b>
+              <div class="mut" style="font-size:.78rem;margin-top:2px">Recibe avisos inmediatos en tu pantalla cuando Gregory concilie compras, apruebe créditos o entregue perfiles.</div>
+            </div>
+          </div>
+          <button id="btnGrantNotif" style="background:#00f5a0;color:#0b0f19;font-weight:800;border:none;border-radius:10px;padding:9px 16px;cursor:pointer">
+            🔔 Activar en 1 Clic
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  const roleText = S.isAdmin
+    ? 'Administrador Master'
+    : (S.me?.es_revendedor ? 'Revendedor Mayorista Oficial' : 'Cliente Oficial');
+
+  $('#dlgBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div style="font-size:2rem;background:rgba(0,245,160,.12);border-radius:12px;width:48px;height:48px;display:flex;align-items:center;justify-content:center">🔔</div>
+      <div>
+        <h3 style="margin:0;color:#00f5a0">Centro de Notificaciones en Vivo</h3>
+        <p class="mut" style="font-size:.8rem;margin:2px 0 0">
+          Cuenta: <b>${esc(S.me?.nombre || S.user?.email || 'Usuario')}</b> · <span style="color:#38bdf8">${roleText}</span>
+        </p>
+      </div>
+    </div>
+
+    ${permHtml}
+
+    <!-- Alertas Sonoras -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <b style="font-size:.88rem">🔊 Sonido de Notificaciones en Vivo</b>
+          <div class="mut" style="font-size:.76rem;margin-top:2px">Emite un tono audible cuando ocurra un evento importante en la plataforma.</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="g" id="btnToggleSound" style="padding:6px 12px;font-size:.78rem;font-weight:700;color:${isSnd ? '#00f5a0' : '#94a3b8'};border-color:${isSnd ? 'rgba(0,245,160,.4)' : 'rgba(255,255,255,.15)'}">
+            ${isSnd ? '🔔 Sonido Activado' : '🔕 Sonido Desactivado'}
+          </button>
+          <button class="g" id="btnTestBeep" style="padding:6px 10px;font-size:.78rem" title="Escuchar sonido de prueba">
+            🔊 Probar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Guía de Notificaciones Automáticas -->
+    <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px;margin-bottom:16px;font-size:.82rem">
+      <b style="color:#cbd5e1;display:block;margin-bottom:6px">⚡ ¿Qué avisos automáticos recibirás en tu pantalla?</b>
+      <ul style="margin:0;padding-left:18px;line-height:1.55;color:#94a3b8">
+        ${S.me?.es_revendedor ? `
+          <li><b>🛒 Compras conciliadas:</b> Aviso inmediato con las credenciales cuando Gregory despache pedidos de tus clientes.</li>
+          <li><b>🤝 Línea de Crédito:</b> Notificación al activarse compras a crédito o conciliarse tus pagos de cuotas.</li>
+          <li><b>📺 Asignación de perfiles:</b> Alerta cuando Gregory te asigne, reasigne, cambie el PIN o renueve perfiles de tu inventario.</li>
+          <li><b>🛠️ Incidencias solventadas:</b> Confirmación en vivo al resolverse reportes de soporte o garantías.</li>
+          <li><b>💳 Billetera & Comisiones:</b> Notificación al acreditarse saldo Zeny o ganancias de tus ventas.</li>
+          <li><b>⏰ Vencimientos de clientes:</b> Alerta diaria de clientes que vencen hoy para que renueves a tiempo.</li>
+        ` : `
+          <li><b>🎉 Entrega de pedidos:</b> Aviso con confirmación en el momento exacto en que tus credenciales estén listas.</li>
+          <li><b>💳 Recargas Zeny:</b> Notificación al verificarse y acreditarse tu saldo en tu tarjeta virtual.</li>
+          <li><b>🛠️ Soporte e Incidencias:</b> Aviso directo cuando Gregory resuelva una solicitud de garantía o cambio de pantalla.</li>
+          <li><b>⏰ Recordatorios de vencimiento:</b> Para no perder tus pantallas ni historial guardado.</li>
+        `}
+      </ul>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end">
+      <button class="g" onclick="dlg.close()">Cerrar</button>
+    </div>
+  `;
+  dlg.showModal();
+
+  $('#btnGrantNotif')?.addEventListener('click', async () => {
+    const btn = $('#btnGrantNotif');
+    btn.disabled = true;
+    btn.textContent = '⏳ Activando...';
+    try {
+      await subscribeDeviceToPush();
+      toast('🎉 ¡Notificaciones activadas con éxito en este dispositivo!');
+      openNotificationSettingsModal();
+    } catch(err) {
+      btn.disabled = false;
+      btn.textContent = '🔔 Activar en 1 Clic';
+      toast('⚠️ ' + (err.message || err));
+    }
+  });
+
+  $('#btnTestNotif')?.addEventListener('click', () => {
+    notify('order', '🎉 ¡Prueba de Notificación Exitosa! Tu dispositivo está conectado en vivo.');
+  });
+
+  $('#btnToggleSound')?.addEventListener('click', () => {
+    const cur = sndOn();
+    localStorage.setItem('snd', cur ? '0' : '1');
+    unlock();
+    updSnd();
+    openNotificationSettingsModal();
+  });
+
+  $('#btnTestBeep')?.addEventListener('click', () => {
+    unlock();
+    beep('order');
+  });
+}
+
 function beep(kind){ if(!sndOn()||!_ac||_ac.state!=='running') return;
   const seq={order:[[880,.15],[1175,.3]],recarga:[[660,.15],[660,.15],[990,.3]],incidencia:[[440,.3],[330,.3],[440,.3]],venc:[[784,.2],[988,.2],[1175,.2],[988,.2]]}[kind]||[[880,.2]]; let t=_ac.currentTime;
   for(const [f,d] of seq){ const o=_ac.createOscillator(),g=_ac.createGain(); o.type='sine'; o.frequency.value=f; o.connect(g); g.connect(_ac.destination);
@@ -8684,6 +8879,7 @@ function banner(msg){ let b=$('#alertbox'); if(!b){ b=document.createElement('di
 function notify(kind,msg){ beep(kind); banner(msg); try{ if(navigator.vibrate) navigator.vibrate(kind==='incidencia'?[200,100,200,100,200]:[250]);
   if('Notification' in window&&Notification.permission==='granted'&&document.hidden) new Notification('Gregory Izquierdo',{body:msg,icon:'/icon-192.png',tag:kind}); }catch{}
   document.title='🔔 '+msg; setTimeout(()=>document.title='Emprendimiento Gregory Izquierdo',8000); badge(); }
+
 const ALERTS = {
   orders: {
     ok: r => ['pendiente', 'entregado'].includes(r.estado),
@@ -8698,21 +8894,94 @@ const ALERTS = {
   zeny_ledger: { ok: r => r.tipo === 'recarga' && r.estado === 'pendiente', kind: 'recarga', msg: 'Nueva recarga Zeny por aprobar' },
   incidents: { ok: () => true, kind: 'incidencia', msg: 'Nueva incidencia reportada por un cliente' }
 };
+
 Object.entries(ALERTS).reduce((ch, [t, a]) => ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: t }, p => {
   if (S.isAdmin && a.ok(p.new)) {
     const text = typeof a.msg === 'function' ? a.msg(p.new) : a.msg;
     notify(a.kind, text);
   }
 }), sb.channel('alerts'))
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'orders'},p=>{
-    if(p.new?.customer_id === S.user?.id){
-      if(p.new.estado === 'entregado' && p.old?.estado !== 'entregado') notify('order', '🎉 ¡Tu pedido ha sido entregado! Revisa tus accesos en Mi Portal.');
-      else if(p.new.estado === 'rechazado' && p.old?.estado !== 'rechazado') notify('incidencia', '⚠️ Tu pedido fue rechazado o requiere corrección.');
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, p => {
+    const isMyResellerOrder = p.new?.vendedor_id === S.user?.id;
+    const isMyCustomerOrder = p.new?.customer_id === S.user?.id;
+    if (isMyResellerOrder && !S.isAdmin) {
+      if (p.new.estado === 'entregado' && p.old?.estado !== 'entregado') {
+        notify('order', `🎉 ¡Compra conciliada! Pedido para tu cliente "${p.new.cliente_nombre || 'Cliente'}" (${p.new.servicio_nombre || p.new.referencia || 'Servicio'}) entregado con éxito.`);
+      } else if (p.new.estado === 'pagado' && p.old?.estado !== 'pagado') {
+        notify('order', `✅ ¡Pago conciliado! Orden #${(p.new.id||'').slice(0, 8)} confirmada por Gregory.`);
+      } else if (p.new.estado === 'rechazado' && p.old?.estado !== 'rechazado') {
+        notify('incidencia', `⚠️ Un pedido de tu red fue rechazado o requiere corrección.`);
+      }
+    } else if (isMyCustomerOrder && !S.isAdmin) {
+      if (p.new.estado === 'entregado' && p.old?.estado !== 'entregado') {
+        notify('order', '🎉 ¡Tu pedido ha sido entregado! Revisa tus accesos en Mi Portal.');
+      } else if (p.new.estado === 'pagado' && p.old?.estado !== 'pagado') {
+        notify('order', '✅ ¡Tu pago ha sido conciliado con éxito en la tienda!');
+      } else if (p.new.estado === 'rechazado' && p.old?.estado !== 'rechazado') {
+        notify('incidencia', '⚠️ Tu pedido fue rechazado o requiere corrección.');
+      }
     }
   })
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'incidents'},p=>{
-    if(p.new?.customer_id === S.user?.id && p.new.estado === 'resuelta' && p.old?.estado !== 'resuelta'){
-      notify('order', '✅ Tu incidencia ha sido resuelta por Soporte.');
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'installments' }, p => {
+    if ((p.new?.reseller_id === S.user?.id || p.new?.customer_id === S.user?.id) && !S.isAdmin) {
+      notify('order', `🤝 ¡Línea de crédito activada! Servicio registrado a crédito por $${Number(p.new.monto_usd || 0).toFixed(2)} USD.`);
+    }
+  })
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'installments' }, p => {
+    if ((p.new?.reseller_id === S.user?.id || p.new?.customer_id === S.user?.id) && !S.isAdmin) {
+      if (p.new.estado === 'pagada' && p.old?.estado !== 'pagada') {
+        notify('order', `🎉 ¡Pago de cuota de crédito conciliado! Tu balance deudor ha sido actualizado.`);
+      }
+    }
+  })
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles_inventory' }, p => {
+    const isMyProfile = p.new?.vendedor_id === S.user?.id || p.new?.assigned_customer_id === S.user?.id;
+    if (isMyProfile && !S.isAdmin) {
+      if (p.new.vendedor_id === S.user?.id && p.old?.vendedor_id !== S.user?.id) {
+        notify('order', `📺 ¡Gregory te ha asignado un nuevo perfil! "${p.new.nombre_perfil || 'Perfil'}" disponible en tu inventario.`);
+      } else if (p.new.pin && p.old?.pin && p.new.pin !== p.old?.pin) {
+        notify('order', `🔑 Se ha actualizado el PIN de tu perfil "${p.new.nombre_perfil || 'Perfil'}": ${p.new.pin}`);
+      } else if (p.new.vence && p.old?.vence && p.new.vence !== p.old?.vence) {
+        notify('order', `🔄 Perfil "${p.new.nombre_perfil || 'Perfil'}" renovado con nuevo vencimiento: ${p.new.vence}.`);
+      }
+    }
+  })
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'incidents' }, p => {
+    if ((p.new?.customer_id === S.user?.id || p.new?.vendedor_id === S.user?.id) && !S.isAdmin) {
+      if (p.new.estado === 'resuelta' && p.old?.estado !== 'resuelta') {
+        notify('order', `✅ ¡Incidencia resuelta por Gregory! Tu reporte para ${p.new.servicio || 'el servicio'} ha sido solventado.`);
+      } else if (p.new.estado === 'en_proceso' && p.old?.estado !== 'en_proceso') {
+        notify('incidencia', `🛠️ Gregory está revisando y atendiendo tu reporte de incidencia.`);
+      }
+    }
+  })
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'zeny_ledger' }, p => {
+    if (p.new?.customer_id === S.user?.id && !S.isAdmin) {
+      if (p.new.tipo === 'recarga' && (p.new.estado === 'completado' || p.new.estado === 'aprobada') && p.old?.estado !== p.new.estado) {
+        notify('recarga', `💳 ¡Recarga Zeny verificada! Se han acreditado $${Number(p.new.monto || 0).toFixed(2)} USD a tu billetera.`);
+      }
+    }
+  })
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'partner_commissions' }, p => {
+    if (p.new?.vendedor_id === S.user?.id && !S.isAdmin) {
+      notify('order', `💵 ¡Comisión mayorista ganada! +$${Number(p.new.ganancia_vendedor_usd || 0).toFixed(2)} USD por venta de ${p.new.servicio_nombre || 'Servicio'}.`);
+    }
+  })
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'customers' }, p => {
+    if (p.new?.id === S.user?.id && !S.isAdmin) {
+      if (Number(p.new.limite_credito || 0) > Number(p.old?.limite_credito || 0)) {
+        notify('order', `🚀 ¡Felicidades! Tu límite de crédito mayorista ha sido aumentado a $${Number(p.new.limite_credito).toFixed(2)} USD.`);
+      }
+      if (p.new.es_revendedor === true && p.old?.es_revendedor !== true) {
+        notify('order', `💼 ¡Felicidades! Tu cuenta ha sido aprobada oficialmente como REVENDEDOR MAYORISTA.`);
+      }
+    }
+  })
+  .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mesa_cambio_operaciones' }, p => {
+    if (p.new?.customer_id === S.user?.id && !S.isAdmin) {
+      if (p.new.estado === 'liquidada' && p.old?.estado !== 'liquidada') {
+        notify('recarga', `💱 ¡Operación en Mesa de Cambio liquidada y transferida con éxito!`);
+      }
     }
   })
   .subscribe();

@@ -45,24 +45,29 @@ export async function sendTelegram(msgHtml, plainMsg) {
   }
 }
 
-export async function sendAll(kind, msg, htmlMsg) {
+export async function sendAll(kind, msg, htmlMsg, targetUserId = null) {
   const out = { telegram: false, push: 0, errores: [] };
 
-  // 1. Envío a Telegram con formato HTML enriquecido
-  const tgRes = await sendTelegram(htmlMsg || msg, msg);
-  out.telegram = tgRes.ok;
-  if (!tgRes.ok && tgRes.error) {
-    out.errores.push(tgRes.error);
+  // 1. Envío a Telegram con formato HTML enriquecido (solo para admin o cuando no es privado)
+  if (!targetUserId) {
+    const tgRes = await sendTelegram(htmlMsg || msg, msg);
+    out.telegram = tgRes.ok;
+    if (!tgRes.ok && tgRes.error) {
+      out.errores.push(tgRes.error);
+    }
   }
 
-  // 2. Envío a Web Push
+  // 2. Envío a Web Push (al usuario específico o a todos según corresponda)
   try {
     const pub = (await getSecret('vapid_public')) || process.env.VAPID_PUBLIC_KEY;
     const priv = (await getSecret('vapid_private')) || process.env.VAPID_PRIVATE_KEY;
     if (pub && priv) {
       const neg = (await sbRest('settings?key=eq.negocio&select=value'))?.[0]?.value || {};
       webpush.setVapidDetails('mailto:' + (neg.correo || 'emprendimientogregoryizquierdo@gmail.com'), pub, priv);
-      const subs = (await sbRest('push_subscriptions?select=id,endpoint,p256dh,auth')) || [];
+      const urlQuery = targetUserId
+        ? `push_subscriptions?user_id=eq.${targetUserId}&select=id,endpoint,p256dh,auth,user_id`
+        : 'push_subscriptions?select=id,endpoint,p256dh,auth,user_id';
+      const subs = (await sbRest(urlQuery)) || [];
       await Promise.all(subs.map(async s => {
         try {
           await webpush.sendNotification(
