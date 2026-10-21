@@ -33,6 +33,8 @@ button.d{background:linear-gradient(135deg,#ff4d6d,#c9184a);color:#fff;box-shado
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
 .price{font-size:1.55rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .pill{padding:3px 10px;border-radius:99px;background:rgba(0,245,160,.12);color:var(--g);font-size:.74rem;font-weight:700}.pill.off{background:rgba(255,77,109,.14);color:#ff7b93}
+.rc-client-row{cursor:pointer;transition:background-color .15s ease}
+.rc-client-row:hover{background-color:rgba(56,189,248,.1)!important}
 .tabs{display:flex;gap:8px;overflow-x:auto;margin:14px 0;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs button{white-space:nowrap}
 table{width:100%;border-collapse:collapse;font-size:.85rem}td,th{border-bottom:1px solid rgba(22,51,90,.8);padding:8px 6px;text-align:left;vertical-align:top}th{color:var(--mut);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.4px}tr:hover td{background:rgba(0,212,255,.04)}.wrap{overflow-x:auto;border-radius:12px}
 dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border:1px solid rgba(0,212,255,.3);border-radius:20px;max-width:460px;width:92%;box-shadow:0 30px 80px -20px rgba(0,212,255,.35);padding:20px}dialog::backdrop{background:rgba(2,6,14,.72);backdrop-filter:blur(4px)}
@@ -1788,6 +1790,459 @@ async function openPayResellerDebtModal(opts = {}) {
   };
 }
 window.openPayResellerDebtModal = openPayResellerDebtModal;
+
+function openResellerEditClientModal(opts = {}) {
+  const { profId, curName = '', curTel = '', srv = 'Servicio Digital', prof = 'Perfil', onSaved } = opts;
+  if (!profId) return;
+
+  $('#dlgBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div style="font-size:2.2rem;background:rgba(56,189,248,.12);border-radius:12px;width:48px;height:48px;display:flex;align-items:center;justify-content:center">👤</div>
+      <div>
+        <h3 style="margin:0;color:#38bdf8">Identificar Cliente Final</h3>
+        <p class="mut" style="font-size:.82rem;margin:3px 0 0">
+          <b>${esc(srv)}</b> · ${esc(prof)}
+        </p>
+      </div>
+    </div>
+    <p class="mut" style="font-size:.84rem;margin:0 0 16px;line-height:1.45">
+      Ingresa el nombre o identificación de tu cliente final para este perfil. Esto te permitirá saber exactamente a quién le pertenecen los accesos y enviar las credenciales personalizadas por WhatsApp.
+    </p>
+    <div style="margin-bottom:12px">
+      <label style="font-size:.78rem;font-weight:700;color:#cbd5e1;display:block;margin-bottom:5px">Nombre del Cliente Final:</label>
+      <input id="inResellerClienteFinal" value="${esc(curName)}" placeholder="Ej: Carlos Mendoza / Hermanos Pérez" style="width:100%;padding:10px 12px;font-size:.9rem;border-radius:8px">
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="font-size:.78rem;font-weight:700;color:#cbd5e1;display:block;margin-bottom:5px">WhatsApp del Cliente (Opcional):</label>
+      <input id="inResellerClienteTel" value="${esc(curTel)}" placeholder="Ej: 04141234567 o +584141234567" style="width:100%;padding:10px 12px;font-size:.9rem;border-radius:8px">
+      <div class="mut" style="font-size:.72rem;margin-top:4px">Si lo agregas, el botón de WhatsApp se activará para enviarle sus datos en 1 clic.</div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="g" onclick="dlg.close()">Cancelar</button>
+      <button id="btnSaveResellerClienteFinal" style="background:#00f5a0;color:#0b0f19;font-weight:800;border:none;border-radius:8px;padding:9px 18px;cursor:pointer">
+        💾 Guardar Cliente
+      </button>
+    </div>
+  `;
+  dlg.showModal();
+  setTimeout(() => $('#inResellerClienteFinal')?.focus(), 100);
+
+  $('#btnSaveResellerClienteFinal').onclick = async () => {
+    const btn = $('#btnSaveResellerClienteFinal');
+    const nuevoNombre = $('#inResellerClienteFinal')?.value?.trim() || '';
+    const nuevoTel = $('#inResellerClienteTel')?.value?.trim() || '';
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando...';
+
+    try {
+      const { data, error } = await sb.rpc('reseller_set_cliente_final', {
+        p_profile_id: profId,
+        p_cliente_nombre: nuevoNombre,
+        p_cliente_telefono: nuevoTel || null
+      });
+      if (error) throw error;
+
+      if (S.resellerClientsList) {
+        const item = S.resellerClientsList.find(x => x.profile_id === profId);
+        if (item) {
+          item.cliente_nombre = nuevoNombre || 'Cliente Asignado';
+          item.cliente_telefono = nuevoTel || null;
+        }
+      }
+
+      toast(nuevoNombre ? `✅ Cliente asignado: "${nuevoNombre}"` : '✅ Perfil actualizado.');
+      if (typeof onSaved === 'function') {
+        onSaved({ nuevoNombre, nuevoTel });
+      } else {
+        dlg.close();
+        portal();
+      }
+    } catch(err) {
+      btn.disabled = false;
+      btn.textContent = '💾 Guardar Cliente';
+      toast('⚠️ Error al guardar: ' + (err.message || err));
+    }
+  };
+}
+window.openResellerEditClientModal = openResellerEditClientModal;
+
+async function openResellerClientDossier(profId) {
+  if (!profId) return;
+  let rc = (S.resellerClientsList || []).find(x => x.profile_id === profId);
+  if (!rc) {
+    try {
+      const { data } = await sb.rpc('my_reseller_clients');
+      if (data) {
+        S.resellerClientsList = data;
+        rc = data.find(x => x.profile_id === profId);
+      }
+    } catch(e) {
+      console.warn('Error fetching reseller client for dossier:', e);
+    }
+  }
+  if (!rc) return toast('⚠️ No se encontró la información del perfil seleccionado.');
+
+  const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  let diffDays = null;
+  if (rc.vence) {
+    const [vy, vm, vd] = rc.vence.split('-').map(Number);
+    const target = new Date(vy, vm - 1, vd);
+    target.setHours(0,0,0,0);
+    diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+  }
+
+  const isHoy = rc.vence === todayStr;
+  const isExp = diffDays !== null && diffDays < 0;
+  const isProx = diffDays !== null && diffDays > 0 && diffDays <= 3;
+  const isNoRen = rc.no_renueva === true;
+  const isPend = rc.tiene_pendiente === true;
+
+  const resellerName = S.me?.nombre || S.user?.user_metadata?.full_name || 'Revendedor Autorizado';
+  const cleanPhone = cleanWaPhone(rc.cliente_telefono);
+  const cleanMsg = isHoy
+    ? formatMessageTemplate('aviso_vencimiento_hoy', {
+        cliente: rc.cliente_nombre || 'Cliente',
+        producto: rc.servicio || rc.plataforma || 'Servicio Digital',
+        vence: rc.vence || 'Hoy',
+        monto_usd: '—',
+        monto_bs: '—',
+        vendedor: resellerName
+      })
+    : formatMessageTemplate('datos_limpios_revendedor', {
+        servicio: rc.servicio || rc.plataforma || 'Servicio Digital',
+        correo: rc.correo,
+        clave: rc.clave,
+        perfil: rc.nombre_perfil || 'Perfil 1',
+        pin: rc.pin || 'Sin PIN',
+        vence: rc.vence || '30 días',
+        vendedor: resellerName
+      });
+
+  const waClientUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(cleanMsg)}` : '';
+
+  const gregoryTel = (S.settings?.negocio?.telefono || '584142302384').replace(/\D/g, '');
+  const gregoryWaTarget = gregoryTel.startsWith('58') ? gregoryTel : ('58' + gregoryTel.replace(/^0+/, ''));
+  const pendWaMsg = `Hola Gregory! 👋 Te escribe *${S.me?.nombre || 'Revendedor'}* (${S.me?.codigo_identificacion || 'RVD'}).\n\nReporté el Pago Móvil de renovación para:\n👤 *Cliente:* ${rc.cliente_nombre || 'Cliente'}\n📺 *Servicio:* ${rc.servicio || rc.plataforma}\n🔖 *Referencia:* ${rc.orden_pendiente_ref || 'Pago Móvil'}\n\nPor favor concíliamelo cuando puedas. ¡Quedo atento!`;
+  const waGregoryUrl = `https://wa.me/${gregoryWaTarget}?text=${encodeURIComponent(pendWaMsg)}`;
+
+  let statusCardHtml = '';
+  if (isPend) {
+    statusCardHtml = `
+      <div style="background:rgba(234,179,8,.12);border:1.5px solid rgba(234,179,8,.45);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:1.8rem">⏳</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px">
+            <b style="color:#facc15;font-size:.92rem">PAGO EN VERIFICACIÓN</b>
+            <span class="pill" style="font-size:.68rem;background:rgba(234,179,8,.2);color:#facc15;border-color:rgba(234,179,8,.5)">Ref #${esc(rc.orden_pendiente_ref || 'Pago Móvil')}</span>
+          </div>
+          <div class="mut" style="font-size:.76rem;margin-top:2px">
+            Reportaste el pago de renovación. Gregory lo validará para reactivar o extender el período.
+          </div>
+        </div>
+        <a class="g" href="${waGregoryUrl}" target="_blank" rel="noopener noreferrer" style="padding:6px 10px;font-size:.76rem;color:#facc15;border:1px solid rgba(234,179,8,.4);border-radius:8px;font-weight:700;text-decoration:none;white-space:nowrap">
+          📲 Avisar WA
+        </a>
+      </div>
+    `;
+  } else if (isNoRen) {
+    statusCardHtml = `
+      <div style="background:rgba(239,68,68,.12);border:1.5px solid rgba(239,68,68,.4);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:1.8rem">🔴</div>
+        <div>
+          <b style="color:#f87171;font-size:.92rem">CLIENTE NO RENUEVA</b>
+          <div class="mut" style="font-size:.76rem;margin-top:2px">
+            Reportado a administración para liberar el perfil y reasignarlo a la venta pública.
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (isHoy) {
+    statusCardHtml = `
+      <div style="background:rgba(239,68,68,.15);border:1.5px solid rgba(239,68,68,.5);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:1.8rem">⏰</div>
+        <div style="flex:1">
+          <b style="color:#f87171;font-size:.92rem">¡VENCE HOY! (${esc(rc.vence)})</b>
+          <div class="mut" style="font-size:.76rem;margin-top:2px">
+            La suscripción finaliza hoy. Envía el cobro al cliente o renueva con anticipación para no interrumpir el servicio.
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (isExp) {
+    statusCardHtml = `
+      <div style="background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.35);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:1.8rem">⚠️</div>
+        <div>
+          <b style="color:#f87171;font-size:.92rem">VENCIDO HACE ${Math.abs(diffDays)} DÍAS (Corte: ${esc(rc.vence || '—')})</b>
+          <div class="mut" style="font-size:.76rem;margin-top:2px">
+            La suscripción está vencida. Puedes renovarla para que el cliente continúe con las mismas credenciales.
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (isProx) {
+    statusCardHtml = `
+      <div style="background:rgba(245,158,11,.12);border:1.5px solid rgba(245,158,11,.4);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:1.8rem">⏳</div>
+        <div>
+          <b style="color:#f59e0b;font-size:.92rem">VENCE EN ${diffDays} DÍA${diffDays > 1 ? 'S' : ''} (Corte: ${esc(rc.vence)})</b>
+          <div class="mut" style="font-size:.76rem;margin-top:2px">
+            Próximo a vencer. Recuerda coordinar el cobro con tu cliente antes del corte.
+          </div>
+        </div>
+      </div>
+    `;
+  } else {
+    statusCardHtml = `
+      <div style="background:rgba(0,245,160,.08);border:1.5px solid rgba(0,245,160,.3);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:1.8rem">🟢</div>
+        <div>
+          <b style="color:#00f5a0;font-size:.92rem">SERVICIO ACTIVO (${diffDays !== null ? `${diffDays} días restantes` : 'Vigente'})</b>
+          <div class="mut" style="font-size:.76rem;margin-top:2px">
+            Fecha de corte programada: <b>${esc(rc.vence || 'Sin fecha')}</b>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const clienteNombreDisplay = rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda'
+    ? rc.cliente_nombre
+    : 'Sin identificar (Asignar)';
+
+  $('#dlgBody').innerHTML = `
+    <!-- HEADER DE LA FICHA -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:48px;height:48px;border-radius:12px;background:rgba(0,245,160,.12);border:1px solid rgba(0,245,160,.3);display:flex;align-items:center;justify-content:center;font-size:1.6rem">
+          📺
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h3 style="margin:0;font-size:1.15rem;color:#f8fafc">${esc(rc.servicio || rc.plataforma)}</h3>
+            <span class="pill" style="font-size:.7rem;background:rgba(255,255,255,.06);color:#94a3b8">${esc(rc.plataforma || 'Streaming')}</span>
+          </div>
+          <div class="mut" style="font-size:.78rem;margin-top:2px">
+            Ficha Digital · Perfil: <b style="color:#00f5a0">${esc(rc.nombre_perfil || 'Perfil 1')}</b>
+          </div>
+        </div>
+      </div>
+      <button class="g" onclick="dlg.close()" style="padding:5px 12px;font-size:.9rem;border-radius:8px;border:none;background:rgba(255,255,255,.08);color:#cbd5e1;cursor:pointer">✕</button>
+    </div>
+
+    <!-- BANNER DE STATUS Y VIGENCIA -->
+    ${statusCardHtml}
+
+    <!-- BLOQUE 1: DATOS DEL CLIENTE FINAL -->
+    <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:.75rem;font-weight:700;color:#38bdf8;text-transform:uppercase;letter-spacing:.5px">
+          👤 Cliente Final Asignado
+        </div>
+        <button id="btnDossierEditClient" class="g" style="padding:3px 9px;font-size:.72rem;border-radius:6px;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700;cursor:pointer">
+          ✏️ Editar Datos
+        </button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
+        <div>
+          <span class="mut" style="font-size:.72rem;display:block">Nombre del Cliente:</span>
+          <b style="font-size:.95rem;color:${clienteNombreDisplay !== 'Sin identificar (Asignar)' ? '#00f5a0' : '#facc15'}">
+            ${esc(clienteNombreDisplay)}
+          </b>
+        </div>
+        <div>
+          <span class="mut" style="font-size:.72rem;display:block">WhatsApp de Contacto:</span>
+          ${cleanPhone ? `
+            <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+              <b style="font-size:.88rem;color:#38bdf8">📱 ${esc(rc.cliente_telefono)}</b>
+              <a href="https://wa.me/${cleanPhone}" target="_blank" rel="noopener noreferrer" style="font-size:.72rem;color:#00f5a0;text-decoration:none;font-weight:700;background:rgba(0,245,160,.1);padding:2px 6px;border-radius:4px;border:1px solid rgba(0,245,160,.25)">
+                Abrir Chat ↗
+              </a>
+            </div>
+          ` : '<span style="font-size:.84rem;color:#64748b">No registrado</span>'}
+        </div>
+        ${rc.cliente_email && !rc.cliente_email.includes('@cliente.gregoryizquierdo.xyz') ? `
+          <div>
+            <span class="mut" style="font-size:.72rem;display:block">Correo del Cliente:</span>
+            <span style="font-size:.82rem;color:#cbd5e1">${esc(rc.cliente_email)}</span>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+
+    <!-- BLOQUE 2: CREDENCIALES OFICIALES DE ACCESO -->
+    <div style="background:rgba(15,23,42,.65);border:1.5px solid rgba(0,245,160,.25);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:.75rem;font-weight:700;color:#00f5a0;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px">
+          🔐 Credenciales de Acceso
+        </div>
+        <span class="pill" style="font-size:.65rem;background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)">
+          Pantalla Exclusiva
+        </span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <!-- Correo -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(255,255,255,.03);padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.05)">
+          <div style="overflow:hidden;text-overflow:ellipsis">
+            <span class="mut" style="font-size:.7rem;display:block">Correo / Usuario:</span>
+            <b style="font-size:.88rem;color:#f8fafc;user-select:all">${esc(rc.correo)}</b>
+          </div>
+          <button class="clean-copy-btn" data-clean-copy="${esc(rc.correo)}" style="padding:4px 8px;font-size:.72rem;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:#cbd5e1;cursor:pointer;white-space:nowrap">
+            📋 Copiar
+          </button>
+        </div>
+
+        <!-- Clave con Toggle Mostrar/Ocultar -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(255,255,255,.03);padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.05)">
+          <div>
+            <span class="mut" style="font-size:.7rem;display:block">Contraseña / Clave:</span>
+            <span id="dossierPassText" style="font-size:.95rem;font-family:monospace;letter-spacing:2px;font-weight:700;color:#f8fafc">••••••••</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button id="btnToggleDossierPass" class="g" style="padding:4px 8px;font-size:.72rem;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:#cbd5e1;cursor:pointer">
+              👁️ Ver
+            </button>
+            <button class="clean-copy-btn" data-clean-copy="${esc(rc.clave)}" style="padding:4px 8px;font-size:.72rem;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:#cbd5e1;cursor:pointer">
+              📋 Copiar
+            </button>
+          </div>
+        </div>
+
+        <!-- Perfil y PIN en columnas -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:rgba(255,255,255,.03);padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.05)">
+            <span class="mut" style="font-size:.7rem;display:block">Perfil Asignado:</span>
+            <b style="font-size:.9rem;color:#00f5a0">${esc(rc.nombre_perfil || 'Perfil 1')}</b>
+          </div>
+          <div style="background:rgba(255,255,255,.03);padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span class="mut" style="font-size:.7rem;display:block">PIN de Seguridad:</span>
+              <code style="font-size:.95rem;color:#00f5a0;font-weight:800">${esc(rc.pin || 'Sin PIN')}</code>
+            </div>
+            ${rc.pin ? `
+              <button class="clean-copy-btn" data-clean-copy="${esc(rc.pin)}" style="padding:3px 7px;font-size:.7rem;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:#cbd5e1;cursor:pointer">
+                📋
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:.72rem;color:#94a3b8;margin-top:10px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.08);line-height:1.4">
+        📌 <b>Reglas para el cliente:</b> Disfrute en 1 solo dispositivo a la vez. No modificar perfiles de otros usuarios ni cambiar correo o contraseña.
+      </div>
+    </div>
+
+    <!-- BLOQUE 3: ACCIONES RÁPIDAS DEL REVENDEDOR -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
+        <button class="clean-copy-btn" data-clean-copy="${esc(cleanMsg)}" style="padding:9px 14px;font-size:.82rem;background:rgba(0,245,160,.12);color:#00f5a0;border:1.5px solid rgba(0,245,160,.4);border-radius:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer">
+          📋 Copiar Ficha Limpia
+        </button>
+
+        ${waClientUrl ? `
+          <a href="${waClientUrl}" target="_blank" rel="noopener noreferrer" style="padding:9px 14px;font-size:.82rem;background:rgba(37,211,102,.12);color:#25d366;border:1.5px solid rgba(37,211,102,.4);border-radius:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none">
+            💬 Enviar WhatsApp
+          </a>
+        ` : ''}
+
+        ${!isPend ? `
+          <button id="btnDossierRenovar" style="padding:9px 14px;font-size:.82rem;background:rgba(56,189,248,.12);color:#38bdf8;border:1.5px solid rgba(56,189,248,.4);border-radius:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer">
+            🔄 Renovar (+30d)
+          </button>
+        ` : ''}
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:4px">
+        ${!isPend && !isNoRen ? `
+          <button id="btnDossierNoRenueva" class="g" style="padding:6px 10px;font-size:.74rem;color:#f87171;border-color:rgba(239,68,68,.35);font-weight:600;border-radius:8px">
+            ❌ Reportar que No Renueva
+          </button>
+        ` : '<div></div>'}
+        <button class="g" onclick="dlg.close()" style="padding:6px 14px;font-size:.78rem;font-weight:600;border-radius:8px">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+
+  dlg.showModal();
+
+  setupCleanCopy($('#dlgBody'));
+
+  const passSpan = $('#dossierPassText');
+  const btnTogglePass = $('#btnToggleDossierPass');
+  if (btnTogglePass && passSpan) {
+    let showing = false;
+    btnTogglePass.onclick = () => {
+      showing = !showing;
+      if (showing) {
+        passSpan.textContent = rc.clave;
+        passSpan.style.letterSpacing = 'normal';
+        passSpan.style.color = '#38bdf8';
+        btnTogglePass.innerHTML = '🙈 Ocultar';
+      } else {
+        passSpan.textContent = '••••••••';
+        passSpan.style.letterSpacing = '2px';
+        passSpan.style.color = '#f8fafc';
+        btnTogglePass.innerHTML = '👁️ Ver';
+      }
+    };
+  }
+
+  const btnEditClient = $('#btnDossierEditClient');
+  if (btnEditClient) {
+    btnEditClient.onclick = () => {
+      openResellerEditClientModal({
+        profId: rc.profile_id,
+        curName: rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? rc.cliente_nombre : '',
+        curTel: rc.cliente_telefono || '',
+        srv: rc.servicio || rc.plataforma,
+        prof: rc.nombre_perfil,
+        onSaved: ({ nuevoNombre, nuevoTel }) => {
+          rc.cliente_nombre = nuevoNombre || 'Cliente Asignado';
+          rc.cliente_telefono = nuevoTel || null;
+          openResellerClientDossier(rc.profile_id);
+          portal();
+        }
+      });
+    };
+  }
+
+  const btnRenovar = $('#btnDossierRenovar');
+  if (btnRenovar) {
+    btnRenovar.onclick = () => {
+      dlg.close();
+      openRenewalModal({
+        profileId: rc.profile_id,
+        nom: rc.cliente_nombre,
+        srv: rc.servicio || rc.plataforma,
+        prof: rc.nombre_perfil,
+        pin: rc.pin,
+        mail: rc.correo,
+        tel: rc.cliente_telefono,
+        curVence: rc.vence
+      });
+    };
+  }
+
+  const btnNoRen = $('#btnDossierNoRenueva');
+  if (btnNoRen) {
+    btnNoRen.onclick = () => {
+      const bRow = document.querySelector(`[data-reseller-no-renueva="${rc.profile_id}"]`);
+      if (bRow) {
+        bRow.click();
+      } else {
+        dlg.close();
+      }
+    };
+  }
+}
+window.openResellerClientDossier = openResellerClientDossier;
 
 function getNivelesConfig() {
   return S.settings?.niveles_beneficios || DEFAULT_NIVELES_BENEFICIOS;
@@ -5337,6 +5792,7 @@ async function portal(){
     const T=(h,rows)=>`<div class="wrap"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
 
     const rcList = resellerClients?.data || [];
+    S.resellerClientsList = rcList;
     const myComms = resellerCommissions?.data || [];
     const totMyPendUsd = myComms.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_usd || 0), 0);
     const totMyPendBs = myComms.filter(c => c.estado === 'pendiente').reduce((a, c) => a + Number(c.ganancia_vendedor_bs || 0), 0);
@@ -5453,6 +5909,9 @@ async function portal(){
         </div>
 
         ${rcList.length ? `
+          <div class="mut" style="font-size:.76rem;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+            <span>💡 <i>Tip: Haz clic en cualquier fila o credencial para abrir la <b>Ficha Digital Completa</b> con accesos, estado de vigencia y WhatsApp.</i></span>
+          </div>
           <div class="wrap">
             <table id="tblResellerClients">
               <thead>
@@ -5519,7 +5978,7 @@ async function portal(){
                   const rowCat = isPend ? 'pendiente' : (isNoRen ? 'norenueva' : (isHoy ? 'hoy' : (isProx ? 'proximos' : (isExp ? 'vencido' : 'activo'))));
 
                   return `
-                    <tr data-rc-cat="${rowCat}" style="${isPend ? 'background:rgba(234,179,8,.06)' : (isNoRen ? 'background:rgba(239,68,68,.05)' : (isHoy ? 'background:rgba(239,68,68,.08)' : ''))}">
+                    <tr class="rc-client-row" data-rc-profile-id="${rc.profile_id}" data-rc-cat="${rowCat}" style="${isPend ? 'background:rgba(234,179,8,.06)' : (isNoRen ? 'background:rgba(239,68,68,.05)' : (isHoy ? 'background:rgba(239,68,68,.08)' : ''))}" title="Toca esta línea para ver la Ficha Completa del Cliente y Credenciales">
                       <td>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
                           <b style="font-size:.88rem;color:${rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda' ? '#00f5a0' : '#f8fafc'}">
@@ -5540,8 +5999,11 @@ async function portal(){
                         <div><b>${esc(rc.nombre_perfil || '—')}</b></div>
                         <div style="font-size:.75rem;margin-top:2px">PIN: <code style="color:#00f5a0">${esc(rc.pin || 'Sin PIN')}</code></div>
                       </td>
-                      <td>
-                        <div style="font-size:.8rem">✉️ ${esc(rc.correo)}</div>
+                      <td data-open-dossier="${rc.profile_id}">
+                        <div style="font-size:.8rem;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:6px">
+                          <span>✉️ ${esc(rc.correo)}</span>
+                          <span class="pill" style="font-size:.65rem;padding:1px 6px;background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.35);border-radius:6px;white-space:nowrap" title="Ver ficha completa">📄 Ficha</span>
+                        </div>
                         <div style="font-size:.78rem;margin-top:2px">🔑 <code>${esc(rc.clave)}</code></div>
                       </td>
                       <td>
@@ -6866,70 +7328,34 @@ async function portal(){
       };
     });
 
+    // Clic en la fila o en la credencial para abrir la Ficha Digital
+    tblRc.querySelectorAll('tbody tr[data-rc-profile-id]').forEach(tr => {
+      tr.onclick = (e) => {
+        if (e.target.closest('button, a, input, select, textarea, label')) return;
+        const profId = tr.dataset.rcProfileId;
+        if (profId) openResellerClientDossier(profId);
+      };
+    });
+
+    app.querySelectorAll('[data-open-dossier]').forEach(el => {
+      el.style.cursor = 'pointer';
+      el.onclick = (e) => {
+        e.stopPropagation();
+        const profId = el.dataset.openDossier;
+        if (profId) openResellerClientDossier(profId);
+      };
+    });
+
     app.querySelectorAll('[data-reseller-edit-client]').forEach(b => {
-      b.onclick = () => {
-        const profId = b.dataset.resellerEditClient;
-        const curName = b.dataset.currentName || '';
-        const curTel = b.dataset.currentTel || '';
-        const srv = b.dataset.srv || 'Servicio Digital';
-        const prof = b.dataset.prof || 'Perfil';
-
-        $('#dlgBody').innerHTML = `
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-            <div style="font-size:2.2rem;background:rgba(56,189,248,.12);border-radius:12px;width:48px;height:48px;display:flex;align-items:center;justify-content:center">👤</div>
-            <div>
-              <h3 style="margin:0;color:#38bdf8">Identificar Cliente Final</h3>
-              <p class="mut" style="font-size:.82rem;margin:3px 0 0">
-                <b>${esc(srv)}</b> · ${esc(prof)}
-              </p>
-            </div>
-          </div>
-          <p class="mut" style="font-size:.84rem;margin:0 0 16px;line-height:1.45">
-            Ingresa el nombre o identificación de tu cliente final para este perfil. Esto te permitirá saber exactamente a quién le pertenecen los accesos y enviar las credenciales personalizadas por WhatsApp.
-          </p>
-          <div style="margin-bottom:12px">
-            <label style="font-size:.78rem;font-weight:700;color:#cbd5e1;display:block;margin-bottom:5px">Nombre del Cliente Final:</label>
-            <input id="inResellerClienteFinal" value="${esc(curName)}" placeholder="Ej: Carlos Mendoza / Hermanos Pérez" style="width:100%;padding:10px 12px;font-size:.9rem;border-radius:8px">
-          </div>
-          <div style="margin-bottom:18px">
-            <label style="font-size:.78rem;font-weight:700;color:#cbd5e1;display:block;margin-bottom:5px">WhatsApp del Cliente (Opcional):</label>
-            <input id="inResellerClienteTel" value="${esc(curTel)}" placeholder="Ej: 04141234567 o +584141234567" style="width:100%;padding:10px 12px;font-size:.9rem;border-radius:8px">
-            <div class="mut" style="font-size:.72rem;margin-top:4px">Si lo agregas, el botón de WhatsApp se activará para enviarle sus datos en 1 clic.</div>
-          </div>
-          <div style="display:flex;gap:10px;justify-content:flex-end">
-            <button class="g" onclick="dlg.close()">Cancelar</button>
-            <button id="btnSaveResellerClienteFinal" style="background:#00f5a0;color:#0b0f19;font-weight:800;border:none;border-radius:8px;padding:9px 18px;cursor:pointer">
-              💾 Guardar Cliente
-            </button>
-          </div>
-        `;
-        dlg.showModal();
-        setTimeout(() => $('#inResellerClienteFinal')?.focus(), 100);
-
-        $('#btnSaveResellerClienteFinal').onclick = async () => {
-          const btn = $('#btnSaveResellerClienteFinal');
-          const nuevoNombre = $('#inResellerClienteFinal')?.value?.trim() || '';
-          const nuevoTel = $('#inResellerClienteTel')?.value?.trim() || '';
-          btn.disabled = true;
-          btn.textContent = '⏳ Guardando...';
-
-          try {
-            const { data, error } = await sb.rpc('reseller_set_cliente_final', {
-              p_profile_id: profId,
-              p_cliente_nombre: nuevoNombre,
-              p_cliente_telefono: nuevoTel || null
-            });
-            if (error) throw error;
-
-            dlg.close();
-            toast(nuevoNombre ? `✅ Cliente asignado: "${nuevoNombre}"` : '✅ Perfil actualizado.');
-            portal();
-          } catch(err) {
-            btn.disabled = false;
-            btn.textContent = '💾 Guardar Cliente';
-            toast('⚠️ Error al guardar: ' + (err.message || err));
-          }
-        };
+      b.onclick = (e) => {
+        e.stopPropagation();
+        openResellerEditClientModal({
+          profId: b.dataset.resellerEditClient,
+          curName: b.dataset.currentName || '',
+          curTel: b.dataset.currentTel || '',
+          srv: b.dataset.srv || 'Servicio Digital',
+          prof: b.dataset.prof || 'Perfil'
+        });
       };
     });
   }
