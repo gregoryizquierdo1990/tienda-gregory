@@ -1417,19 +1417,12 @@ async function openRenewalModal(opts = {}) {
 
     try {
       let result = null;
-      // 1. Invocar RPC maestro con timeout guard de 20s para prevenir que la UI quede congelada
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('El servidor tardó en responder. Por favor verifica tu conexión o el estado en tu portal.')), 20000)
-      );
-
-      const rpcPromise = sb.rpc('renovar_suscripcion_perfil', {
+      const { data: rpcData, error: rpcErr } = await sb.rpc('renovar_suscripcion_perfil', {
         p_profile_id: profileId,
         p_metodo: selMetodo,
         p_metodo_id: pmId,
         p_referencia: refVal
       });
-
-      const { data: rpcData, error: rpcErr } = await Promise.race([rpcPromise, timeoutPromise]);
 
       if(!rpcErr && rpcData?.success) {
         result = rpcData;
@@ -2240,20 +2233,49 @@ async function openResellerClientDossier(profId) {
           }
         }
 
-        toast(nuevoNombre ? `✅ Cliente guardado: "${nuevoNombre}"` : '✅ Perfil actualizado.');
-        btnSaveClient.disabled = false;
-        btnSaveClient.innerHTML = '✅ Guardado';
+        // Actualizar la fila en la tabla visualmente sin parpadear ni destruir app
+        const tableRow = document.querySelector(`tr[data-rc-profile-id="${rc.profile_id}"]`);
+        if (tableRow) {
+          const nameEl = tableRow.querySelector('td:first-child b');
+          if (nameEl) {
+            nameEl.textContent = rc.cliente_nombre;
+            nameEl.style.color = (rc.cliente_nombre && rc.cliente_nombre !== 'Cliente Asignado' && rc.cliente_nombre !== 'Cliente Tienda') ? '#00f5a0' : '#f8fafc';
+          }
+          const editBtn = tableRow.querySelector('button[data-reseller-edit-client]');
+          if (editBtn) {
+            editBtn.setAttribute('data-current-name', nuevoNombre);
+            editBtn.setAttribute('data-current-tel', nuevoTel);
+            editBtn.innerHTML = `✏️ ${nuevoNombre ? 'Editar' : 'Asignar'}`;
+          }
+          let telEl = tableRow.querySelector('td:first-child div[style*="color:#38bdf8"]');
+          if (nuevoTel) {
+            if (!telEl) {
+              telEl = document.createElement('div');
+              telEl.style = 'font-size:.76rem;color:#38bdf8;margin-top:2px';
+              tableRow.querySelector('td:first-child')?.appendChild(telEl);
+            }
+            telEl.textContent = '📱 ' + nuevoTel;
+          } else if (telEl) {
+            telEl.remove();
+          }
+        }
 
-        // Reabrir la ficha para reflejar los nuevos mensajes y botones de WhatsApp actualizados
+        btnSaveClient.disabled = false;
+        btnSaveClient.innerHTML = '✅ ¡Guardado con Éxito!';
+        btnSaveClient.style.background = '#22c55e';
+        btnSaveClient.style.color = '#fff';
+
+        // Reabrir la ficha suavemente para refrescar botones y textos de WhatsApp
         setTimeout(() => {
           openResellerClientDossier(rc.profile_id);
-          if (typeof portal === 'function') portal();
-        }, 300);
+        }, 600);
       } catch (err) {
         console.error('Error al guardar cliente en ficha:', err);
         btnSaveClient.disabled = false;
         btnSaveClient.innerHTML = '💾 Guardar Datos del Cliente';
-        toast('⚠️ Error al guardar: ' + (err.message || err));
+        btnSaveClient.style.background = '#00f5a0';
+        btnSaveClient.style.color = '#0b0f19';
+        alert('⚠️ Error al guardar: ' + (err.message || err));
       }
     };
   }
