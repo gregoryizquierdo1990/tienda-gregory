@@ -1243,17 +1243,20 @@ async function openRenewalModal(opts = {}) {
   const bcvRate = Number(S.rate || 1);
   const priceBs = priceUsd * bcvRate;
 
-  // Calcular nuevo vencimiento (+30 días)
+  // Calcular nuevo vencimiento (+30 días acumulativos en UTC)
   const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  let baseDate = new Date();
-  if(curVence && curVence >= todayStr) {
-    const parts = curVence.split('-');
-    if(parts.length === 3) {
-      baseDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    }
+  const isEarlyRenewal = !!(curVence && curVence >= todayStr);
+
+  function addDaysToYmd(ymdStr, days = 30) {
+    if (!ymdStr) return '';
+    const parts = ymdStr.split('-').map(Number);
+    if (parts.length !== 3) return '';
+    const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    dt.setUTCDate(dt.getUTCDate() + days);
+    return dt.toISOString().slice(0, 10);
   }
-  const nextDate = new Date(baseDate.getTime() + 30 * 86400000);
-  const nextVenceStr = nextDate.toISOString().slice(0, 10);
+
+  const nextVenceStr = isEarlyRenewal ? addDaysToYmd(curVence, 30) : addDaysToYmd(todayStr, 30);
 
   // Saldo Zeny disponible
   const zenyBal = Number(S.me?.zeny_balance || 0);
@@ -1279,7 +1282,7 @@ async function openRenewalModal(opts = {}) {
     </div>
 
     <!-- Ficha del servicio a renovar -->
-    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
           <b style="font-size:1.05rem;color:#fff">${esc(srv)}</b>
@@ -1308,6 +1311,16 @@ async function openRenewalModal(opts = {}) {
         </div>
       </div>
     </div>
+
+    ${isEarlyRenewal ? `
+      <!-- Banner de Renovación Anticipada -->
+      <div style="background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.32);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:.78rem;color:#38bdf8;display:flex;align-items:center;gap:8px">
+        <span style="font-size:1.2rem">⚡</span>
+        <div>
+          <b>Renovación Anticipada:</b> Conservas todos tus días activos restantes. Los 30 días adicionales se sumarán a partir del <b>${esc(curVence)}</b>, extendiendo tu suscripción hasta el <b>${nextVenceStr}</b>.
+        </div>
+      </div>
+    ` : ''}
 
     <!-- Mensaje de garantía -->
     <div style="background:rgba(0,245,160,.06);border:1px solid rgba(0,245,160,.25);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:.78rem;line-height:1.4">

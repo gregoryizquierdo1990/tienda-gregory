@@ -1960,6 +1960,9 @@ const EXTRA = {
                     <button class="g" data-cal-tr-prof="${p.id}" style="padding:4px 8px;font-size:.73rem;background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)" title="Trasladar o reponer pantalla caída">
                       🔀 Reponer
                     </button>
+                    <button class="g" data-cal-add-days-prof="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem;background:rgba(56,189,248,.18);color:#38bdf8;border:1px solid rgba(56,189,248,.35);font-weight:700" title="Agregar días adicionales (+días) a la suscripción">
+                      ➕ Días
+                    </button>
                     <button class="g" data-cal-renov-prof="${p.id}" data-cal-renov-30d-prof="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
                       🔄 Renovar (+30d)
                     </button>
@@ -1993,6 +1996,9 @@ const EXTRA = {
                     ${o.gcal_event_id ? '<span class="pill" style="font-size:.68rem;background:rgba(0,245,160,.12);color:#00f5a0;border:1px solid rgba(0,245,160,.3)" title="Sincronizado con Google Calendar">🟢 En Calendar</span>' : '<span class="pill off" style="font-size:.68rem" title="Pendiente de sincronizar">⏳ No sync</span>'}
                   </td>
                   <td class="row" style="gap:5px">
+                    <button class="g" data-cal-add-days-order="${o.id}" data-cur-date="${o.vence}" data-nom="${esc(o.customers?.nombre || o.customers?.email || 'Cliente')}" data-prod="${esc(o.products?.nombre || 'Servicio')}" data-gcal-id="${esc(o.gcal_event_id || '')}" style="padding:4px 8px;font-size:.73rem;background:rgba(56,189,248,.18);color:#38bdf8;border:1px solid rgba(56,189,248,.35);font-weight:700" title="Agregar días adicionales (+días) a la suscripción">
+                      ➕ Días
+                    </button>
                     <button class="g" data-cal-renov-order="${o.id}" data-cal-renov-30d-order="${o.id}" data-cur-date="${o.vence}" data-nom="${esc(o.customers?.nombre || o.customers?.email || 'Cliente')}" data-prod="${esc(o.products?.nombre || 'Servicio')}" data-gcal-id="${esc(o.gcal_event_id || '')}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
                       🔄 Renovar (+30d)
                     </button>
@@ -2028,6 +2034,9 @@ const EXTRA = {
                   <td class="row" style="gap:5px">
                     <button class="g" data-cal-notify-mother="${m.id}" style="padding:4px 8px;font-size:.73rem;background:rgba(37,211,102,.15);color:#25d366;border:1px solid rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">
                       📢 Avisar Clientes
+                    </button>
+                    <button class="g" data-cal-add-days-mother="${m.id}" data-cur-date="${m.vence}" data-plat="${esc(m.plataforma)}" data-mail="${esc(m.correo)}" style="padding:4px 8px;font-size:.73rem;background:rgba(56,189,248,.18);color:#38bdf8;border:1px solid rgba(56,189,248,.35);font-weight:700" title="Agregar días adicionales (+días) a la cuenta madre">
+                      ➕ Días
                     </button>
                     <button class="g" data-cal-renov-mother="${m.id}" data-cur-date="${m.vence}" data-plat="${esc(m.plataforma)}" data-mail="${esc(m.correo)}" data-prov="${esc(m.proveedor || '')}" data-cost="${m.costo_usd || 0}" style="padding:4px 8px;font-size:.73rem;background:rgba(16,185,129,.18);color:#10b981;border:1px solid rgba(16,185,129,.35);font-weight:700" title="Renovar ciclo de suscripción (+30 días desde la fecha agendada)">
                       🔄 Renovar (+30d)
@@ -2314,6 +2323,252 @@ const EXTRA = {
       cell.onclick = () => {
         state.selectedDate = cell.dataset.day;
         EXTRA.vencimientos(box);
+      };
+    });
+
+    // Modal Universal para Agregar + Días a Suscripciones (Profiles, Orders, Mothers)
+    function openAddDaysModal({ title, subtitle, curDate, onConfirm }) {
+      const baseDateStr = (curDate && curDate.length === 10) ? curDate : new Date().toISOString().slice(0, 10);
+
+      function calcNewDate(baseStr, days) {
+        const parts = baseStr.split('-').map(Number);
+        if (parts.length !== 3) return baseStr;
+        const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+        dt.setUTCDate(dt.getUTCDate() + Number(days || 0));
+        return dt.toISOString().slice(0, 10);
+      }
+
+      let selectedDays = 30;
+      let computedDate = calcNewDate(baseDateStr, selectedDays);
+      const presets = [1, 3, 5, 7, 10, 15, 30, 45, 60];
+
+      $('#dlgBody').innerHTML = `
+        <div style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:1.6rem">➕</span>
+            <div>
+              <h3 style="margin:0;color:#38bdf8">Agregar Días a Suscripción</h3>
+              <div class="mut" style="font-size:.82rem">${esc(title)}</div>
+              ${subtitle ? `<div class="mut" style="font-size:.76rem;margin-top:2px">${esc(subtitle)}</div>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div>
+              <span class="mut" style="font-size:.75rem;display:block">Vencimiento Base:</span>
+              <b style="font-size:1.05rem;color:#f59e0b">${esc(baseDateStr)}</b>
+            </div>
+            <div style="font-size:1.4rem;color:var(--c)">➔</div>
+            <div style="text-align:right">
+              <span class="mut" style="font-size:.75rem;display:block">Nuevo Vencimiento:</span>
+              <b id="lblNewDate" style="font-size:1.15rem;color:#00f5a0">${computedDate}</b>
+            </div>
+          </div>
+
+          <div style="font-size:.78rem;color:#38bdf8;background:rgba(56,189,248,.08);padding:6px 10px;border-radius:8px;border:1px solid rgba(56,189,248,.2);text-align:center">
+            Se sumarán <b id="lblDaysSummary">+30 días</b> a la suscripción
+          </div>
+        </div>
+
+        <!-- Presets rápidos -->
+        <label class="mut" style="font-size:.76rem;font-weight:700;display:block;margin-bottom:6px">Selecciona días rápidos (+días):</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(58px, 1fr));gap:6px;margin-bottom:12px">
+          ${presets.map(d => `
+            <button type="button" class="cal-sheet-btn preset-day-btn" data-days="${d}" style="padding:6px 0;text-align:center;font-weight:700;${d === 30 ? 'background:rgba(0,245,160,.2);border-color:#00f5a0;color:#00f5a0;' : ''}">
+              +${d}d
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- Cantidad personalizada -->
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px">
+          <div style="flex:1">
+            <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">O escribe la cantidad exacta:</label>
+            <div style="position:relative">
+              <input type="number" id="inpCustomDays" min="1" max="730" value="30" style="font-size:1rem;padding:8px 12px;width:100%;box-sizing:border-box">
+              <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#8ea8c8;font-size:.82rem">días</span>
+            </div>
+          </div>
+          <div style="flex:1">
+            <label class="mut" style="font-size:.76rem;display:block;margin-bottom:4px">O fecha manual directa:</label>
+            <input type="date" id="inpManualDate" value="${computedDate}" style="font-size:1rem;padding:8px 12px;width:100%;box-sizing:border-box">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button class="g" type="button" onclick="dlg.close()">Cancelar</button>
+          <button id="btnConfirmAddDays" style="background:var(--grad);color:#03121c;font-weight:800;padding:8px 16px">💾 Aplicar + Días</button>
+        </div>
+      `;
+      dlg.showModal();
+
+      const inpDays = $('#inpCustomDays');
+      const inpDate = $('#inpManualDate');
+      const lblNew = $('#lblNewDate');
+      const lblSum = $('#lblDaysSummary');
+      const presetBtns = $('#dlgBody').querySelectorAll('.preset-day-btn');
+
+      function updateByDays(days) {
+        selectedDays = Number(days);
+        computedDate = calcNewDate(baseDateStr, selectedDays);
+        inpDays.value = selectedDays;
+        inpDate.value = computedDate;
+        lblNew.textContent = computedDate;
+        lblSum.textContent = `+${selectedDays} día${selectedDays === 1 ? '' : 's'}`;
+        presetBtns.forEach(b => {
+          const isCur = Number(b.dataset.days) === selectedDays;
+          b.style.background = isCur ? 'rgba(0,245,160,.2)' : '';
+          b.style.borderColor = isCur ? '#00f5a0' : '';
+          b.style.color = isCur ? '#00f5a0' : '';
+        });
+      }
+
+      presetBtns.forEach(b => {
+        b.onclick = () => updateByDays(b.dataset.days);
+      });
+
+      inpDays.oninput = () => {
+        const val = parseInt(inpDays.value, 10);
+        if (!isNaN(val) && val > 0) {
+          updateByDays(val);
+        }
+      };
+
+      inpDate.onchange = () => {
+        if (inpDate.value) {
+          computedDate = inpDate.value;
+          lblNew.textContent = computedDate;
+          const d1 = new Date(baseDateStr);
+          const d2 = new Date(computedDate);
+          const diff = Math.round((d2 - d1) / 86400000);
+          lblSum.textContent = diff > 0 ? `+${diff} días` : `${diff} días`;
+          inpDays.value = diff > 0 ? diff : 0;
+        }
+      };
+
+      $('#btnConfirmAddDays').onclick = async () => {
+        const finalDate = inpDate.value || computedDate;
+        if (!finalDate) return toast('Fecha no válida.');
+        dlg.close();
+        await onConfirm(finalDate, selectedDays);
+      };
+    }
+
+    // Acción: Agregar + Días a Perfil de Inventario
+    box.querySelectorAll('[data-cal-add-days-prof]').forEach(btn => {
+      btn.onclick = () => {
+        const profId = btn.dataset.calAddDaysProf;
+        const curDate = btn.dataset.curDate;
+        const custNom = btn.dataset.nom;
+        const srvNom = btn.dataset.srv;
+
+        openAddDaysModal({
+          title: `${srvNom} · ${custNom}`,
+          subtitle: `Perfil ID: #${profId}`,
+          curDate: curDate,
+          onConfirm: async (finalDate, daysAdded) => {
+            try {
+              const { error: pErr } = await sb.from('profiles_inventory').update({
+                vence: finalDate,
+                no_renueva: false
+              }).eq('id', profId);
+              if (pErr) throw pErr;
+
+              try {
+                await sb.from('orders').update({
+                  vence: finalDate,
+                  proximo_pago: finalDate
+                }).eq('profile_id', profId);
+              } catch(e) {}
+
+              toast(`✅ Se sumaron ${daysAdded} días a "${custNom}". Nuevo vencimiento: ${finalDate}`);
+              EXTRA.vencimientos(box);
+            } catch(err) {
+              toast('Error al sumar días al perfil: ' + err.message);
+            }
+          }
+        });
+      };
+    });
+
+    // Acción: Agregar + Días a Servicio de Cliente Web (Orden)
+    box.querySelectorAll('[data-cal-add-days-order]').forEach(btn => {
+      btn.onclick = () => {
+        const orderId = btn.dataset.calAddDaysOrder;
+        const curDate = btn.dataset.curDate;
+        const custNom = btn.dataset.nom;
+        const prodNom = btn.dataset.prod;
+        const gcalId = btn.dataset.gcalId;
+
+        openAddDaysModal({
+          title: `${prodNom} · ${custNom}`,
+          subtitle: `Pedido #${orderId.slice(0, 8)}`,
+          curDate: curDate,
+          onConfirm: async (finalDate, daysAdded) => {
+            try {
+              const { data: oRow, error: oErr } = await sb.from('orders').update({
+                vence: finalDate,
+                proximo_pago: finalDate
+              }).eq('id', orderId).select('profile_id, gcal_event_id').single();
+              if (oErr) throw oErr;
+
+              if (oRow?.profile_id) {
+                try {
+                  await sb.from('profiles_inventory').update({
+                    vence: finalDate,
+                    no_renueva: false
+                  }).eq('id', oRow.profile_id);
+                } catch(e) {}
+              }
+
+              const eventId = oRow?.gcal_event_id || gcalId;
+              if (eventId && typeof GCal !== 'undefined' && GCal.isConnected && GCal.isConnected()) {
+                try {
+                  await GCal.updateEvent(eventId, {
+                    date: finalDate,
+                    summary: `Vence: ${prodNom} · ${custNom}`
+                  });
+                } catch(e) {}
+              }
+
+              toast(`✅ Se sumaron ${daysAdded} días al pedido de "${custNom}". Nuevo vencimiento: ${finalDate}`);
+              EXTRA.vencimientos(box);
+            } catch(err) {
+              toast('Error al sumar días a la orden: ' + err.message);
+            }
+          }
+        });
+      };
+    });
+
+    // Acción: Agregar + Días a Cuenta Madre
+    box.querySelectorAll('[data-cal-add-days-mother]').forEach(btn => {
+      btn.onclick = () => {
+        const mid = btn.dataset.calAddDaysMother;
+        const curDate = btn.dataset.curDate;
+        const plat = btn.dataset.plat;
+        const mail = btn.dataset.mail;
+
+        openAddDaysModal({
+          title: `${plat} · ${mail}`,
+          subtitle: `Cuenta Madre ID: #${mid}`,
+          curDate: curDate,
+          onConfirm: async (finalDate, daysAdded) => {
+            try {
+              const { error } = await sb.from('mother_accounts').update({
+                vence: finalDate
+              }).eq('id', mid);
+              if (error) throw error;
+
+              toast(`✅ Se sumaron ${daysAdded} días a la cuenta madre "${mail}". Nuevo vencimiento: ${finalDate}`);
+              EXTRA.vencimientos(box);
+            } catch(err) {
+              toast('Error al sumar días a cuenta madre: ' + err.message);
+            }
+          }
+        });
       };
     });
 
