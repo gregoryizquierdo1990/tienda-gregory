@@ -56,6 +56,7 @@ declare
   v_new_vence date;
   v_duracion int := 30;
   v_is_renewal boolean := false;
+  v_reseller_name text;
 begin
   -- 1. Bloquear y validar orden
   select * into o from public.orders where id = p_order for update;
@@ -74,34 +75,46 @@ begin
   if pr.tipo not in ('servicio', 'gaming', 'recarga_telefonica') then
     pf := o.profile_id;
 
-    -- CASO A: El pedido ya trae un perfil asignado (es una renovación o perfil reservado)
+    -- CASO A: El pedido ya trae un perfil asignado (es una renovación o perfil reservado al comprar)
     if pf is not null then
       select estado, vence into st, v_cur_vence
       from public.profiles_inventory
       where id = pf for update;
 
       if st is not null then
-        v_is_renewal := true;
-
-        -- Calcular nuevo vencimiento (+30 días desde la fecha actual si está activo, o desde hoy si expiró)
-        if v_cur_vence is not null and v_cur_vence >= current_date then
-          v_new_vence := v_cur_vence + v_duracion;
+        if st = 'vendido' then
+          v_is_renewal := true;
+          -- Renovación: extender desde la fecha actual o desde hoy si expiró
+          if v_cur_vence is not null and v_cur_vence >= current_date then
+            v_new_vence := v_cur_vence + v_duracion;
+          else
+            v_new_vence := current_date + v_duracion;
+          end if;
         else
+          -- Compra nueva que estaba reservada o disponible
+          v_is_renewal := false;
           v_new_vence := current_date + v_duracion;
+        end if;
+
+        -- Obtener nombre del vendedor si aplica
+        if o.vendedor_id is not null then
+          select nombre into v_reseller_name from public.customers where id = o.vendedor_id;
         end if;
 
         -- Actualizar el perfil existente
         update public.profiles_inventory
         set estado = 'vendido',
+            inicia = case when v_is_renewal then coalesce(inicia, current_date) else current_date end,
             vence = v_new_vence,
             assigned_customer_id = coalesce(assigned_customer_id, o.customer_id),
-            vendedor_id = coalesce(vendedor_id, o.vendedor_id),
+            vendedor_id = coalesce(o.vendedor_id, vendedor_id),
+            vendedor = coalesce(o.vendedor_nombre, v_reseller_name, vendedor),
             no_renueva = false,
             no_renueva_reportado_at = null,
             no_renueva_motivo = null
         where id = pf;
 
-        -- Marcar pedidos anteriores entregados de este mismo perfil como vencidos para evitar conflicto de índice único
+        -- Marcar pedidos anteriores entregados de este mismo perfil como vencidos para evitar duplicidad de activo
         update public.orders
         set estado = 'vencido',
             no_renueva = false
@@ -148,12 +161,17 @@ begin
 
       v_new_vence := current_date + v_duracion;
 
+      if o.vendedor_id is not null then
+        select nombre into v_reseller_name from public.customers where id = o.vendedor_id;
+      end if;
+
       update public.profiles_inventory
       set estado = 'vendido',
           inicia = current_date,
           vence = v_new_vence,
           assigned_customer_id = coalesce(assigned_customer_id, o.customer_id),
-          vendedor_id = coalesce(vendedor_id, o.vendedor_id),
+          vendedor_id = coalesce(o.vendedor_id, vendedor_id),
+          vendedor = coalesce(o.vendedor_nombre, v_reseller_name, vendedor),
           no_renueva = false,
           no_renueva_reportado_at = null,
           no_renueva_motivo = null
@@ -995,8 +1013,8 @@ begin
     raise exception 'Este producto es exclusivo de la tienda central';
   end if;
 
-  select coalesce(es_revendedor, false), coalesce(limite_credito, 30.00)
-    into is_res, v_limite
+  select coalesce(es_revendedor, false), coalesce(limite_credito, 30.00), nombre
+    into is_res, v_limite, v_buyer_name
   from public.customers where id = auth.uid();
 
   if p_metodo is not null then
@@ -1069,7 +1087,7 @@ begin
     where customer_id = auth.uid() and tipo = 'compra' and estado = 'pendiente';
 
     if z > coalesce(bal, 0) - holds then
-      raise exception 'Saldo Zeny insuficiente';
+      raise exception 'Saldo Zeny insuficiente. Tu saldo disponible es $% ZP', greatest(0, coalesce(bal, 0) - holds);
     end if;
   end if;
 
@@ -1109,18 +1127,21 @@ begin
   select bs_por_usd into rate from public.exchange_rates order by fecha desc limit 1;
   perform set_config('app.internal', '1', true);
 
-  -- 6. Insertar el Pedido
+  -- 6. Insertar el Pedido (con asignación de revendedor si aplica)
   insert into public.orders(
     customer_id, product_id, profile_id, total_usd, tasa_bs, total_bs,
-    metodo_id, referencia, estado, zeny_aplicado, datos_recarga, franchise_id
+    metodo_id, referencia, estado, zeny_aplicado, datos_recarga, franchise_id,
+    vendedor_id, vendedor_nombre
   )
   values (
     auth.uid(), p_product, pf, v_order_total, rate, round(v_order_total * coalesce(rate, 0), 2),
-    p_metodo, left(coalesce(p_ref,''), 120), 'pendiente', z, coalesce(p_datos_recarga, '{}'::jsonb), p_franchise_id
+    p_metodo, left(coalesce(p_ref,''), 120), 'pendiente', z, coalesce(p_datos_recarga, '{}'::jsonb), p_franchise_id,
+    case when is_res then auth.uid() else null end,
+    case when is_res then v_buyer_name else null end
   )
   returning id into o;
 
-  -- 7. Retención Zeny si aplica
+  -- 7. Registro de movimiento Zeny
   if z > 0 then
     insert into public.zeny_ledger(customer_id, tipo, monto, referencia, estado, order_id)
     values (auth.uid(), 'compra', -z, 'Retención pedido ' || left(o::text, 8), 'pendiente', o);
@@ -1144,6 +1165,13 @@ begin
       o, auth.uid(), 2, 2, v_cuota_2, rate, round(v_cuota_2 * coalesce(rate, 0), 2),
       (current_date + interval '15 days')::date, 'pendiente'
     );
+  end if;
+
+  -- 9. ENTREGA AUTOMÁTICA EN 0 SEGUNDOS:
+  -- Si el pedido fue pagado al 100% con saldo Zeny (sin financiamiento bancario pendiente),
+  -- se entrega de inmediato, descontando el saldo y asignando credenciales en vivo.
+  if not p_es_cuotas and z >= v_order_total then
+    perform public._deliver(o);
   end if;
 
   return o;

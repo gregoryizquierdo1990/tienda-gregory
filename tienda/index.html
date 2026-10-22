@@ -3898,14 +3898,17 @@ async function buyDlg(id){
                 </button>
               </div>
             `) : `
-              <div class="checkout-bank-details" style="background:rgba(0,245,160,.1);border:1px solid rgba(0,245,160,.3);padding:12px;border-radius:14px">
-                <h4 style="color:var(--a);margin:0 0 6px">✅ Pago cubierto totalmente con Zeny</h4>
-                <p class="mut" style="color:#baffe4;font-size:.8rem;margin:0">
-                  Se aplicarán <b>$${appliedZeny.toFixed(2)} ZenyPoints</b>. No requieres transferir por banco.
+              <div class="checkout-bank-details" style="background:linear-gradient(135deg,rgba(0,245,160,.12),rgba(0,212,255,.08));border:1.5px solid rgba(0,245,160,.4);padding:14px;border-radius:14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <span style="font-size:1.3rem">⚡</span>
+                  <h4 style="color:var(--a);margin:0;font-size:1rem;font-weight:800">Entrega Automática Instantánea con Zeny</h4>
+                </div>
+                <p class="mut" style="color:#baffe4;font-size:.82rem;margin:0;line-height:1.4">
+                  Se descontarán <b>$${appliedZeny.toFixed(2)} ZenyPoints</b> de tu billetera. No requieres transferir por banco ni esperar conciliación: <b>tus credenciales se emitirán de inmediato en tu portal en 0 segundos</b>.
                 </p>
               </div>
-              <button id="coSubmitZenyBtn" class="checkout-submit-btn" style="margin-top:14px" type="button">
-                Confirmar ${payPlan === 'cuotas' ? 'Inicial en Cuotas' : 'Pedido'} con Zeny
+              <button id="coSubmitZenyBtn" class="checkout-submit-btn" style="margin-top:14px;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#05131e;font-weight:900" type="button">
+                🚀 ${payPlan === 'cuotas' ? 'Confirmar Inicial con Zeny' : 'Activar de Inmediato con Zeny ($' + appliedZeny.toFixed(2) + ' ZP)'}
               </button>
             `}
           </div>
@@ -4084,7 +4087,7 @@ async function buyDlg(id){
 
           checkoutDlg.close();
           await loadPublic();
-          toast(payPlan === 'cuotas' ? 'Inicial enviada. Tus cuotas quedaron agendadas en tu portal.' : 'Pedido enviado con Zeny.');
+          toast(payPlan === 'cuotas' ? 'Inicial enviada. Tus cuotas quedaron agendadas en tu portal.' : '⚡ ¡Servicio activado al instante! Tus credenciales ya están disponibles en tu portal.');
           portal();
         };
       }
@@ -4124,7 +4127,7 @@ async function buyDlg(id){
 
           checkoutDlg.close();
           await loadPublic();
-          toast(`¡Pago procesado con éxito con tu Tarjeta Zeny! Descuento aplicado.`);
+          toast(payPlan === 'cuotas' ? 'Inicial procesada con Tarjeta Zeny. Cuota 2 agendada.' : '⚡ ¡Servicio activado al instante con tu Tarjeta Zeny! Credenciales listas en tu portal.');
           portal();
         };
       }
