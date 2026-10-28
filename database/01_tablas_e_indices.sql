@@ -215,6 +215,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   datos_recarga JSONB DEFAULT '{}'::jsonb NOT NULL,
   estado_recarga TEXT DEFAULT 'pendiente'::text,
   vendedor_id UUID,
+  vendedor_nombre TEXT,
   no_renueva BOOLEAN DEFAULT false,
   no_renueva_reportado_at TIMESTAMPTZ,
   no_renueva_motivo TEXT,

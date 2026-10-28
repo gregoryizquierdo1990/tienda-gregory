@@ -9139,7 +9139,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
               await sb.from('customers').update({ es_revendedor: true, codigo_identificacion: 'RVD:1001', nombre: 'Pablo Gonzalez' })
                 .or('email.ilike.pacun1989@gmail.com,nombre.ilike.%pablo gonzalez%');
               await sb.from('customers').update({ es_revendedor: true, codigo_identificacion: 'RVD:1002', nombre: 'Leandro Perdomo' })
-                .or('email.ilike.perdomoleandro39@gmail.com,nombre.ilike.%leandro%');
+                .or('email.ilike.josueperdomo62@gmail.com,email.ilike.perdomoleandro39@gmail.com,nombre.ilike.%leandro%');
               await sb.from('customers').update({ es_revendedor: true, codigo_identificacion: 'RVD:1003', nombre: 'Nelson Bustamante' })
                 .or('email.ilike.584120266710@cliente.gregoryizquierdo.xyz,nombre.ilike.%nelson%');
               await sb.from('customers').update({ es_revendedor: true, codigo_identificacion: 'RVD:1004', nombre: 'Josuanny' })

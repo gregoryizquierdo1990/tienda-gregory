@@ -793,7 +793,13 @@ if (location.hash.includes('access_token=') && !location.hash.startsWith('#acces
   const cleanHash = '#' + location.hash.substring(tokenIdx);
   history.replaceState(null, '', location.pathname + location.search + cleanHash);
 }
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: {
+    lock: (name, timeout, fn) => fn(),
+    persistSession: true,
+    autoRefreshToken: true
+  }
+});
 
 // ==================== LAZY LOADING DE ADMIN-EXTRA.JS BAJO DEMANDA ====================
 // Los clientes y revendedores NO descargan admin-extra.js (ahorro inmediato de 517 KB).
@@ -7826,7 +7832,7 @@ const TABLES = {
   bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
   exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','monto_bs','notas'], purchases:['fecha','proveedor','plataforma','mother_id','es_credito','dias_credito','fecha_limite_pago','estado_pago','monto_usdt','monto_usd','monto_bs','notas'],
   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
-const SEL={orders:'*,customers!customer_id(nombre,email,telefono),products(nombre,tipo)',installments:'*,customers!customer_id(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre),customers!assigned_customer_id(nombre,email,telefono)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
+const SEL={products:'*,categories(nombre)',orders:'*,customers!customer_id(nombre,email,telefono),products(nombre,tipo)',installments:'*,customers!customer_id(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre),customers!assigned_customer_id(nombre,email,telefono)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
@@ -7834,6 +7840,7 @@ const NOADD=['transfers'];
 const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button><button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar este perfil a un revendedor">🤝 Revendedor</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar o transferir este perfil y cliente a un revendedor">🤝 Revendedor</button><button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
+  if(c==='category_id') return esc(r.categories?.nombre || v || '—');
   if(c==='product_id'){
     const nom = esc(r.products?.nombre||'');
     const isC = (r.products?.nombre||'').toLowerCase().includes('combo');
@@ -8526,12 +8533,271 @@ async function admin(t, opts = {}){
     };
   }
 
+  let topBarHtml = '';
+  if (t === 'profiles_inventory') {
+    const rawPlats = (data || []).map(r => r.mother_accounts?.plataforma || r.products?.nombre).filter(Boolean);
+    const uniquePlats = [...new Set(rawPlats)].sort((a,b) => a.localeCompare(b));
+    const platOptions = uniquePlats.map(p => `<option value="${esc(p.toLowerCase())}">📺 ${esc(p)}</option>`).join('');
+
+    const rawSellers = (data || []).map(r => r.vendedor).filter(Boolean);
+    const uniqueSellers = [...new Set(rawSellers)].sort((a,b) => a.localeCompare(b));
+    const sellerOptions = uniqueSellers.map(s => `<option value="${esc(s.toLowerCase())}">🤝 ${esc(s)}</option>`).join('');
+
+    const savedQ = (S._profFilters && S._profFilters.q) || '';
+
+    topBarHtml = `
+      <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <div style="flex:1 1 260px;min-width:220px;position:relative">
+            <input id="profSearchInput" type="search" placeholder="🔍 Buscar cliente, teléfono, perfil, PIN, correo o plataforma..." value="${esc(savedQ)}"
+              style="width:100%;font-size:.82rem;padding:8px 12px 8px 32px;border-radius:8px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);color:#fff">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6;font-size:.8rem;pointer-events:none">🔍</span>
+          </div>
+          <div style="flex:0 1 180px;min-width:150px">
+            <select id="profPlatformFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">📺 Todas las plataformas</option>
+              ${platOptions}
+            </select>
+          </div>
+          <div style="flex:0 1 150px;min-width:130px">
+            <select id="profStatusFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">🔘 Todos los estados</option>
+              <option value="disponible">🟢 Disponibles</option>
+              <option value="vendido">🔴 Vendidos</option>
+              <option value="reservado">🟡 Reservados</option>
+              <option value="suspendido">⚪ Suspendidos</option>
+            </select>
+          </div>
+          <div style="flex:0 1 180px;min-width:150px">
+            <select id="profSellerFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">🤝 Todos los vendedores</option>
+              <option value="__central__">🏢 Tienda Central</option>
+              ${sellerOptions}
+            </select>
+          </div>
+          <button id="profBtnClear" class="g" style="padding:7px 12px;font-size:.78rem" title="Restablecer todos los filtros">
+            ✕ Limpiar
+          </button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:.76rem">
+          <div id="profFilterStatusText" class="mut">
+            Mostrando <b style="color:var(--c)" id="profVisibleCount">${(data||[]).length}</b> de ${(data||[]).length} perfiles
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button type="button" class="g prof-quick-btn" data-q-status="" style="padding:2px 8px;font-size:.7rem">Todos</button>
+            <button type="button" class="g prof-quick-btn" data-q-status="disponible" style="padding:2px 8px;font-size:.7rem;color:#00f5a0;border-color:rgba(0,245,160,.3)">🟢 Disponibles</button>
+            <button type="button" class="g prof-quick-btn" data-q-status="vendido" style="padding:2px 8px;font-size:.7rem;color:#f87171;border-color:rgba(239,68,68,.3)">🔴 Vendidos</button>
+            <button type="button" class="g prof-quick-btn" data-q-status="reservado" style="padding:2px 8px;font-size:.7rem;color:#facc15;border-color:rgba(250,204,21,.3)">🟡 Reservados</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (t === 'mother_accounts') {
+    const rawPlats = (data || []).map(r => r.plataforma).filter(Boolean);
+    const uniquePlats = [...new Set(rawPlats)].sort((a,b) => a.localeCompare(b));
+    const platOptions = uniquePlats.map(p => `<option value="${esc(p.toLowerCase())}">📺 ${esc(p)}</option>`).join('');
+
+    const rawProvs = (data || []).map(r => r.proveedor).filter(Boolean);
+    const uniqueProvs = [...new Set(rawProvs)].sort((a,b) => a.localeCompare(b));
+    const provOptions = uniqueProvs.map(pv => `<option value="${esc(pv.toLowerCase())}">🏢 ${esc(pv)}</option>`).join('');
+
+    const savedQ = (S._motherFilters && S._motherFilters.q) || '';
+
+    topBarHtml = `
+      <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <div style="flex:1 1 260px;min-width:220px;position:relative">
+            <input id="motherSearchInput" type="search" placeholder="🔍 Buscar por correo, plataforma, proveedor o notas..." value="${esc(savedQ)}"
+              style="width:100%;font-size:.82rem;padding:8px 12px 8px 32px;border-radius:8px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);color:#fff">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6;font-size:.8rem;pointer-events:none">🔍</span>
+          </div>
+          <div style="flex:0 1 180px;min-width:150px">
+            <select id="motherPlatformFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">📺 Todas las plataformas</option>
+              ${platOptions}
+            </select>
+          </div>
+          <div style="flex:0 1 180px;min-width:150px">
+            <select id="motherProviderFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">🏢 Todos los proveedores</option>
+              ${provOptions}
+            </select>
+          </div>
+          <div style="flex:0 1 140px;min-width:120px">
+            <select id="motherStatusFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">🔘 Estado</option>
+              <option value="activa">🟢 Activas</option>
+              <option value="inactiva">🔴 Inactivas</option>
+            </select>
+          </div>
+          <div style="flex:0 1 160px;min-width:130px">
+            <select id="motherExpFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">⏳ Vencimiento</option>
+              <option value="vigentes">🟢 Vigentes</option>
+              <option value="por_vencer">⚠️ Por Vencer (≤ 7 días)</option>
+              <option value="vencidas">🔴 Vencidas</option>
+            </select>
+          </div>
+          <button id="motherBtnClear" class="g" style="padding:7px 12px;font-size:.78rem" title="Restablecer todos los filtros">
+            ✕ Limpiar
+          </button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:.76rem">
+          <div id="motherFilterStatusText" class="mut">
+            Mostrando <b style="color:var(--c)" id="motherVisibleCount">${(data||[]).length}</b> de ${(data||[]).length} cuentas madre
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button type="button" class="g mother-quick-btn" data-m-status="" style="padding:2px 8px;font-size:.7rem">Todas</button>
+            <button type="button" class="g mother-quick-btn" data-m-status="activa" style="padding:2px 8px;font-size:.7rem;color:#00f5a0;border-color:rgba(0,245,160,.3)">🟢 Activas</button>
+            <button type="button" class="g mother-quick-btn" data-m-exp="por_vencer" style="padding:2px 8px;font-size:.7rem;color:#facc15;border-color:rgba(250,204,21,.3)">⚠️ Por Vencer</button>
+            <button type="button" class="g mother-quick-btn" data-m-exp="vencidas" style="padding:2px 8px;font-size:.7rem;color:#f87171;border-color:rgba(239,68,68,.3)">🔴 Vencidas</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (t === 'products') {
+    const rawTypes = (data || []).map(r => r.tipo).filter(Boolean);
+    const uniqueTypes = [...new Set(rawTypes)];
+    const typeMap = {
+      pantalla: '📺 Pantalla / Perfil',
+      cuenta_completa: '🔑 Cuenta Completa',
+      servicio: '📦 Servicio / Bajo Pedido',
+      gaming: '🎮 Gaming',
+      recarga_telefonica: '📱 Recarga Telefónica'
+    };
+    const typeOptions = uniqueTypes.map(ty => `<option value="${esc(ty.toLowerCase())}">${esc(typeMap[ty] || ty)}</option>`).join('');
+
+    const rawCats = (data || []).map(r => r.categories?.nombre).filter(Boolean);
+    const uniqueCats = [...new Set(rawCats)].sort((a,b) => a.localeCompare(b));
+    const catOptions = uniqueCats.map(ct => `<option value="${esc(ct.toLowerCase())}">🏷️ ${esc(ct)}</option>`).join('');
+
+    const savedQ = (S._prodFilters && S._prodFilters.q) || '';
+
+    topBarHtml = `
+      <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <div style="flex:1 1 260px;min-width:220px;position:relative">
+            <input id="prodSearchInput" type="search" placeholder="🔍 Buscar por nombre, categoría, tipo o precio..." value="${esc(savedQ)}"
+              style="width:100%;font-size:.82rem;padding:8px 12px 8px 32px;border-radius:8px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);color:#fff">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6;font-size:.8rem;pointer-events:none">🔍</span>
+          </div>
+          <div style="flex:0 1 180px;min-width:150px">
+            <select id="prodTypeFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">📦 Todos los tipos</option>
+              ${typeOptions}
+            </select>
+          </div>
+          <div style="flex:0 1 180px;min-width:150px">
+            <select id="prodCategoryFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">🏷️ Todas las categorías</option>
+              ${catOptions}
+            </select>
+          </div>
+          <div style="flex:0 1 140px;min-width:120px">
+            <select id="prodStatusFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">🔘 Estado</option>
+              <option value="activo">🟢 Activos</option>
+              <option value="inactivo">🔴 Inactivos</option>
+            </select>
+          </div>
+          <div style="flex:0 1 150px;min-width:130px">
+            <select id="prodCuotasFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">💳 Cuotas BNPL</option>
+              <option value="permite">💳 Permite Cuotas</option>
+              <option value="contado">⚡ Solo Contado</option>
+            </select>
+          </div>
+          <button id="prodBtnClear" class="g" style="padding:7px 12px;font-size:.78rem" title="Restablecer todos los filtros">
+            ✕ Limpiar
+          </button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:.76rem">
+          <div id="prodFilterStatusText" class="mut">
+            Mostrando <b style="color:var(--c)" id="prodVisibleCount">${(data||[]).length}</b> de ${(data||[]).length} productos
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button type="button" class="g prod-quick-btn" data-p-type="" style="padding:2px 8px;font-size:.7rem">Todos</button>
+            <button type="button" class="g prod-quick-btn" data-p-status="activo" style="padding:2px 8px;font-size:.7rem;color:#00f5a0;border-color:rgba(0,245,160,.3)">🟢 Activos</button>
+            <button type="button" class="g prod-quick-btn" data-p-type="pantalla" style="padding:2px 8px;font-size:.7rem;color:#38bdf8;border-color:rgba(56,189,248,.3)">📺 Pantallas</button>
+            <button type="button" class="g prod-quick-btn" data-p-type="cuenta_completa" style="padding:2px 8px;font-size:.7rem;color:#c084fc;border-color:rgba(192,132,252,.3)">🔑 Cuentas</button>
+            <button type="button" class="g prod-quick-btn" data-p-combo="1" style="padding:2px 8px;font-size:.7rem;color:#fb7185;border-color:rgba(251,113,133,.3)">🔥 Combos</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   if(mainContent){
     mainContent.innerHTML = `
+      ${topBarHtml}
       <div class="wrap">
         <table>
           <tr>${cols.map(c => `<th>${esc(colHeader(c))}</th>`).join('')}<th></th></tr>
-          ${(data||[]).map(r => `<tr>${cols.map(c => `<td>${cell(r, c)}</td>`).join('')}<td class="row">${acts(t, r)}${NOADD.includes(t) ? '' : `<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`).join('')}
+          ${(data||[]).map(r => {
+            let rowAttrs = '';
+            if (t === 'profiles_inventory') {
+              const searchTerms = [
+                r.nombre_perfil || '',
+                r.pin || '',
+                r.cliente_final || '',
+                r.cliente_telefono || '',
+                r.customers?.nombre || '',
+                r.customers?.email || '',
+                r.customers?.telefono || '',
+                r.mother_accounts?.plataforma || '',
+                r.mother_accounts?.correo || '',
+                r.products?.nombre || '',
+                r.vendedor || '',
+                r.estado || ''
+              ].join(' ').toLowerCase();
+
+              const platVal = (r.mother_accounts?.plataforma || r.products?.nombre || '').toLowerCase();
+              const statusVal = (r.estado || '').toLowerCase();
+              const sellerVal = (r.vendedor || '__central__').toLowerCase();
+
+              rowAttrs = ` data-prof-row="1" data-search="${esc(searchTerms)}" data-platform="${esc(platVal)}" data-status="${esc(statusVal)}" data-seller="${esc(sellerVal)}"`;
+            } else if (t === 'mother_accounts') {
+              const searchTerms = [
+                r.plataforma || '',
+                r.correo || '',
+                r.proveedor || '',
+                r.costo_usd || '',
+                r.notas || '',
+                r.vence || ''
+              ].join(' ').toLowerCase();
+
+              const platVal = (r.plataforma || '').toLowerCase();
+              const provVal = (r.proveedor || '').toLowerCase();
+              const statusVal = r.activa ? 'activa' : 'inactiva';
+
+              let expVal = 'vigentes';
+              if (r.vence) {
+                const diffDays = Math.ceil((new Date(r.vence + 'T00:00:00') - new Date()) / 86400000);
+                if (diffDays < 0) expVal = 'vencidas';
+                else if (diffDays <= 7) expVal = 'por_vencer';
+              }
+
+              rowAttrs = ` data-mother-row="1" data-search="${esc(searchTerms)}" data-platform="${esc(platVal)}" data-provider="${esc(provVal)}" data-status="${esc(statusVal)}" data-exp="${esc(expVal)}"`;
+            } else if (t === 'products') {
+              const searchTerms = [
+                r.nombre || '',
+                r.descripcion || '',
+                r.tipo || '',
+                r.categories?.nombre || '',
+                r.precio_usd ? '$' + r.precio_usd : '',
+                r.precio_revendedor_usd ? '$' + r.precio_revendedor_usd : ''
+              ].join(' ').toLowerCase();
+
+              const typeVal = (r.tipo || '').toLowerCase();
+              const catVal = (r.categories?.nombre || '').toLowerCase();
+              const statusVal = r.activo ? 'activo' : 'inactivo';
+              const cuotasVal = r.permite_cuotas ? 'permite' : 'contado';
+              const isCombo = (r.nombre || '').toLowerCase().includes('combo') ? '1' : '0';
+
+              rowAttrs = ` data-prod-row="1" data-search="${esc(searchTerms)}" data-type="${esc(typeVal)}" data-category="${esc(catVal)}" data-status="${esc(statusVal)}" data-cuotas="${esc(cuotasVal)}" data-combo="${isCombo}"`;
+            }
+            return `<tr${rowAttrs}>${cols.map(c => `<td>${cell(r, c)}</td>`).join('')}<td class="row">${acts(t, r)}${NOADD.includes(t) ? '' : `<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`;
+          }).join('')}
         </table>
       </div>
     `;
@@ -8563,6 +8829,324 @@ async function admin(t, opts = {}){
       admin('payment_methods');
     };
   }
+
+  if (t === 'profiles_inventory') {
+    const sInput = $('#profSearchInput');
+    const pFilter = $('#profPlatformFilter');
+    const stFilter = $('#profStatusFilter');
+    const selFilter = $('#profSellerFilter');
+    const btnClear = $('#profBtnClear');
+    const countBadge = $('#profVisibleCount');
+    const adminCnt = $('#adminRecordCount');
+    const tableEl = mainContent ? mainContent.querySelector('table') : null;
+
+    if (S._profFilters) {
+      if (pFilter && S._profFilters.platform) pFilter.value = S._profFilters.platform;
+      if (stFilter && S._profFilters.status) stFilter.value = S._profFilters.status;
+      if (selFilter && S._profFilters.seller) selFilter.value = S._profFilters.seller;
+    }
+
+    const applyProfilesFilter = () => {
+      const q = (sInput ? sInput.value : '').trim().toLowerCase();
+      const plat = (pFilter ? pFilter.value : '').toLowerCase();
+      const status = (stFilter ? stFilter.value : '').toLowerCase();
+      const seller = (selFilter ? selFilter.value : '').toLowerCase();
+
+      S._profFilters = { q, platform: plat, status, seller };
+
+      const rows = mainContent ? mainContent.querySelectorAll('tr[data-prof-row]') : [];
+      let visible = 0;
+      rows.forEach(tr => {
+        const rowSearch = tr.dataset.search || '';
+        const rowPlat = tr.dataset.platform || '';
+        const rowStatus = tr.dataset.status || '';
+        const rowSeller = tr.dataset.seller || '';
+
+        const matchQ = !q || rowSearch.includes(q);
+        const matchPlat = !plat || rowPlat.includes(plat);
+        const matchStatus = !status || rowStatus === status;
+        const matchSeller = !seller || (seller === '__central__' ? (rowSeller === '__central__' || !rowSeller) : rowSeller.includes(seller));
+
+        if (matchQ && matchPlat && matchStatus && matchSeller) {
+          tr.style.display = '';
+          visible++;
+        } else {
+          tr.style.display = 'none';
+        }
+      });
+
+      if (countBadge) countBadge.textContent = visible;
+      if (adminCnt) adminCnt.textContent = `${visible} de ${rows.length} perfiles`;
+
+      let noRow = $('#profNoResultsRow');
+      if (visible === 0 && rows.length > 0) {
+        if (!noRow && tableEl) {
+          noRow = document.createElement('tr');
+          noRow.id = 'profNoResultsRow';
+          noRow.innerHTML = `<td colspan="${cols.length + 1}" style="text-align:center;padding:32px 14px;color:var(--mut)"><div style="font-size:1.6rem;margin-bottom:6px">🔍</div>No se encontraron perfiles que coincidan con los filtros seleccionados.<br><button type="button" class="g" style="margin-top:10px;font-size:.76rem" onclick="$('#profBtnClear').click()">Restablecer filtros</button></td>`;
+          tableEl.appendChild(noRow);
+        }
+      } else if (noRow) {
+        noRow.remove();
+      }
+    };
+
+    if (sInput) sInput.oninput = applyProfilesFilter;
+    if (pFilter) pFilter.onchange = applyProfilesFilter;
+    if (stFilter) stFilter.onchange = applyProfilesFilter;
+    if (selFilter) selFilter.onchange = applyProfilesFilter;
+
+    if (btnClear) {
+      btnClear.onclick = () => {
+        if (sInput) sInput.value = '';
+        if (pFilter) pFilter.value = '';
+        if (stFilter) stFilter.value = '';
+        if (selFilter) selFilter.value = '';
+        S._profFilters = null;
+        applyProfilesFilter();
+      };
+    }
+
+    if (mainContent) {
+      mainContent.querySelectorAll('.prof-quick-btn').forEach(btn => {
+        btn.onclick = () => {
+          if (stFilter) {
+            stFilter.value = btn.dataset.qStatus || '';
+            applyProfilesFilter();
+          }
+        };
+      });
+    }
+
+    if (S._profFilters && (S._profFilters.q || S._profFilters.platform || S._profFilters.status || S._profFilters.seller)) {
+      applyProfilesFilter();
+    }
+  }
+
+  if (t === 'mother_accounts') {
+    const sInput = $('#motherSearchInput');
+    const pFilter = $('#motherPlatformFilter');
+    const provFilter = $('#motherProviderFilter');
+    const stFilter = $('#motherStatusFilter');
+    const expFilter = $('#motherExpFilter');
+    const btnClear = $('#motherBtnClear');
+    const countBadge = $('#motherVisibleCount');
+    const adminCnt = $('#adminRecordCount');
+    const tableEl = mainContent ? mainContent.querySelector('table') : null;
+
+    if (S._motherFilters) {
+      if (pFilter && S._motherFilters.platform) pFilter.value = S._motherFilters.platform;
+      if (provFilter && S._motherFilters.provider) provFilter.value = S._motherFilters.provider;
+      if (stFilter && S._motherFilters.status) stFilter.value = S._motherFilters.status;
+      if (expFilter && S._motherFilters.exp) expFilter.value = S._motherFilters.exp;
+    }
+
+    const applyMotherFilter = () => {
+      const q = (sInput ? sInput.value : '').trim().toLowerCase();
+      const plat = (pFilter ? pFilter.value : '').toLowerCase();
+      const prov = (provFilter ? provFilter.value : '').toLowerCase();
+      const status = (stFilter ? stFilter.value : '').toLowerCase();
+      const exp = (expFilter ? expFilter.value : '').toLowerCase();
+
+      S._motherFilters = { q, platform: plat, provider: prov, status, exp };
+
+      const rows = mainContent ? mainContent.querySelectorAll('tr[data-mother-row]') : [];
+      let visible = 0;
+      rows.forEach(tr => {
+        const rowSearch = tr.dataset.search || '';
+        const rowPlat = tr.dataset.platform || '';
+        const rowProv = tr.dataset.provider || '';
+        const rowStatus = tr.dataset.status || '';
+        const rowExp = tr.dataset.exp || '';
+
+        const matchQ = !q || rowSearch.includes(q);
+        const matchPlat = !plat || rowPlat.includes(plat);
+        const matchProv = !prov || rowProv.includes(prov);
+        const matchStatus = !status || rowStatus === status;
+        const matchExp = !exp || (exp === 'vigentes' ? (rowExp === 'vigentes' || rowExp === 'por_vencer') : rowExp === exp);
+
+        if (matchQ && matchPlat && matchProv && matchStatus && matchExp) {
+          tr.style.display = '';
+          visible++;
+        } else {
+          tr.style.display = 'none';
+        }
+      });
+
+      if (countBadge) countBadge.textContent = visible;
+      if (adminCnt) adminCnt.textContent = `${visible} de ${rows.length} cuentas madre`;
+
+      let noRow = $('#motherNoResultsRow');
+      if (visible === 0 && rows.length > 0) {
+        if (!noRow && tableEl) {
+          noRow = document.createElement('tr');
+          noRow.id = 'motherNoResultsRow';
+          noRow.innerHTML = `<td colspan="${cols.length + 1}" style="text-align:center;padding:32px 14px;color:var(--mut)"><div style="font-size:1.6rem;margin-bottom:6px">🔍</div>No se encontraron cuentas madre que coincidan con los filtros seleccionados.<br><button type="button" class="g" style="margin-top:10px;font-size:.76rem" onclick="$('#motherBtnClear').click()">Restablecer filtros</button></td>`;
+          tableEl.appendChild(noRow);
+        }
+      } else if (noRow) {
+        noRow.remove();
+      }
+    };
+
+    if (sInput) sInput.oninput = applyMotherFilter;
+    if (pFilter) pFilter.onchange = applyMotherFilter;
+    if (provFilter) provFilter.onchange = applyMotherFilter;
+    if (stFilter) stFilter.onchange = applyMotherFilter;
+    if (expFilter) expFilter.onchange = applyMotherFilter;
+
+    if (btnClear) {
+      btnClear.onclick = () => {
+        if (sInput) sInput.value = '';
+        if (pFilter) pFilter.value = '';
+        if (provFilter) provFilter.value = '';
+        if (stFilter) stFilter.value = '';
+        if (expFilter) expFilter.value = '';
+        S._motherFilters = null;
+        applyMotherFilter();
+      };
+    }
+
+    if (mainContent) {
+      mainContent.querySelectorAll('.mother-quick-btn').forEach(btn => {
+        btn.onclick = () => {
+          if (btn.dataset.mStatus !== undefined && stFilter) {
+            stFilter.value = btn.dataset.mStatus;
+            if (expFilter) expFilter.value = '';
+          }
+          if (btn.dataset.mExp !== undefined && expFilter) {
+            expFilter.value = btn.dataset.mExp;
+            if (stFilter) stFilter.value = '';
+          }
+          applyMotherFilter();
+        };
+      });
+    }
+
+    if (S._motherFilters && (S._motherFilters.q || S._motherFilters.platform || S._motherFilters.provider || S._motherFilters.status || S._motherFilters.exp)) {
+      applyMotherFilter();
+    }
+  }
+
+  if (t === 'products') {
+    const sInput = $('#prodSearchInput');
+    const tFilter = $('#prodTypeFilter');
+    const cFilter = $('#prodCategoryFilter');
+    const stFilter = $('#prodStatusFilter');
+    const cuoFilter = $('#prodCuotasFilter');
+    const btnClear = $('#prodBtnClear');
+    const countBadge = $('#prodVisibleCount');
+    const adminCnt = $('#adminRecordCount');
+    const tableEl = mainContent ? mainContent.querySelector('table') : null;
+
+    if (S._prodFilters) {
+      if (tFilter && S._prodFilters.type) tFilter.value = S._prodFilters.type;
+      if (cFilter && S._prodFilters.category) cFilter.value = S._prodFilters.category;
+      if (stFilter && S._prodFilters.status) stFilter.value = S._prodFilters.status;
+      if (cuoFilter && S._prodFilters.cuotas) cuoFilter.value = S._prodFilters.cuotas;
+    }
+
+    const applyProductFilter = () => {
+      const q = (sInput ? sInput.value : '').trim().toLowerCase();
+      const type = (tFilter ? tFilter.value : '').toLowerCase();
+      const cat = (cFilter ? cFilter.value : '').toLowerCase();
+      const status = (stFilter ? stFilter.value : '').toLowerCase();
+      const cuotas = (cuoFilter ? cuoFilter.value : '').toLowerCase();
+      const onlyCombo = S._prodFilters && S._prodFilters.onlyCombo;
+
+      S._prodFilters = { q, type, category: cat, status, cuotas, onlyCombo };
+
+      const rows = mainContent ? mainContent.querySelectorAll('tr[data-prod-row]') : [];
+      let visible = 0;
+      rows.forEach(tr => {
+        const rowSearch = tr.dataset.search || '';
+        const rowType = tr.dataset.type || '';
+        const rowCat = tr.dataset.category || '';
+        const rowStatus = tr.dataset.status || '';
+        const rowCuotas = tr.dataset.cuotas || '';
+        const rowCombo = tr.dataset.combo || '0';
+
+        const matchQ = !q || rowSearch.includes(q);
+        const matchType = !type || rowType === type;
+        const matchCat = !cat || rowCat.includes(cat);
+        const matchStatus = !status || rowStatus === status;
+        const matchCuotas = !cuotas || rowCuotas === cuotas;
+        const matchCombo = !onlyCombo || rowCombo === '1';
+
+        if (matchQ && matchType && matchCat && matchStatus && matchCuotas && matchCombo) {
+          tr.style.display = '';
+          visible++;
+        } else {
+          tr.style.display = 'none';
+        }
+      });
+
+      if (countBadge) countBadge.textContent = visible;
+      if (adminCnt) adminCnt.textContent = `${visible} de ${rows.length} productos`;
+
+      let noRow = $('#prodNoResultsRow');
+      if (visible === 0 && rows.length > 0) {
+        if (!noRow && tableEl) {
+          noRow = document.createElement('tr');
+          noRow.id = 'prodNoResultsRow';
+          noRow.innerHTML = `<td colspan="${cols.length + 1}" style="text-align:center;padding:32px 14px;color:var(--mut)"><div style="font-size:1.6rem;margin-bottom:6px">🔍</div>No se encontraron productos que coincidan con los filtros seleccionados.<br><button type="button" class="g" style="margin-top:10px;font-size:.76rem" onclick="$('#prodBtnClear').click()">Restablecer filtros</button></td>`;
+          tableEl.appendChild(noRow);
+        }
+      } else if (noRow) {
+        noRow.remove();
+      }
+    };
+
+    if (sInput) sInput.oninput = () => { S._prodFilters && (S._prodFilters.onlyCombo = false); applyProductFilter(); };
+    if (tFilter) tFilter.onchange = () => { S._prodFilters && (S._prodFilters.onlyCombo = false); applyProductFilter(); };
+    if (cFilter) cFilter.onchange = () => { S._prodFilters && (S._prodFilters.onlyCombo = false); applyProductFilter(); };
+    if (stFilter) stFilter.onchange = applyProductFilter;
+    if (cuoFilter) cuoFilter.onchange = applyProductFilter;
+
+    if (btnClear) {
+      btnClear.onclick = () => {
+        if (sInput) sInput.value = '';
+        if (tFilter) tFilter.value = '';
+        if (cFilter) cFilter.value = '';
+        if (stFilter) stFilter.value = '';
+        if (cuoFilter) cuoFilter.value = '';
+        S._prodFilters = null;
+        applyProductFilter();
+      };
+    }
+
+    if (mainContent) {
+      mainContent.querySelectorAll('.prod-quick-btn').forEach(btn => {
+        btn.onclick = () => {
+          if (btn.dataset.pStatus !== undefined && stFilter) {
+            stFilter.value = btn.dataset.pStatus;
+          }
+          if (btn.dataset.pType !== undefined && tFilter) {
+            tFilter.value = btn.dataset.pType;
+            if (S._prodFilters) S._prodFilters.onlyCombo = false;
+          }
+          if (btn.dataset.pCombo !== undefined) {
+            if (tFilter) tFilter.value = '';
+            if (!S._prodFilters) S._prodFilters = {};
+            S._prodFilters.onlyCombo = true;
+          }
+          if (!btn.dataset.pStatus && !btn.dataset.pType && !btn.dataset.pCombo) {
+            if (stFilter) stFilter.value = '';
+            if (tFilter) tFilter.value = '';
+            if (cFilter) cFilter.value = '';
+            if (cuoFilter) cuoFilter.value = '';
+            if (S._prodFilters) S._prodFilters.onlyCombo = false;
+          }
+          applyProductFilter();
+        };
+      });
+    }
+
+    if (S._prodFilters && (S._prodFilters.q || S._prodFilters.type || S._prodFilters.category || S._prodFilters.status || S._prodFilters.cuotas || S._prodFilters.onlyCombo)) {
+      applyProductFilter();
+    }
+  }
+
   app.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const {data:v,error:e}=await sb.rpc('reveal_secret',{p:b.dataset.rv});toast(e?e.message:v);});
   app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!confirm(t==='orders'?`¿Verificaste el pago? Total $${b.dataset.tot} (ZenyPoints aplicados: $${b.dataset.z}). Se entregarán las credenciales al cliente.`:'¿Verificaste el pago de esta recarga?'))return;const {error:e}=t==='orders'?await sb.rpc('deliver_order',{p_order:b.dataset.ok}):await sb.from(t).update({estado:'aprobado'}).eq('id',b.dataset.ok);invalidateAdminCache(t);invalidateAdminCache('orders');invalidateAdminCache('zeny_ledger');e?toast(e.message):admin(t);});
   app.querySelectorAll('[data-ok-inst]').forEach(b => b.onclick = async () => {
@@ -9395,7 +9979,10 @@ async function admin(t, opts = {}){
           if (i.disabled) continue;
           let v = typeof i.value === 'string' ? i.value.trim() : i.value;
           if (v === '') {
-            if (row) o[i.dataset.c] = null;
+            if (row) {
+              if (['clave', 'pin'].includes(i.dataset.c)) continue;
+              o[i.dataset.c] = null;
+            }
             continue;
           }
           if (v === 'true' || v === 'false') v = (v === 'true');
@@ -9450,7 +10037,11 @@ async function admin(t, opts = {}){
           if (o.precio_revendedor_usd !== undefined) o.precio_revendedor_usd = parseFloat(o.precio_revendedor_usd) || 0;
         }
 
-        let { error: e } = await (row ? sb.from(t).update(o).eq(pk, row[pk]) : sb.from(t).insert(o));
+        const queryPromise = (row ? sb.from(t).update(o).eq(pk, row[pk]) : sb.from(t).insert(o));
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Tiempo de espera agotado al comunicar con la base de datos (15s). Por favor recarga la página.')), 15000)
+        );
+        let { error: e } = await Promise.race([queryPromise, timeoutPromise]);
         if (e && e.message && e.message.includes('permite_cuotas')) {
           const oFallback = { ...o };
           delete oFallback.permite_cuotas;
