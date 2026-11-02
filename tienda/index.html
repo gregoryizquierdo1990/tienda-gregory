@@ -820,7 +820,7 @@ async function ensureAdminExtraLoaded() {
       return;
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js';
+    script.src = '/admin-extra.js?v=11';
     script.async = true;
     script.onload = () => resolve(true);
     script.onerror = (err) => {

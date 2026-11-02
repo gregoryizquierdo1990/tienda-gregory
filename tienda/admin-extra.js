@@ -1286,7 +1286,7 @@ const EXTRA = {
     try {
       const [resOrd, resResellers] = await Promise.all([
         sb.from('orders')
-          .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion), products(id,nombre,tipo), profiles_inventory(id,nombre_perfil,pin,mother_id,mother_accounts(plataforma,correo))')
+          .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion), products(id,nombre,tipo), profiles_inventory(id,nombre_perfil,pin,inicia,vence,mother_id,mother_accounts(id,plataforma,correo,clave))')
           .order('created_at', { ascending: false })
           .limit(300),
         sb.from('customers')
@@ -1306,6 +1306,24 @@ const EXTRA = {
         ordList = rawOrds || [];
       } catch(e2) {
         return box.innerHTML = `<p class="mut">Error al cargar pedidos: ${esc(errFetch.message)}</p>`;
+      }
+    }
+
+    // Cargar credenciales descifradas en lote para pedidos con perfil o cuenta madre
+    let credsMap = box._credsCache || {};
+    const profOrderIds = (ordList || []).filter(o => o.profile_id).map(o => o.id);
+    if (profOrderIds.length > 0) {
+      const missingIds = profOrderIds.filter(id => !credsMap[id]);
+      if (missingIds.length > 0) {
+        try {
+          const { data: batchCreds } = await sb.rpc('admin_get_orders_credentials', { p_order_ids: missingIds });
+          if (batchCreds && typeof batchCreds === 'object') {
+            credsMap = Object.assign(credsMap, batchCreds);
+            box._credsCache = credsMap;
+          }
+        } catch(errCreds) {
+          console.warn('Batch credentials fetch notice:', errCreds);
+        }
       }
     }
 
@@ -1343,7 +1361,10 @@ const EXTRA = {
         const ref = o.referencia || '';
         const id = String(o.id || '');
         const seller = sellersMap[o.vendedor_id] || '';
-        const text = `${cNom} ${cEmail} ${cTel} ${prod} ${ref} ${id} ${seller}`.toLowerCase();
+        const cr = credsMap[o.id] || {};
+        const mailAcc = cr.correo || o.profiles_inventory?.mother_accounts?.correo || '';
+        const profName = cr.perfil || o.profiles_inventory?.nombre_perfil || '';
+        const text = `${cNom} ${cEmail} ${cTel} ${prod} ${ref} ${id} ${seller} ${mailAcc} ${profName}`.toLowerCase();
         return text.includes(searchVal);
       });
     }
@@ -1446,9 +1467,16 @@ const EXTRA = {
                 const cleanPhone = cTel.replace(/\D/g, '');
                 const waTarget = cleanPhone.startsWith('58') ? cleanPhone : (cleanPhone ? '58' + cleanPhone.replace(/^0+/, '') : '');
                 const prodName = o.products?.nombre || 'Servicio Digital';
-                const profName = o.profiles_inventory?.nombre_perfil || '';
-                const profPin = o.profiles_inventory?.pin || '';
-                const isPinEnc = profPin && profPin.startsWith('enc:');
+                const cr = credsMap[o.id] || {};
+                const profName = cr.perfil || o.profiles_inventory?.nombre_perfil || '';
+                const profPin = cr.pin != null && cr.pin !== '' ? cr.pin : (o.profiles_inventory?.pin || '');
+                const isPinEnc = typeof profPin === 'string' && profPin.startsWith('enc:');
+                const motherMail = cr.correo || o.profiles_inventory?.mother_accounts?.correo || '';
+                const motherPass = cr.clave || o.profiles_inventory?.mother_accounts?.clave || '';
+                const isPassEnc = typeof motherPass === 'string' && motherPass.startsWith('enc:');
+                const fechaInicia = cr.inicia || o.inicia || o.profiles_inventory?.inicia || '';
+                const fechaVence = cr.vence || o.vence || o.profiles_inventory?.vence || '';
+                const diasRest = cr.dias_restantes != null ? cr.dias_restantes : (fechaVence ? Math.ceil((new Date(fechaVence + 'T23:59:59') - new Date()) / (1000*60*60*24)) : null);
                 const sellerNom = sellersMap[o.vendedor_id];
                 const isCredit = o.referencia && o.referencia.toLowerCase().includes('crédito');
                 const createdStr = o.created_at ? new Date(o.created_at).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -1501,8 +1529,71 @@ const EXTRA = {
                     </td>
 
                     <td>
-                      <b style="color:var(--c)">${esc(prodName)}</b>
-                      ${profName ? `<div style="font-size:.72rem;color:#38bdf8;margin-top:2px">👤 ${esc(profName)} ${profPin ? (isPinEnc ? '🔒 PIN Cifrado' : `· PIN: ${esc(profPin)}`) : ''}</div>` : ''}
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+                        <b style="color:var(--c);font-size:.88rem">${esc(prodName)}</b>
+                        ${(o.profile_id || motherMail || profName) ? `
+                          <button type="button" class="g btn-view-order-creds" data-ord="${o.id}" style="padding:2px 7px;font-size:.68rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700;display:inline-flex;align-items:center;gap:3px;border-radius:6px;cursor:pointer" title="Ver ficha completa de credenciales y copiar para cliente">
+                            🔑 Ver Datos
+                          </button>
+                        ` : ''}
+                      </div>
+
+                      ${(o.profile_id || motherMail || profName) ? `
+                        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:6px 8px;margin-top:5px;font-size:.72rem;line-height:1.35">
+                          ${motherMail ? `
+                            <div style="display:flex;align-items:center;gap:4px;color:#f8fafc;word-break:break-all">
+                              <span style="opacity:.7">✉️</span>
+                              <b style="font-family:monospace;font-size:.73rem;color:#38bdf8">${esc(motherMail)}</b>
+                              <button type="button" class="g" style="padding:0 4px;font-size:.62rem;border-radius:4px" data-clean-copy="${esc(motherMail)}" title="Copiar correo">📋</button>
+                            </div>
+                          ` : ''}
+
+                          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:3px">
+                            ${motherPass ? `
+                              <div style="display:flex;align-items:center;gap:3px;color:#fde047">
+                                <span style="opacity:.7">🔑</span>
+                                ${isPassEnc ? `
+                                  <button type="button" class="g btn-reveal-secret" data-raw="${esc(motherPass)}" style="padding:0 5px;font-size:.64rem;color:#38bdf8" title="Revelar clave descifrada">👁️ Clave</button>
+                                ` : `
+                                  <code style="font-weight:700;color:#fde047;font-size:.73rem">${esc(motherPass)}</code>
+                                  <button type="button" class="g" style="padding:0 4px;font-size:.62rem;border-radius:4px" data-clean-copy="${esc(motherPass)}" title="Copiar clave">📋</button>
+                                `}
+                              </div>
+                            ` : ''}
+
+                            ${profName ? `
+                              <div style="color:#e2e8f0;display:flex;align-items:center;gap:3px">
+                                <span>👤</span>
+                                <b>${esc(profName)}</b>
+                              </div>
+                            ` : ''}
+
+                            ${profPin ? `
+                              <div style="display:flex;align-items:center;gap:3px;color:#a7f3d0">
+                                <span>🔒</span>
+                                ${isPinEnc ? `
+                                  <button type="button" class="g btn-reveal-secret" data-raw="${esc(profPin)}" style="padding:0 5px;font-size:.64rem;color:#38bdf8" title="Revelar PIN">👁️ PIN</button>
+                                ` : `
+                                  <span>PIN: <code style="font-weight:700;color:#00f5a0;font-size:.73rem">${esc(profPin)}</code></span>
+                                  <button type="button" class="g" style="padding:0 4px;font-size:.62rem;border-radius:4px" data-clean-copy="${esc(profPin)}" title="Copiar PIN">📋</button>
+                                `}
+                              </div>
+                            ` : '<span class="mut" style="font-size:.68rem">Sin PIN</span>'}
+                          </div>
+
+                          ${(fechaInicia || fechaVence) ? `
+                            <div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.68rem;color:#94a3b8">
+                              <span>⏱️ ${fechaInicia ? esc(fechaInicia) + ' al ' : ''}${esc(fechaVence || '—')}</span>
+                              ${diasRest != null ? `
+                                <span class="pill" style="font-size:.62rem;padding:0 5px;${diasRest > 3 ? 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)' : (diasRest >= 0 ? 'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.4)' : 'background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.4)')}">
+                                  ${diasRest > 1 ? `Quedan ${diasRest} días` : (diasRest === 1 ? 'Vence mañana' : (diasRest === 0 ? 'Vence HOY' : `Vencido hace ${Math.abs(diasRest)} días`))}
+                                </span>
+                              ` : ''}
+                            </div>
+                          ` : ''}
+                        </div>
+                      ` : ''}
+
                       ${gamingHtml}
                     </td>
 
@@ -1539,6 +1630,12 @@ const EXTRA = {
                           </button>
                           <button class="g btn-order-reject" data-ord="${o.id}" style="padding:4px 7px;font-size:.73rem;color:#f87171;border-color:rgba(239,68,68,.3)" title="Rechazar y liberar perfil">
                             ❌
+                          </button>
+                        ` : ''}
+
+                        ${(o.profile_id || motherMail || profName) ? `
+                          <button class="g btn-view-order-creds" data-ord="${o.id}" style="padding:4px 7px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Ver y copiar credenciales completas de la suscripción entregada">
+                            🔑
                           </button>
                         ` : ''}
 
@@ -1757,6 +1854,198 @@ const EXTRA = {
         render();
       });
     });
+
+    // Ver y copiar credenciales completas de la suscripción entregada
+    box.querySelectorAll('.btn-view-order-creds').forEach(btn => {
+      btn.onclick = async () => {
+        const ordId = btn.dataset.ord;
+        const ord = ordList.find(x => x.id === ordId) || {};
+        const cNom = ord.customers?.nombre || ord.customers?.email || 'Cliente';
+        const cTel = ord.customers?.telefono || '';
+        const prodName = ord.products?.nombre || 'Servicio Digital';
+
+        $('#dlgBody').innerHTML = `
+          <div style="text-align:center;padding:30px">
+            <span style="font-size:2rem">⏳</span>
+            <p class="mut" style="margin-top:8px">Cargando y verificando credenciales del pedido...</p>
+          </div>
+        `;
+        dlg.showModal();
+
+        let cr = credsMap[ordId] || {};
+        if (!cr.clave || (typeof cr.clave === 'string' && cr.clave.startsWith('enc:')) || !cr.correo) {
+          try {
+            const { data: rpcRes, error: rpcErr } = await sb.rpc('admin_get_order_credentials', { p_order_id: ordId });
+            if (rpcRes && !rpcErr) {
+              cr = rpcRes;
+              credsMap[ordId] = cr;
+              if (box._credsCache) box._credsCache[ordId] = cr;
+            }
+          } catch(e) {
+            console.warn('Error fetching order credentials RPC:', e);
+          }
+        }
+
+        const mail = cr.correo || ord.profiles_inventory?.mother_accounts?.correo || '';
+        let pass = cr.clave || ord.profiles_inventory?.mother_accounts?.clave || '';
+        const perf = cr.perfil || ord.profiles_inventory?.nombre_perfil || 'Perfil 1';
+        let pin = cr.pin != null && cr.pin !== '' ? cr.pin : (ord.profiles_inventory?.pin || '');
+        const vence = cr.vence || ord.vence || ord.profiles_inventory?.vence || '';
+        const inicia = cr.inicia || ord.inicia || ord.profiles_inventory?.inicia || '';
+        const dias = cr.dias_restantes != null ? cr.dias_restantes : (vence ? Math.ceil((new Date(vence + 'T23:59:59') - new Date()) / (1000*60*60*24)) : null);
+
+        // Si la clave o el PIN siguen cifrados, intentar descifrar con reveal_secret
+        if (typeof pass === 'string' && pass.startsWith('enc:')) {
+          try {
+            const { data: revPass } = await sb.rpc('reveal_secret', { p: pass });
+            if (revPass) pass = revPass;
+          } catch(e){}
+        }
+        if (typeof pin === 'string' && pin.startsWith('enc:')) {
+          try {
+            const { data: revPin } = await sb.rpc('reveal_secret', { p: pin });
+            if (revPin) pin = revPin;
+          } catch(e){}
+        }
+
+        const negocioNom = S.franchise?.nombre_comercial || S.settings?.negocio?.nombre || 'Emprendimiento Gregory Izquierdo';
+        const cleanMsg = typeof formatMessageTemplate === 'function'
+          ? formatMessageTemplate('datos_limpios_revendedor', {
+              servicio: prodName,
+              correo: mail,
+              clave: pass,
+              perfil: perf,
+              pin: pin || 'Sin PIN',
+              vence: vence || '30 días',
+              vendedor: negocioNom
+            })
+          : `*${prodName}*\nCorreo: ${mail}\nClave: ${pass}\nPerfil: ${perf}\nPIN: ${pin || 'Sin PIN'}\nVence: ${vence}\nVendedor: ${negocioNom}\n\n⚠️ Cuida tus accesos y disfruta tu servicio. Garantía activa durante todo el período.`;
+
+        $('#dlgBody').innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:10px;margin-bottom:14px">
+            <h3 style="margin:0;display:flex;align-items:center;gap:8px">
+              <span>🔑</span> Datos de la Suscripción Entregada
+            </h3>
+            <span class="pill" style="font-size:.72rem;background:rgba(0,245,160,.15);color:#00f5a0;border-color:rgba(0,245,160,.4)">
+              #${esc(ordId.slice(0, 8))}
+            </span>
+          </div>
+
+          <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span class="mut" style="font-size:.78rem">👤 Cliente:</span>
+              <b style="font-size:.85rem;color:#f8fafc">${esc(cNom)} ${cTel ? `(📲 ${esc(cTel)})` : ''}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span class="mut" style="font-size:.78rem">📺 Servicio / Producto:</span>
+              <b style="font-size:.85rem;color:var(--c)">${esc(prodName)}</b>
+            </div>
+            ${(inicia || vence) ? `
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span class="mut" style="font-size:.78rem">⏱️ Vigencia / Tiempo:</span>
+                <span style="font-size:.82rem;font-weight:700;color:#fde047">
+                  ${inicia ? esc(inicia) + ' al ' : ''}${esc(vence || '—')}
+                  ${dias != null ? `(${dias > 1 ? `Quedan ${dias} días` : (dias === 1 ? 'Vence mañana' : (dias === 0 ? 'Vence HOY' : `Vencido hace ${Math.abs(dias)} días`))})` : ''}
+                </span>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Credenciales directas con botones de copiar -->
+          <div style="display:grid;gap:8px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 12px">
+              <div>
+                <div class="mut" style="font-size:.68rem">✉️ CORREO / CUENTA MADRE</div>
+                <code style="font-size:.9rem;color:#38bdf8;font-weight:700">${esc(mail || '—')}</code>
+              </div>
+              ${mail ? `<button type="button" class="g" data-clean-copy="${esc(mail)}" style="padding:4px 10px;font-size:.74rem">📋 Copiar</button>` : ''}
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 12px">
+              <div>
+                <div class="mut" style="font-size:.68rem">🔑 CONTRASEÑA / CLAVE</div>
+                <code style="font-size:.9rem;color:#fde047;font-weight:700">${esc(pass || '—')}</code>
+              </div>
+              ${pass ? `<button type="button" class="g" data-clean-copy="${esc(pass)}" style="padding:4px 10px;font-size:.74rem">📋 Copiar</button>` : ''}
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div style="background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 12px">
+                <div class="mut" style="font-size:.68rem">👤 PERFIL ASIGNADO</div>
+                <b style="font-size:.9rem;color:#ecf6ff">${esc(perf || '—')}</b>
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 12px">
+                <div>
+                  <div class="mut" style="font-size:.68rem">🔒 PIN DE ACCESO</div>
+                  <code style="font-size:.9rem;color:#00f5a0;font-weight:700">${esc(pin || 'Sin PIN')}</code>
+                </div>
+                ${pin && pin !== 'Sin PIN' ? `<button type="button" class="g" data-clean-copy="${esc(pin)}" style="padding:4px 8px;font-size:.72rem">📋</button>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <!-- Plantilla formateada para el cliente -->
+          <div style="margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+              <span class="mut" style="font-size:.72rem">📝 Mensaje listo para enviar a cliente o revendedor:</span>
+              <button type="button" class="g" data-clean-copy="${esc(cleanMsg)}" style="padding:3px 9px;font-size:.72rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700">
+                📋 Copiar Mensaje Completo
+              </button>
+            </div>
+            <textarea readonly style="width:100%;height:115px;font-size:.78rem;font-family:monospace;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;resize:none">${esc(cleanMsg)}</textarea>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center">
+            ${cTel ? `
+              <button type="button" id="btnDlgSendCredsWa" style="background:#25d366;color:#fff;border:none;padding:9px 16px;border-radius:10px;font-size:.82rem;font-weight:800;display:inline-flex;align-items:center;gap:6px">
+                📲 Enviar por WhatsApp al Cliente
+              </button>
+            ` : '<div></div>'}
+            <button type="button" class="g" onclick="dlg.close()" style="padding:8px 16px;font-size:.82rem">Cerrar</button>
+          </div>
+        `;
+
+        if (window.setupCleanCopy) window.setupCleanCopy($('#dlgBody'));
+
+        const btnSendWa = $('#dlgBody').querySelector('#btnDlgSendCredsWa');
+        if (btnSendWa) {
+          btnSendWa.onclick = () => {
+            if (typeof openWhatsApp === 'function') {
+              openWhatsApp(cTel, cleanMsg);
+            } else {
+              const cleanP = cTel.replace(/\D/g, '');
+              const waP = cleanP.startsWith('58') ? cleanP : ('58' + cleanP.replace(/^0+/, ''));
+              window.open(`https://wa.me/${waP}?text=${encodeURIComponent(cleanMsg)}`, '_blank');
+            }
+          };
+        }
+      };
+    });
+
+    // Revelar secreto individual inline (clave o PIN)
+    box.querySelectorAll('.btn-reveal-secret').forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const raw = btn.dataset.raw;
+        btn.disabled = true;
+        btn.textContent = '⏳...';
+        try {
+          const { data: rev } = await sb.rpc('reveal_secret', { p: raw });
+          if (rev) {
+            btn.outerHTML = `<code style="font-weight:700;color:#fde047;font-size:.73rem">${esc(rev)}</code><button type="button" class="g" style="padding:0 4px;font-size:.62rem;border-radius:4px;margin-left:3px" data-clean-copy="${esc(rev)}" title="Copiar">📋</button>`;
+            if (window.setupCleanCopy) window.setupCleanCopy(box);
+          } else {
+            btn.textContent = 'Error';
+          }
+        } catch(err) {
+          btn.textContent = 'Err';
+        }
+      };
+    });
+
+    if (window.setupCleanCopy) window.setupCleanCopy(box);
   },
   async vencimientos(box) {
     if (!box._calState) {
