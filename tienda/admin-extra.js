@@ -3237,17 +3237,24 @@ Cobrar antes de ${fVenceCred}`;
 
           try {
             let rpcOk = false;
+            let lastErr = null;
             try {
-              const rpcP = sb.rpc('liberar_perfil_inventario', {
+              const rpcPromise = sb.rpc('liberar_perfil_inventario', {
                 p_profile_id: profId,
                 p_nuevo_pin: newPin || null,
                 p_nuevo_nombre: newNom || null
               });
-              const toP = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 4000));
-              const res = await Promise.race([rpcP, toP]);
-              if (!res?.error) rpcOk = true;
+              const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_RPC')), 6000));
+              const res = await Promise.race([rpcPromise, timeoutPromise]);
+              if (!res?.error) {
+                rpcOk = true;
+              } else {
+                lastErr = res.error;
+                console.warn('RPC liberar_perfil_inventario returned error:', res.error);
+              }
             } catch(eRpc) {
-              console.warn('RPC liberar_perfil_inventario tardío o no disponible, usando fallback directo:', eRpc);
+              lastErr = eRpc;
+              console.warn('RPC liberar_perfil_inventario timeout o fallo, probando fallback:', eRpc);
             }
 
             if (!rpcOk) {
@@ -3256,6 +3263,9 @@ Cobrar antes de ${fVenceCred}`;
                 inicia: null,
                 vence: null,
                 assigned_customer_id: null,
+                vendedor: null,
+                vendedor_id: null,
+                cliente_final: null,
                 no_renueva: false,
                 no_renueva_reportado_at: null,
                 no_renueva_motivo: null,
@@ -3264,18 +3274,22 @@ Cobrar antes de ${fVenceCred}`;
               if (newPin) updData.pin = newPin;
               if (newNom) updData.nombre_perfil = newNom;
 
-              const { error: updErr } = await sb.from('profiles_inventory')
+              const updPromise = sb.from('profiles_inventory')
                 .update(updData)
                 .eq('id', profId);
+              const updTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_UPDATE')), 6000));
+              const { error: updErr } = await Promise.race([updPromise, updTimeout]);
               if (updErr) throw updErr;
 
               try {
-                await sb.from('orders')
+                const ordPromise = sb.from('orders')
                   .update({ estado: 'vencido', no_renueva: false })
                   .eq('profile_id', profId)
                   .in('estado', ['entregado', 'pagado']);
+                const ordTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_ORDERS')), 4000));
+                await Promise.race([ordPromise, ordTimeout]);
               } catch(eOrd) {
-                console.warn('Orders cleanup warning:', eOrd);
+                console.warn('Orders cleanup notice:', eOrd);
               }
             }
 
