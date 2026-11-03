@@ -1262,7 +1262,7 @@ const EXTRA = {
     const { data: cfg } = await sb.from('settings').select('value').eq('key', 'notificaciones').maybeSingle();
     const { data: subs } = await sb.from('push_subscriptions').select('id,user_agent,created_at').order('created_at', { ascending: false });
     if (!box.isConnected) {
-      const activeBox = document.querySelector('#ex');
+      const activeBox = document.getElementById('admin-pane-' + (typeof S !== 'undefined' ? (S.t || '') : '')) || document.querySelector('.admin-pane') || document.querySelector('#ex');
       if (activeBox) box = activeBox;
       else return;
     }
@@ -1279,56 +1279,67 @@ const EXTRA = {
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await sb.from('push_subscriptions').delete().eq('id', b.dataset.del); EXTRA.notificaciones(box); });
   },
   async orders(box) {
-    box.innerHTML = `<div style="text-align:center;padding:40px"><span style="font-size:2rem">⏳</span><p class="mut">Cargando pedidos de clientes...</p></div>`;
-
-    let ordList = [];
-    let resellers = [];
-    try {
-      const [resOrd, resResellers] = await Promise.all([
-        sb.from('orders')
-          .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion), products(id,nombre,tipo), profiles_inventory(id,nombre_perfil,pin,inicia,vence,mother_id,mother_accounts(id,plataforma,correo,clave))')
-          .order('created_at', { ascending: false })
-          .limit(300),
-        sb.from('customers')
-          .select('id,nombre,email,codigo_identificacion')
-          .eq('es_revendedor', true)
-      ]);
-      ordList = resOrd?.data;
-      if (!ordList) {
-        const { data: rawOrds } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(300);
-        ordList = rawOrds || [];
-      }
-      resellers = resResellers?.data || [];
-    } catch(errFetch) {
-      console.warn('Error fetching orders:', errFetch);
-      try {
-        const { data: rawOrds } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(300);
-        ordList = rawOrds || [];
-      } catch(e2) {
-        return box.innerHTML = `<p class="mut">Error al cargar pedidos: ${esc(errFetch.message)}</p>`;
-      }
-    }
-
-    // Cargar credenciales descifradas en lote para pedidos con perfil o cuenta madre
+    if (!box) return;
+    const currentLimit = box._ordersLimit || 60;
+    let ordList = box._cachedOrders;
+    let resellers = box._cachedResellers;
     let credsMap = box._credsCache || {};
-    const profOrderIds = (ordList || []).filter(o => o.profile_id).map(o => o.id);
-    if (profOrderIds.length > 0) {
-      const missingIds = profOrderIds.filter(id => !credsMap[id]);
-      if (missingIds.length > 0) {
+
+    const needsFetch = !ordList || box._forceReload || box._lastLimit !== currentLimit;
+    if (needsFetch) {
+      box.innerHTML = `<div style="text-align:center;padding:40px"><span style="font-size:2rem">⏳</span><p class="mut">Cargando pedidos de clientes (${currentLimit})...</p></div>`;
+
+      try {
+        const [resOrd, resResellers] = await Promise.all([
+          sb.from('orders')
+            .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion), products(id,nombre,tipo), profiles_inventory(id,nombre_perfil,pin,inicia,vence,mother_id,mother_accounts(id,plataforma,correo,clave))')
+            .order('created_at', { ascending: false })
+            .limit(currentLimit),
+          sb.from('customers')
+            .select('id,nombre,email,codigo_identificacion')
+            .eq('es_revendedor', true)
+        ]);
+        ordList = resOrd?.data;
+        if (!ordList) {
+          const { data: rawOrds } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(currentLimit);
+          ordList = rawOrds || [];
+        }
+        resellers = resResellers?.data || [];
+        box._cachedOrders = ordList;
+        box._cachedResellers = resellers;
+        box._lastLimit = currentLimit;
+        box._forceReload = false;
+      } catch(errFetch) {
+        console.warn('Error fetching orders:', errFetch);
         try {
-          const { data: batchCreds } = await sb.rpc('admin_get_orders_credentials', { p_order_ids: missingIds });
-          if (batchCreds && typeof batchCreds === 'object') {
-            credsMap = Object.assign(credsMap, batchCreds);
-            box._credsCache = credsMap;
+          const { data: rawOrds } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(currentLimit);
+          ordList = rawOrds || [];
+          box._cachedOrders = ordList;
+        } catch(e2) {
+          return box.innerHTML = `<p class="mut">Error al cargar pedidos: ${esc(errFetch.message)}</p>`;
+        }
+      }
+
+      // Cargar credenciales descifradas en lote para pedidos con perfil o cuenta madre
+      const profOrderIds = (ordList || []).filter(o => o.profile_id).map(o => o.id);
+      if (profOrderIds.length > 0) {
+        const missingIds = profOrderIds.filter(id => !credsMap[id]);
+        if (missingIds.length > 0) {
+          try {
+            const { data: batchCreds } = await sb.rpc('admin_get_orders_credentials', { p_order_ids: missingIds });
+            if (batchCreds && typeof batchCreds === 'object') {
+              credsMap = Object.assign(credsMap, batchCreds);
+              box._credsCache = credsMap;
+            }
+          } catch(errCreds) {
+            console.warn('Batch credentials fetch notice:', errCreds);
           }
-        } catch(errCreds) {
-          console.warn('Batch credentials fetch notice:', errCreds);
         }
       }
     }
 
     const sellersMap = {};
-    resellers.forEach(r => {
+    (resellers || []).forEach(r => {
       sellersMap[r.id] = r.nombre || r.codigo_identificacion || r.email;
     });
 
@@ -1338,13 +1349,13 @@ const EXTRA = {
     const filterVal = box._orderFilter;
     const searchVal = box._searchQuery.toLowerCase().trim();
 
-    const totalOrders = ordList.length;
-    const pendCount = ordList.filter(o => o.estado === 'pendiente').length;
-    const credCount = ordList.filter(o => o.estado === 'entregado' && (o.referencia && o.referencia.toLowerCase().includes('crédito'))).length;
-    const deliveredCount = ordList.filter(o => o.estado === 'entregado').length;
-    const totalUsdVol = ordList.filter(o => ['entregado', 'pagado'].includes(o.estado)).reduce((a, o) => a + Number(o.total_usd || 0), 0);
+    const totalOrders = (ordList || []).length;
+    const pendCount = (ordList || []).filter(o => o.estado === 'pendiente').length;
+    const credCount = (ordList || []).filter(o => o.estado === 'entregado' && (o.referencia && o.referencia.toLowerCase().includes('crédito'))).length;
+    const deliveredCount = (ordList || []).filter(o => o.estado === 'entregado').length;
+    const totalUsdVol = (ordList || []).filter(o => ['entregado', 'pagado'].includes(o.estado)).reduce((a, o) => a + Number(o.total_usd || 0), 0);
 
-    let filtered = ordList.filter(o => {
+    let filtered = (ordList || []).filter(o => {
       if (filterVal === 'pendientes') return o.estado === 'pendiente';
       if (filterVal === 'credito') return (o.referencia && o.referencia.toLowerCase().includes('crédito'));
       if (filterVal === 'entregados') return o.estado === 'entregado';
@@ -1369,7 +1380,8 @@ const EXTRA = {
       });
     }
 
-    const render = () => {
+    const render = (forceNetwork = false) => {
+      if (forceNetwork) box._forceReload = true;
       EXTRA.orders(box);
     };
 
@@ -1668,13 +1680,18 @@ const EXTRA = {
             </tbody>
           </table>
         </div>
+        <div style="display:flex;justify-content:center;align-items:center;margin:18px 0;gap:12px">
+          <button type="button" class="g" id="btnOrdersLoadMore" style="padding:9px 20px;font-size:.82rem;font-weight:700;display:inline-flex;align-items:center;gap:6px">
+            ⬇️ Cargar 60 pedidos más <span class="mut" style="font-size:.72rem">(mostrando ${(ordList||[]).length})</span>
+          </button>
+        </div>
       `}
     `;
 
     box.querySelectorAll('.btn-order-filter').forEach(btn => {
       btn.onclick = () => {
         box._orderFilter = btn.dataset.f;
-        render();
+        render(false);
       };
     });
 
@@ -1683,7 +1700,15 @@ const EXTRA = {
       searchInp.oninput = () => {
         box._searchQuery = searchInp.value;
         clearTimeout(box._searchTimer);
-        box._searchTimer = setTimeout(render, 250);
+        box._searchTimer = setTimeout(() => render(false), 120);
+      };
+    }
+
+    const btnMore = box.querySelector('#btnOrdersLoadMore');
+    if (btnMore) {
+      btnMore.onclick = () => {
+        box._ordersLimit = (box._ordersLimit || 60) + 60;
+        render(true);
       };
     }
 
@@ -1730,7 +1755,7 @@ const EXTRA = {
             if (updErr) throw updErr;
           }
           toast(`✅ Pedido de ${nom} entregado con éxito.`);
-          render();
+          render(true);
         } catch(err) {
           btn.disabled = false;
           btn.textContent = '✅ Entregar';
@@ -1787,7 +1812,7 @@ const EXTRA = {
           }
 
           toast(`✅ Pedido entregado a CRÉDITO a ${nom} por ${dias} días.`);
-          render();
+          render(true);
         } catch(err) {
           btn.disabled = false;
           btn.textContent = '💳 Crédito';
@@ -1808,7 +1833,7 @@ const EXTRA = {
             await sb.from('orders').update({ estado: 'rechazado' }).eq('id', ordId);
           }
           toast('Pedido rechazado y stock restaurado.');
-          render();
+          render(true);
         } catch(err) {
           btn.disabled = false;
           alert('Error al rechazar pedido: ' + err.message);
@@ -1818,13 +1843,13 @@ const EXTRA = {
 
     box.querySelectorAll('.btn-order-tr').forEach(btn => {
       btn.onclick = () => {
-        openTransferModal({ profileId: btn.dataset.prof, done: render });
+        openTransferModal({ profileId: btn.dataset.prof, done: () => render(true) });
       };
     });
 
     box.querySelectorAll('.btn-order-refund').forEach(btn => {
       btn.onclick = () => {
-        refundDlg(btn.dataset.ord, btn.dataset.tot, render);
+        refundDlg(btn.dataset.ord, btn.dataset.tot, () => render(true));
       };
     });
 
@@ -1836,7 +1861,7 @@ const EXTRA = {
           const { error: rpcErr } = await sb.rpc('admin_delete_order', { p_order_id: ordId });
           if (!rpcErr) {
             toast('Orden eliminada correctamente.');
-            return render();
+            return render(true);
           }
         } catch(e) {
           console.warn('RPC admin_delete_order no disponible, usando fallback manual:', e);
@@ -1851,7 +1876,7 @@ const EXTRA = {
         const { error } = await sb.from('orders').delete().eq('id', ordId);
         if (error) throw error;
         toast('Orden eliminada correctamente.');
-        render();
+        render(true);
       });
     });
 
@@ -3528,7 +3553,7 @@ Cobrar antes de ${fVenceCred}`;
 
     // Si el contenedor se desconectó del DOM durante el fetch de red, reasociar al contenedor activo
     if (!box.isConnected) {
-      const activeBox = document.querySelector('#ex');
+      const activeBox = document.getElementById('admin-pane-' + (typeof S !== 'undefined' ? (S.t || '') : '')) || document.querySelector('.admin-pane') || document.querySelector('#ex');
       if (activeBox) box = activeBox;
       else return; // El usuario navegó a otra vista o cerró el módulo
     }
@@ -3926,7 +3951,7 @@ Cobrar antes de ${fVenceCred}`;
     if (!box) return;
     const { data } = await sb.from('settings').select('value').eq('key', 'bot').maybeSingle();
     if (!box.isConnected) {
-      const activeBox = document.querySelector('#ex');
+      const activeBox = document.getElementById('admin-pane-' + (typeof S !== 'undefined' ? (S.t || '') : '')) || document.querySelector('.admin-pane') || document.querySelector('#ex');
       if (activeBox) box = activeBox;
       else return;
     }

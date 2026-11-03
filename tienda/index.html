@@ -591,17 +591,22 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
   #ex div[style*="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))"],
   #ex div[style*="grid-template-columns:repeat(auto-fit, minmax(185px, 1fr))"],
   #ex div[style*="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))"],
-  #ex div[style*="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"]{
+  #ex div[style*="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"],
+  .admin-pane div[style*="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))"],
+  .admin-pane div[style*="grid-template-columns:repeat(auto-fit, minmax(185px, 1fr))"],
+  .admin-pane div[style*="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))"],
+  .admin-pane div[style*="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"]{
     grid-template-columns:1fr 1fr!important;gap:7px!important
   }
-  #ex .card{padding:10px 8px;border-radius:12px}
-  #ex .price{font-size:1.15rem!important}
-  #ex .mut{font-size:.68rem!important}
-  #ex h3{font-size:.95rem!important;margin:12px 0 6px!important}
-  #ex h4{font-size:.85rem!important;margin:8px 0 4px!important}
+  #ex .card, .admin-pane .card{padding:10px 8px;border-radius:12px}
+  #ex .price, .admin-pane .price{font-size:1.15rem!important}
+  #ex .mut, .admin-pane .mut{font-size:.68rem!important}
+  #ex h3, .admin-pane h3{font-size:.95rem!important;margin:12px 0 6px!important}
+  #ex h4, .admin-pane h4{font-size:.85rem!important;margin:8px 0 4px!important}
   
   /* Cajas bimoneda de 2 columnas en formularios */
   #ex div[style*="grid-template-columns:1fr 1fr"],
+  .admin-pane div[style*="grid-template-columns:1fr 1fr"],
   dialog div[style*="grid-template-columns:1fr 1fr"]{
     gap:6px!important
   }
@@ -820,7 +825,7 @@ async function ensureAdminExtraLoaded() {
       return;
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=12';
+    script.src = '/admin-extra.js?v=13';
     script.async = true;
     script.onload = () => resolve(true);
     script.onerror = (err) => {
@@ -8303,11 +8308,26 @@ function setAdminCache(key, data, error = null){
 function invalidateAdminCache(pattern){
   if(!pattern){
     adminDataCache.clear();
+    const ac = document.getElementById('adminContent');
+    if(ac) ac.querySelectorAll('.admin-pane').forEach(p => { delete p.dataset.rendered; delete p.dataset.loadedAt; });
     return;
   }
   for(const k of Array.from(adminDataCache.keys())){
     if(k === pattern || k === 'table_' + pattern || k.startsWith(pattern) || pattern === '*') {
       adminDataCache.delete(k);
+    }
+  }
+  const ac = document.getElementById('adminContent');
+  if(ac){
+    if(pattern === '*'){
+      ac.querySelectorAll('.admin-pane').forEach(p => { delete p.dataset.rendered; delete p.dataset.loadedAt; });
+    } else {
+      const p = ac.querySelector(`#admin-pane-${pattern}`);
+      if(p){ delete p.dataset.rendered; delete p.dataset.loadedAt; }
+      if(pattern === 'orders' || pattern === 'profiles_inventory' || pattern === 'mother_accounts'){
+        const pV = ac.querySelector('#admin-pane-vencimientos');
+        if(pV){ delete pV.dataset.rendered; delete pV.dataset.loadedAt; }
+      }
     }
   }
 }
@@ -8371,22 +8391,71 @@ async function admin(t, opts = {}){
 
   const mainHead = $('#adminMainHead');
   const mainContent = $('#adminContent');
+  if(!mainContent) return;
+
+  // 1. GESTOR DE PANELES PERSISTENTES (KEEP-ALIVE EN DOM PARA CAMBIO INSTANTÁNEO 0ms)
+  let targetPane = mainContent.querySelector(`#admin-pane-${t}`);
+  if(!targetPane){
+    targetPane = document.createElement('div');
+    targetPane.id = `admin-pane-${t}`;
+    targetPane.className = 'admin-pane';
+    mainContent.appendChild(targetPane);
+  }
+
+  // Ocultar todos los paneles y mostrar únicamente el panel del módulo seleccionado
+  mainContent.querySelectorAll('.admin-pane').forEach(p => {
+    p.style.display = (p === targetPane) ? 'block' : 'none';
+  });
 
   if(opts.forceRefresh){
     invalidateAdminCache(t);
   }
 
-  const demoBannerHtml = S.me?.es_demo ? `
-    <div style="background:rgba(168,85,247,.18);border:1.5px solid #a855f7;border-radius:12px;padding:8px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;width:100%;box-sizing:border-box">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:1.1rem">🏢</span>
-        <span style="font-size:.78rem;color:#e9d5ff"><b>Modo Demostración Franquicia Activo:</b> Explora libremente todos los módulos, menús, finanzas y catálogo.</span>
-      </div>
-      <a href="/" class="g" style="font-size:.72rem;padding:3px 9px;border-radius:8px;text-decoration:none">← Volver a la Tienda</a>
-    </div>
-  ` : '';
+  const now = Date.now();
+  const loadedAt = Number(targetPane.dataset.loadedAt || 0);
+  const isFresh = (now - loadedAt) < 180000; // 3 minutos de retención instantánea en RAM
+  const isAlreadyRendered = targetPane.dataset.rendered === 'true' && targetPane.children.length > 0;
 
-  const refreshBtn = `<button class="g" id="btnAdminQuickRefresh" type="button" style="padding:6px 12px;font-size:.75rem;border-radius:10px;display:inline-flex;align-items:center;gap:4px" title="Refrescar datos (limpiar caché de 300 segundos)">🔄 <span>Refrescar</span></button>`;
+  const extraHeadBtn = t === 'payment_methods'
+    ? `<button class="g" id="btnLoadOfficialPM" style="background:rgba(0,245,160,.12);border-color:#00f5a0;color:#00f5a0;font-weight:700">⚡ Cargar los 9 Métodos Oficiales</button>`
+    : (t === 'customers'
+      ? `<button class="g" id="btnPreRegWhatsApp" style="background:linear-gradient(135deg,rgba(37,211,102,.15),rgba(18,140,126,.2));border-color:#25d366;color:#25d366;font-weight:700">📲 Pre-registro WhatsApp</button>`
+      : ((t === 'profiles_inventory' || t === 'orders')
+        ? `<button class="g" id="btnAdminDirectCreditHead" style="background:rgba(250,204,21,.15);border-color:#facc15;color:#facc15;font-weight:700;display:inline-flex;align-items:center;gap:4px">💳 Entregar a Crédito Directo</button>`
+        : ''));
+
+  const refreshBtn = `<button class="g" id="btnAdminQuickRefresh" type="button" style="padding:6px 12px;font-size:.75rem;border-radius:10px;display:inline-flex;align-items:center;gap:4px" title="Refrescar datos (limpiar caché)">🔄 <span>Refrescar</span></button>`;
+
+  // SI YA ESTÁ RENDERIZADO Y VIGENTE: RETORNO INMEDIATO EN 0 MILISEGUNDOS
+  if(isAlreadyRendered && isFresh && !opts.forceRefresh){
+    if(mainHead){
+      mainHead.innerHTML = `
+        ${demoBannerHtml}
+        <div class="admin-main-title">
+          <h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2>
+          ${targetPane.dataset.recordCount ? `<span class="mut" id="adminRecordCount">${esc(targetPane.dataset.recordCount)}</span>` : ''}
+        </div>
+        <div class="row">
+          ${refreshBtn}
+          ${extraHeadBtn || ''}
+          ${(TABLES[t] && !NOADD.includes(t)) ? '<button id="add">+ Agregar</button>' : ''}
+        </div>
+      `;
+      const bRef = $('#btnAdminQuickRefresh');
+      if(bRef) bRef.onclick = () => {
+        invalidateAdminCache(t);
+        admin(t, { forceRefresh: true });
+        toast(`Módulo ${tabInfo.label} actualizado.`);
+      };
+      if($('#add')) $('#add').onclick = () => {
+        if(t==='refunds') return refundDlg(null, 0, ()=>{ invalidateAdminCache(t); admin(t); });
+        form(null);
+      };
+      if($('#btnAdminDirectCreditHead')) $('#btnAdminDirectCreditHead').onclick = () => openAdminDirectCreditModal();
+      if($('#btnPreRegWhatsApp')) $('#btnPreRegWhatsApp').onclick = () => openWhatsAppPreRegisterModal();
+    }
+    return;
+  }
 
   if(EXTRA[t]){
     if(mainHead){
@@ -8397,6 +8466,7 @@ async function admin(t, opts = {}){
         </div>
         <div class="row">
           ${refreshBtn}
+          ${extraHeadBtn || ''}
         </div>
       `;
       const bRef = $('#btnAdminQuickRefresh');
@@ -8405,33 +8475,27 @@ async function admin(t, opts = {}){
         admin(t, { forceRefresh: true });
         toast(`Caché de ${tabInfo.label} actualizada.`);
       };
+      if($('#btnAdminDirectCreditHead')) $('#btnAdminDirectCreditHead').onclick = () => openAdminDirectCreditModal();
     }
 
-    if(mainContent) mainContent.innerHTML = `<div id="ex"></div>`;
-    const targetEx = $('#ex');
+    if(!targetPane.children.length){
+      targetPane.innerHTML = `<div style="text-align:center;padding:40px"><div class="sk" style="height:36px;border-radius:10px;margin-bottom:12px;max-width:320px;margin-inline:auto"></div><div class="sk" style="height:260px;border-radius:14px"></div></div>`;
+    }
     try {
-      const res = await EXTRA[t](targetEx);
+      const res = await EXTRA[t](targetPane);
       if(admin._loadSeq !== currentSeq) return;
+      targetPane.dataset.rendered = 'true';
+      targetPane.dataset.loadedAt = Date.now();
       return res;
     } catch(err) {
       if(admin._loadSeq !== currentSeq) return;
       console.error('Error cargando módulo admin:', err);
-      if(mainContent){
-        mainContent.innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:24px;border-radius:14px;max-width:640px;margin:20px auto;text-align:center"><h3 style="margin:0 0 8px;color:#f87171">⚠️ Error al cargar el módulo ${esc(tabInfo.label)}</h3><p class="mut" style="margin:0 0 16px;font-size:.85rem">${esc(err.message)}</p><button class="g" onclick="admin('${esc(t)}', {forceRefresh:true})">🔄 Reintentar</button></div>`;
-      }
+      targetPane.innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:24px;border-radius:14px;max-width:640px;margin:20px auto;text-align:center"><h3 style="margin:0 0 8px;color:#f87171">⚠️ Error al cargar el módulo ${esc(tabInfo.label)}</h3><p class="mut" style="margin:0 0 16px;font-size:.85rem">${esc(err.message)}</p><button class="g" onclick="admin('${esc(t)}', {forceRefresh:true})">🔄 Reintentar</button></div>`;
       return;
     }
   }
 
   // 2. MÓDULOS DE TABLA ESTÁNDAR CON CACHÉ DE 300 SEGUNDOS
-  const extraHeadBtn = t === 'payment_methods'
-    ? `<button class="g" id="btnLoadOfficialPM" style="background:rgba(0,245,160,.12);border-color:#00f5a0;color:#00f5a0;font-weight:700">⚡ Cargar los 9 Métodos Oficiales</button>`
-    : (t === 'customers'
-      ? `<button class="g" id="btnPreRegWhatsApp" style="background:linear-gradient(135deg,rgba(37,211,102,.15),rgba(18,140,126,.2));border-color:#25d366;color:#25d366;font-weight:700">📲 Pre-registro WhatsApp</button>`
-      : ((t === 'profiles_inventory' || t === 'orders')
-        ? `<button class="g" id="btnAdminDirectCreditHead" style="background:rgba(250,204,21,.15);border-color:#facc15;color:#facc15;font-weight:700;display:inline-flex;align-items:center;gap:4px">💳 Entregar a Crédito Directo</button>`
-        : ''));
-
   const cols = TABLES[t];
   const pk = PK[t] || 'id';
   const orderCol = cols.includes('created_at') ? 'created_at' : (cols.includes('creado') ? 'creado' : cols[0]);
@@ -8444,8 +8508,8 @@ async function admin(t, opts = {}){
     data = cached.data;
     error = cached.error;
   } else {
-    if(mainContent){
-      mainContent.innerHTML = `
+    if(targetPane){
+      targetPane.innerHTML = `
         <div style="padding:16px">
           <div class="sk" style="height:36px;border-radius:10px;margin-bottom:12px;max-width:320px"></div>
           <div class="sk" style="height:260px;border-radius:14px"></div>
@@ -8727,8 +8791,8 @@ async function admin(t, opts = {}){
     `;
   }
 
-  if(mainContent){
-    mainContent.innerHTML = `
+  if(targetPane){
+    targetPane.innerHTML = `
       ${topBarHtml}
       <div class="wrap">
         <table>
@@ -8801,6 +8865,9 @@ async function admin(t, opts = {}){
         </table>
       </div>
     `;
+    targetPane.dataset.rendered = 'true';
+    targetPane.dataset.loadedAt = Date.now();
+    targetPane.dataset.recordCount = (error ? esc(error.message) : (data||[]).length + ' registros');
   }
   if($('#btnLoadOfficialPM')){
     $('#btnLoadOfficialPM').onclick = async () => {
@@ -10089,11 +10156,11 @@ async function admin(t, opts = {}){
     }
     form(null);
   };
-  app.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{
+  targetPane.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{
     const rec = (data||[]).find(r => String(r[pk]) === b.dataset.e);
     if(rec) form(rec);
   });
-  app.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{
+  targetPane.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{
     if(S.me?.es_demo){
       return toast('🔒 Modo Demostración: La eliminación de registros está deshabilitada en la cuenta demo.');
     }
@@ -10117,18 +10184,41 @@ async function admin(t, opts = {}){
     }
   });
 }
-// ---------- TIEMPO REAL, BADGE DE PENDIENTES E INSTALACION ----------
-let _rt; const refresh=()=>{clearTimeout(_rt);_rt=setTimeout(async()=>{
+let _rt; const refresh=(payload)=>{clearTimeout(_rt);_rt=setTimeout(async()=>{
   if(!S.user){
     if(S.view==='home') loadPublic().then(()=>{ if(S.view==='home') home(); });
     return;
   }
-  S.me=(await sb.from('customers').select('*').eq('id',S.user.id).maybeSingle()).data||S.me;
+  const changedTable = payload?.table;
   if(S.view==='portal') portal();
   else if(S.view==='home') loadPublic().then(()=>{ if(S.view==='home') home(); });
-  else if(S.view==='admin'&&!dlg.open&&(TABLES[S.t]||EXTRA[S.t])){ invalidateAdminCache(S.t); admin(S.t); }
+  else if(S.view==='admin'){
+    badge();
+    if(changedTable){
+      invalidateAdminCache(changedTable);
+    }
+    // Si el usuario está interactuando activamente o tiene un diálogo abierto, no destruir la pantalla
+    const isInteracting = (typeof dlg !== 'undefined' && dlg.open) || (document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName));
+    if(isInteracting){
+      const bRef = $('#btnAdminQuickRefresh');
+      if(bRef){
+        bRef.style.boxShadow = '0 0 10px rgba(0,245,160,.6)';
+        bRef.title = 'Nuevos datos disponibles (clic para refrescar)';
+      }
+      return;
+    }
+    // Solo recargar automáticamente si la tabla afectada corresponde directamente a la vista activa
+    const isDirectMatch = !changedTable || changedTable === S.t ||
+      (S.t === 'orders' && changedTable === 'orders') ||
+      (S.t === 'vencimientos' && ['orders','profiles_inventory','mother_accounts'].includes(changedTable)) ||
+      (S.t === 'cuotas' && changedTable === 'installments');
+    if(isDirectMatch && (TABLES[S.t]||EXTRA[S.t])){
+      invalidateAdminCache(S.t);
+      admin(S.t);
+    }
+  }
   badge();
-},600);};
+},1200);};
 async function badge(){ if(!S.isAdmin) return; const c=(t,f)=>f(sb.from(t).select('id',{count:'exact',head:true}));
   const [a,b,i]=await Promise.all([c('orders',x=>x.eq('estado','pendiente')),c('zeny_ledger',x=>x.eq('estado','pendiente').eq('tipo','recarga')),c('incidents',x=>x.eq('estado','abierta'))]);
   const n=(a.count||0)+(b.count||0)+(i.count||0); $('#bAdmin').textContent=(n?`Admin (${n})`:'Admin')+(S.venc?` ⏰${S.venc}`:'');
@@ -10491,7 +10581,7 @@ async function checkVenc(){
   }
 }
 setInterval(checkVenc,3600000);
-['orders','installments','partner_commissions','zeny_ledger','customers','incidents','profiles_inventory','mother_accounts','franchises','refunds','expenses','purchases','transfers','zeny_cards','invoices','mesa_cambio_operaciones','mesa_cambio_caja'].reduce((ch,t)=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},refresh),sb.channel('live')).subscribe();
+['orders','installments','partner_commissions','zeny_ledger','customers','incidents','profiles_inventory','mother_accounts','franchises','refunds','expenses','purchases','transfers','zeny_cards','invoices','mesa_cambio_operaciones','mesa_cambio_caja'].reduce((ch,t)=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},p=>refresh(p)),sb.channel('live')).subscribe();
 let _dip; addEventListener('beforeinstallprompt',e=>{e.preventDefault();_dip=e;});
 if(matchMedia('(display-mode: standalone)').matches||navigator.standalone) $('#bInstall').classList.add('hide');
 $('#bInstall').onclick=()=>{ const apk=S.settings.app?.apk_url||'', ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
