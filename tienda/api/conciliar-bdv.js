@@ -98,9 +98,22 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {};
-    let ref = body.referencia || body.ref || null;
-    let monto = body.monto ? parseFloat(body.monto) : null;
-    let rawText = body.raw || body.texto || body.message?.text || null;
+
+    // 1. Validación de Token Secreto (si la petición no viene del bot de Telegram)
+    const expectedSecret = await getSecret('bdv_webhook_secret');
+    const incomingToken = body.secret_token || body.token || (req.headers.authorization || '').replace('Bearer ', '').trim() || req.query?.secret_token;
+    const isTelegramWebhook = !!(body.update_id || body.message);
+
+    if (expectedSecret && !isTelegramWebhook) {
+      if (incomingToken !== expectedSecret) {
+        return res.status(403).json({ error: 'Acceso no autorizado: secret_token inválido' });
+      }
+    }
+
+    let ref = body.referenciaBanco || body.referencia || body.ref || null;
+    let rawMonto = body.montoBanco != null ? body.montoBanco : body.monto;
+    let monto = rawMonto ? (typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto)) : null;
+    let rawText = body.notificacion || body.raw || body.texto || body.message?.text || null;
 
     // Caso 1: Actualización recibida desde Telegram Webhook (@Julian4asistente_bot)
     if (body.message && body.message.text) {
@@ -111,7 +124,7 @@ export default async function handler(req, res) {
         rawText = parsed.raw;
       }
     } else if (rawText && (!ref || !monto)) {
-      // Caso 2: Se envió un texto sin procesar desde MacroDroid / Tasker
+      // Caso 2: Se envió el texto de la notificación en "notificacion" o "raw" desde MacroDroid
       const parsed = parseBankNotificationText(rawText);
       if (parsed) {
         if (!ref && parsed.ref) ref = parsed.ref;
