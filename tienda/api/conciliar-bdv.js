@@ -50,58 +50,65 @@ async function notifyCustomerTelegram(chatId, text) {
   }
 }
 
-// Analizador inteligente de texto de notificación bancaria (SMS / Push BDV / MacroDroid)
+// Analizador inteligente de texto de notificación bancaria BDV (Push BDV / SMS / MacroDroid)
 function parseBankNotificationText(raw) {
   if (!raw || typeof raw !== 'string') return null;
   const clean = raw.replace(/\r?\n/g, ' ').trim();
 
-  // 1. Extraer Referencia
-  // Ejemplos: "Ref: 12345678", "Referencia: 987654", "Operacion: 456789", "Ref. 123456"
-  let ref = null;
-  const refPatterns = [
-    /(?:ref|referencia|operaci[oó]n|op|nro|transacci[oó]n|recibo)\.?\s*[:#-]?\s*(\d{4,14})\b/i,
-    /\bref\s*(\d{4,14})\b/i,
-    /\b(\d{6,12})\b/
-  ];
-  for (const regex of refPatterns) {
-    const m = clean.match(regex);
-    if (m && m[1]) {
-      ref = m[1].trim();
-      break;
-    }
-  }
+  // 1. Verificar si es Pago Móvil recibido (evita alertas informativas, retiros o cargos)
+  const esPagoMovil = /Recibiste un PagomovilBDV|PagomovilBDV recibido/i.test(clean);
 
-  // 2. Extraer Monto en Bolívares
-  // Ejemplos: "Bs. 215,50", "Bs 215.50", "Monto: 150,00 Bs", "Bs.S 350.00"
+  // 2. Extraer Monto: soporte exacto BDV "por Bs. 10,00" o "Bs. 1.250,50"
   let monto = null;
-  const montoPatterns = [
-    /(?:bs\.?s?|bol[ií]vares|monto)\.?\s*[:$]?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2}))/i,
-    /([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2}))\s*(?:bs\.?s?|bol[ií]vares)/i,
-    /\bmonto\s*[:=]?\s*([0-9.,]+)/i
-  ];
-  for (const regex of montoPatterns) {
-    const m = clean.match(regex);
-    if (m && m[1]) {
-      let rawVal = m[1].replace(/\s/g, '');
-      // Manejar formato venezolano: 1.250,50 o 250,50
-      if (rawVal.includes(',') && rawVal.includes('.')) {
-        if (rawVal.indexOf('.') < rawVal.indexOf(',')) {
-          rawVal = rawVal.replace(/\./g, '').replace(',', '.');
-        } else {
-          rawVal = rawVal.replace(/,/g, '');
-        }
-      } else if (rawVal.includes(',')) {
-        rawVal = rawVal.replace(',', '.');
-      }
-      const val = parseFloat(rawVal);
-      if (!isNaN(val) && val > 0) {
-        monto = Math.round(val * 100) / 100;
-        break;
-      }
+  const matchMonto = clean.match(/por\s+Bs\.?\s*([\d.]+,\d{2})/i) ||
+                     clean.match(/(?:bs\.?s?|bol[ií]vares|monto)\.?\s*[:$]?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2}))/i) ||
+                     clean.match(/([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2}))\s*(?:bs\.?s?|bol[ií]vares)/i);
+
+  if (matchMonto && matchMonto[1]) {
+    let rawVal = matchMonto[1].replace(/\s/g, '');
+    if (rawVal.includes('.') && rawVal.includes(',')) {
+      rawVal = rawVal.replace(/\./g, '').replace(',', '.');
+    } else if (rawVal.includes(',')) {
+      rawVal = rawVal.replace(',', '.');
+    }
+    const val = parseFloat(rawVal);
+    if (!isNaN(val) && val > 0) {
+      monto = Math.round(val * 100) / 100;
     }
   }
 
-  return { ref, monto, raw: clean };
+  // 3. Extraer Referencia: formato exacto BDV "Ref: 063082497655"
+  let ref = null;
+  const matchRef = clean.match(/Ref:\s*(\d+)/i) ||
+                   clean.match(/(?:ref|referencia|operaci[oó]n|op|nro|transacci[oó]n|recibo)\.?\s*[:#-]?\s*(\d{4,14})\b/i) ||
+                   clean.match(/\b(\d{6,14})\b/);
+
+  if (matchRef && matchRef[1]) {
+    ref = matchRef[1].trim();
+  }
+
+  // 4. Extraer Teléfono del pagador: formato "del 0424-2809333"
+  let telefono = null;
+  const matchTel = clean.match(/del\s+(04\d{2}-?\d{7})/i) || clean.match(/\b(04\d{9})\b/);
+  if (matchTel && matchTel[1]) {
+    telefono = matchTel[1].replace(/[^0-9]/g, '');
+  }
+
+  // 5. Extraer Fecha y Hora del banco
+  const matchFecha = clean.match(/fecha\s+(\d{2}[-/]\d{2}[-/]\d{2,4})/i);
+  const matchHora = clean.match(/hora:\s*(\d{2}:\d{2})/i);
+  const fechaBanco = matchFecha ? matchFecha[1] : null;
+  const horaBanco = matchHora ? matchHora[1] : null;
+
+  return {
+    ref,
+    monto,
+    telefono,
+    fechaBanco,
+    horaBanco,
+    esPagoMovil,
+    raw: clean
+  };
 }
 
 export default async function handler(req, res) {
@@ -140,22 +147,26 @@ export default async function handler(req, res) {
     let ref = body.referenciaBanco || body.referencia || body.ref || null;
     let rawMonto = body.montoBanco != null ? body.montoBanco : body.monto;
     let monto = rawMonto ? (typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto)) : null;
+    let telefono = body.telefono || body.telefonoOrigen || null;
     let rawText = body.notificacion || body.raw || body.texto || body.message?.text || null;
+    let parsedInfo = null;
 
     // Caso 1: Actualización recibida desde Telegram Webhook (@Julian4asistente_bot)
     if (body.message && body.message.text) {
-      const parsed = parseBankNotificationText(body.message.text);
-      if (parsed) {
-        if (parsed.ref) ref = parsed.ref;
-        if (parsed.monto) monto = parsed.monto;
-        rawText = parsed.raw;
+      parsedInfo = parseBankNotificationText(body.message.text);
+      if (parsedInfo) {
+        if (parsedInfo.ref) ref = parsedInfo.ref;
+        if (parsedInfo.monto) monto = parsedInfo.monto;
+        if (parsedInfo.telefono) telefono = parsedInfo.telefono;
+        rawText = parsedInfo.raw;
       }
     } else if (rawText && (!ref || !monto)) {
       // Caso 2: Se envió el texto de la notificación en "notificacion" o "raw" desde MacroDroid
-      const parsed = parseBankNotificationText(rawText);
-      if (parsed) {
-        if (!ref && parsed.ref) ref = parsed.ref;
-        if (!monto && parsed.monto) monto = parsed.monto;
+      parsedInfo = parseBankNotificationText(rawText);
+      if (parsedInfo) {
+        if (!ref && parsedInfo.ref) ref = parsedInfo.ref;
+        if (!monto && parsedInfo.monto) monto = parsedInfo.monto;
+        if (!telefono && parsedInfo.telefono) telefono = parsedInfo.telefono;
       }
     }
 
@@ -168,12 +179,13 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         aviso: 'Notificación guardada en log, pero no contiene referencia o monto de Pago Móvil válido.',
-        parsed: { ref, monto, rawText }
+        parsed: { ref, monto, telefono, rawText }
       });
     }
 
     // Limpiar referencia (solo dígitos)
     const cleanRef = String(ref).replace(/[^0-9]/g, '');
+    const cleanTel = telefono ? String(telefono).replace(/[^0-9]/g, '') : null;
 
     // Llamar a la función RPC de Supabase para hacer match o buffer
     const result = await sbRest('rpc/conciliar_pedido_bdv', {
@@ -181,7 +193,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         p_ref: cleanRef,
         p_monto: monto,
-        p_raw: rawText
+        p_raw: rawText,
+        p_telefono: cleanTel
       })
     });
 
@@ -193,9 +206,11 @@ export default async function handler(req, res) {
         `📺 <b>Producto:</b> ${result.producto || 'Suscripción Digital'}\n` +
         `💵 <b>Monto:</b> Bs. ${monto.toFixed(2)} ($${Number(result.total_usd || 0).toFixed(2)})\n` +
         `🔢 <b>Referencia:</b> <code>${cleanRef}</code>\n` +
+        (cleanTel ? `📱 <b>Origen:</b> <code>${cleanTel}</code>\n` : '') +
+        (parsedInfo?.horaBanco ? `⏰ <b>Hora Banco:</b> ${parsedInfo.horaBanco}\n` : '') +
         `✅ <b>Estado:</b> Credenciales liberadas y entregadas en segundos.`;
 
-      // Si el cliente tiene vinculado su Telegram, entregarle sus credenciales de inmediato
+      // Si el cliente tiene vinculado su Telegram, entregarle sus credenciales de inmediato por Bot Diego
       if (result.telegram_chat_id) {
         const clientMsg = `🎉 <b>¡PAGO VERIFICADO CON ÉXITO!</b>\n\n` +
           `Tu compra de <b>${result.producto}</b> ha sido procesada.\n\n` +
@@ -222,6 +237,8 @@ export default async function handler(req, res) {
       const msg = `📥 <b>Pago Móvil BDV recibido en buffer:</b>\n\n` +
         `💵 <b>Monto:</b> Bs. ${monto.toFixed(2)}\n` +
         `🔢 <b>Referencia:</b> <code>${cleanRef}</code>\n` +
+        (cleanTel ? `📱 <b>Origen:</b> <code>${cleanTel}</code>\n` : '') +
+        (parsedInfo?.horaBanco ? `⏰ <b>Hora Banco:</b> ${parsedInfo.horaBanco}\n` : '') +
         `⏳ <i>Guardado en el sistema. En cuanto el cliente pulse Confirmar en la tienda con esta referencia, se liberará al instante.</i>`;
 
       await notifyGregoryTelegram(msg);
@@ -231,6 +248,7 @@ export default async function handler(req, res) {
         action: 'buffered',
         message: 'Pago guardado en buffer. Se liberará en cuanto el cliente reporte la referencia.',
         referencia: cleanRef,
+        telefono_origen: cleanTel,
         monto_bs: monto
       });
     }
