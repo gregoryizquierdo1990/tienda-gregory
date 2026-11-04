@@ -50,63 +50,106 @@ async function notifyCustomerTelegram(chatId, text) {
   }
 }
 
-// Analizador inteligente de texto de notificación bancaria BDV (Push BDV / SMS / MacroDroid)
+// Analizador inteligente de texto de notificación bancaria DUAL (BDV + BNC)
 function parseBankNotificationText(raw) {
   if (!raw || typeof raw !== 'string') return null;
   const clean = raw.replace(/\r?\n/g, ' ').trim();
 
-  // 1. Verificar si es Pago Móvil recibido (evita alertas informativas, retiros o cargos)
-  const esPagoMovil = /Recibiste un PagomovilBDV|PagomovilBDV recibido/i.test(clean);
+  // ==========================================
+  // CASO 1: BANCO DE VENEZUELA (BDV)
+  // Ejemplo: "Recibiste un PagomovilBDV por Bs. 10,00 del 0424-2809333 Ref: 063082497655 en fecha 04-11-26 hora: 10:17."
+  // ==========================================
+  if (/Recibiste un PagomovilBDV|PagomovilBDV recibido/i.test(clean)) {
+    const matchMonto = clean.match(/por\s+Bs\.?\s*([\d.]+,\d{2})/i) ||
+                       clean.match(/(?:bs\.?s?|bol[ií]vares|monto)\.?\s*[:$]?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2}))/i);
+    const matchRef = clean.match(/Ref:\s*(\d+)/i) || clean.match(/\b(\d{6,14})\b/);
+    const matchTel = clean.match(/del\s+(04\d{2}-?\d{7})/i) || clean.match(/\b(04\d{9})\b/);
+    const matchFecha = clean.match(/fecha\s+(\d{2}[-/]\d{2}[-/]\d{2,4})/i);
+    const matchHora = clean.match(/hora:\s*(\d{2}:\d{2})/i);
 
-  // 2. Extraer Monto: soporte exacto BDV "por Bs. 10,00" o "Bs. 1.250,50"
+    if (matchMonto && matchRef) {
+      let rawVal = matchMonto[1].replace(/\s/g, '');
+      if (rawVal.includes('.') && rawVal.includes(',')) rawVal = rawVal.replace(/\./g, '').replace(',', '.');
+      else if (rawVal.includes(',')) rawVal = rawVal.replace(',', '.');
+
+      const val = parseFloat(rawVal);
+      const ref = matchRef[1].trim();
+      const telefono = matchTel ? matchTel[1].replace(/[^0-9]/g, '') : null;
+
+      return {
+        banco: 'BDV',
+        ref,
+        monto: !isNaN(val) && val > 0 ? Math.round(val * 100) / 100 : null,
+        telefono,
+        fechaBanco: matchFecha ? matchFecha[1] : null,
+        horaBanco: matchHora ? matchHora[1] : null,
+        esPagoMovil: true,
+        raw: clean
+      };
+    }
+  }
+
+  // ==========================================
+  // CASO 2: BANCO NACIONAL DE CRÉDITO (BNC)
+  // Ejemplo: "BNC Pago Movil Recibido Bs.1000,00 Telf.0424***9333 Dia:04/11/26-10:26 Ref:906956804 Llamar al..."
+  // ==========================================
+  if (/BNC Pago Movil Recibido|PAGO MOVIL RECIBIDO/i.test(clean)) {
+    const matchMonto = clean.match(/Recibido\s+Bs\.?\s*([\d.]+,\d{2})/i) ||
+                       clean.match(/Bs\.?\s*([\d.]+,\d{2})/i);
+    const matchRef = clean.match(/Ref:\s*(\d+)/i) || clean.match(/\b(\d{6,14})\b/);
+    const matchTel = clean.match(/Telf\.?\s*(04\d{2}\*{3}\d{4})/i) || clean.match(/\b(04\d{2}\*{3}\d{4})\b/);
+    const matchFechaHora = clean.match(/Dia:\s*(\d{2}\/\d{2}\/\d{2})-(\d{2}:\d{2})/i);
+
+    if (matchMonto && matchRef) {
+      let rawVal = matchMonto[1].replace(/\s/g, '');
+      if (rawVal.includes('.') && rawVal.includes(',')) rawVal = rawVal.replace(/\./g, '').replace(',', '.');
+      else if (rawVal.includes(',')) rawVal = rawVal.replace(',', '.');
+
+      const val = parseFloat(rawVal);
+      const ref = matchRef[1].trim();
+      const telefono = matchTel ? matchTel[1] : null;
+
+      return {
+        banco: 'BNC',
+        ref,
+        monto: !isNaN(val) && val > 0 ? Math.round(val * 100) / 100 : null,
+        telefono,
+        fechaBanco: matchFechaHora ? matchFechaHora[1].replace(/\//g, '-') : null,
+        horaBanco: matchFechaHora ? matchFechaHora[2] : null,
+        esPagoMovil: true,
+        raw: clean
+      };
+    }
+  }
+
+  // ==========================================
+  // CASO 3: GENÉRICO / FALLBACK
+  // ==========================================
   let monto = null;
-  const matchMonto = clean.match(/por\s+Bs\.?\s*([\d.]+,\d{2})/i) ||
-                     clean.match(/(?:bs\.?s?|bol[ií]vares|monto)\.?\s*[:$]?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2}))/i) ||
-                     clean.match(/([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2}))\s*(?:bs\.?s?|bol[ií]vares)/i);
-
-  if (matchMonto && matchMonto[1]) {
-    let rawVal = matchMonto[1].replace(/\s/g, '');
-    if (rawVal.includes('.') && rawVal.includes(',')) {
-      rawVal = rawVal.replace(/\./g, '').replace(',', '.');
-    } else if (rawVal.includes(',')) {
-      rawVal = rawVal.replace(',', '.');
-    }
+  const matchMontoGen = clean.match(/(?:bs\.?s?|bol[ií]vares|monto)\.?\s*[:$]?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2}))/i) ||
+                        clean.match(/([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2}))\s*(?:bs\.?s?|bol[ií]vares)/i);
+  if (matchMontoGen) {
+    let rawVal = matchMontoGen[1].replace(/\s/g, '');
+    if (rawVal.includes('.') && rawVal.includes(',')) rawVal = rawVal.replace(/\./g, '').replace(',', '.');
+    else if (rawVal.includes(',')) rawVal = rawVal.replace(',', '.');
     const val = parseFloat(rawVal);
-    if (!isNaN(val) && val > 0) {
-      monto = Math.round(val * 100) / 100;
-    }
+    if (!isNaN(val) && val > 0) monto = Math.round(val * 100) / 100;
   }
 
-  // 3. Extraer Referencia: formato exacto BDV "Ref: 063082497655"
   let ref = null;
-  const matchRef = clean.match(/Ref:\s*(\d+)/i) ||
-                   clean.match(/(?:ref|referencia|operaci[oó]n|op|nro|transacci[oó]n|recibo)\.?\s*[:#-]?\s*(\d{4,14})\b/i) ||
-                   clean.match(/\b(\d{6,14})\b/);
-
-  if (matchRef && matchRef[1]) {
-    ref = matchRef[1].trim();
-  }
-
-  // 4. Extraer Teléfono del pagador: formato "del 0424-2809333"
-  let telefono = null;
-  const matchTel = clean.match(/del\s+(04\d{2}-?\d{7})/i) || clean.match(/\b(04\d{9})\b/);
-  if (matchTel && matchTel[1]) {
-    telefono = matchTel[1].replace(/[^0-9]/g, '');
-  }
-
-  // 5. Extraer Fecha y Hora del banco
-  const matchFecha = clean.match(/fecha\s+(\d{2}[-/]\d{2}[-/]\d{2,4})/i);
-  const matchHora = clean.match(/hora:\s*(\d{2}:\d{2})/i);
-  const fechaBanco = matchFecha ? matchFecha[1] : null;
-  const horaBanco = matchHora ? matchHora[1] : null;
+  const matchRefGen = clean.match(/Ref:\s*(\d+)/i) ||
+                      clean.match(/(?:ref|referencia|operaci[oó]n|op|nro)\.?\s*[:#-]?\s*(\d{4,14})\b/i) ||
+                      clean.match(/\b(\d{6,14})\b/);
+  if (matchRefGen) ref = matchRefGen[1].trim();
 
   return {
+    banco: 'PAGO_MOVIL',
     ref,
     monto,
-    telefono,
-    fechaBanco,
-    horaBanco,
-    esPagoMovil,
+    telefono: null,
+    fechaBanco: null,
+    horaBanco: null,
+    esPagoMovil: false,
     raw: clean
   };
 }
@@ -121,7 +164,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
       status: 'active',
-      service: 'Pago Móvil BDV Auto-Conciliación',
+      service: 'Pago Móvil Auto-Conciliación (BDV + BNC)',
       timestamp: new Date().toISOString()
     });
   }
@@ -148,6 +191,7 @@ export default async function handler(req, res) {
     let rawMonto = body.montoBanco != null ? body.montoBanco : body.monto;
     let monto = rawMonto ? (typeof rawMonto === 'string' ? parseFloat(rawMonto.replace(',', '.')) : parseFloat(rawMonto)) : null;
     let telefono = body.telefono || body.telefonoOrigen || null;
+    let banco = body.banco || null;
     let rawText = body.notificacion || body.raw || body.texto || body.message?.text || null;
     let parsedInfo = null;
 
@@ -158,6 +202,7 @@ export default async function handler(req, res) {
         if (parsedInfo.ref) ref = parsedInfo.ref;
         if (parsedInfo.monto) monto = parsedInfo.monto;
         if (parsedInfo.telefono) telefono = parsedInfo.telefono;
+        if (parsedInfo.banco) banco = parsedInfo.banco;
         rawText = parsedInfo.raw;
       }
     } else if (rawText && (!ref || !monto)) {
@@ -167,25 +212,28 @@ export default async function handler(req, res) {
         if (!ref && parsedInfo.ref) ref = parsedInfo.ref;
         if (!monto && parsedInfo.monto) monto = parsedInfo.monto;
         if (!telefono && parsedInfo.telefono) telefono = parsedInfo.telefono;
+        if (parsedInfo.banco) banco = parsedInfo.banco;
       }
     }
 
+    if (!banco) banco = 'BDV';
+
     // MODO CAPTURA: Envía el texto crudo de la notificación al Telegram personal de Gregory para auditoría
     if (rawText && !body.message) {
-      await notifyGregoryTelegram(`📲 <b>Notificación BDV recibida desde teléfono:</b>\n<code>${rawText}</code>`);
+      await notifyGregoryTelegram(`📲 <b>Notificación ${banco} recibida desde teléfono:</b>\n<code>${rawText}</code>`);
     }
 
     if (!ref || !monto || isNaN(monto) || monto <= 0) {
       return res.status(200).json({
         ok: true,
         aviso: 'Notificación guardada en log, pero no contiene referencia o monto de Pago Móvil válido.',
-        parsed: { ref, monto, telefono, rawText }
+        parsed: { banco, ref, monto, telefono, rawText }
       });
     }
 
     // Limpiar referencia (solo dígitos)
     const cleanRef = String(ref).replace(/[^0-9]/g, '');
-    const cleanTel = telefono ? String(telefono).replace(/[^0-9]/g, '') : null;
+    const cleanTel = telefono ? String(telefono).replace(/[^0-9*]/g, '') : null;
 
     // Llamar a la función RPC de Supabase para hacer match o buffer
     const result = await sbRest('rpc/conciliar_pedido_bdv', {
@@ -194,14 +242,16 @@ export default async function handler(req, res) {
         p_ref: cleanRef,
         p_monto: monto,
         p_raw: rawText,
-        p_telefono: cleanTel
+        p_telefono: cleanTel,
+        p_banco: banco
       })
     });
 
     if (result?.matched) {
       // MATCH Y LIBERACIÓN INMEDIATA
-      const msg = `⚡ <b>¡PAGO MÓVIL BDV CONCILIADO Y ENTREGADO!</b>\n\n` +
+      const msg = `⚡ <b>¡PAGO MÓVIL ${banco} CONCILIADO Y ENTREGADO!</b>\n\n` +
         `📦 <b>Pedido:</b> <code>#${result.order_id ? result.order_id.slice(0, 8) : 'OK'}</code>\n` +
+        `🏦 <b>Banco:</b> ${banco}\n` +
         `👤 <b>Cliente:</b> ${result.cliente || 'Cliente'}\n` +
         `📺 <b>Producto:</b> ${result.producto || 'Suscripción Digital'}\n` +
         `💵 <b>Monto:</b> Bs. ${monto.toFixed(2)} ($${Number(result.total_usd || 0).toFixed(2)})\n` +
@@ -212,7 +262,7 @@ export default async function handler(req, res) {
 
       // Si el cliente tiene vinculado su Telegram, entregarle sus credenciales de inmediato por Bot Diego
       if (result.telegram_chat_id) {
-        const clientMsg = `🎉 <b>¡PAGO VERIFICADO CON ÉXITO!</b>\n\n` +
+        const clientMsg = `🎉 <b>¡PAGO VERIFICADO CON ÉXITO (${banco})!</b>\n\n` +
           `Tu compra de <b>${result.producto}</b> ha sido procesada.\n\n` +
           `📱 <b>Datos de acceso:</b>\n` +
           (result.correo_cuenta ? `📧 <b>Correo:</b> <code>${result.correo_cuenta}</code>\n` : '') +
@@ -229,12 +279,14 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         action: 'delivered',
+        banco,
         message: 'Pedido conciliado y entregado automáticamente.',
         data: result
       });
     } else {
       // REGISTRADO EN BUFFER A LA ESPERA DEL CLIENTE
-      const msg = `📥 <b>Pago Móvil BDV recibido en buffer:</b>\n\n` +
+      const msg = `📥 <b>Pago Móvil ${banco} recibido en buffer:</b>\n\n` +
+        `🏦 <b>Banco:</b> ${banco}\n` +
         `💵 <b>Monto:</b> Bs. ${monto.toFixed(2)}\n` +
         `🔢 <b>Referencia:</b> <code>${cleanRef}</code>\n` +
         (cleanTel ? `📱 <b>Origen:</b> <code>${cleanTel}</code>\n` : '') +
@@ -246,6 +298,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         action: 'buffered',
+        banco,
         message: 'Pago guardado en buffer. Se liberará en cuanto el cliente reporte la referencia.',
         referencia: cleanRef,
         telefono_origen: cleanTel,

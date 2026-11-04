@@ -3257,9 +3257,9 @@ const DEFAULT_PAYMENT_METHODS = [
   },
   {
     id: 'pm-1-pago-movil-bnc',
-    nombre: 'Pago Móvil (BNC) [Revisión Manual]',
-    tipo: 'pago_movil',
-    subtitulo: 'BNC 0191 · Verificación manual',
+    nombre: '(Pago Automatizado) Pago Móvil BNC',
+    tipo: 'pago_movil_bnc',
+    subtitulo: '⚡ BNC 0191 · Liberación automática en 10s',
     orden: 2,
     activo: true,
     datos: {
@@ -3659,7 +3659,7 @@ async function buyDlg(id){
           ? `Precio con Binance: $${Number(p.precio_binance_usd).toFixed(2)} USDT` 
           : (m.subtitulo || (m.tipo ? m.tipo.replace(/_/g, ' ') : 'Toca para ver los datos bancarios'));
 
-        const isAutoBdv = m.tipo === 'pago_movil_bdv' || /automatizado/i.test(m.nombre || '') || (m.nombre || '').includes('BDV');
+        const isAutoBdv = m.tipo === 'pago_movil_bdv' || m.tipo === 'pago_movil_bnc' || /automatizado/i.test(m.nombre || '') || (m.nombre || '').includes('BDV') || (m.nombre || '').includes('BNC');
         return `
           <div class="checkout-method-card ${isSel ? 'active' : ''}" data-pm-choose="${m.id}" style="${isAutoBdv ? 'border-color:rgba(0,245,160,.45);background:rgba(0,245,160,.03)' : ''}">
             <div class="checkout-method-left">
@@ -4189,7 +4189,7 @@ async function buyDlg(id){
     const fields = parseMethodFields(selectedMethod);
     let displayMethodName = selectedMethod?.nombre || 'Pago Móvil';
     if(/pago\s*m[oó]vil/i.test(displayMethodName)) displayMethodName = 'Pago Móvil';
-    const isAutoMethod = selectedMethod?.tipo === 'pago_movil_bdv' || /automatizado/i.test(selectedMethod?.nombre || '') || (selectedMethod?.nombre || '').includes('BDV');
+    const isAutoMethod = selectedMethod?.tipo === 'pago_movil_bdv' || selectedMethod?.tipo === 'pago_movil_bnc' || /automatizado/i.test(selectedMethod?.nombre || '') || (selectedMethod?.nombre || '').includes('BDV') || (selectedMethod?.nombre || '').includes('BNC');
 
     checkoutDlg.innerHTML = `
       <div class="checkout-card">
@@ -4200,13 +4200,13 @@ async function buyDlg(id){
         </div>
 
         <div class="checkout-body">
-          <!-- Banner Pago Móvil BDV Automatizado -->
+          <!-- Banner Pago Móvil Automatizado (BDV o BNC) -->
           ${isAutoMethod ? `
             <div style="background:linear-gradient(135deg,rgba(0,245,160,.12),rgba(56,189,248,.12));border:1.5px solid #00f5a0;border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
               <span style="font-size:1.6rem">⚡</span>
               <div style="font-size:.78rem;color:#e6fffa;line-height:1.4">
                 <b style="color:#00f5a0;font-size:.84rem">¡Liberación Automática Inmediata!</b><br>
-                Al transferir por Pago Móvil BDV y colocar tu referencia, el sistema valida la transacción y te entrega tus accesos automáticamente en segundos.
+                Al transferir por Pago Móvil (${(selectedMethod?.nombre||'').includes('BNC') ? 'BNC' : 'BDV'}) y colocar tu referencia, el sistema valida la transacción y te entrega tus accesos automáticamente en segundos.
               </div>
             </div>
           ` : ''}
@@ -4426,7 +4426,7 @@ async function buyDlg(id){
       checkoutDlg.close();
       await loadPublic();
       if (autoConciliado) {
-        toast('⚡ ¡Pago verificado por Banco de Venezuela! Tu suscripción se ha liberado y activado de inmediato en tu portal.');
+        toast('⚡ ¡Pago verificado por el Banco! Tu suscripción se ha liberado y activado de inmediato en tu portal.');
       } else if (isAutoMethod) {
         toast(`⚡ Pedido registrado. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} min. En cuanto el banco confirme tu transferencia, se liberará automáticamente.`);
       } else {
