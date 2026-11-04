@@ -2,11 +2,14 @@
 import webpush from 'web-push';
 import { sbRest, getSecret } from './_lib.js';
 
+const JULIAN_BOT_TOKEN = '8571549759:AAHqPS64PQTyVjMEwecJN937dHzLQd-Et_A';
+const GREGORY_CHAT_ID = '7154250409';
+
 export async function sendTelegram(msgHtml, plainMsg) {
   try {
     const cfg = (await sbRest('settings?key=eq.notificaciones&select=value'))?.[0]?.value || {};
-    const token = (await getSecret('telegram_token')) || cfg.bot_token || process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = cfg.telegram_chat_id || process.env.TELEGRAM_CHAT_ID;
+    const token = (await getSecret('telegram_admin_bot_token')) || process.env.TELEGRAM_ADMIN_BOT_TOKEN || JULIAN_BOT_TOKEN;
+    const chatId = cfg.telegram_chat_id || process.env.TELEGRAM_ADMIN_CHAT_ID || GREGORY_CHAT_ID;
 
     if (!chatId || !token) {
       return { ok: false, error: 'Telegram sin configurar (guarda el token y tu ID en el módulo Notificaciones)' };

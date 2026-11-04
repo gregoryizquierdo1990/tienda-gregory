@@ -249,26 +249,54 @@ export default async function handler(req, res) {
 
     if (result?.matched) {
       // MATCH Y LIBERACIÓN INMEDIATA
-      const msg = `⚡ <b>¡PAGO MÓVIL ${banco} CONCILIADO Y ENTREGADO!</b>\n\n` +
-        `📦 <b>Pedido:</b> <code>#${result.order_id ? result.order_id.slice(0, 8) : 'OK'}</code>\n` +
-        `🏦 <b>Banco:</b> ${banco}\n` +
-        `👤 <b>Cliente:</b> ${result.cliente || 'Cliente'}\n` +
-        `📺 <b>Producto:</b> ${result.producto || 'Suscripción Digital'}\n` +
-        `💵 <b>Monto:</b> Bs. ${monto.toFixed(2)} ($${Number(result.total_usd || 0).toFixed(2)})\n` +
+      const nowStr = new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' });
+      const orderShort = result.order_id ? result.order_id.slice(0, 8) : 'OK';
+      const cliNom = result.cliente || 'Cliente';
+      const cliTel = result.telefono || cleanTel || '';
+      const prodNom = result.producto || 'Suscripción Digital';
+      const usdVal = Number(result.total_usd || 0).toFixed(2);
+      const bsVal = Number(monto).toFixed(2);
+      const cEmail = result.correo_cuenta || '';
+      const cPass = result.clave_cuenta || '';
+      const cProf = result.nombre_perfil || '';
+      const cPin = result.pin_perfil || '';
+
+      const confirmText = `¡Hola ${cliNom}! 🎉 Confirmamos tu pago de ${prodNom} (${banco} Ref: ${cleanRef}).\n` +
+        `Tus credenciales ya están activas:\n` +
+        `📧 Correo: ${cEmail}\n🔑 Clave: ${cPass}\n` +
+        (cProf ? `👤 Perfil: ${cProf}\n` : '') +
+        (cPin ? `🔒 PIN: ${cPin}\n` : '') +
+        `¡Que disfrutes tu servicio! ⭐`;
+
+      const msg = `⚡ <b>¡ENTREGA AUTOMÁTICA DE PEDIDO (${banco})!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📦 <b>Pedido:</b> <code>#${orderShort}</code>\n` +
+        `🏦 <b>Banco:</b> <b>${banco}</b>\n` +
         `🔢 <b>Referencia:</b> <code>${cleanRef}</code>\n` +
-        (cleanTel ? `📱 <b>Origen:</b> <code>${cleanTel}</code>\n` : '') +
-        (parsedInfo?.horaBanco ? `⏰ <b>Hora Banco:</b> ${parsedInfo.horaBanco}\n` : '') +
-        `✅ <b>Estado:</b> Credenciales liberadas y entregadas en segundos.`;
+        `💵 <b>Monto:</b> Bs. ${bsVal} ($${usdVal} USD)\n` +
+        `📅 <b>Fecha/Hora:</b> ${parsedInfo?.fechaBanco || nowStr} ${parsedInfo?.horaBanco || ''}\n` +
+        `👤 <b>Cliente:</b> <b>${cliNom}</b>\n` +
+        (cliTel ? `📱 <b>Teléfono:</b> <code>${cliTel}</code>\n` : '') +
+        `📺 <b>Producto:</b> <b>${prodNom}</b>\n\n` +
+        `🔑 <b>Credenciales Entregadas:</b>\n` +
+        `📧 Correo: <code>${cEmail}</code>\n` +
+        `🔑 Clave: <code>${cPass}</code>\n` +
+        (cProf ? `👤 Perfil: <code>${cProf}</code>\n` : '') +
+        (cPin ? `🔒 PIN: <code>${cPin}</code>\n` : '') +
+        `\n📝 <b>Mensaje listo para copiar:</b>\n` +
+        `<code>${confirmText}</code>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `✅ <i>Credenciales liberadas y entregadas automáticamente.</i>`;
 
       // Si el cliente tiene vinculado su Telegram, entregarle sus credenciales de inmediato por Bot Diego
       if (result.telegram_chat_id) {
         const clientMsg = `🎉 <b>¡PAGO VERIFICADO CON ÉXITO (${banco})!</b>\n\n` +
-          `Tu compra de <b>${result.producto}</b> ha sido procesada.\n\n` +
+          `Tu compra de <b>${prodNom}</b> ha sido procesada.\n\n` +
           `📱 <b>Datos de acceso:</b>\n` +
-          (result.correo_cuenta ? `📧 <b>Correo:</b> <code>${result.correo_cuenta}</code>\n` : '') +
-          (result.clave_cuenta ? `🔑 <b>Clave:</b> <code>${result.clave_cuenta}</code>\n` : '') +
-          (result.nombre_perfil ? `👤 <b>Perfil:</b> ${result.nombre_perfil}\n` : '') +
-          (result.pin_perfil ? `🔒 <b>PIN:</b> <code>${result.pin_perfil}</code>\n` : '') +
+          (cEmail ? `📧 <b>Correo:</b> <code>${cEmail}</code>\n` : '') +
+          (cPass ? `🔑 <b>Clave:</b> <code>${cPass}</code>\n` : '') +
+          (cProf ? `👤 <b>Perfil:</b> ${cProf}\n` : '') +
+          (cPin ? `🔒 <b>PIN:</b> <code>${cPin}</code>\n` : '') +
           `\n✅ Tus credenciales también están guardadas y disponibles en <b>Mi Portal</b> en nuestra tienda.\n\n¡Gracias por preferirnos!`;
 
         await notifyCustomerTelegram(result.telegram_chat_id, clientMsg);

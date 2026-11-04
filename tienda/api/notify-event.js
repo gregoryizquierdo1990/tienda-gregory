@@ -267,6 +267,62 @@ ${listMad}
       break;
     }
 
+    // 12. ALERTA DE STOCK AGOTADO EN PRODUCTO
+    case 'stock_agotado': {
+      const prod = escHtml(data.producto || data.nombre || 'Producto Digital');
+      const tipo = escHtml(data.tipo || 'Servicio');
+
+      plainMsg = `🚨 ¡STOCK AGOTADO! ${prod} (${tipo}) se quedó sin disponibilidad en inventario.`;
+      htmlMsg = `🚨 <b>¡ALERTA DE INVENTARIO: STOCK AGOTADO!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 <b>Producto Agotado:</b> <b>${prod}</b>
+🏷️ <b>Categoría / Tipo:</b> ${tipo}
+⚠️ <b>Disponibilidad:</b> 0 unidades en inventario
+💡 <i>Por favor recarga cuentas madre o nuevos perfiles para reanudar entregas automáticas sin pausas.</i>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👉 <a href="${siteUrl}/#admin">Recargar Stock en Panel Admin</a>`;
+      break;
+    }
+
+    // 13. ENTREGA AUTOMÁTICA DE PEDIDO (PAGO MÓVIL BDV / BNC)
+    case 'pedido_entregado_auto': {
+      const orderId = escHtml(data.order_id ? data.order_id.slice(0, 8) : 'N/A');
+      const ref = escHtml(data.referencia || 'N/A');
+      const banco = escHtml(data.banco || 'BDV');
+      const usd = Number(data.monto_usd || data.total_usd || 0).toFixed(2);
+      const bs = data.monto_bs ? Number(data.monto_bs).toLocaleString('es-VE', { minimumFractionDigits: 2 }) : '';
+      const prod = escHtml(data.producto || 'Suscripción Digital');
+      const nom = escHtml(data.cliente || data.nombre || 'Cliente');
+      const rol = data.es_revendedor ? 'Revendedor' : 'Cliente';
+      const correo = escHtml(data.correo_cuenta || 'Ver en panel');
+      const clave = escHtml(data.clave_cuenta || 'Ver en panel');
+      const perfil = escHtml(data.nombre_perfil || data.perfil || '');
+      const pin = escHtml(data.pin_perfil || data.pin || '');
+      const hora = escHtml(data.hora || new Date().toLocaleTimeString('es-VE'));
+
+      plainMsg = `⚡ ¡ENTREGA AUTOMÁTICA ${banco}! #${orderId} - ${prod} entregado a ${nom} (${rol}). Ref: ${ref}`;
+      htmlMsg = `⚡ <b>¡ENTREGA AUTOMÁTICA DE PEDIDO (${banco})!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 <b>Pedido:</b> <code>#${orderId}</code>
+🏦 <b>Banco Receptor:</b> <b>${banco}</b>
+🔢 <b>Referencia:</b> <code>${ref}</code>
+💵 <b>Monto:</b> ${bs ? `Bs. ${bs} ` : ''}($${usd} USD)
+⏰ <b>Hora Transacción:</b> ${hora}
+👤 <b>Destinatario:</b> ${nom} (<b>${rol}</b>)
+📱 <b>WhatsApp:</b> ${waLink ? `<a href="${waLink}">+${cleanPhone}</a>` : 'No registrado'}
+📺 <b>Producto:</b> <b>${prod}</b>
+
+🔑 <b>Credenciales Entregadas:</b>
+📧 <b>Correo:</b> <code>${correo}</code>
+🔑 <b>Clave:</b> <code>${clave}</code>
+${perfil ? `👤 <b>Perfil:</b> <code>${perfil}</code>\n` : ''}${pin ? `🔒 <b>PIN:</b> <code>${pin}</code>\n` : ''}
+📝 <b>Mensaje de Confirmación al Cliente:</b>
+<code>¡Hola ${nom}! 🎉 Confirmamos tu pago de ${prod}. Tus credenciales ya están activas: Usuario: ${correo} | Clave: ${clave}${perfil ? ` | Perfil: ${perfil}` : ''}${pin ? ` | PIN: ${pin}` : ''}. ¡Gracias por preferirnos!</code>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👉 <a href="${siteUrl}/#admin">Ver en Panel Admin</a>`;
+      break;
+    }
+
     default: {
       plainMsg = `🔔 Aviso: ${JSON.stringify(data).slice(0, 200)}`;
       htmlMsg = `🔔 <b>AVISO DEL SISTEMA</b><br><code>${escHtml(JSON.stringify(data, null, 2))}</code>`;

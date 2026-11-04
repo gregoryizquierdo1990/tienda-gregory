@@ -2,14 +2,29 @@
 // Vinculado a la tienda de Emprendimiento Gregory Izquierdo
 import { sbRest, getSecret, U, K } from './_lib.js';
 
-const GREETING_BASE = 'Hola Mi nombre es Diego_bot Asistente de Gestio de Emprendimiento Gregory Izquierdo en que puedo ayudarte';
+const GREETING_BASE = 'Hola Mi nombre es Diego_bot Asistente de Gestión de Emprendimiento Gregory Izquierdo, ¿en qué puedo ayudarte?';
+const DIEGO_DEFAULT_TOKEN = '8535286680:AAGCbVKMNk_aeDHwyICqsAqbtMUjDXlMOMg';
 
-const MAIN_KEYBOARD = [
+// Teclado interactivo para Clientes finales
+const CLIENT_KEYBOARD = [
   [{ text: '📦 Mis Servicios Activos' }, { text: '💰 Mi Saldo Zeny' }],
-  [{ text: '💳 Línea de Crédito & Deudas' }, { text: '💵 Tasa BCV Oficial' }],
-  [{ text: '🛒 Catálogo Tienda' }, { text: '💬 Contactar Soporte' }],
+  [{ text: '📅 Mis Cuotas Pendientes' }, { text: '💳 Mi Límite Financiamiento' }],
+  [{ text: '🛒 Catálogo Tienda' }, { text: '💵 Tasa BCV Oficial' }],
+  [{ text: '💳 Métodos de Pago' }, { text: '💬 Contactar Soporte' }],
   [{ text: '🚪 Cerrar Sesión' }]
 ];
+
+// Teclado interactivo para Revendedores Autorizados
+const RESELLER_KEYBOARD = [
+  [{ text: '👥 Mis Clientes & Suscripciones' }, { text: '📦 Catálogo Revendedor' }],
+  [{ text: '💳 Mis Cuotas & Línea Crédito' }, { text: '💰 Mi Saldo Zeny' }],
+  [{ text: '💵 Tasa BCV Oficial' }, { text: '💳 Métodos de Pago' }],
+  [{ text: '💬 Soporte Directo Gregory' }, { text: '🚪 Cerrar Sesión' }]
+];
+
+function getCustomerKeyboard(cust) {
+  return cust?.es_revendedor === true ? RESELLER_KEYBOARD : CLIENT_KEYBOARD;
+}
 
 function escHtml(str) {
   return String(str ?? '')
@@ -80,7 +95,7 @@ async function findCustomerByIdentifier(raw) {
   const byEmail = await sbRest(`customers?email=ilike.${encodeURIComponent(clean)}&limit=1`);
   if (byEmail?.[0]) return byEmail[0];
 
-  // 2. Búsqueda por Código de Identificación (ej: CLT-008, RVD:1002, etc.)
+  // 2. Búsqueda por Código de Identificación (ej: CLT-008, RVD:1001, etc.)
   const byCode = await sbRest(`customers?codigo_identificacion=ilike.${encodeURIComponent(clean)}&limit=1`);
   if (byCode?.[0]) return byCode[0];
 
@@ -123,8 +138,7 @@ export default async function handler(req, res) {
   const rawText = (cb ? (cb.data || '') : (msg.text || '')).trim();
   const lowerText = rawText.toLowerCase();
 
-  const token = await getSecret('telegram_token');
-  if (!token) return res.status(200).end();
+  const token = (await getSecret('telegram_token')) || DIEGO_DEFAULT_TOKEN;
 
   if (isCallback && cb?.id) {
     await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
@@ -188,11 +202,16 @@ export default async function handler(req, res) {
           })
         });
 
+        const isRev = cust.es_revendedor === true;
+        const keyboard = getCustomerKeyboard(cust);
         const welcomeLinked = `${GREETING_BASE}\n\n` +
           `✅ <b>¡Tu cuenta ha sido vinculada exitosamente!</b>\n` +
-          `Bienvenido/a <b>${escHtml(cust.nombre)}</b> (ID: <code>${escHtml(cust.codigo_identificacion || 'CLT')}</code>).\n\n` +
-          `Ahora tienes acceso instantáneo a tus membresías activas, PINs, saldos en Wallet Zeny y cuotas pendientes desde este chat.`;
-        await sendTelegram(token, chatId, welcomeLinked, MAIN_KEYBOARD);
+          `Bienvenido/a <b>${escHtml(cust.nombre)}</b> (ID: <code>${escHtml(cust.codigo_identificacion || (isRev ? 'RVD:1001' : 'CLT'))}</code>).\n\n` +
+          (isRev
+            ? `🏢 <b>Panel Oficial de Revendedor Activo:</b> Tienes acceso a precios mayoristas, calendario de clientes y línea de crédito comercial.`
+            : `Ahora tienes acceso instantáneo a tus membresías activas, PINs, saldos en Wallet Zeny y cuotas pendientes desde este chat.`
+          );
+        await sendTelegram(token, chatId, welcomeLinked, keyboard);
         return res.status(200).end();
       }
     }
@@ -203,11 +222,17 @@ export default async function handler(req, res) {
     if (session?.customer_id && session?.step === 'authenticated') {
       const cust = (await sbRest(`customers?id=eq.${session.customer_id}&limit=1`))?.[0];
       if (cust) {
+        const isRev = cust.es_revendedor === true;
+        const keyboard = getCustomerKeyboard(cust);
         const welcomeBack = `${GREETING_BASE}\n\n` +
           `👋 ¡Hola de nuevo, <b>${escHtml(cust.nombre)}</b>!\n` +
-          `Tu cuenta está conectada y sincronizada con la tienda.\n\n` +
-          `¿Qué deseas consultar hoy? Elige una opción del menú abajo 👇`;
-        await sendTelegram(token, chatId, welcomeBack, MAIN_KEYBOARD);
+          (isRev
+            ? `🏢 <b>Panel Oficial de Revendedor</b> (ID: <code>${escHtml(cust.codigo_identificacion || 'RVD')}</code>).\n` +
+              `Tienes activo tu catálogo de mayorista, control de cartera de clientes y línea de crédito.`
+            : `Tu cuenta de cliente está conectada y sincronizada con la tienda.`
+          ) +
+          `\n\n¿Qué deseas consultar hoy? Elige una opción del menú 👇`;
+        await sendTelegram(token, chatId, welcomeBack, keyboard);
         return res.status(200).end();
       }
     }
@@ -227,8 +252,8 @@ export default async function handler(req, res) {
     });
 
     const askIdentifier = `${GREETING_BASE}\n\n` +
-      `🔐 <b>Para acceder a tus servicios, saldos y deudas personalizadas:</b>\n` +
-      `Por favor escribe tu <b>Correo electrónico</b>, <b>Código ID de Cliente</b> (ej: <code>CLT-008</code> o <code>RVD-1002</code>) o tu <b>Número de WhatsApp</b> registrado en la tienda:`;
+      `🔐 <b>Para acceder a tus servicios, saldos y catálogo personalizado:</b>\n` +
+      `Por favor escribe tu <b>Correo electrónico</b>, <b>Código ID</b> (ej: <code>CLT-008</code> o <code>RVD:1001</code>) o tu <b>Número de WhatsApp</b> registrado en la tienda:`;
     await sendTelegram(token, chatId, askIdentifier, null, true);
     return res.status(200).end();
   }
@@ -250,7 +275,7 @@ export default async function handler(req, res) {
     const cust = await findCustomerByIdentifier(rawText);
     if (!cust) {
       const notFound = `❌ No encontramos ninguna cuenta registrada con: <b>${escHtml(rawText)}</b>\n\n` +
-        `Por favor verifica tu correo o código ID de cliente e inténtalo nuevamente.\n` +
+        `Por favor verifica tu correo, código ID o WhatsApp e inténtalo nuevamente.\n` +
         `<i>(También puedes escribir /cancelar para salir)</i>`;
       await sendTelegram(token, chatId, notFound);
       return res.status(200).end();
@@ -267,7 +292,7 @@ export default async function handler(req, res) {
     });
 
     const askPassword = `👤 Cuenta localizada: <b>${escHtml(cust.nombre)}</b> (ID: <code>${escHtml(cust.codigo_identificacion || 'CLT')}</code>)\n\n` +
-      `🔑 <b>Por favor ingresa tu contraseña de acceso al portal:</b>\n\n` +
+      `🔑 <b>Por favor ingresa tu contraseña de acceso a la tienda:</b>\n\n` +
       `🛡️ <i>(Por tu seguridad, tu mensaje con la clave se borrará de inmediato de este chat de Telegram)</i>`;
     await sendTelegram(token, chatId, askPassword);
     return res.status(200).end();
@@ -345,12 +370,16 @@ export default async function handler(req, res) {
         })
       });
 
+      const isRev = cust.es_revendedor === true;
       const isDemo = cust.es_demo === true;
+      const keyboard = getCustomerKeyboard(cust);
+
       const successMsg = `✅ <b>¡Inicio de sesión exitoso!</b>\n` +
-        `Bienvenido/a <b>${escHtml(cust.nombre)}</b> al Asistente Interactivo.` +
-        (isDemo ? `\n\n🔒 <b>Modo Demostración Activo:</b> Esta cuenta es para visualización y pruebas. Puedes consultar saldos, cuotas y catálogo con total libertad.` : '') +
-        `\n\nPuedes consultar tus servicios, deudas, saldo o tasa en cualquier momento usando los botones abajo 👇`;
-      await sendTelegram(token, chatId, successMsg, MAIN_KEYBOARD);
+        `Bienvenido/a <b>${escHtml(cust.nombre)}</b> al Asistente Interactivo Bot Diego.` +
+        (isRev ? `\n\n🏢 <b>Acceso de Revendedor Autorizado:</b> Dispones de catálogo mayorista, gestión de tus clientes y línea de crédito aprobada.` : '') +
+        (isDemo ? `\n\n🔒 <b>Modo Demostración Activo:</b> Cuenta habilitada para pruebas y visualización.` : '') +
+        `\n\n¿Qué deseas consultar? Elige una opción abajo 👇`;
+      await sendTelegram(token, chatId, successMsg, keyboard);
       return res.status(200).end();
     } else {
       const failMsg = `❌ <b>Contraseña incorrecta para ${escHtml(cust.nombre)}.</b>\n\n` +
@@ -368,31 +397,62 @@ export default async function handler(req, res) {
     const rateText = `💵 <b>Tasa Oficial Banco Central de Venezuela (BCV):</b>\n\n` +
       `<b>1 USD = ${rate.toFixed(4)} Bs</b>\n` +
       `📅 <i>Fecha: ${escHtml(fecha)}</i>\n\n` +
-      `<i>Esta es la tasa oficial aplicada a todos los consumos y recargas de la tienda.</i>`;
-    await sendTelegram(token, chatId, rateText, session?.step === 'authenticated' ? MAIN_KEYBOARD : null);
+      `<i>Esta es la tasa oficial aplicada a todas las compras, recargas y cuotas de la tienda.</i>`;
+    const cust = session?.customer_id ? (await sbRest(`customers?id=eq.${session.customer_id}&limit=1`))?.[0] : null;
+    await sendTelegram(token, chatId, rateText, session?.step === 'authenticated' ? getCustomerKeyboard(cust) : null);
     return res.status(200).end();
   }
 
-  const isTienda = lowerText.includes('tienda') || lowerText.includes('catálogo') || lowerText.includes('catalogo') || lowerText.includes('comprar') || lowerText === '/tienda';
+  const isTienda = lowerText.includes('tienda') || lowerText.includes('catálogo tienda') || lowerText.includes('catalogo tienda') || lowerText.includes('comprar') || lowerText === '/tienda';
   if (isTienda) {
     const storeText = `🛒 <b>Catálogo Oficial de la Tienda Gregory Izquierdo:</b>\n\n` +
       `Explora nuestras membresías de streaming, combos en promoción, servicios bajo pedido y gaming:\n\n` +
       `🌐 <b>Tienda Online:</b> <a href="https://www.gregoryizquierdo.xyz">https://www.gregoryizquierdo.xyz</a>\n` +
-      `⚡ Entregas automatizadas e inmediatas 24/7.`;
-    await sendTelegram(token, chatId, storeText, session?.step === 'authenticated' ? MAIN_KEYBOARD : null);
+      `⚡ Entregas automatizadas e inmediatas 24/7 con Pago Móvil BDV y BNC.`;
+    const cust = session?.customer_id ? (await sbRest(`customers?id=eq.${session.customer_id}&limit=1`))?.[0] : null;
+    await sendTelegram(token, chatId, storeText, session?.step === 'authenticated' ? getCustomerKeyboard(cust) : null);
     return res.status(200).end();
   }
 
-  const isSoporte = lowerText.includes('soporte') || lowerText.includes('ayuda') || lowerText.includes('contacto') || lowerText.includes('asesor') || lowerText.includes('whatsapp') || lowerText === '/soporte';
+  // Métodos de Pago Oficiales (BDV, BNC, Binance)
+  const isMetodosPago = lowerText.includes('métodos de pago') || lowerText.includes('metodos de pago') ||
+    lowerText.includes('formas de pago') || lowerText.includes('pago movil') || lowerText.includes('pago móvil') ||
+    lowerText.includes('donde pagar') || lowerText.includes('datos de pago') || lowerText === '/pagos';
+  if (isMetodosPago) {
+    const pagosText = `💳 <b>MÉTODOS OFICIALES DE PAGO:</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `⚡ <b>1. Pago Móvil BDV (0102) [Auto-Conciliación 24/7]</b>\n` +
+      `• Banco: <b>Banco de Venezuela (0102)</b>\n` +
+      `• Teléfono: <code>04242809333</code>\n` +
+      `• Cédula: <code>V-18931731</code>\n` +
+      `• Titular: Gregory Izquierdo\n\n` +
+      `⚡ <b>2. Pago Móvil BNC (0191) [Auto-Conciliación 24/7]</b>\n` +
+      `• Banco: <b>Banco Nacional de Crédito (0191)</b>\n` +
+      `• Teléfono: <code>04242809333</code>\n` +
+      `• Cédula: <code>V-18931731</code>\n` +
+      `• Titular: Gregory Izquierdo\n\n` +
+      `🟡 <b>3. Binance Pay (USDT)</b>\n` +
+      `• Pay ID: <code>393089335</code>\n` +
+      `• Correo: <code>gregoryrodriguez2021@gmail.com</code>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `💡 <i>Toca sobre cualquier dato para copiarlo en tu portapapeles. Al pagar por BDV o BNC, el sistema concilia tu referencia y entrega tus credenciales de forma 100% automatizada.</i>`;
+    const cust = session?.customer_id ? (await sbRest(`customers?id=eq.${session.customer_id}&limit=1`))?.[0] : null;
+    await sendTelegram(token, chatId, pagosText, session?.step === 'authenticated' ? getCustomerKeyboard(cust) : null);
+    return res.status(200).end();
+  }
+
+  const isSoporte = lowerText.includes('soporte') || lowerText.includes('ayuda') || lowerText.includes('contacto') ||
+    lowerText.includes('asesor') || lowerText.includes('whatsapp') || lowerText === '/soporte';
   if (isSoporte) {
     const neg = (await sbRest('settings?key=eq.negocio&select=value'))?.[0]?.value || {};
-    const tel = (neg.telefono || '+584122952044').replace(/\D/g, '');
-    const sopText = `💬 <b>Atención al Cliente y Soporte Directo:</b>\n\n` +
-      `¿Necesitas ayuda con una membresía, recarga o consulta comercial?\n\n` +
-      `📲 <b>WhatsApp:</b> <a href="https://wa.me/${tel}">Escribir por WhatsApp a Gregory</a>\n` +
-      `📧 <b>Correo:</b> ${escHtml(neg.correo || 'soporte@gregoryizquierdo.xyz')}\n\n` +
-      `¡Estamos a tu orden para asistirte!`;
-    await sendTelegram(token, chatId, sopText, session?.step === 'authenticated' ? MAIN_KEYBOARD : null);
+    const tel = (neg.telefono || '+584241983648').replace(/\D/g, '');
+    const sopText = `💬 <b>Atención Directa y Soporte con Gregory:</b>\n\n` +
+      `¿Tienes consultas con una membresía, recarga o gestión comercial?\n\n` +
+      `📲 <b>WhatsApp Directo:</b> <a href="https://wa.me/${tel}">Escribir por WhatsApp a Gregory</a>\n` +
+      `📧 <b>Correo:</b> ${escHtml(neg.correo || 'emprendimientogregoryizquierdo@gmail.com')}\n\n` +
+      `¡Estamos siempre a tu orden para ayudarte!`;
+    const cust = session?.customer_id ? (await sbRest(`customers?id=eq.${session.customer_id}&limit=1`))?.[0] : null;
+    await sendTelegram(token, chatId, sopText, session?.step === 'authenticated' ? getCustomerKeyboard(cust) : null);
     return res.status(200).end();
   }
 
@@ -400,12 +460,13 @@ export default async function handler(req, res) {
   if (session?.step !== 'authenticated' || !session?.customer_id) {
     const isPrivateQuery = lowerText.includes('servicio') || lowerText.includes('membresia') || lowerText.includes('pantalla') ||
       lowerText.includes('saldo') || lowerText.includes('zeny') || lowerText.includes('wallet') ||
-      lowerText.includes('deuda') || lowerText.includes('credito') || lowerText.includes('cuota');
+      lowerText.includes('deuda') || lowerText.includes('credito') || lowerText.includes('cuota') ||
+      lowerText.includes('cliente') || lowerText.includes('revendedor');
 
     if (isPrivateQuery) {
       const reqLoginMsg = `🔐 <b>Acceso a Información Personal</b>\n\n` +
-        `Para consultar tus servicios activos, saldos o deudas, primero debes iniciar sesión.\n\n` +
-        `Escribe <b>/start</b> para identificarte con tu correo o ID de cliente.`;
+        `Para consultar tus servicios activos, saldos o cartera, primero debes iniciar sesión.\n\n` +
+        `Escribe <b>/start</b> para identificarte con tu correo, teléfono o ID de cliente/revendedor.`;
       await sendTelegram(token, chatId, reqLoginMsg);
       return res.status(200).end();
     }
@@ -430,7 +491,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // 9. CLIENTE AUTENTICADO: Consultas personalizadas
+  // 9. CLIENTE / REVENDEDOR AUTENTICADO: Consultas personalizadas
   const customerId = session.customer_id;
   const cust = (await sbRest(`customers?id=eq.${customerId}&limit=1`))?.[0];
   if (!cust) {
@@ -442,7 +503,104 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // --- BOTÓN: 📦 Mis Servicios Activos ---
+  const isReseller = cust.es_revendedor === true;
+  const userKeyboard = getCustomerKeyboard(cust);
+
+  // =========================================================================
+  // SECCIÓN REVENDEDOR 1: 👥 Mis Clientes & Suscripciones
+  // =========================================================================
+  const isRevClientes = lowerText.includes('mis clientes') || lowerText.includes('cartera') ||
+    lowerText.includes('suscripciones') || lowerText === '/clientes';
+
+  if (isReseller && isRevClientes) {
+    const myProfiles = await sbRest(
+      `profiles_inventory?or=(vendedor_id.eq.${customerId},vendedor.ilike.%25${encodeURIComponent(cust.nombre)}%25)&estado=eq.vendido&order=vence.asc&limit=30`
+    );
+
+    if (!myProfiles || myProfiles.length === 0) {
+      const emptyMsg = `👥 <b>Cartera de Clientes & Suscripciones:</b>\n\n` +
+        `Actualmente no tienes clientes o pantallas asignadas en tu cartera de revendedor.\n\n` +
+        `💡 <i>Puedes activar suscripciones al mayor para tus clientes directamente desde la tienda o reportando tu pedido a Gregory.</i>`;
+      await sendTelegram(token, chatId, emptyMsg, userKeyboard);
+      return res.status(200).end();
+    }
+
+    const hoyIso = new Date().toISOString().slice(0, 10);
+    const lines = myProfiles.map((p, idx) => {
+      const cliNom = p.cliente_final || 'Cliente Final';
+      const tel = p.cliente_telefono ? String(p.cliente_telefono).replace(/\D/g, '') : '';
+      const srvNom = p.nombre_perfil || 'Perfil Digital';
+      const vence = p.vence || 'N/D';
+
+      let diasRest = null;
+      let badge = '';
+      if (p.vence) {
+        const msDiff = new Date(p.vence).getTime() - new Date(hoyIso).getTime();
+        diasRest = Math.ceil(msDiff / 864e5);
+        if (diasRest > 1) badge = `⏱ Vence en ${diasRest} días (${vence})`;
+        else if (diasRest === 1) badge = `⚠️ Vence mañana (${vence})`;
+        else if (diasRest === 0) badge = `🔴 ¡Vence hoy! (${vence})`;
+        else badge = `⛔ Vencido (${vence})`;
+      }
+
+      let waLink = '';
+      if (tel) {
+        const full = tel.startsWith('58') ? tel : (tel.startsWith('0') ? '58' + tel.slice(1) : '58' + tel);
+        waLink = ` · <a href="https://wa.me/${full}">WhatsApp</a>`;
+      }
+
+      return `<b>${idx + 1}. ${escHtml(cliNom)}</b> (${escHtml(srvNom)})\n` +
+        `   📅 ${badge}\n` +
+        (tel ? `   📱 Teléfono: <code>${tel}</code>${waLink}\n` : '');
+    }).join('\n');
+
+    const msgOut = `👥 <b>Tu Cartera de Clientes (${myProfiles.length} Activos):</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `${lines}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `💡 <i>Toca sobre los números para copiar o comunícate directamente con tus clientes para gestionar renovaciones.</i>`;
+    await sendTelegram(token, chatId, msgOut, userKeyboard);
+    return res.status(200).end();
+  }
+
+  // =========================================================================
+  // SECCIÓN REVENDEDOR 2: 📦 Catálogo Revendedor (Precios Mayoristas)
+  // =========================================================================
+  const isRevCatalogo = lowerText.includes('catálogo revendedor') || lowerText.includes('catalogo revendedor') ||
+    lowerText.includes('mayorista') || lowerText.includes('precios revendedor') || lowerText === '/mayorista';
+
+  if (isReseller && isRevCatalogo) {
+    const products = await sbRest('products?activo=eq.true&precio_revendedor_usd=gt.0&order=nombre.asc');
+    if (!products || products.length === 0) {
+      await sendTelegram(token, chatId, '📦 No hay productos con lista mayorista cargada en este momento.', userKeyboard);
+      return res.status(200).end();
+    }
+
+    const { rate } = await getBcvRate();
+    const items = products.map((pr, idx) => {
+      const pMayor = Number(pr.precio_revendedor_usd || 0).toFixed(2);
+      const pPub = Number(pr.precio_usd || 0).toFixed(2);
+      const margen = (Number(pr.precio_usd || 0) - Number(pr.precio_revendedor_usd || 0)).toFixed(2);
+      const bsMayor = (Number(pr.precio_revendedor_usd || 0) * rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      return `<b>${idx + 1}. ${escHtml(pr.nombre)}</b>\n` +
+        `   💵 Mayorista: <b>$${pMayor} USD</b> (Bs. ${bsMayor})\n` +
+        `   🏷️ PVP Sugerido: $${pPub} USD · Margen: <b>+$${margen} USD</b>`;
+    }).join('\n\n');
+
+    const msgOut = `📦 <b>Catálogo Oficial de Revendedores (Precios al Mayor):</b>\n` +
+      `📊 <i>Tasa BCV aplicable: ${rate.toFixed(4)} Bs/USD</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `${items}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `⚡ <i>Para activar cuentas o perfiles al instante a precio mayorista, inicia sesión en la tienda con tu ID de revendedor.</i>`;
+    await sendTelegram(token, chatId, msgOut, userKeyboard);
+    return res.status(200).end();
+  }
+
+  // =========================================================================
+  // SECCIÓN CLIENTE 1: 📦 Mis Servicios Activos (Credenciales y PINs)
+  // =========================================================================
   const isServicios = lowerText.includes('mis servicios') || lowerText.includes('servicio') ||
     lowerText.includes('membresia') || lowerText.includes('pantalla') || lowerText.includes('pin') ||
     lowerText.includes('clave') || lowerText.includes('cuenta') || lowerText === '/servicios';
@@ -458,7 +616,7 @@ export default async function handler(req, res) {
         `Actualmente no posees servicios o pantallas activas a tu nombre.\n\n` +
         `Puedes adquirir cuentas y perfiles en nuestra tienda:\n` +
         `🌐 <a href="https://www.gregoryizquierdo.xyz">https://www.gregoryizquierdo.xyz</a>`;
-      await sendTelegram(token, chatId, noSrvMsg, MAIN_KEYBOARD);
+      await sendTelegram(token, chatId, noSrvMsg, userKeyboard);
       return res.status(200).end();
     }
 
@@ -485,11 +643,52 @@ export default async function handler(req, res) {
     const srvMsg = `📦 <b>Tus Servicios & Membresías Activas (${items.length}):</b>\n\n` +
       `${srvLines}\n\n` +
       `💡 <i>Toca sobre cualquier usuario o PIN para copiarlo directamente en tu teléfono.</i>`;
-    await sendTelegram(token, chatId, srvMsg, MAIN_KEYBOARD);
+    await sendTelegram(token, chatId, srvMsg, userKeyboard);
     return res.status(200).end();
   }
 
-  // --- BOTÓN: 💰 Mi Saldo Zeny ---
+  // =========================================================================
+  // SECCIÓN CLIENTE 2: 📅 Mis Cuotas Pendientes (Desglose individual)
+  // =========================================================================
+  const isMisCuotas = lowerText.includes('mis cuotas') || lowerText.includes('cuotas pendientes') || lowerText === '/cuotas';
+  if (isMisCuotas) {
+    const { rate } = await getBcvRate();
+    const cuotas = await sbRest(`installments?customer_id=eq.${customerId}&estado=in.(pendiente,en_revision,vencida)&order=fecha_vencimiento.asc&select=id,numero_cuota,total_cuotas,monto_usd,fecha_vencimiento,estado,orders(products(nombre))`);
+
+    if (!cuotas || cuotas.length === 0) {
+      const okMsg = `✨ <b>¡Estás 100% al día con tus pagos!</b>\n\n` +
+        `No tienes ninguna cuota pendiente o vencida en este momento.\n` +
+        `¡Gracias por tu excelente puntualidad! 🌟`;
+      await sendTelegram(token, chatId, okMsg, userKeyboard);
+      return res.status(200).end();
+    }
+
+    const lines = cuotas.map((c, i) => {
+      const mUsd = Number(c.monto_usd || 0).toFixed(2);
+      const mBs = (Number(c.monto_usd || 0) * rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const prod = c.orders?.products?.nombre || 'Servicio Digital';
+      const isVencida = c.estado === 'vencida';
+      const badge = isVencida ? '🔴 VENCIDA' : '🟡 POR PAGAR';
+
+      return `${i + 1}. <b>${escHtml(prod)}</b> [${badge}]\n` +
+        `   💳 Cuota: <b>#${c.numero_cuota} de ${c.total_cuotas}</b>\n` +
+        `   💵 Monto: <b>$${mUsd} USD</b> (Bs. ${mBs})\n` +
+        `   📅 Vencimiento: <code>${escHtml(c.fecha_vencimiento)}</code>`;
+    }).join('\n\n');
+
+    const msgOut = `📅 <b>Tus Cuotas Pendientes de Pago (${cuotas.length}):</b>\n` +
+      `📊 <i>Tasa BCV del día: ${rate.toFixed(4)} Bs/USD</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `${lines}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `💡 <i>Puedes saldar tus cuotas por Pago Móvil BDV / BNC o directamente desde el portal web.</i>`;
+    await sendTelegram(token, chatId, msgOut, userKeyboard);
+    return res.status(200).end();
+  }
+
+  // =========================================================================
+  // SECCIÓN COMPARTIDA: 💰 Mi Saldo Zeny
+  // =========================================================================
   const isSaldo = lowerText.includes('saldo') || lowerText.includes('zeny') ||
     lowerText.includes('wallet') || lowerText.includes('billetera') || lowerText.includes('puntos') || lowerText === '/saldo';
 
@@ -503,14 +702,16 @@ export default async function handler(req, res) {
       `🇻🇪 <b>Equivalente en Bs:</b> <code>${bsEquiv.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs</code>\n` +
       `📊 <b>Tasa BCV del día:</b> ${rate.toFixed(4)} Bs/USD\n\n` +
       `✨ <i>Puedes usar tu saldo Zeny para comprar membresías sin comisiones o transferir saldo a otros usuarios desde el portal web.</i>`;
-    await sendTelegram(token, chatId, saldoMsg, MAIN_KEYBOARD);
+    await sendTelegram(token, chatId, saldoMsg, userKeyboard);
     return res.status(200).end();
   }
 
-  // --- BOTÓN: 💳 Línea de Crédito & Deudas ---
+  // =========================================================================
+  // SECCIÓN COMPARTIDA: 💳 Línea de Crédito & Deudas / Financiamiento
+  // =========================================================================
   const isCredito = lowerText.includes('crédito') || lowerText.includes('credito') ||
-    lowerText.includes('deuda') || lowerText.includes('cuota') || lowerText.includes('financiamiento') ||
-    lowerText.includes('limite') || lowerText === '/deudas' || lowerText === '/credito';
+    lowerText.includes('deuda') || lowerText.includes('financiamiento') ||
+    lowerText.includes('límite') || lowerText.includes('limite') || lowerText === '/deudas' || lowerText === '/credito';
 
   if (isCredito) {
     const { rate } = await getBcvRate();
@@ -536,18 +737,20 @@ export default async function handler(req, res) {
         }).join('\n');
     }
 
-    const creditoMsg = `💳 <b>Estado de tu Línea de Crédito & Deudas:</b>\n\n` +
+    const creditoMsg = (isReseller ? `💳 <b>Línea de Crédito Comercial de Revendedor:</b>\n\n` : `💳 <b>Estado de tu Línea de Crédito & Financiamiento:</b>\n\n`) +
       `📈 <b>Límite Aprobado:</b> $${limiteUsd.toFixed(2)} USD\n` +
       `🔴 <b>Deuda Total Pendiente:</b> $${deudaUsd.toFixed(2)} USD (${deudaBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs)\n` +
       `🟢 <b>Crédito Disponible:</b> $${dispUsd.toFixed(2)} USD` +
       debtDetail +
       (deudaUsd === 0 ? `\n\n✨ <b>¡Estás 100% al día!</b> No tienes cuotas o deudas pendientes.` : `\n\n💡 <i>Puedes saldar tus cuotas pendientes desde el portal o notificando tu pago a Gregory por WhatsApp.</i>`);
 
-    await sendTelegram(token, chatId, creditoMsg, MAIN_KEYBOARD);
+    await sendTelegram(token, chatId, creditoMsg, userKeyboard);
     return res.status(200).end();
   }
 
-  // --- BOTÓN: 🚪 Cerrar Sesión ---
+  // =========================================================================
+  // BOTÓN: 🚪 Cerrar Sesión
+  // =========================================================================
   const isLogout = lowerText.includes('cerrar sesión') || lowerText.includes('cerrar sesion') ||
     lowerText.includes('salir') || lowerText === '/logout' || lowerText === '/salir';
 
@@ -586,20 +789,32 @@ export default async function handler(req, res) {
       .replaceAll('{tasa}', rate.toFixed(4))
       .replaceAll('{telefono}', neg.telefono || '')
       .replaceAll('{correo}', neg.correo || '');
-    await sendTelegram(token, chatId, escHtml(reply), MAIN_KEYBOARD);
+    await sendTelegram(token, chatId, escHtml(reply), userKeyboard);
     return res.status(200).end();
   }
 
-  // Fallback amigable para clientes autenticados
-  const fallbackMsg = `🤖 <b>Diego_bot:</b> Hola <b>${escHtml(cust.nombre)}</b>, ¿en qué puedo ayudarte?\n\n` +
-    `Usa los botones del menú inferior para consultar al instante:\n` +
-    `• 📦 <b>Mis Servicios Activos</b>: Ver credenciales, perfiles y PINs.\n` +
-    `• 💰 <b>Mi Saldo Zeny</b>: Consultar saldo en USD y Bolívares.\n` +
-    `• 💳 <b>Línea de Crédito & Deudas</b>: Ver límite y cuotas pendientes.\n` +
-    `• 💵 <b>Tasa BCV Oficial</b>: Tasa del día.\n` +
-    `• 💬 <b>Contactar Soporte</b>: Enlace directo con Gregory.`;
-  await sendTelegram(token, chatId, fallbackMsg, MAIN_KEYBOARD);
+  // Fallback amigable adaptado según el rol
+  const fallbackMsg = isReseller
+    ? `🤖 <b>Diego_bot:</b> Hola <b>${escHtml(cust.nombre)}</b> (Revendedor Autorizado).\n\n` +
+      `Usa los botones del menú inferior para gestionar tu negocio:\n` +
+      `• 👥 <b>Mis Clientes & Suscripciones</b>: Monitorea vencimientos y contactos.\n` +
+      `• 📦 <b>Catálogo Revendedor</b>: Precios de mayorista y márgenes de ganancia.\n` +
+      `• 💳 <b>Mis Cuotas & Línea Crédito</b>: Límite y saldo a crédito.\n` +
+      `• 💰 <b>Mi Saldo Zeny</b>: Balance disponible.\n` +
+      `• 💵 <b>Tasa BCV Oficial</b>: Tasa del día.\n` +
+      `• 💳 <b>Métodos de Pago</b>: Cuentas BDV, BNC y Binance.`
+    : `🤖 <b>Diego_bot:</b> Hola <b>${escHtml(cust.nombre)}</b>, ¿en qué puedo ayudarte?\n\n` +
+      `Usa los botones del menú inferior para consultar al instante:\n` +
+      `• 📦 <b>Mis Servicios Activos</b>: Ver credenciales, perfiles y PINs.\n` +
+      `• 💰 <b>Mi Saldo Zeny</b>: Consultar saldo en USD y Bolívares.\n` +
+      `• 📅 <b>Mis Cuotas Pendientes</b>: Consulta fechas y montos.\n` +
+      `• 💳 <b>Mi Límite Financiamiento</b>: Ver saldo a crédito.\n` +
+      `• 💵 <b>Tasa BCV Oficial</b>: Tasa del día.\n` +
+      `• 💳 <b>Métodos de Pago</b>: Cuentas bancarias para transferir.`;
+
+  await sendTelegram(token, chatId, fallbackMsg, userKeyboard);
   return res.status(200).end();
+
 } catch (err) {
   console.error('Error en webhook de Telegram:', err);
   try {
