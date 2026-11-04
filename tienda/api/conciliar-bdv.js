@@ -1,14 +1,22 @@
 // Endpoint para conciliación y liberación automática de pedidos por Pago Móvil BDV
-// Soporta tanto Webhook directo (HTTP POST) como mensajes reenviados a través del bot @Julian4asistente_bot
+// ==============================================================================
+// SEPARACIÓN ESTRICTA DE BOTS DE TELEGRAM:
+// 1. Bot Diego (Canal Oficial para Clientes y Revendedores):
+//    - Único bot que habla con clientes y revendedores, y les entrega credenciales.
+// 2. Bot Julián (@Julian4asistente_bot - Privado de Gregory):
+//    - Meramente administrativo, exclusivo para Gregory.
+//    - Recibe las notificaciones BDV desde MacroDroid y le reporta solo a Gregory.
+// ==============================================================================
 import { U, K, sbRest, getSecret } from './_lib.js';
 
-const BDV_BOT_TOKEN = '8571549759:AAHqPS64PQTyVjMEwecJN937dHzLQd-Et_A';
+const JULIAN_BOT_TOKEN = '8571549759:AAHqPS64PQTyVjMEwecJN937dHzLQd-Et_A'; // Bot Administrativo Privado
+const DIEGO_DEFAULT_TOKEN = '8535286680:AAGCbVKMNk_aeDHwyICqsAqbtMUjDXlMOMg'; // Bot Oficial para Clientes
 const GREGORY_CHAT_ID = '7154250409';
 
-// Envía notificación al chat de Gregory en Telegram
+// Bot Julián: Notifica exclusivamente a Gregory en su chat personal
 async function notifyGregoryTelegram(text) {
   try {
-    const token = await getSecret('telegram_bdv_bot_token') || BDV_BOT_TOKEN;
+    const token = await getSecret('telegram_bdv_bot_token') || JULIAN_BOT_TOKEN;
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -19,15 +27,15 @@ async function notifyGregoryTelegram(text) {
       })
     });
   } catch (err) {
-    console.error('Error enviando notificación a Telegram:', err);
+    console.error('Error enviando notificación a Gregory por Bot Julián:', err);
   }
 }
 
-// Envía credenciales directamente al cliente en Telegram si está vinculado
+// Bot Diego: Entrega credenciales y avisos exclusivamente a clientes y revendedores
 async function notifyCustomerTelegram(chatId, text) {
   if (!chatId) return;
   try {
-    const token = await getSecret('telegram_bdv_bot_token') || BDV_BOT_TOKEN;
+    const token = await getSecret('telegram_token') || DIEGO_DEFAULT_TOKEN;
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -38,7 +46,7 @@ async function notifyCustomerTelegram(chatId, text) {
       })
     });
   } catch (err) {
-    console.error('Error enviando credenciales a cliente por Telegram:', err);
+    console.error('Error enviando credenciales a cliente por Bot Diego:', err);
   }
 }
 
