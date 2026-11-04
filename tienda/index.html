@@ -258,6 +258,179 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 #aiSendBtn:disabled{opacity:.4;cursor:not-allowed;transform:none}
 .ai-input-hint{font-size:.68rem;color:#64748b;margin-top:6px;text-align:right}
 
+/* Widget Flotante Gemini AI Assistant (Esquina Inferior Derecha) */
+.gemini-floating-fab {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(10, 31, 61, 0.96), rgba(4, 12, 26, 0.98));
+  border: 1.5px solid rgba(0, 212, 255, 0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 212, 255, 0.3);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-weight: 800;
+  font-size: 0.86rem;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.gemini-floating-fab:hover {
+  transform: translateY(-3px) scale(1.03);
+  border-color: #00f5a0;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.7), 0 0 26px rgba(0, 245, 160, 0.4);
+}
+.gemini-floating-fab.hide { display: none !important; }
+
+.gemini-floating-window {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  width: 400px;
+  max-width: calc(100vw - 28px);
+  height: 560px;
+  max-height: calc(100vh - 80px);
+  z-index: 9999;
+  background: #030812;
+  border: 1.5px solid rgba(0, 212, 255, 0.35);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(0, 212, 255, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: height 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease, opacity 0.2s ease;
+  animation: geminiPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes geminiPopIn {
+  from { opacity: 0; transform: translateY(25px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.gemini-floating-window.minimized {
+  height: 52px !important;
+  max-height: 52px !important;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+.gemini-floating-window.minimized .gemini-fw-body,
+.gemini-floating-window.minimized .gemini-fw-footer {
+  display: none !important;
+}
+.gemini-floating-window.hide { display: none !important; }
+
+.gemini-fw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(12, 32, 60, 0.98), rgba(6, 18, 36, 0.98));
+  border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+  cursor: pointer;
+  user-select: none;
+}
+.gemini-fw-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gemini-fw-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gemini-fw-sub {
+  font-size: 0.68rem;
+  color: #8ea8c8;
+}
+.gemini-fw-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.gemini-fw-btn {
+  background: transparent;
+  border: none;
+  color: var(--mut);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+.gemini-fw-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.gemini-fw-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.gemini-fw-footer {
+  padding: 10px 12px;
+  background: rgba(6, 18, 36, 0.96);
+  border-top: 1px solid rgba(0, 212, 255, 0.18);
+}
+.gemini-fw-input-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: rgba(13, 29, 54, 0.95);
+  border: 1px solid rgba(0, 212, 255, 0.28);
+  border-radius: 14px;
+  padding: 6px 10px;
+}
+.gemini-fw-input-wrap:focus-within {
+  border-color: var(--c);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+}
+.gemini-fw-textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.84rem;
+  resize: none;
+  max-height: 100px;
+  outline: none;
+  padding: 4px 0;
+  line-height: 1.4;
+}
+.gemini-fw-send {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--grad);
+  color: #03121c;
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.gemini-fw-send:hover { transform: scale(1.08); }
+.gemini-fw-send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
 /* Panel de Pago / Checkout Adaptado (Paleta Oficial de la Plataforma: Azul Oscuro, Cyan y Esmeralda) */
 .checkout-modal{border:0;background:transparent;padding:0;width:100%;max-width:480px;box-shadow:none;overflow:visible}
 .checkout-modal::backdrop{background:rgba(2,6,15,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
@@ -860,7 +1033,7 @@ async function ensureAdminExtraLoaded() {
       existing.remove();
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=14';
+    script.src = '/admin-extra.js?v=15';
     script.async = true;
     const timeout = setTimeout(() => {
       if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) resolve(true);
@@ -992,6 +1165,14 @@ const DEFAULT_MESSAGE_TEMPLATES = {
     descripcion: 'Recordatorio enviado al cliente con los detalles de su cuota financiada por pagar.',
     tags: ['cliente', 'producto', 'cuota', 'total_cuotas', 'monto_usd', 'monto_bs', 'tasa_bcv', 'fecha_vencimiento', 'negocio'],
     cuerpo: 'Hola {cliente}, un cordial saludo de {negocio} 👋\nTe recordamos que tienes una cuota pendiente de tu servicio financiado:\n\n📦 Servicio: {producto}\n💳 Cuota: #{cuota} de {total_cuotas}\n💵 Monto en USD: ${monto_usd} USD\n🇻🇪 Monto en Bs: Bs. {monto_bs} (Tasa BCV {tasa_bcv})\n📅 Fecha de vencimiento: {fecha_vencimiento}\n\nPor favor envíanos el comprobante una vez realizada la transferencia. ¡Muchas gracias por tu puntualidad!'
+  },
+  cobro_cuota_vencida_mora: {
+    id: 'cobro_cuota_vencida_mora',
+    canal: 'whatsapp',
+    titulo: 'Cobro de Cuota Vencida con Recargo de Mora (BNPL)',
+    descripcion: 'Mensaje amigable con llamado a la acción para clientes con cuota atrasada y recargo por mora.',
+    tags: ['cliente', 'producto', 'cuota', 'total_cuotas', 'monto_base_usd', 'mora_usd', 'monto_total_usd', 'monto_bs', 'tasa_bcv', 'fecha_vencimiento', 'dias_vencida', 'negocio'],
+    cuerpo: '¡Hola {cliente}! 👋 Te saludamos cordialmente de {negocio} ✨\n\nTe escribimos con respecto a la cuota #{cuota} de {total_cuotas} de tu suscripción *{producto}*, la cual venció el día *{fecha_vencimiento}* ({dias_vencida} días de retraso).\n\n📌 *Detalle de tu estado de cuenta:*\n• Cuota original: ${monto_base_usd} USD\n• Recargo por mora administrativo: +${mora_usd} USD\n💵 *Total a liquidar:* *${monto_total_usd} USD* (Bs. {monto_bs} a tasa BCV {tasa_bcv})\n\n💡 *¡Ponte al día hoy mismo!* Te invitamos a regularizar tu pago para reactivar tu historial impecable, evitar la suspensión de tus pantallas y congelar nuevos recargos adicionales.\n\nPor favor envíanos tu comprobante o referencia de pago por este medio para conciliarlo de inmediato. ¡Apreciamos mucho tu atención y preferencia! 🤝🍿'
   },
   entrega_credito: {
     id: 'entrega_credito',
@@ -2896,6 +3077,7 @@ async function onSession(session){
   }
   $('#bLogin').classList.toggle('hide',!!S.user);
   $('#bRegister').classList.toggle('hide',!!S.user);
+  $('#bAdmin').classList.toggle('hide',!!S.user);
   $('#bOut').classList.toggle('hide',!S.user);
   $('#bPortal').classList.toggle('hide',!S.user);
   if(S.isAdmin) {
@@ -2910,6 +3092,12 @@ async function onSession(session){
   }
   // Boton de Notificaciones visible para todos los usuarios autenticados
   $('#bSnd').classList.toggle('hide', !S.user); updSnd(); badge(); checkVenc();
+  if(S.isAdmin) {
+    if(window.initGeminiFloatingWidget) initGeminiFloatingWidget();
+  } else {
+    if(window.closeGeminiFloatingWidget) closeGeminiFloatingWidget();
+    $('#geminiFloatingFab')?.remove();
+  }
 }
 document.addEventListener('visibilitychange', async () => {
   if(!document.hidden && S.user){
@@ -3823,15 +4011,33 @@ async function buyDlg(id){
     }
   }
 
-  // Parametros configurables de cuotas (definidos manualmente por el admin en ajustes)
+  // Parametros de cuotas (por producto individual si tiene bnpl_config, o fallback general)
+  const pBnpl = p.bnpl_config;
   const cuotasCfg = S.settings?.cuotas_config || { inicial_porcentaje: 50, total_cuotas: 2, dias_frecuencia: 15, monto_minimo: 5.00 };
-  const isBnplEligible = (p.permite_cuotas === true) && (totalOriginal >= Number(cuotasCfg.monto_minimo || 5));
-  const nCuotas = Math.max(2, Number(cuotasCfg.total_cuotas || 2));
-  const pctInicial = Math.min(90, Math.max(10, Number(cuotasCfg.inicial_porcentaje || 50)));
-  const cuotaInicialUsd = Math.round((totalOriginal * (pctInicial / 100)) * 100) / 100;
+  const isBnplEligible = (p.permite_cuotas === true) && (pBnpl ? true : totalOriginal >= Number(cuotasCfg.monto_minimo || 5));
+
+  let nCuotas = 2;
+  let cuotaInicialUsd = 0;
+  let diasFrecuencia = 15;
+
+  if (pBnpl && pBnpl.habilitado) {
+    nCuotas = Math.max(2, Number(pBnpl.numero_cuotas || 2));
+    diasFrecuencia = Math.max(1, Number(pBnpl.frecuencia_dias || 15));
+    if (pBnpl.inicial_tipo === 'fijo') {
+      cuotaInicialUsd = Math.min(totalOriginal, Number(pBnpl.inicial_valor || 0));
+    } else {
+      const pct = Math.min(90, Math.max(10, Number(pBnpl.inicial_valor || 50)));
+      cuotaInicialUsd = Math.round((totalOriginal * (pct / 100)) * 100) / 100;
+    }
+  } else {
+    nCuotas = Math.max(2, Number(cuotasCfg.total_cuotas || 2));
+    const pctInicial = Math.min(90, Math.max(10, Number(cuotasCfg.inicial_porcentaje || 50)));
+    cuotaInicialUsd = Math.round((totalOriginal * (pctInicial / 100)) * 100) / 100;
+    diasFrecuencia = Number(cuotasCfg.dias_frecuencia || 15);
+  }
+
   const restanteUsd = Math.round((totalOriginal - cuotaInicialUsd) * 100) / 100;
   const cuotaRestanteUsd = Math.round((restanteUsd / (nCuotas - 1)) * 100) / 100;
-  const diasFrecuencia = Number(cuotasCfg.dias_frecuencia || 15);
 
   const dateNow = new Date();
   const d1Str = dateNow.toISOString().slice(0, 10);
@@ -4076,7 +4282,7 @@ async function buyDlg(id){
               <div class="checkout-summary-row">
                 <span>Modalidad</span>
                 <span style="font-weight:700;color:${payPlan === 'cuotas' ? 'var(--a)' : 'var(--tx)'}">
-                  ${payPlan === 'cuotas' ? '✨ Financiamiento en 2 Cuotas' : 'Contado (Pago único)'}
+                  ${payPlan === 'cuotas' ? `✨ Financiamiento en ${nCuotas} Cuotas` : 'Contado (Pago único)'}
                 </span>
               </div>
               ${payPlan === 'cuotas' ? `
@@ -4093,13 +4299,21 @@ async function buyDlg(id){
                       </div>
                       <span class="item-price">$${cuotaInicialUsd.toFixed(2)} USD</span>
                     </div>
-                    <div class="bnpl-schedule-item">
-                      <div>
-                        <span class="item-title">2. Segunda Cuota</span>
-                        <span class="item-date">Vence en 15 días (${d2Str})</span>
-                      </div>
-                      <span class="item-price">$${cuotaDosUsd.toFixed(2)} USD</span>
-                    </div>
+                    ${Array.from({ length: nCuotas - 1 }).map((_, idx) => {
+                      const cNum = idx + 2;
+                      const nextDate = new Date(dateNow.getTime() + (idx + 1) * diasFrecuencia * 86400000);
+                      const fStr = nextDate.toISOString().slice(0, 10);
+                      const cMonto = cNum === nCuotas ? (restanteUsd - cuotaRestanteUsd * (nCuotas - 2)) : cuotaRestanteUsd;
+                      return `
+                        <div class="bnpl-schedule-item">
+                          <div>
+                            <span class="item-title">${cNum}. Cuota ${cNum}</span>
+                            <span class="item-date">Vence en ${(idx + 1) * diasFrecuencia} días (${fStr})</span>
+                          </div>
+                          <span class="item-price">$${(Math.round(cMonto * 100) / 100).toFixed(2)} USD</span>
+                        </div>
+                      `;
+                    }).join('')}
                   </div>
                 </div>
               ` : ''}
@@ -4293,10 +4507,10 @@ async function buyDlg(id){
           }
 
           if (payPlan === 'cuotas' && ordId) {
-            await sb.from('installments').insert([
-              { order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: 2, monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', referencia: combinedRef },
-              { order_id: ordId, customer_id: S.user.id, numero_cuota: 2, total_cuotas: 2, monto_usd: cuotaDosUsd, fecha_vencimiento: d2Str, estado: 'pendiente' }
-            ]).catch(()=>{});
+            const { count } = await sb.from('installments').select('id', { count: 'exact', head: true }).eq('order_id', ordId);
+            if (!count) {
+              await sb.from('installments').insert(buildInstallmentsData(ordId, combinedRef)).catch(()=>{});
+            }
           }
 
           // Notificar evento
@@ -4403,11 +4617,10 @@ async function buyDlg(id){
           }
 
           if(payPlan === 'cuotas' && ordId){
-            // Registrar las 2 cuotas en installments si la BD no las generó
-            await sb.from('installments').insert([
-              { order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: 2, monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', referencia: 'Zeny inicial' },
-              { order_id: ordId, customer_id: S.user.id, numero_cuota: 2, total_cuotas: 2, monto_usd: cuotaDosUsd, fecha_vencimiento: d2Str, estado: 'pendiente' }
-            ]).catch(()=>{});
+            const { count } = await sb.from('installments').select('id', { count: 'exact', head: true }).eq('order_id', ordId);
+            if (!count) {
+              await sb.from('installments').insert(buildInstallmentsData(ordId, refText)).catch(()=>{});
+            }
           }
 
           checkoutDlg.close();
@@ -4444,10 +4657,10 @@ async function buyDlg(id){
           }
 
           if(payPlan === 'cuotas' && ordId){
-            await sb.from('installments').insert([
-              { order_id: ordId, customer_id: S.user.id, numero_cuota: 1, total_cuotas: 2, monto_usd: cuotaInicialUsd, fecha_vencimiento: d1Str, estado: 'en_revision', referencia: refCard },
-              { order_id: ordId, customer_id: S.user.id, numero_cuota: 2, total_cuotas: 2, monto_usd: cuotaDosUsd, fecha_vencimiento: d2Str, estado: 'pendiente' }
-            ]).catch(()=>{});
+            const { count } = await sb.from('installments').select('id', { count: 'exact', head: true }).eq('order_id', ordId);
+            if (!count) {
+              await sb.from('installments').insert(buildInstallmentsData(ordId, refCard)).catch(()=>{});
+            }
           }
 
           checkoutDlg.close();
@@ -4704,7 +4917,7 @@ async function buyDlg(id){
       } else if (isAutoMethod) {
         toast(`⚡ Pedido registrado. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} min. En cuanto el banco confirme tu transferencia, se liberará automáticamente.`);
       } else {
-        toast(payPlan === 'cuotas' ? `Pago de inicial enviado. Tu cuota 2 ($${cuotaDosUsd.toFixed(2)}) quedó registrada para el ${d2Str}.` : `Pedido enviado con éxito. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} minutos.`);
+        toast(payPlan === 'cuotas' ? 'Pago de inicial enviado. Tus cuotas quedaron agendadas con éxito en tu portal.' : `Pedido enviado con éxito. Reservamos tu servicio por ${S.settings.reserva?.minutos||60} minutos.`);
       }
       portal();
     };
@@ -8236,6 +8449,7 @@ const ADMIN_MENU_OPERACIONES = [
     items: [
       { id: 'orders', label: 'Pedidos de Clientes', icon: '🛒', badgeKey: 'orders' },
       { id: 'cuotas', label: 'Cuotas BNPL (Cobranza)', icon: '💳' },
+      { id: 'bnpl_ops', label: 'Cuotas BNPL (Operaciones)', icon: '⚙️' },
       { id: 'transfers', label: 'Traslados & Reposición (Hogar)', icon: '🔀' },
       { id: 'vencimientos', label: 'Vencimientos', icon: '📅' },
       { id: 'incidents', label: 'Incidencias & Soporte', icon: '⚠️', badgeKey: 'incidents' }
@@ -8864,6 +9078,13 @@ window.invalidateAdminCache = invalidateAdminCache;
 async function admin(t, opts = {}){
   if(t === 'installments') t = 'cuotas';
   if(t === 'google_integrations') t = 'google';
+  if(t === 'gemini') {
+    if(window.openGeminiFloatingWidget) {
+      window.openGeminiFloatingWidget();
+      toast('✨ Asistente Gemini AI abierto en la esquina inferior derecha para trabajar en paralelo.');
+      return;
+    }
+  }
   if(!S.isAdmin){
     const ok = await ensureAdminSession();
     if(!ok) return toast('Acceso solo para el administrador');
@@ -11188,6 +11409,254 @@ $('#bInstall').onclick=()=>{ const apk=S.settings.app?.apk_url||'', ios=/iphone|
    +(/^https:\/\//.test(apk)?`<p><a href="${esc(apk)}" rel="noopener noreferrer">Descargar APK (Android)</a></p><p class="mut">Android pedirá permitir la instalación de este archivo.</p>`:'')
    +'<p class="mut">La app muestra siempre los datos en tiempo real de la tienda.</p>'; dlg.showModal();
   if($('#ip')) $('#ip').onclick=async()=>{_dip.prompt();await _dip.userChoice;dlg.close();}; };
+// ==========================================
+// ASISTENTE FLOTANTE GEMINI AI (PARALELO)
+// ==========================================
+window._geminiFloatingHistory = window._geminiFloatingHistory || [];
+
+function initGeminiFloatingWidget() {
+  if (!S.isAdmin) {
+    $('#geminiFloatingFab')?.remove();
+    $('#geminiFloatingWindow')?.remove();
+    return;
+  }
+
+  if ($('#geminiFloatingFab') && $('#geminiFloatingWindow')) {
+    $('#geminiFloatingFab').classList.remove('hide');
+    return;
+  }
+
+  // 1. Botón Flotante (FAB)
+  const fab = document.createElement('button');
+  fab.id = 'geminiFloatingFab';
+  fab.className = 'gemini-floating-fab';
+  fab.type = 'button';
+  fab.innerHTML = `<span>✨</span><span>Gemini AI</span>`;
+  fab.title = 'Abrir Asistente Comercial Gemini AI (en paralelo)';
+  fab.onclick = () => openGeminiFloatingWidget();
+  document.body.appendChild(fab);
+
+  // 2. Ventana de Chat Flotante
+  const win = document.createElement('div');
+  win.id = 'geminiFloatingWindow';
+  win.className = 'gemini-floating-window hide';
+  win.innerHTML = `
+    <div class="gemini-fw-header" id="geminiFwHeader">
+      <div class="gemini-fw-brand">
+        <span style="font-size:1.2rem">✨</span>
+        <div>
+          <div class="gemini-fw-title" id="geminiFwTitleText">Gemini AI Assistant</div>
+          <div class="gemini-fw-sub">Gemini 2.5 Flash · Asistente Comercial</div>
+        </div>
+      </div>
+      <div class="gemini-fw-actions">
+        <button class="gemini-fw-btn" id="geminiFwClear" title="Limpiar conversación" type="button">🗑️</button>
+        <button class="gemini-fw-btn" id="geminiFwMin" title="Minimizar / Expandir" type="button">_</button>
+        <button class="gemini-fw-btn" id="geminiFwClose" title="Cerrar ventana" type="button">✕</button>
+      </div>
+    </div>
+    <div class="gemini-fw-body" id="geminiFwBody"></div>
+    <div class="gemini-fw-footer" id="geminiFwFooter">
+      <div class="gemini-fw-input-wrap">
+        <textarea class="gemini-fw-textarea" id="geminiFwInput" rows="1" placeholder="Pregúntale algo a Gemini... (Enter para enviar)"></textarea>
+        <button class="gemini-fw-send" id="geminiFwSend" type="button" title="Enviar mensaje">➤</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(win);
+
+  // Eventos de controles
+  $('#geminiFwClose').onclick = (e) => {
+    e.stopPropagation();
+    closeGeminiFloatingWidget();
+  };
+
+  $('#geminiFwMin').onclick = (e) => {
+    e.stopPropagation();
+    toggleMinimizeGeminiFloatingWidget();
+  };
+
+  $('#geminiFwHeader').onclick = (e) => {
+    if (e.target.closest('.gemini-fw-actions')) return;
+    if ($('#geminiFloatingWindow')?.classList.contains('minimized')) {
+      toggleMinimizeGeminiFloatingWidget(false);
+    }
+  };
+
+  $('#geminiFwClear').onclick = (e) => {
+    e.stopPropagation();
+    window._geminiFloatingHistory = [];
+    renderGeminiFloatingMessages();
+  };
+
+  const inp = $('#geminiFwInput');
+  const snd = $('#geminiFwSend');
+
+  const handleSend = async () => {
+    const text = (inp?.value || '').trim();
+    if (!text) return;
+    inp.value = '';
+    inp.style.height = 'auto';
+
+    window._geminiFloatingHistory.push({ role: 'user', text });
+    renderGeminiFloatingMessages();
+
+    if (snd) snd.disabled = true;
+
+    // Loading indicator
+    const b = $('#geminiFwBody');
+    const loadDiv = document.createElement('div');
+    loadDiv.className = 'ai-msg model ai-typing';
+    loadDiv.innerHTML = `
+      <div class="ai-msg-avatar">✨</div>
+      <div class="ai-msg-bubble">
+        <div class="ai-msg-text" style="color:#00d4ff;font-size:.82rem">✨ Gemini está redactando respuesta…</div>
+      </div>
+    `;
+    b.appendChild(loadDiv);
+    loadDiv.scrollIntoView({ behavior: 'smooth' });
+
+    try {
+      const contents = window._geminiFloatingHistory.map(h => ({
+        role: h.role === 'user' ? 'user' : 'model',
+        parts: [{ text: h.text }]
+      }));
+      const r = await api('/api/gemini', { contents });
+      loadDiv.remove();
+      window._geminiFloatingHistory.push({ role: 'model', text: r.text || 'Sin respuesta.' });
+      renderGeminiFloatingMessages();
+    } catch(err) {
+      loadDiv.remove();
+      window._geminiFloatingHistory.push({ role: 'model', text: '⚠️ Error al conectar con Gemini: ' + (err.message || err) });
+      renderGeminiFloatingMessages();
+    } finally {
+      if (snd) snd.disabled = false;
+      inp?.focus();
+    }
+  };
+
+  if (snd) snd.onclick = handleSend;
+  if (inp) {
+    inp.onkeydown = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    };
+    inp.oninput = () => {
+      inp.style.height = 'auto';
+      inp.style.height = Math.min(100, inp.scrollHeight) + 'px';
+    };
+  }
+
+  renderGeminiFloatingMessages();
+}
+
+function renderGeminiFloatingMessages() {
+  const b = $('#geminiFwBody');
+  if (!b) return;
+  const history = window._geminiFloatingHistory || [];
+
+  if (history.length === 0) {
+    b.innerHTML = `
+      <div style="text-align:center;padding:15px 5px">
+        <div style="font-size:2rem;margin-bottom:6px">✨</div>
+        <h4 style="margin:0 0 4px;font-size:1.05rem;background:linear-gradient(135deg,#00f5a0,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">¿En qué te ayudo, Gregory?</h4>
+        <p class="mut" style="font-size:.78rem;margin:0 0 14px;line-height:1.4">
+          Asistente activo mientras navegas por pedidos, inventario, cuotas o clientes.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:8px;text-align:left">
+          <button class="ai-prompt-chip" data-p="Redacta un mensaje de WhatsApp para promocionar combos de Netflix y Disney+ este fin de semana." type="button" style="padding:8px 10px">
+            <span class="ai-chip-title" style="font-size:.78rem">📢 Promo Fin de Semana</span>
+            <span class="ai-chip-sub" style="font-size:.68rem">Combos con emojis y llamado a la acción</span>
+          </button>
+          <button class="ai-prompt-chip" data-p="Escribe un recordatorio cordial para un cliente con cuota de financiamiento vencida." type="button" style="padding:8px 10px">
+            <span class="ai-chip-title" style="font-size:.78rem">💬 Cobro Cuota Vencida</span>
+            <span class="ai-chip-sub" style="font-size:.68rem">Recordatorio amigable para evitar mora</span>
+          </button>
+          <button class="ai-prompt-chip" data-p="Redacta una respuesta de soporte reponiendo un nuevo PIN de Netflix por bloqueo de grupo hogar." type="button" style="padding:8px 10px">
+            <span class="ai-chip-title" style="font-size:.78rem">🛡️ Reposición de Pantalla</span>
+            <span class="ai-chip-sub" style="font-size:.68rem">Solución rápida a grupo hogar</span>
+          </button>
+        </div>
+      </div>
+    `;
+    b.querySelectorAll('.ai-prompt-chip').forEach(chip => {
+      chip.onclick = () => {
+        const inp = $('#geminiFwInput');
+        if (inp) {
+          inp.value = chip.dataset.p;
+          $('#geminiFwSend')?.click();
+        }
+      };
+    });
+    return;
+  }
+
+  b.innerHTML = history.map((m, i) => `
+    <div class="ai-msg ${m.role}">
+      <div class="ai-msg-avatar" style="width:28px;height:28px;font-size:.9rem">${m.role === 'user' ? '👤' : '✨'}</div>
+      <div class="ai-msg-bubble" style="padding:8px 12px;border-radius:14px">
+        <div class="ai-msg-header" style="margin-bottom:3px">
+          <span class="ai-msg-author" style="font-size:.68rem">${m.role === 'user' ? 'Tú' : 'Gemini'}</span>
+          ${m.role === 'model' ? `<button class="ai-copy-btn" data-copy-fw="${i}" style="font-size:.66rem">📋 Copiar</button>` : ''}
+        </div>
+        <div class="ai-msg-text" style="font-size:.82rem;line-height:1.45">${esc(m.text).replace(/\n/g, '<br>')}</div>
+      </div>
+    </div>
+  `).join('') + `<div id="geminiFwScrollAnchor"></div>`;
+
+  b.querySelectorAll('[data-copy-fw]').forEach(btn => {
+    btn.onclick = () => {
+      const idx = Number(btn.dataset.copyFw);
+      const txt = history[idx]?.text || '';
+      navigator.clipboard.writeText(txt).then(() => toast('Texto copiado al portapapeles.'));
+    };
+  });
+
+  setTimeout(() => {
+    $('#geminiFwScrollAnchor')?.scrollIntoView({ behavior: 'smooth' });
+  }, 30);
+}
+
+function openGeminiFloatingWidget() {
+  initGeminiFloatingWidget();
+  const win = $('#geminiFloatingWindow');
+  const fab = $('#geminiFloatingFab');
+  if (win) {
+    win.classList.remove('hide');
+    win.classList.remove('minimized');
+    $('#geminiFwTitleText').textContent = 'Gemini AI Assistant';
+    $('#geminiFwMin').textContent = '_';
+    fab?.classList.add('hide');
+    setTimeout(() => {
+      $('#geminiFwInput')?.focus();
+      $('#geminiFwScrollAnchor')?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+  }
+}
+
+function closeGeminiFloatingWidget() {
+  const win = $('#geminiFloatingWindow');
+  const fab = $('#geminiFloatingFab');
+  if (win) win.classList.add('hide');
+  if (fab && S.isAdmin) fab.classList.remove('hide');
+}
+
+function toggleMinimizeGeminiFloatingWidget(forceMin) {
+  const win = $('#geminiFloatingWindow');
+  if (!win) return;
+  const isMin = typeof forceMin === 'boolean' ? forceMin : !win.classList.contains('minimized');
+  win.classList.toggle('minimized', isMin);
+  $('#geminiFwMin').textContent = isMin ? '▢' : '_';
+  $('#geminiFwTitleText').textContent = isMin ? '✨ Gemini AI (Minimizado)' : 'Gemini AI Assistant';
+}
+
+window.initGeminiFloatingWidget = initGeminiFloatingWidget;
+window.openGeminiFloatingWidget = openGeminiFloatingWidget;
+window.closeGeminiFloatingWidget = closeGeminiFloatingWidget;
+window.toggleMinimizeGeminiFloatingWidget = toggleMinimizeGeminiFloatingWidget;
+
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 init();
 if(location.hash === '#franquicia' || location.hash === '#solicitud-franquicia' || location.pathname.includes('solicitud-franquicia')){

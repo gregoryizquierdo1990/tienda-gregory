@@ -3967,16 +3967,16 @@ Cobrar antes de ${fVenceCred}`;
   async cuotas(box) {
     let instList = null, error = null;
     let res = await sb.from('installments')
-      .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion,es_revendedor), reseller:customers!reseller_id(nombre,email,telefono), orders(referencia, products(nombre))')
+      .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion,es_revendedor), reseller:customers!reseller_id(nombre,email,telefono), orders(referencia, product_id, products(id, nombre, bnpl_config))')
       .order('fecha_vencimiento', { ascending: true });
     if (res.error) {
       res = await sb.from('installments')
-        .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion,es_revendedor), orders(referencia, products(nombre))')
+        .select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion,es_revendedor), orders(referencia, product_id, products(id, nombre, bnpl_config))')
         .order('fecha_vencimiento', { ascending: true });
     }
     if (res.error) {
       res = await sb.from('installments')
-        .select('*, orders(referencia, products(nombre))')
+        .select('*, orders(referencia, product_id, products(id, nombre, bnpl_config))')
         .order('fecha_vencimiento', { ascending: true });
     }
     instList = res.data;
@@ -4117,24 +4117,57 @@ create policy installments_admin_all on installments for all to authenticated us
             <th>Acciones</th>
           </tr>
           ${filtered.map(c => {
+            const dueDt = new Date(c.fecha_vencimiento);
+            const diffDays = Math.max(0, Math.floor((new Date(todayStr).getTime() - dueDt.getTime()) / 86400000));
+            const pBnpl = c.orders?.products?.bnpl_config;
+            const graceDays = Number(pBnpl?.mora_dias_gracia ?? 3);
             const isVencida = c.estado !== 'pagada' && c.fecha_vencimiento < todayStr;
-            const statusClass = isVencida ? 'vencida' : c.estado;
-            const statusLabel = isVencida ? 'Vencida' : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente'));
+            const hasMora = isVencida && (diffDays > graceDays);
+
+            let moraUsd = 0;
+            if (hasMora) {
+              if (pBnpl?.mora_tipo === 'fijo') {
+                moraUsd = Number(pBnpl.mora_valor || 1.00);
+              } else {
+                const pctMora = Number(pBnpl?.mora_valor || 5);
+                moraUsd = Math.round((Number(c.monto_usd) * (pctMora / 100)) * 100) / 100;
+              }
+            }
+            const totalConMoraUsd = Math.round((Number(c.monto_usd) + moraUsd) * 100) / 100;
+
+            const statusClass = hasMora ? 'vencida' : (isVencida ? 'vencida' : c.estado);
+            const statusLabel = hasMora ? `Vencida (${diffDays}d) +Mora` : (isVencida ? `Vencida (${diffDays}d)` : (c.estado === 'en_revision' ? 'En revisión' : (c.estado === 'pagada' ? 'Pagada' : 'Pendiente')));
             const tel = c.customers?.telefono || '';
             const nom = c.customers?.nombre || c.customers?.email || 'Cliente';
             const cod = c.customers?.codigo_identificacion || (c.customers?.es_revendedor ? 'RVD:1001' : 'CLT:001');
             const prod = c.orders?.products?.nombre || c.orders?.referencia || c.referencia || 'Servicio Digital';
-            const rawMsg = formatMessageTemplate('cobro_cuota', {
-              cliente: nom,
-              producto: prod,
-              servicio: prod,
-              cuota: c.numero_cuota,
-              total_cuotas: c.total_cuotas,
-              monto_usd: Number(c.monto_usd).toFixed(2),
-              monto_bs: (Number(c.monto_usd) * (S.rate || 0)).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
-              tasa_bcv: (S.rate || 0).toLocaleString('es-VE'),
-              fecha_vencimiento: c.fecha_vencimiento
-            });
+
+            const rawMsg = hasMora
+              ? formatMessageTemplate('cobro_cuota_vencida_mora', {
+                  cliente: nom,
+                  producto: prod,
+                  servicio: prod,
+                  cuota: c.numero_cuota,
+                  total_cuotas: c.total_cuotas,
+                  monto_base_usd: Number(c.monto_usd).toFixed(2),
+                  mora_usd: moraUsd.toFixed(2),
+                  monto_total_usd: totalConMoraUsd.toFixed(2),
+                  monto_bs: (totalConMoraUsd * (S.rate || 0)).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                  tasa_bcv: (S.rate || 0).toLocaleString('es-VE'),
+                  fecha_vencimiento: c.fecha_vencimiento,
+                  dias_vencida: diffDays
+                })
+              : formatMessageTemplate('cobro_cuota', {
+                  cliente: nom,
+                  producto: prod,
+                  servicio: prod,
+                  cuota: c.numero_cuota,
+                  total_cuotas: c.total_cuotas,
+                  monto_usd: Number(c.monto_usd).toFixed(2),
+                  monto_bs: (Number(c.monto_usd) * (S.rate || 0)).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                  tasa_bcv: (S.rate || 0).toLocaleString('es-VE'),
+                  fecha_vencimiento: c.fecha_vencimiento
+                });
 
             return `
               <tr>
@@ -4154,7 +4187,10 @@ create policy installments_admin_all on installments for all to authenticated us
                 <td>${esc(prod)}</td>
                 <td>
                   <b style="color:var(--c);font-size:.92rem">$${Number(c.monto_usd).toFixed(2)}</b>
-                  <div class="mut" style="font-size:.7rem">Bs. ${(Number(c.monto_usd) * (S.rate || 0)).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                  ${hasMora ? `
+                    <div style="margin-top:2px"><span class="pill" style="background:rgba(239,68,68,.18);color:#f87171;border:1px solid rgba(239,68,68,.35);font-size:.68rem;font-weight:700">⚠️ Mora: +$${moraUsd.toFixed(2)} (Total: $${totalConMoraUsd.toFixed(2)})</span></div>
+                  ` : ''}
+                  <div class="mut" style="font-size:.7rem">Bs. ${(Number(hasMora ? totalConMoraUsd : c.monto_usd) * (S.rate || 0)).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
                 </td>
                 <td>
                   <span style="color:${isVencida ? '#ff4d6d' : 'inherit'};font-weight:${isVencida ? '700' : 'normal'}">${esc(c.fecha_vencimiento)}</span>
@@ -4173,7 +4209,7 @@ create policy installments_admin_all on installments for all to authenticated us
                   ` : ''}
                   <button class="g" data-edit-inst="${c.id}" style="padding:5px 8px;font-size:.74rem" title="Editar cuota (monto, fecha o referencia)">✏️</button>
                   ${c.estado !== 'pagada' ? `
-                    <button class="g" data-wa-inst="${c.id}" data-tel="${esc(tel)}" data-nom="${esc(nom)}" data-prod="${esc(prod)}" data-c="${c.numero_cuota}" data-tc="${c.total_cuotas}" data-m="${Number(c.monto_usd).toFixed(2)}" data-f="${esc(c.fecha_vencimiento)}" style="padding:5px 8px;font-size:.74rem;color:#00f5a0;border-color:rgba(0,245,160,.35);font-weight:700" title="Enviar recordatorio de cobro por WhatsApp">
+                    <button class="g" data-wa-inst="${c.id}" data-tel="${esc(tel)}" data-nom="${esc(nom)}" data-prod="${esc(prod)}" data-raw-msg="${esc(rawMsg)}" style="padding:5px 8px;font-size:.74rem;color:#00f5a0;border-color:rgba(0,245,160,.35);font-weight:700" title="Enviar recordatorio de cobro por WhatsApp">
                       💬
                     </button>
                   ` : ''}
@@ -4352,29 +4388,33 @@ create policy installments_admin_all on installments for all to authenticated us
       btn.onclick = () => {
         let tel = btn.dataset.tel || '';
         const nom = btn.dataset.nom || 'Cliente';
-        const prod = btn.dataset.prod || 'Servicio Digital';
-        const cNum = btn.dataset.c || '1';
-        const cTot = btn.dataset.tc || '2';
-        const mUsd = btn.dataset.m || '0.00';
-        const fVence = btn.dataset.f || '';
-        const mBs = (Number(mUsd) * (S.rate || 0)).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        const tasaBcv = (S.rate || 0).toLocaleString('es-VE');
+        let rawMsg = btn.dataset.rawMsg;
 
         if(!tel){
           tel = prompt(`Ingresa el número de WhatsApp para enviar el cobro a ${nom} (ej: 04121234567 o +58...):`, '') || '';
         }
 
-        const rawMsg = formatMessageTemplate('cobro_cuota', {
-          cliente: nom,
-          producto: prod,
-          servicio: prod,
-          cuota: cNum,
-          total_cuotas: cTot,
-          monto_usd: mUsd,
-          monto_bs: mBs,
-          tasa_bcv: tasaBcv,
-          fecha_vencimiento: fVence
-        });
+        if(!rawMsg){
+          const prod = btn.dataset.prod || 'Servicio Digital';
+          const cNum = btn.dataset.c || '1';
+          const cTot = btn.dataset.tc || '2';
+          const mUsd = btn.dataset.m || '0.00';
+          const fVence = btn.dataset.f || '';
+          const mBs = (Number(mUsd) * (S.rate || 0)).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+          const tasaBcv = (S.rate || 0).toLocaleString('es-VE');
+
+          rawMsg = formatMessageTemplate('cobro_cuota', {
+            cliente: nom,
+            producto: prod,
+            servicio: prod,
+            cuota: cNum,
+            total_cuotas: cTot,
+            monto_usd: mUsd,
+            monto_bs: mBs,
+            tasa_bcv: tasaBcv,
+            fecha_vencimiento: fVence
+          });
+        }
 
         openWhatsApp(tel, rawMsg);
         toast(`Recordatorio de cobro copiado y abriendo WhatsApp para ${nom}...`);
@@ -4532,6 +4572,522 @@ create policy installments_admin_all on installments for all to authenticated us
         };
       };
     }
+  },
+
+  async bnpl_ops(box) {
+    box.innerHTML = '<div style="padding:30px;text-align:center"><div class="sk" style="height:120px;max-width:500px;margin:auto"></div><p class="mut" style="margin-top:12px">Cargando Operaciones BNPL...</p></div>';
+
+    const { data: products, error: pErr } = await sb.from('products').select('*').order('categoria', { ascending: true }).order('nombre', { ascending: true });
+    if (pErr) {
+      box.innerHTML = `<div class="card"><p class="mut">Error al cargar productos: ${esc(pErr.message)}</p></div>`;
+      return;
+    }
+
+    const prodList = products || [];
+    const totalCount = prodList.length;
+    const bnplCount = prodList.filter(p => p.permite_cuotas).length;
+    const contadoCount = totalCount - bnplCount;
+
+    // Estado local seleccionado
+    let selectedProdId = box._selectedBnplProdId || (prodList.find(p => p.permite_cuotas)?.id || prodList[0]?.id || '');
+    let selectedProduct = prodList.find(p => p.id === selectedProdId) || prodList[0] || null;
+
+    // Config temporal del producto seleccionado
+    let cfg = Object.assign({
+      habilitado: selectedProduct?.permite_cuotas ?? false,
+      inicial_tipo: 'porcentaje',
+      inicial_valor: 50,
+      numero_cuotas: 2,
+      frecuencia_dias: 15,
+      mora_tipo: 'porcentaje',
+      mora_valor: 5,
+      mora_dias_gracia: 3
+    }, selectedProduct?.bnpl_config || {});
+
+    // Función para renderizar todo el panel
+    const render = () => {
+      // Cálculo de simulación en vivo
+      const precioBase = Number(selectedProduct?.precio_usd || 10.00);
+      let simInicial = 0;
+      if (cfg.inicial_tipo === 'fijo') {
+        simInicial = Math.min(precioBase, Number(cfg.inicial_valor || 0));
+      } else {
+        const pct = Math.min(90, Math.max(10, Number(cfg.inicial_valor || 50)));
+        simInicial = Math.round((precioBase * (pct / 100)) * 100) / 100;
+      }
+      const simRestante = Math.round((precioBase - simInicial) * 100) / 100;
+      const simNCuotas = Math.max(2, Number(cfg.numero_cuotas || 2));
+      const simCuotaResto = Math.round((simRestante / (simNCuotas - 1)) * 100) / 100;
+      const simDias = Math.max(1, Number(cfg.frecuencia_dias || 15));
+
+      let simMora = 0;
+      if (cfg.mora_tipo === 'fijo') {
+        simMora = Number(cfg.mora_valor || 1.00);
+      } else {
+        simMora = Math.round((simCuotaResto * (Number(cfg.mora_valor || 5) / 100)) * 100) / 100;
+      }
+
+      box.innerHTML = `
+        <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,rgba(10,31,61,.95),rgba(4,14,30,.98));border:1px solid rgba(0,212,255,.3)">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:1.5rem">⚙️</span>
+                <h3 style="margin:0;font-size:1.2rem;color:#fff">Cuotas BNPL (Operaciones & Reglas por Producto)</h3>
+              </div>
+              <p class="mut" style="margin:4px 0 0;font-size:.82rem">
+                Configura individualmente qué membresías admiten cuotas, porcentaje/monto de inicial, frecuencia y recargo por mora.
+              </p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="g" id="btnGoCobranza" type="button" style="padding:6px 12px;font-size:.78rem">
+                💳 Ver Centro de Cobranza
+              </button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px">
+            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:10px 14px;border-radius:12px">
+              <span class="mut" style="font-size:.72rem;display:block">Total Productos</span>
+              <b style="font-size:1.2rem;color:#fff">${totalCount}</b>
+            </div>
+            <div style="background:rgba(0,245,160,.06);border:1px solid rgba(0,245,160,.2);padding:10px 14px;border-radius:12px">
+              <span class="mut" style="font-size:.72rem;display:block">En Cuotas (BNPL)</span>
+              <b style="font-size:1.2rem;color:#00f5a0">${bnplCount}</b>
+            </div>
+            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:10px 14px;border-radius:12px">
+              <span class="mut" style="font-size:.72rem;display:block">Solo Contado</span>
+              <b style="font-size:1.2rem;color:var(--mut)">${contadoCount}</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- FORMULARIO DE CONFIGURACIÓN DEL PRODUCTO SELECCIONADO -->
+        <div class="card" style="margin-bottom:20px;border:1.5px solid rgba(0,212,255,.25);background:rgba(7,19,38,.9)">
+          <div style="margin-bottom:14px">
+            <label style="font-weight:700;font-size:.85rem;display:block;margin-bottom:6px">
+              🔍 1. Selecciona el Producto o Membresía para configurar sus reglas:
+            </label>
+            <select id="selBnplProduct" style="width:100%;font-size:.9rem;padding:8px 12px;font-weight:600;background:rgba(12,28,52,.9);border-color:var(--c)">
+              ${prodList.map(p => `
+                <option value="${p.id}" ${p.id === selectedProdId ? 'selected' : ''}>
+                  ${p.permite_cuotas ? '✅ [BNPL ACTIVO]' : '⚪ [CONTADO]'} ${esc(p.nombre)} — $${Number(p.precio_usd).toFixed(2)} USD (${esc(p.categoria || 'General')})
+                </option>
+              `).join('')}
+            </select>
+          </div>
+
+          ${selectedProduct ? `
+            <div style="background:linear-gradient(135deg,rgba(12,32,60,.9),rgba(6,18,36,.9));border:1px solid rgba(0,212,255,.2);border-radius:14px;padding:14px;margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <div>
+                  <span class="pill" style="font-size:.7rem;margin-bottom:4px">${esc(selectedProduct.categoria || 'Servicio')}</span>
+                  <h4 style="margin:0;font-size:1.1rem;color:#fff">${esc(selectedProduct.nombre)}</h4>
+                  <span class="mut" style="font-size:.8rem">Precio oficial de venta: <b style="color:var(--c)">$${Number(selectedProduct.precio_usd).toFixed(2)} USD</b></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <label style="font-size:.84rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+                    <input type="checkbox" id="chkBnplHabilitado" ${cfg.habilitado ? 'checked' : ''} style="width:18px;height:18px">
+                    <span>Habilitar Plan de Cuotas (BNPL)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div id="bnplConfigFields" style="${cfg.habilitado ? '' : 'opacity:.45;pointer-events:none;filter:grayscale(60%);'}transition:all .2s">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:16px">
+                <!-- CUOTA INICIAL -->
+                <div style="background:rgba(255,255,255,.03);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.08)">
+                  <label style="font-size:.82rem;font-weight:700;display:block;margin-bottom:6px">💵 Cuota Inicial (Pago al comprar):</label>
+                  <div style="display:flex;gap:8px;margin-bottom:8px">
+                    <label style="font-size:.76rem;display:flex;align-items:center;gap:4px;cursor:pointer">
+                      <input type="radio" name="r_inicial_tipo" value="porcentaje" ${cfg.inicial_tipo === 'porcentaje' ? 'checked' : ''}> Porcentaje (%)
+                    </label>
+                    <label style="font-size:.76rem;display:flex;align-items:center;gap:4px;cursor:pointer">
+                      <input type="radio" name="r_inicial_tipo" value="fijo" ${cfg.inicial_tipo === 'fijo' ? 'checked' : ''}> Monto Fijo ($ USD)
+                    </label>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <input id="inpInicialValor" type="number" step="${cfg.inicial_tipo === 'fijo' ? '0.50' : '5'}" min="1" max="${cfg.inicial_tipo === 'fijo' ? precioBase : 90}" value="${cfg.inicial_valor}" style="font-weight:800;font-size:1rem;color:var(--c)">
+                    <span style="font-size:.9rem;font-weight:700">${cfg.inicial_tipo === 'fijo' ? 'USD' : '%'}</span>
+                  </div>
+                  <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+                    ${cfg.inicial_tipo === 'porcentaje' ? `
+                      <button type="button" class="g btn-preset-inicial" data-val="25" style="padding:2px 6px;font-size:.68rem">25%</button>
+                      <button type="button" class="g btn-preset-inicial" data-val="30" style="padding:2px 6px;font-size:.68rem">30%</button>
+                      <button type="button" class="g btn-preset-inicial" data-val="50" style="padding:2px 6px;font-size:.68rem">50%</button>
+                      <button type="button" class="g btn-preset-inicial" data-val="60" style="padding:2px 6px;font-size:.68rem">60%</button>
+                    ` : `
+                      <button type="button" class="g btn-preset-inicial" data-val="2" style="padding:2px 6px;font-size:.68rem">$2</button>
+                      <button type="button" class="g btn-preset-inicial" data-val="3" style="padding:2px 6px;font-size:.68rem">$3</button>
+                      <button type="button" class="g btn-preset-inicial" data-val="5" style="padding:2px 6px;font-size:.68rem">$5</button>
+                      <button type="button" class="g btn-preset-inicial" data-val="10" style="padding:2px 6px;font-size:.68rem">$10</button>
+                    `}
+                  </div>
+                </div>
+
+                <!-- NÚMERO DE CUOTAS -->
+                <div style="background:rgba(255,255,255,.03);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.08)">
+                  <label style="font-size:.82rem;font-weight:700;display:block;margin-bottom:6px">🔢 Total de Cuotas (Inicial + Restantes):</label>
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <input id="inpNumCuotas" type="number" min="2" max="12" step="1" value="${cfg.numero_cuotas}" style="font-weight:800;font-size:1rem;color:var(--c)">
+                    <span style="font-size:.85rem;color:var(--mut)">cuotas totales</span>
+                  </div>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap">
+                    <button type="button" class="g btn-preset-ncuotas" data-val="2" style="padding:3px 7px;font-size:.7rem">2 cuotas</button>
+                    <button type="button" class="g btn-preset-ncuotas" data-val="3" style="padding:3px 7px;font-size:.7rem">3 cuotas</button>
+                    <button type="button" class="g btn-preset-ncuotas" data-val="4" style="padding:3px 7px;font-size:.7rem">4 cuotas</button>
+                    <button type="button" class="g btn-preset-ncuotas" data-val="6" style="padding:3px 7px;font-size:.7rem">6 cuotas</button>
+                  </div>
+                </div>
+
+                <!-- FRECUENCIA -->
+                <div style="background:rgba(255,255,255,.03);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.08)">
+                  <label style="font-size:.82rem;font-weight:700;display:block;margin-bottom:6px">📅 Frecuencia entre Cuotas (Días):</label>
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <input id="inpFrecuenciaDias" type="number" min="1" max="60" step="1" value="${cfg.frecuencia_dias}" style="font-weight:800;font-size:1rem;color:var(--c)">
+                    <span style="font-size:.85rem;color:var(--mut)">días entre cada cuota</span>
+                  </div>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap">
+                    <button type="button" class="g btn-preset-frec" data-val="5" style="padding:3px 7px;font-size:.7rem">Cada 5 días</button>
+                    <button type="button" class="g btn-preset-frec" data-val="7" style="padding:3px 7px;font-size:.7rem">Semanal (7d)</button>
+                    <button type="button" class="g btn-preset-frec" data-val="15" style="padding:3px 7px;font-size:.7rem">Quincenal (15d)</button>
+                    <button type="button" class="g btn-preset-frec" data-val="30" style="padding:3px 7px;font-size:.7rem">Mensual (30d)</button>
+                  </div>
+                </div>
+
+                <!-- RECARGO POR MORA -->
+                <div style="background:rgba(239,68,68,.05);padding:12px;border-radius:12px;border:1px solid rgba(239,68,68,.25)">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <label style="font-size:.82rem;font-weight:700;color:#f87171">⚠️ Recargo por Mora (Atraso):</label>
+                    <span class="mut" style="font-size:.7rem">Gracia: ${cfg.mora_dias_gracia || 3} días</span>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-bottom:8px">
+                    <label style="font-size:.76rem;display:flex;align-items:center;gap:4px;cursor:pointer">
+                      <input type="radio" name="r_mora_tipo" value="porcentaje" ${cfg.mora_tipo === 'porcentaje' ? 'checked' : ''}> % Porcentaje
+                    </label>
+                    <label style="font-size:.76rem;display:flex;align-items:center;gap:4px;cursor:pointer">
+                      <input type="radio" name="r_mora_tipo" value="fijo" ${cfg.mora_tipo === 'fijo' ? 'checked' : ''}> $ Monto Fijo USD
+                    </label>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <input id="inpMoraValor" type="number" step="${cfg.mora_tipo === 'fijo' ? '0.25' : '1'}" min="0.1" value="${cfg.mora_valor}" style="font-weight:800;font-size:1rem;color:#f87171">
+                    <span style="font-size:.9rem;font-weight:700">${cfg.mora_tipo === 'fijo' ? 'USD' : '%'}</span>
+                  </div>
+                  <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+                    ${cfg.mora_tipo === 'porcentaje' ? `
+                      <button type="button" class="g btn-preset-mora" data-val="5" style="padding:2px 6px;font-size:.68rem">5%</button>
+                      <button type="button" class="g btn-preset-mora" data-val="10" style="padding:2px 6px;font-size:.68rem">10%</button>
+                      <button type="button" class="g btn-preset-mora" data-val="15" style="padding:2px 6px;font-size:.68rem">15%</button>
+                    ` : `
+                      <button type="button" class="g btn-preset-mora" data-val="0.50" style="padding:2px 6px;font-size:.68rem">$0.50</button>
+                      <button type="button" class="g btn-preset-mora" data-val="1.00" style="padding:2px 6px;font-size:.68rem">$1.00</button>
+                      <button type="button" class="g btn-preset-mora" data-val="2.00" style="padding:2px 6px;font-size:.68rem">$2.00</button>
+                    `}
+                  </div>
+                </div>
+              </div>
+
+              <!-- SIMULADOR EN VIVO -->
+              <div style="background:rgba(0,212,255,.04);border:1px dashed rgba(0,212,255,.3);border-radius:14px;padding:14px;margin-bottom:16px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <span style="font-weight:800;font-size:.85rem;color:var(--c)">✨ Simulador en Vivo para ${esc(selectedProduct.nombre)}:</span>
+                  <span style="font-size:.74rem;color:var(--mut)">Total original: $${precioBase.toFixed(2)} USD</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:.82rem">
+                  <div style="background:rgba(255,255,255,.03);padding:8px 10px;border-radius:8px">
+                    <span class="mut" style="display:block;font-size:.7rem">Cuota 1 (Inicial Hoy):</span>
+                    <b style="color:#00f5a0;font-size:1.05rem">$${simInicial.toFixed(2)} USD</b>
+                    <div class="mut" style="font-size:.68rem">Bs. ${(simInicial * (S.rate || 0)).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                  </div>
+                  <div style="background:rgba(255,255,255,.03);padding:8px 10px;border-radius:8px">
+                    <span class="mut" style="display:block;font-size:.7rem">Restante a Financiar:</span>
+                    <b style="font-size:1.05rem;color:#fff">$${simRestante.toFixed(2)} USD</b>
+                    <span class="mut" style="font-size:.7rem;display:block">en ${simNCuotas - 1} cuota(s) de <b>$${simCuotaResto.toFixed(2)} USD</b></span>
+                  </div>
+                  <div style="background:rgba(255,255,255,.03);padding:8px 10px;border-radius:8px">
+                    <span class="mut" style="display:block;font-size:.7rem">Frecuencia de Cobro:</span>
+                    <b style="font-size:1.05rem;color:var(--c)">Cada ${simDias} días</b>
+                    <span class="mut" style="font-size:.7rem;display:block">Plazo total: ${(simNCuotas - 1) * simDias} días</span>
+                  </div>
+                  <div style="background:rgba(239,68,68,.06);padding:8px 10px;border-radius:8px;border:1px solid rgba(239,68,68,.2)">
+                    <span class="mut" style="display:block;font-size:.7rem;color:#f87171">Mora (> 3 días retraso):</span>
+                    <b style="color:#f87171;font-size:1.05rem">+$${simMora.toFixed(2)} USD</b>
+                    <span class="mut" style="font-size:.7rem;display:block">Total cuota con mora: <b>$${(simCuotaResto + simMora).toFixed(2)} USD</b></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+              <button id="btnSaveBnplConfig" style="padding:10px 24px;font-weight:800;font-size:.9rem">
+                💾 Guardar Configuración de este Producto
+              </button>
+            </div>
+          ` : '<p class="mut">No hay productos registrados en el catálogo.</p>'}
+        </div>
+
+        <!-- TABLA RESUMEN DE TODOS LOS PRODUCTOS -->
+        <div class="card" style="background:rgba(4,12,26,.9);border:1px solid var(--line)">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+            <h4 style="margin:0;font-size:1.05rem">📋 Matriz de BNPL por Producto</h4>
+            <div style="flex:1;max-width:320px">
+              <input id="inpSearchBnplTable" placeholder="🔍 Filtrar por nombre o categoría..." style="width:100%;font-size:.8rem;padding:6px 10px">
+            </div>
+          </div>
+
+          <div class="wrap">
+            <table style="width:100%;font-size:.82rem" id="tableBnplProducts">
+              <tr>
+                <th>Producto / Categoría</th>
+                <th>Precio USD</th>
+                <th>BNPL Estado</th>
+                <th>Cuota Inicial</th>
+                <th>Cuotas</th>
+                <th>Frecuencia</th>
+                <th>Recargo Mora</th>
+                <th>Acción</th>
+              </tr>
+              ${prodList.map(p => {
+                const pB = p.bnpl_config;
+                const isAct = p.permite_cuotas;
+                const iniText = pB ? (pB.inicial_tipo === 'fijo' ? `$${Number(pB.inicial_valor||0).toFixed(2)}` : `${pB.inicial_valor||50}%`) : (isAct ? '50%' : '—');
+                const cuotText = pB ? `${pB.numero_cuotas||2} cuotas` : (isAct ? '2 cuotas' : '—');
+                const frecText = pB ? `c/${pB.frecuencia_dias||15}d` : (isAct ? 'c/15d' : '—');
+                const moraText = pB ? (pB.mora_tipo === 'fijo' ? `+$${Number(pB.mora_valor||1).toFixed(2)}` : `+${pB.mora_valor||5}%`) : (isAct ? '+5%' : '—');
+
+                return `
+                  <tr class="bnpl-prod-row" data-name="${esc(p.nombre).toLowerCase()}" data-cat="${esc(p.categoria || '').toLowerCase()}">
+                    <td>
+                      <b>${esc(p.nombre)}</b>
+                      <span class="mut" style="display:block;font-size:.7rem">${esc(p.categoria || 'Sin categoría')}</span>
+                    </td>
+                    <td>
+                      <b style="color:var(--c)">$${Number(p.precio_usd).toFixed(2)}</b>
+                    </td>
+                    <td>
+                      <span class="pill ${isAct ? '' : 'off'}" style="font-size:.72rem">
+                        ${isAct ? '✅ Habilitado' : '⚪ Solo Contado'}
+                      </span>
+                    </td>
+                    <td>${iniText}</td>
+                    <td>${cuotText}</td>
+                    <td>${frecText}</td>
+                    <td><span style="color:#f87171">${moraText}</span></td>
+                    <td class="row" style="gap:4px">
+                      <button class="g btn-select-prod-cfg" data-id="${p.id}" style="padding:4px 8px;font-size:.72rem" title="Cargar y editar configuración">
+                        ⚙️ Configurar
+                      </button>
+                      <button class="g btn-quick-toggle-bnpl" data-id="${p.id}" data-current="${isAct ? '1' : '0'}" style="padding:4px 8px;font-size:.72rem;color:${isAct ? '#f87171' : '#00f5a0'}" title="${isAct ? 'Desactivar cuotas' : 'Activar cuotas'}">
+                        ${isAct ? 'Apagar' : 'Activar'}
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </table>
+          </div>
+        </div>
+      `;
+
+      // Eventos
+      $('#btnGoCobranza')?.addEventListener('click', () => admin('cuotas'));
+
+      $('#selBnplProduct')?.addEventListener('change', e => {
+        selectedProdId = e.target.value;
+        box._selectedBnplProdId = selectedProdId;
+        selectedProduct = prodList.find(p => p.id === selectedProdId);
+        cfg = Object.assign({
+          habilitado: selectedProduct?.permite_cuotas ?? false,
+          inicial_tipo: 'porcentaje',
+          inicial_valor: 50,
+          numero_cuotas: 2,
+          frecuencia_dias: 15,
+          mora_tipo: 'porcentaje',
+          mora_valor: 5,
+          mora_dias_gracia: 3
+        }, selectedProduct?.bnpl_config || {});
+        render();
+      });
+
+      $('#chkBnplHabilitado')?.addEventListener('change', e => {
+        cfg.habilitado = e.target.checked;
+        const f = $('#bnplConfigFields');
+        if (f) {
+          f.style.opacity = cfg.habilitado ? '1' : '.45';
+          f.style.pointerEvents = cfg.habilitado ? 'auto' : 'none';
+          f.style.filter = cfg.habilitado ? 'none' : 'grayscale(60%)';
+        }
+      });
+
+      box.querySelectorAll('input[name="r_inicial_tipo"]').forEach(r => {
+        r.addEventListener('change', e => {
+          cfg.inicial_tipo = e.target.value;
+          if (cfg.inicial_tipo === 'fijo') {
+            cfg.inicial_valor = Math.round(Number(selectedProduct?.precio_usd || 10) * 0.5 * 100) / 100;
+          } else {
+            cfg.inicial_valor = 50;
+          }
+          render();
+        });
+      });
+
+      $('#inpInicialValor')?.addEventListener('input', e => {
+        cfg.inicial_valor = Number(e.target.value);
+        render();
+      });
+
+      box.querySelectorAll('.btn-preset-inicial').forEach(btn => {
+        btn.addEventListener('click', () => {
+          cfg.inicial_valor = Number(btn.dataset.val);
+          render();
+        });
+      });
+
+      $('#inpNumCuotas')?.addEventListener('input', e => {
+        cfg.numero_cuotas = Math.max(2, parseInt(e.target.value, 10) || 2);
+        render();
+      });
+
+      box.querySelectorAll('.btn-preset-ncuotas').forEach(btn => {
+        btn.addEventListener('click', () => {
+          cfg.numero_cuotas = Number(btn.dataset.val);
+          render();
+        });
+      });
+
+      $('#inpFrecuenciaDias')?.addEventListener('input', e => {
+        cfg.frecuencia_dias = Math.max(1, parseInt(e.target.value, 10) || 15);
+        render();
+      });
+
+      box.querySelectorAll('.btn-preset-frec').forEach(btn => {
+        btn.addEventListener('click', () => {
+          cfg.frecuencia_dias = Number(btn.dataset.val);
+          render();
+        });
+      });
+
+      box.querySelectorAll('input[name="r_mora_tipo"]').forEach(r => {
+        r.addEventListener('change', e => {
+          cfg.mora_tipo = e.target.value;
+          cfg.mora_valor = cfg.mora_tipo === 'fijo' ? 1.00 : 5;
+          render();
+        });
+      });
+
+      $('#inpMoraValor')?.addEventListener('input', e => {
+        cfg.mora_valor = Number(e.target.value);
+        render();
+      });
+
+      box.querySelectorAll('.btn-preset-mora').forEach(btn => {
+        btn.addEventListener('click', () => {
+          cfg.mora_valor = Number(btn.dataset.val);
+          render();
+        });
+      });
+
+      // Guardar Configuración
+      $('#btnSaveBnplConfig')?.addEventListener('click', () => run($('#btnSaveBnplConfig'), async () => {
+        if (!selectedProduct) return;
+        const updatePayload = {
+          permite_cuotas: !!cfg.habilitado,
+          bnpl_config: {
+            habilitado: !!cfg.habilitado,
+            inicial_tipo: cfg.inicial_tipo || 'porcentaje',
+            inicial_valor: Number(cfg.inicial_valor || 50),
+            numero_cuotas: Math.max(2, Number(cfg.numero_cuotas || 2)),
+            frecuencia_dias: Math.max(1, Number(cfg.frecuencia_dias || 15)),
+            mora_tipo: cfg.mora_tipo || 'porcentaje',
+            mora_valor: Number(cfg.mora_valor || 5),
+            mora_dias_gracia: Number(cfg.mora_dias_gracia || 3)
+          }
+        };
+
+        const { error } = await sb.from('products').update(updatePayload).eq('id', selectedProduct.id);
+        if (error) throw error;
+
+        selectedProduct.permite_cuotas = updatePayload.permite_cuotas;
+        selectedProduct.bnpl_config = updatePayload.bnpl_config;
+
+        invalidateAdminCache('products');
+        await loadPublic();
+        render();
+        return `✅ Configuración de cuotas guardada para ${selectedProduct.nombre}`;
+      }));
+
+      // Seleccionar producto desde la tabla
+      box.querySelectorAll('.btn-select-prod-cfg').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedProdId = btn.dataset.id;
+          box._selectedBnplProdId = selectedProdId;
+          selectedProduct = prodList.find(p => p.id === selectedProdId);
+          cfg = Object.assign({
+            habilitado: selectedProduct?.permite_cuotas ?? false,
+            inicial_tipo: 'porcentaje',
+            inicial_valor: 50,
+            numero_cuotas: 2,
+            frecuencia_dias: 15,
+            mora_tipo: 'porcentaje',
+            mora_valor: 5,
+            mora_dias_gracia: 3
+          }, selectedProduct?.bnpl_config || {});
+          render();
+          box.querySelector('#selBnplProduct')?.scrollIntoView({ behavior: 'smooth' });
+        });
+      });
+
+      // Quick toggle desde la tabla
+      box.querySelectorAll('.btn-quick-toggle-bnpl').forEach(btn => {
+        btn.addEventListener('click', () => run(btn, async () => {
+          const pid = btn.dataset.id;
+          const cur = btn.dataset.current === '1';
+          const targetP = prodList.find(p => p.id === pid);
+          if (!targetP) return;
+
+          const newActive = !cur;
+          const newBnpl = Object.assign({}, targetP.bnpl_config || {
+            inicial_tipo: 'porcentaje',
+            inicial_valor: 50,
+            numero_cuotas: 2,
+            frecuencia_dias: 15,
+            mora_tipo: 'porcentaje',
+            mora_valor: 5,
+            mora_dias_gracia: 3
+          }, { habilitado: newActive });
+
+          const { error } = await sb.from('products').update({ permite_cuotas: newActive, bnpl_config: newBnpl }).eq('id', pid);
+          if (error) throw error;
+
+          targetP.permite_cuotas = newActive;
+          targetP.bnpl_config = newBnpl;
+          if (selectedProduct && selectedProduct.id === pid) {
+            cfg.habilitado = newActive;
+          }
+
+          invalidateAdminCache('products');
+          await loadPublic();
+          render();
+          return `Plan de cuotas ${newActive ? 'activado' : 'desactivado'} para ${targetP.nombre}`;
+        }));
+      });
+
+      // Búsqueda en tabla
+      const inpSearch = $('#inpSearchBnplTable');
+      if (inpSearch) {
+        inpSearch.oninput = e => {
+          const q = (e.target.value || '').toLowerCase().trim();
+          box.querySelectorAll('.bnpl-prod-row').forEach(row => {
+            const n = row.dataset.name || '';
+            const c = row.dataset.cat || '';
+            row.style.display = (!q || n.includes(q) || c.includes(q)) ? '' : 'none';
+          });
+        };
+      }
+    };
+
+    render();
   },
 
   async franquicias(box) {
