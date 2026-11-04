@@ -68,6 +68,42 @@ dialog{background:linear-gradient(180deg,#0c1b33,#081224);color:var(--tx);border
 .banner-card-desc{margin:0;font-size:.92rem;font-weight:600;color:#cceeff;letter-spacing:.3px}
 .banner-card-cta{margin-top:4px;padding:9px 20px;border-radius:12px;background:var(--grad);color:#03121c;font-size:.84rem;font-weight:800;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,245,160,.3);transition:all .18s ease}
 .banner-card-cta:hover{transform:scale(1.03);filter:brightness(1.1);box-shadow:0 6px 20px rgba(0,245,160,.45)}
+
+/* Carrusel Interactivo de Banners & Promociones */
+.carousel-container{position:relative;margin:0 auto 22px;max-width:540px;width:100%;overflow:hidden;border-radius:24px;border:1.5px solid rgba(0,212,255,.35);box-shadow:0 16px 45px -10px rgba(0,0,0,.85),0 0 30px -5px rgba(0,212,255,.25);background:radial-gradient(ellipse at top,#0c2340 0%,#030914 85%)}
+.carousel-track{display:flex;transition:transform .45s cubic-bezier(.4,0,.2,1);width:100%}
+.carousel-slide{flex:0 0 100%;min-width:100%;box-sizing:border-box;position:relative}
+.carousel-arrow{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(3,8,18,.8);border:1px solid rgba(0,212,255,.35);color:#00d4ff;font-size:1.4rem;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:all .18s ease;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);line-height:1}
+.carousel-arrow:hover{background:rgba(0,212,255,.2);color:#fff;border-color:#00f5a0;transform:translateY(-50%) scale(1.1)}
+.carousel-arrow.prev{left:10px}
+.carousel-arrow.next{right:10px}
+.carousel-dots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:5;padding:4px 8px;border-radius:99px;background:rgba(3,8,18,.6);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.1)}
+.carousel-dot{width:8px;height:8px;border-radius:99px;background:rgba(255,255,255,.35);border:none;cursor:pointer;padding:0;transition:all .25s ease}
+.carousel-dot.active{width:22px;background:#00f5a0;box-shadow:0 0 8px #00f5a0}
+
+/* Barra Superior de Avisos & Promos */
+.top-announcement-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 18px;background:linear-gradient(90deg,#0369a1,#0891b2);color:#fff;font-size:.82rem;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.2);margin-bottom:14px;border-radius:14px}
+.announcement-pill{padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.2);font-weight:800;font-size:.72rem;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+.announcement-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.announcement-btn{padding:4px 12px;border-radius:8px;background:#fff;color:#0369a1;font-weight:800;font-size:.76rem;text-decoration:none;white-space:nowrap;transition:transform .15s ease}
+.announcement-btn:hover{transform:scale(1.04)}
+
+/* Modal Popup Promocional & Avisos Emergentes */
+.promo-popup-dialog{border:0;background:transparent;padding:0;overflow:visible;max-width:480px;width:92%;box-shadow:none}
+.promo-popup-dialog::backdrop{background:rgba(3,8,18,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.promo-popup-card{position:relative;background:linear-gradient(180deg,#0d203a 0%,#050c18 100%);border:1.5px solid rgba(0,212,255,.4);border-radius:24px;padding:24px 20px 20px;box-shadow:0 20px 60px -10px rgba(0,0,0,.9),0 0 40px -10px rgba(0,212,255,.35);overflow:hidden;color:#fff}
+.promo-popup-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:1rem;display:grid;place-items:center;cursor:pointer;transition:all .18s ease;z-index:10}
+.promo-popup-close:hover{background:rgba(239,68,68,.3);border-color:#ef4444;transform:scale(1.08)}
+.promo-popup-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;font-size:.74rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-bottom:12px;background:linear-gradient(135deg,rgba(0,245,160,.2),rgba(0,212,255,.2));color:#00f5a0;border:1px solid rgba(0,245,160,.4)}
+.promo-popup-media{width:100%;max-height:240px;object-fit:cover;border-radius:16px;margin:8px 0 14px;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.promo-popup-title{margin:0 0 8px;font-size:1.35rem;font-weight:800;color:#fff;line-height:1.25}
+.promo-popup-desc{font-size:.9rem;color:#cbd5e1;line-height:1.45;margin:0 0 18px;white-space:pre-line}
+.promo-popup-actions{display:flex;flex-direction:column;gap:8px}
+.promo-popup-btn-main{padding:12px 20px;border-radius:12px;background:var(--grad);color:#03121c;font-weight:800;font-size:.92rem;border:none;cursor:pointer;box-shadow:0 6px 20px rgba(0,245,160,.4);transition:all .18s ease;text-align:center;text-decoration:none;display:block}
+.promo-popup-btn-main:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(0,245,160,.6)}
+.promo-popup-dismiss{background:transparent;border:none;color:var(--mut);font-size:.78rem;cursor:pointer;padding:6px;text-decoration:underline}
+.promo-popup-dismiss:hover{color:#fff}
+
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:22px}
 .pc{position:relative;display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:linear-gradient(180deg,#0f2442 0%,#08152a 100%);border:1.5px solid rgba(0,212,255,.26);box-shadow:0 12px 32px -8px rgba(0,0,0,.75),inset 0 1px 0 rgba(255,255,255,.1);transition:transform .22s cubic-bezier(.4,0,.2,1),border-color .22s ease,box-shadow .22s ease}
 .pc:hover{transform:translateY(-3px);border-color:#00d4ff;box-shadow:0 18px 42px -10px rgba(0,212,255,.35),0 0 24px -6px rgba(0,245,160,.25)}
@@ -789,6 +825,7 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
 <dialog id="franchiseDlg" class="checkout-modal"></dialog>
 <dialog id="mesaCambioDlg" class="checkout-modal"></dialog>
 <dialog id="flyerDlg" class="flyer-designer-modal"></dialog>
+<dialog id="promoPopupDlg" class="promo-popup-dialog"></dialog>
 
 <script src="/config.js"></script>
 <script>
@@ -847,7 +884,7 @@ async function ensureAdminExtraLoaded() {
 window.ensureAdminExtraLoaded = ensureAdminExtraLoaded;
 </script>
 <script>
-const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg'), invoiceDlg = $('#invoiceDlg'), franchiseDlg = $('#franchiseDlg'), mesaCambioDlg = $('#mesaCambioDlg'), flyerDlg = $('#flyerDlg');
+const $ = s => document.querySelector(s), app = $('#app'), dlg = $('#dlg'), facetDlg = $('#facetDlg'), checkoutDlg = $('#checkoutDlg'), invoiceDlg = $('#invoiceDlg'), franchiseDlg = $('#franchiseDlg'), mesaCambioDlg = $('#mesaCambioDlg'), flyerDlg = $('#flyerDlg'), promoPopupDlg = $('#promoPopupDlg');
 const S = {user:null, me:null, isAdmin:false, rate:0, products:[], settings:{}, cur:'USD', banners:[], stock:{}, franchise:null};
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = usd => S.cur==='USD' ? '$'+Number(usd).toFixed(2) : 'Bs. '+(usd*S.rate).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -3083,49 +3120,282 @@ function renderTabs(){
   $('#tabs').innerHTML=baseTabs.map(([v,t])=>`<button class="${(S.tipo||'')===v?'':'g'}" data-t="${v}">${t}</button>`).join('');
   $('#tabs').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.tipo=b.dataset.t;renderTabs();renderGrid();});
 }
+function bannerIsActive(b){
+  if(b.activo === false) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  if(b.inicio && b.inicio > today) return false;
+  if(b.fin && b.fin < today) return false;
+  return true;
+}
+
+function bannerMatchesAudience(b){
+  const dest = b.destinatario || 'todos';
+  if(dest === 'todos') return true;
+  const isReseller = S.me?.es_revendedor === true;
+  if(dest === 'revendedores') return isReseller;
+  if(dest === 'clientes') return !isReseller;
+  return true;
+}
+
+let _carouselTimer = null;
+function initBannerCarousel(banners){
+  if(_carouselTimer){ clearTimeout(_carouselTimer); _carouselTimer = null; }
+  const track = $('#carouselTrack');
+  const container = $('#mainBannerCarousel');
+  if(!track || !container || !banners || banners.length <= 1) return;
+
+  let currentIndex = 0;
+  const slidesCount = banners.length;
+
+  const updateSlide = (idx) => {
+    if(idx < 0) idx = slidesCount - 1;
+    if(idx >= slidesCount) idx = 0;
+    currentIndex = idx;
+    track.style.transform = `translateX(-${currentIndex * 100}%)`;
+    container.querySelectorAll('.carousel-dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentIndex);
+    });
+  };
+
+  const getDuration = () => {
+    const b = banners[currentIndex];
+    const s = parseInt(b?.transicion_segundos) || 5;
+    return Math.max(2, s) * 1000;
+  };
+
+  const startTimer = () => {
+    if(_carouselTimer) clearTimeout(_carouselTimer);
+    _carouselTimer = setTimeout(() => {
+      updateSlide(currentIndex + 1);
+      startTimer();
+    }, getDuration());
+  };
+
+  const prevBtn = $('#carouselBtnPrev');
+  const nextBtn = $('#carouselBtnNext');
+
+  if(prevBtn) prevBtn.onclick = (e) => {
+    e.stopPropagation();
+    updateSlide(currentIndex - 1);
+    startTimer();
+  };
+
+  if(nextBtn) nextBtn.onclick = (e) => {
+    e.stopPropagation();
+    updateSlide(currentIndex + 1);
+    startTimer();
+  };
+
+  container.querySelectorAll('.carousel-dot').forEach(dot => {
+    dot.onclick = (e) => {
+      e.stopPropagation();
+      const targetIdx = parseInt(dot.dataset.slide) || 0;
+      updateSlide(targetIdx);
+      startTimer();
+    };
+  });
+
+  // Touch Swipe
+  let startX = 0;
+  container.addEventListener('touchstart', e => {
+    if(e.touches && e.touches[0]) startX = e.touches[0].clientX;
+    if(_carouselTimer) clearTimeout(_carouselTimer);
+  }, { passive: true });
+
+  container.addEventListener('touchend', e => {
+    if(e.changedTouches && e.changedTouches[0]){
+      const endX = e.changedTouches[0].clientX;
+      const diff = endX - startX;
+      if(Math.abs(diff) > 40){
+        if(diff > 0) updateSlide(currentIndex - 1);
+        else updateSlide(currentIndex + 1);
+      }
+    }
+    startTimer();
+  }, { passive: true });
+
+  container.addEventListener('mouseenter', () => {
+    if(_carouselTimer) clearTimeout(_carouselTimer);
+  });
+  container.addEventListener('mouseleave', () => {
+    startTimer();
+  });
+
+  startTimer();
+}
+
+function showPopupModal(b, onDismiss){
+  if(!promoPopupDlg) return;
+  const actionLink = (!b.enlace?.includes('storage/v1/object/public/') && /^https?:\/\//.test(b.enlace || '')) ? b.enlace : null;
+  const btnText = esc(b.boton_texto || 'Aprovechar Oferta');
+
+  promoPopupDlg.innerHTML = `
+    <div class="promo-popup-card" style="${b.color_fondo ? `background:${esc(b.color_fondo)};` : ''}">
+      <button type="button" class="promo-popup-close" id="btnClosePromoPopup" aria-label="Cerrar">✕</button>
+      <div style="text-align:center">
+        <div class="promo-popup-badge">✨ ${esc(b.titulo || 'Aviso Especial')}</div>
+        ${b.imagen_url ? `<img src="${esc(b.imagen_url)}" alt="${esc(b.titulo||'Aviso')}" class="promo-popup-media" loading="eager">` : ''}
+        <h3 class="promo-popup-title">${esc(b.titulo)}</h3>
+        ${b.texto ? `<div class="promo-popup-desc">${esc(b.texto)}</div>` : ''}
+        <div class="promo-popup-actions">
+          ${actionLink ? `
+            <a href="${esc(actionLink)}" target="_blank" rel="noopener noreferrer" class="promo-popup-btn-main" id="btnActionPromoPopup">
+              ${btnText} ➔
+            </a>
+          ` : `
+            <button type="button" class="promo-popup-btn-main" id="btnActionPromoPopup">
+              ${btnText} ➔
+            </button>
+          `}
+          <button type="button" class="promo-popup-dismiss" id="btnDismissPromoPopup">
+            No volver a mostrar hoy
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    promoPopupDlg.showModal();
+  } catch(e){
+    return;
+  }
+
+  const closeAndDismiss = (recordDismiss = true) => {
+    if(recordDismiss && typeof onDismiss === 'function') onDismiss();
+    promoPopupDlg.close();
+  };
+
+  const btnClose = $('#btnClosePromoPopup');
+  if(btnClose) btnClose.onclick = () => closeAndDismiss(true);
+
+  const btnDismiss = $('#btnDismissPromoPopup');
+  if(btnDismiss) btnDismiss.onclick = () => closeAndDismiss(true);
+
+  const btnAction = $('#btnActionPromoPopup');
+  if(btnAction){
+    btnAction.onclick = () => {
+      closeAndDismiss(true);
+      if(!actionLink){
+        if(b.enlace && b.enlace.startsWith('#')){
+          location.hash = b.enlace;
+        } else if(!S.user){
+          openFacetModal(true);
+        } else if(S.me?.es_revendedor){
+          portal();
+        }
+      }
+    };
+  }
+}
+
+function checkAndShowPopups(){
+  if(document.body.classList.contains('is-admin')) return;
+  if(!S.banners || !S.banners.length) return;
+  
+  const popups = S.banners.filter(b => b.tipo === 'popup' && bannerIsActive(b) && bannerMatchesAudience(b));
+  if(!popups.length) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  for(const b of popups){
+    const key = `gi_popup_seen_${b.id}`;
+    const freq = b.popup_frecuencia || 'una_vez_dia';
+    if(freq === 'una_vez_dia' && localStorage.getItem(key) === today) continue;
+    if(freq === 'una_vez_sesion' && sessionStorage.getItem(key)) continue;
+
+    setTimeout(() => {
+      showPopupModal(b, () => {
+        if(freq === 'una_vez_dia') localStorage.setItem(key, today);
+        else if(freq === 'una_vez_sesion') sessionStorage.setItem(key, '1');
+      });
+    }, 700);
+    break;
+  }
+}
+
 function home(){
   document.body.classList.remove('is-admin');
   S.view='home';
   const tel = (S.settings.negocio?.telefono||'').replace(/\D/g,'');
   const waMsg = encodeURIComponent('Hola! deseo contartarme con ustedes para solicitar informacion');
   const tgBot = (S.settings.bot?.username || S.settings.negocio?.telegram || '').replace(/^@/,'');
+
+  const allActiveBanners = (S.banners || []).filter(bannerIsActive);
+  const userAudienceBanners = allActiveBanners.filter(bannerMatchesAudience);
+
+  const topBars = userAudienceBanners.filter(b => b.tipo === 'barra_superior');
+  const carouselBanners = userAudienceBanners.filter(b => b.tipo === 'carrusel' || !b.tipo);
+
   app.innerHTML = `
-  ${S.banners.length ? `
-    <div class="banner-top-container">
-      ${S.banners.map(b => {
-        const isImg = !!b.imagen_url;
-        const isStorageUrl = (b.enlace || '').includes('storage/v1/object/public/');
-        const actionLink = (!isStorageUrl && /^https?:\/\//.test(b.enlace || '')) ? b.enlace : null;
-        if (isImg) {
-          return `
-            <div class="banner-card-showcase" ${actionLink ? `onclick="window.open('${esc(actionLink)}','_blank')"` : ''}>
-              <div class="banner-card-glow"></div>
-              <div class="banner-card-body">
-                <div class="banner-card-media-box">
-                  <img src="${esc(b.imagen_url)}" alt="${esc(b.titulo || 'Tarjeta Zeny')}" class="banner-card-media" loading="eager">
-                </div>
-                <div class="banner-card-caption">
-                  <span class="banner-card-pill">💳 ${esc(b.titulo || 'Tarjeta Exclusiva Zeny')}</span>
-                  ${b.texto ? `<p class="banner-card-desc">${esc(b.texto)}</p>` : ''}
-                  <button type="button" class="banner-card-cta" onclick="event.stopPropagation();${S.user ? 'portal()' : 'openFacetModal(true)'}">
-                    ${S.user ? '✨ Ver mi Tarjeta en el Portal' : '⚡ Obtén tu Tarjeta Zeny'} ➔
-                  </button>
+  ${topBars.map(b => {
+    const isStorageUrl = (b.enlace || '').includes('storage/v1/object/public/');
+    const actionLink = (!isStorageUrl && /^https?:\/\//.test(b.enlace || '')) ? b.enlace : null;
+    return `
+      <div class="top-announcement-bar" style="${b.color_fondo ? `background:${esc(b.color_fondo)};` : ''}">
+        <div style="display:flex;align-items:center;gap:8px;overflow:hidden">
+          <span class="announcement-pill">📢 ${esc(b.titulo)}</span>
+          <span class="announcement-text">${esc(b.texto || '')}</span>
+        </div>
+        ${actionLink ? `<a href="${esc(actionLink)}" target="_blank" rel="noopener noreferrer" class="announcement-btn">${esc(b.boton_texto || 'Ver')} ➔</a>` : ''}
+      </div>
+    `;
+  }).join('')}
+
+  ${carouselBanners.length ? `
+    <div class="carousel-container" id="mainBannerCarousel">
+      <div class="carousel-track" id="carouselTrack">
+        ${carouselBanners.map((b, idx) => {
+          const isImg = !!b.imagen_url;
+          const isStorageUrl = (b.enlace || '').includes('storage/v1/object/public/');
+          const actionLink = (!isStorageUrl && /^https?:\/\//.test(b.enlace || '')) ? b.enlace : null;
+          const btnText = esc(b.boton_texto || 'Ver Más');
+          const customBg = b.color_fondo ? `background:${esc(b.color_fondo)};` : '';
+
+          if (isImg) {
+            return `
+              <div class="carousel-slide" data-index="${idx}" style="${customBg}">
+                <div class="banner-card-showcase" ${actionLink ? `onclick="window.open('${esc(actionLink)}','_blank')"` : ''}>
+                  <div class="banner-card-glow"></div>
+                  <div class="banner-card-body">
+                    <div class="banner-card-media-box">
+                      <img src="${esc(b.imagen_url)}" alt="${esc(b.titulo || 'Promoción Especial')}" class="banner-card-media" loading="eager">
+                    </div>
+                    <div class="banner-card-caption">
+                      <span class="banner-card-pill">✨ ${esc(b.titulo || 'Promoción Especial')}</span>
+                      ${b.texto ? `<p class="banner-card-desc">${esc(b.texto)}</p>` : ''}
+                      <button type="button" class="banner-card-cta" onclick="event.stopPropagation();${actionLink ? `window.open('${esc(actionLink)}','_blank')` : (S.user ? 'portal()' : 'openFacetModal(true)')}">
+                        ${btnText} ➔
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          `;
-        } else {
-          return `
-            <div class="ban">
-              <div>
-                <h3>${esc(b.titulo)}</h3>
-                <p>${esc(b.texto)}</p>
-                ${actionLink ? `<a href="${esc(actionLink)}" target="_blank" rel="noopener noreferrer" style="margin-top:8px" class="g">Ver más</a>` : ''}
+            `;
+          } else {
+            return `
+              <div class="carousel-slide" data-index="${idx}" style="${customBg}">
+                <div class="banner-card-showcase" style="min-height:180px;display:flex;align-items:center;justify-content:center" ${actionLink ? `onclick="window.open('${esc(actionLink)}','_blank')"` : ''}>
+                  <div class="banner-card-glow"></div>
+                  <div class="banner-card-body" style="padding:26px 20px">
+                    <span class="banner-card-pill">📢 ${esc(b.titulo)}</span>
+                    <p class="banner-card-desc" style="font-size:1.02rem;margin:10px 0 14px;max-width:440px">${esc(b.texto || '')}</p>
+                    <button type="button" class="banner-card-cta" onclick="event.stopPropagation();${actionLink ? `window.open('${esc(actionLink)}','_blank')` : (S.user ? 'portal()' : 'openFacetModal(true)')}">
+                      ${btnText} ➔
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          `;
-        }
-      }).join('')}
+            `;
+          }
+        }).join('')}
+      </div>
+      ${carouselBanners.length > 1 ? `
+        <button class="carousel-arrow prev" id="carouselBtnPrev" aria-label="Anterior">‹</button>
+        <button class="carousel-arrow next" id="carouselBtnNext" aria-label="Siguiente">›</button>
+        <div class="carousel-dots" id="carouselDots">
+          ${carouselBanners.map((_, idx) => `<button class="carousel-dot ${idx === 0 ? 'active' : ''}" data-slide="${idx}" aria-label="Slide ${idx+1}"></button>`).join('')}
+        </div>
+      ` : ''}
     </div>
   ` : ''}
   <section class="hero">
@@ -3238,6 +3508,10 @@ function home(){
     };
   }
   renderTabs(); renderGrid();
+  if(carouselBanners.length > 0){
+    initBannerCarousel(carouselBanners);
+  }
+  checkAndShowPopups();
 }
 
 const DEFAULT_PAYMENT_METHODS = [
@@ -7886,7 +8160,7 @@ const TABLES = {
  installments:['order_id','customer_id','numero_cuota','total_cuotas','monto_usd','fecha_vencimiento','estado','referencia','pagada_at'],
  zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
  products:['nombre','descripcion','tipo','es_exclusivo_central','precio_usd','precio_binance_usd','precio_revendedor_usd','permite_cuotas','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
- banners:['titulo','texto','imagen_url','enlace','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
+ banners:['titulo','texto','tipo','destinatario','imagen_url','enlace','boton_texto','transicion_segundos','popup_frecuencia','color_fondo','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
  payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
  profiles_inventory:['mother_id','product_id','nombre_perfil','pin','cliente_final','vendedor','inicia','vence','estado'],
@@ -7896,13 +8170,29 @@ const TABLES = {
   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
 const SEL={products:'*,categories(nombre)',orders:'*,customers!customer_id(nombre,email,telefono),products(nombre,tipo)',installments:'*,customers!customer_id(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre),customers!assigned_customer_id(nombre,email,telefono)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
-const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido']};
+const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido'],'banners.tipo':['carrusel','popup','barra_superior'],'banners.destinatario':['todos','clientes','revendedores'],'banners.popup_frecuencia':['una_vez_dia','una_vez_sesion','siempre']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
 const NOADD=['transfers'];
-const acts=(t,r)=>t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button><button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar este perfil a un revendedor">🤝 Revendedor</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar o transferir este perfil y cliente a un revendedor">🤝 Revendedor</button><button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
+const acts=(t,r)=>t==='banners'?`<button class="g" data-preview-banner="${r.id}" style="color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700">👁️ Previsualizar</button>`:t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button><button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar este perfil a un revendedor">🤝 Revendedor</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar o transferir este perfil y cliente a un revendedor">🤝 Revendedor</button><button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='category_id') return esc(r.categories?.nombre || v || '—');
+  if(c==='tipo'&&r.tipo){
+    const tMap={carrusel:'🎡 Carrusel',popup:'⚡ Popup',barra_superior:'📢 Barra Sup.'};
+    return `<span class="pill" style="font-size:.72rem;background:rgba(0,212,255,.15);color:#38bdf8;border-color:rgba(0,212,255,.3)">${tMap[r.tipo]||r.tipo}</span>`;
+  }
+  if(c==='destinatario'&&r.destinatario){
+    const dMap={todos:'👥 Todos',clientes:'👤 Clientes',revendedores:'⭐ Revendedores'};
+    const dCol=r.destinatario==='revendedores'?'#fde047':(r.destinatario==='clientes'?'#38bdf8':'#00f5a0');
+    return `<span class="pill" style="font-size:.72rem;color:${dCol};border-color:${dCol}44">${dMap[r.destinatario]||r.destinatario}</span>`;
+  }
+  if(c==='popup_frecuencia'&&r.popup_frecuencia){
+    const fMap={una_vez_dia:'📅 1x Día',una_vez_sesion:'⚡ 1x Sesión',siempre:'🔄 Siempre'};
+    return `<span class="pill" style="font-size:.7rem">${fMap[r.popup_frecuencia]||r.popup_frecuencia}</span>`;
+  }
+  if(c==='transicion_segundos'&&r.transicion_segundos!=null){
+    return `<span style="font-size:.78rem;color:#facc15">⏱️ ${r.transicion_segundos}s</span>`;
+  }
   if(c==='product_id'){
     const nom = esc(r.products?.nombre||'');
     const isC = (r.products?.nombre||'').toLowerCase().includes('combo');
@@ -7945,6 +8235,8 @@ const ADMIN_MENU_OPERACIONES = [
     group: 'Operaciones & Despacho',
     items: [
       { id: 'orders', label: 'Pedidos de Clientes', icon: '🛒', badgeKey: 'orders' },
+      { id: 'cuotas', label: 'Cuotas BNPL (Cobranza)', icon: '💳' },
+      { id: 'transfers', label: 'Traslados & Reposición (Hogar)', icon: '🔀' },
       { id: 'vencimientos', label: 'Vencimientos', icon: '📅' },
       { id: 'incidents', label: 'Incidencias & Soporte', icon: '⚠️', badgeKey: 'incidents' }
     ]
@@ -7956,7 +8248,7 @@ const ADMIN_MENU_OPERACIONES = [
       { id: 'profiles_inventory', label: 'Perfiles', icon: '👤' },
       { id: 'products', label: 'Productos', icon: '📦' },
       { id: 'categories', label: 'Categorías', icon: '🏷️' },
-      { id: 'banners', label: 'Banners', icon: '🎨' },
+      { id: 'banners', label: 'Banners & Popups', icon: '🎨' },
       { id: 'importar', label: 'Importar Excel', icon: '📥' }
     ]
   },
@@ -8011,14 +8303,12 @@ const ADMIN_MENU_FINANZAS = [
     items: [
       { id: 'purchases', label: 'Compras a Proveedores', icon: '🛍️' },
       { id: 'expenses', label: 'Gastos Operativos', icon: '📉' },
-      { id: 'refunds', label: 'Devoluciones & Reembolsos', icon: '🔄' },
-      { id: 'transfers', label: 'Traslados de Fondos', icon: '🔀' }
+      { id: 'refunds', label: 'Devoluciones & Reembolsos', icon: '🔄' }
     ]
   },
   {
-    group: 'Crédito, Cuotas & Activos',
+    group: 'Billetera, Cambio & Liquidaciones',
     items: [
-      { id: 'cuotas', label: 'Cobranza Cuotas (BNPL)', icon: '💳' },
       { id: 'zeny_ledger', label: 'Billetera Zeny & Recargas', icon: '💰', badgeKey: 'zeny_ledger' },
       { id: 'mesa_cambio', label: 'Mesa de Cambio USDT', icon: '💱' },
       { id: 'liquidaciones', label: 'Comisiones & Reparto Socios', icon: '💼' }
@@ -8134,7 +8424,7 @@ function setupAdminEvents(){
     if(S.adminViewMode === newMode) return;
     S.adminViewMode = newMode;
     localStorage.setItem('gi_admin_mode', newMode);
-    const finModules = ['finanzas','expenses','purchases','refunds','transfers','cuotas','zeny_ledger','mesa_cambio','liquidaciones','exchange_rates'];
+    const finModules = ['finanzas','expenses','purchases','refunds','zeny_ledger','mesa_cambio','liquidaciones','exchange_rates'];
     let targetTab = S.t;
     if(newMode === 'finanzas'){
       if(!finModules.includes(targetTab)) targetTab = 'finanzas';
@@ -8436,6 +8726,97 @@ async function openAdminDirectCreditModal(opts = {}) {
   };
 }
 window.openAdminDirectCreditModal = openAdminDirectCreditModal;
+
+function previewBannerModal(b){
+  const destBadge = {
+    todos: '<span class="pill" style="color:#00f5a0;border-color:rgba(0,245,160,.4)">👥 Todos</span>',
+    clientes: '<span class="pill" style="color:#38bdf8;border-color:rgba(56,189,248,.4)">👤 Clientes</span>',
+    revendedores: '<span class="pill" style="color:#fde047;border-color:rgba(253,224,71,.4)">⭐ Revendedores</span>'
+  }[b.destinatario || 'todos'];
+
+  const tipoBadge = {
+    carrusel: '🎡 Carrusel / Catálogo',
+    popup: '⚡ Mensaje Emergente (Popup)',
+    barra_superior: '📢 Barra Superior'
+  }[b.tipo || 'carrusel'];
+
+  const vigencia = `Desde: <b>${b.inicio || 'Inmediato'}</b> | Hasta: <b>${b.fin || 'Indefinido'}</b>`;
+  const isStorageUrl = (b.enlace || '').includes('storage/v1/object/public/');
+  const actionLink = (!isStorageUrl && /^https?:\/\//.test(b.enlace || '')) ? b.enlace : null;
+  const btnText = esc(b.boton_texto || 'Ver Más');
+
+  let previewHtml = '';
+  if(b.tipo === 'barra_superior'){
+    previewHtml = `
+      <div style="background:${b.color_fondo || 'linear-gradient(90deg,#0369a1,#0891b2)'};color:#fff;padding:12px 18px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0">
+        <div><span style="font-weight:800;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:99px;font-size:.72rem;margin-right:6px">📢 ${esc(b.titulo)}</span> ${esc(b.texto || '')}</div>
+        ${actionLink ? `<a href="${esc(actionLink)}" target="_blank" class="g" style="background:#fff;color:#0369a1;padding:4px 10px;font-size:.75rem;font-weight:800;text-decoration:none">${btnText} ➔</a>` : ''}
+      </div>
+    `;
+  } else if(b.tipo === 'popup'){
+    previewHtml = `
+      <div style="background:linear-gradient(180deg,#0d203a 0%,#050c18 100%);border:1.5px solid rgba(0,212,255,.4);border-radius:20px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.8);margin:12px 0;text-align:center">
+        <span class="pill" style="font-size:.72rem;background:rgba(0,245,160,.18);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:800">⚡ MENSAJE PROMO / AVISO</span>
+        ${b.imagen_url ? `<img src="${esc(b.imagen_url)}" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin:10px 0;border:1px solid rgba(255,255,255,.15)">` : ''}
+        <h3 style="margin:8px 0;font-size:1.25rem;color:#fff">${esc(b.titulo)}</h3>
+        <p style="font-size:.88rem;color:#cbd5e1;line-height:1.4;margin:0 0 14px;white-space:pre-line">${esc(b.texto || '')}</p>
+        <button type="button" class="cta" style="padding:10px 22px;border-radius:10px;font-weight:800;font-size:.85rem">${btnText} ➔</button>
+      </div>
+    `;
+  } else {
+    // carrusel
+    previewHtml = `
+      <div style="background:${b.color_fondo || 'radial-gradient(ellipse at top,#0c2340 0%,#030914 85%)'};border:1.5px solid rgba(0,212,255,.35);border-radius:20px;padding:18px;margin:12px 0;display:flex;flex-direction:column;align-items:center;text-align:center">
+        ${b.imagen_url ? `
+          <div style="width:100%;max-width:440px;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.8);margin-bottom:12px;border:1px solid rgba(255,255,255,.15);line-height:0">
+            <img src="${esc(b.imagen_url)}" style="width:100%;height:auto;aspect-ratio:4/3;object-fit:contain">
+          </div>
+        ` : ''}
+        <span class="pill" style="font-size:.74rem;background:rgba(0,245,160,.18);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:800;margin-bottom:6px">✨ ${esc(b.titulo)}</span>
+        ${b.texto ? `<p style="margin:0 0 10px;font-size:.88rem;color:#cceeff;font-weight:600">${esc(b.texto)}</p>` : ''}
+        <button type="button" class="cta" style="padding:8px 18px;font-size:.82rem;font-weight:800;border-radius:10px">${btnText} ➔</button>
+      </div>
+    `;
+  }
+
+  $('#dlgBody').innerHTML = `
+    <div style="padding:4px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div>
+          <h3 style="margin:0;color:#00f5a0;font-size:1.15rem">👁️ Previsualización del Anuncio</h3>
+          <div class="mut" style="font-size:.76rem;margin-top:2px">Así lo verán tus usuarios en la tienda pública</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="pill" style="background:rgba(0,212,255,.15);color:#38bdf8">${tipoBadge}</span>
+          ${destBadge}
+        </div>
+      </div>
+
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 12px;font-size:.76rem;color:var(--mut);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <div>📅 <b>Vigencia:</b> ${vigencia}</div>
+        <div>⏱️ <b>Transición:</b> ${b.transicion_segundos || 5}s | 🔄 <b>Frecuencia:</b> ${b.popup_frecuencia || 'una_vez_dia'}</div>
+      </div>
+
+      ${previewHtml}
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
+        <button type="button" class="g" id="btnAdminEditThisBanner" style="color:#00d4ff;border-color:rgba(0,212,255,.4)">✏️ Editar este Anuncio</button>
+        <button type="button" class="g" onclick="dlg.close()">Cerrar Vista Previa</button>
+      </div>
+    </div>
+  `;
+  dlg.showModal();
+
+  const bEdit = $('#btnAdminEditThisBanner');
+  if(bEdit){
+    bEdit.onclick = () => {
+      dlg.close();
+      const rec = (S._adminData || []).find(r => r.id === b.id) || b;
+      if(typeof form === 'function') form(rec);
+    };
+  }
+}
+window.previewBannerModal = previewBannerModal;
 
 // ==================== CACHÉ SWR DE ADMINISTRACIÓN (300 SEGUNDOS) ====================
 const ADMIN_CACHE_TTL = 300000; // 300 segundos = 5 minutos de retención
@@ -8749,7 +9130,13 @@ async function admin(t, opts = {}){
       vendedor_nombre: 'Vendedor',
       es_credito: 'Modalidad',
       estado_pago: 'Est. Pago',
-      fecha_limite_pago: 'Límite Pago'
+      fecha_limite_pago: 'Límite Pago',
+      tipo: 'Formato / Tipo',
+      destinatario: 'Dirigido A',
+      boton_texto: 'Botón CTA',
+      transicion_segundos: 'Transición (seg)',
+      popup_frecuencia: 'Frecuencia Popup',
+      color_fondo: 'Color Fondo'
     };
     return map[c] || c;
   };
@@ -9635,6 +10022,12 @@ async function admin(t, opts = {}){
   });
   app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
   app.querySelectorAll('[data-notify-mother]').forEach(b=>b.onclick=()=>notifyMotherClients(b.dataset.notifyMother));
+  app.querySelectorAll('[data-preview-banner]').forEach(b => {
+    b.onclick = () => {
+      const rec = (data || []).find(r => String(r.id) === b.dataset.previewBanner);
+      if(rec) previewBannerModal(rec);
+    };
+  });
   app.querySelectorAll('[data-admin-assign-reseller]').forEach(b => {
     b.onclick = () => openAdminAssignProfileResellerModal({
       profileId: b.dataset.adminAssignReseller,
@@ -10003,6 +10396,20 @@ async function admin(t, opts = {}){
         'products.category_id':'Categoría',
         'products.orden':'Orden de visualización',
         'products.activo':'¿Activo en catálogo?',
+        'banners.titulo':'Título del Banner / Anuncio',
+        'banners.texto':'Mensaje, Oferta o Descripción Detallada',
+        'banners.tipo':'Formato del Anuncio (Carrusel / Catálogo, Modal Emergente / Popup, Barra Superior)',
+        'banners.destinatario':'Público Objetivo (¿Quién verá este anuncio?)',
+        'banners.imagen_url':'Imagen / Flyer / Arte Promocional (URL o Archivo)',
+        'banners.enlace':'Enlace Web de Destino (Opcional, ej: enlace a WhatsApp o catálogo)',
+        'banners.boton_texto':'Texto del Botón de Acción (Ej: Ver Oferta, Reclamar)',
+        'banners.transicion_segundos':'Tiempo de Transición en Carrusel (Segundos)',
+        'banners.popup_frecuencia':'Frecuencia del Popup Emergente',
+        'banners.color_fondo':'Color de Fondo o Gradiente (Opcional, ej: #0f172a)',
+        'banners.orden':'Orden de Prioridad',
+        'banners.activo':'¿Publicado y Visible?',
+        'banners.inicio':'Fecha de Inicio (Vigencia Desde)',
+        'banners.fin':'Fecha de Finalización (Vigencia Hasta)',
         'expenses.categoria':'Categoría / Concepto del Gasto',
         'expenses.monto_usd':'Monto en Dólares ($ USD)',
         'expenses.monto_bs':'Monto en Bolívares (Bs)',
@@ -10020,6 +10427,10 @@ async function admin(t, opts = {}){
       return m[t+'.'+c]||c;
     };
     const inp=c=>{const v=row?row[c]:''; const ro=(READONLY[t]||[]).includes(c)&&row;
+      if(t==='banners'&&c==='transicion_segundos') return `<input data-c="${c}" type="number" min="2" max="60" value="${esc(v!=null?v:5)}" placeholder="5">`;
+      if(t==='banners'&&c==='boton_texto') return `<input data-c="${c}" value="${esc(v||'Ver Más')}" placeholder="Ver Más">`;
+      if(t==='banners'&&c==='color_fondo') return `<input data-c="${c}" value="${esc(v||'')}" placeholder="Ej: #0a192f o linear-gradient(135deg, #0369a1, #0891b2)">`;
+      if(t==='banners'&&(c==='inicio'||c==='fin')) return `<input data-c="${c}" type="date" value="${esc(v||'')}">`;
       if(t==='profiles_inventory'&&c==='cliente_final') return `<input data-c="${c}" value="${esc(v)}" placeholder="Ej: Pedro Pérez (0414-1234567)">`;
       if(t==='profiles_inventory'&&c==='vendedor'){
         const curVendedorId = row ? (row.vendedor_id || '') : '';
@@ -10293,6 +10704,13 @@ async function admin(t, opts = {}){
           if (o.precio_usd !== undefined) o.precio_usd = parseFloat(o.precio_usd) || 0;
           if (o.precio_binance_usd !== undefined) o.precio_binance_usd = parseFloat(o.precio_binance_usd) || 0;
           if (o.precio_revendedor_usd !== undefined) o.precio_revendedor_usd = parseFloat(o.precio_revendedor_usd) || 0;
+        } else if (t === 'banners') {
+          if (o.transicion_segundos !== undefined) o.transicion_segundos = parseInt(o.transicion_segundos) || 5;
+          if (o.orden !== undefined) o.orden = parseInt(o.orden) || 0;
+          if (!o.inicio || o.inicio === '') delete o.inicio;
+          if (!o.fin || o.fin === '') delete o.fin;
+          if (!o.enlace || o.enlace === '') delete o.enlace;
+          if (!o.color_fondo || o.color_fondo === '') delete o.color_fondo;
         }
 
         const queryPromise = (row ? sb.from(t).update(o).eq(pk, row[pk]) : sb.from(t).insert(o));
