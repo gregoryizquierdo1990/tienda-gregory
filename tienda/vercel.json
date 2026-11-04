@@ -9,6 +9,20 @@
       "schedule": "0 12 * * *"
     }
   ],
+  "rewrites": [
+    {
+      "source": "/api/webhook-banco",
+      "destination": "/api/conciliar-bdv"
+    },
+    {
+      "source": "/api/notify-test",
+      "destination": "/api/notify-setup?action=test"
+    },
+    {
+      "source": "/api/telegram-setup",
+      "destination": "/api/notify-setup?action=telegram"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
