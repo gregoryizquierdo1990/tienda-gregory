@@ -7940,26 +7940,13 @@ const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) r
   }
   if(c==='monto_usdt') return v!=null ? `<b style="color:#fde047">$${Number(v).toFixed(2)} USDT</b>` : '<span class="mut">—</span>';
   return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
-const ADMIN_MENU = [
+const ADMIN_MENU_OPERACIONES = [
   {
-    group: 'Operaciones Tienda Central',
+    group: 'Operaciones & Despacho',
     items: [
-      { id: 'finanzas', label: 'Finanzas Globales', icon: '📊' },
       { id: 'orders', label: 'Pedidos de Clientes', icon: '🛒', badgeKey: 'orders' },
-      { id: 'cuotas', label: 'Cobranza Cuotas', icon: '💳' },
-      { id: 'tarjetas', label: 'Tarjetas Zeny (TDC)', icon: '💳' },
       { id: 'vencimientos', label: 'Vencimientos', icon: '📅' },
-      { id: 'zeny_ledger', label: 'Billetera Zeny', icon: '💰', badgeKey: 'zeny_ledger' },
-      { id: 'incidents', label: 'Incidencias', icon: '⚠️', badgeKey: 'incidents' }
-    ]
-  },
-  {
-    group: 'Unidades de Negocio & Redes',
-    items: [
-      { id: 'liquidaciones', label: 'Liquidación de Socios', icon: '💼' },
-      { id: 'franquicias', label: 'Franquicias SaaS (Tiendas Web)', icon: '🏢' },
-      { id: 'recargas247', label: 'Puntos Recargas247', icon: '📱' },
-      { id: 'mesa_cambio', label: 'Mesa de Cambio USDT', icon: '💱' }
+      { id: 'incidents', label: 'Incidencias & Soporte', icon: '⚠️', badgeKey: 'incidents' }
     ]
   },
   {
@@ -7974,26 +7961,24 @@ const ADMIN_MENU = [
     ]
   },
   {
-    group: 'Contabilidad',
-    items: [
-      { id: 'expenses', label: 'Gastos', icon: '📉' },
-      { id: 'purchases', label: 'Compras', icon: '🛍️' },
-      { id: 'refunds', label: 'Devoluciones', icon: '🔄' },
-      { id: 'transfers', label: 'Traslados', icon: '🔀' },
-      { id: 'exchange_rates', label: 'Tasa BCV', icon: '💵' }
-    ]
-  },
-  {
-    group: 'Clientes & Red',
+    group: 'Clientes & Red de Ventas',
     items: [
       { id: 'customers', label: 'Clientes Finales', icon: '👥' },
       { id: 'resellers', label: 'Red de Revendedores', icon: '🤝' },
       { id: 'niveles', label: 'Niveles & Beneficios', icon: '🎖️' },
+      { id: 'tarjetas', label: 'Tarjetas Zeny (TDC)', icon: '💳' },
       { id: 'login_log', label: 'Log accesos', icon: '📋' }
     ]
   },
   {
-    group: 'Bots & IA',
+    group: 'Puntos & Franquicias',
+    items: [
+      { id: 'franquicias', label: 'Franquicias SaaS', icon: '🏢' },
+      { id: 'recargas247', label: 'Puntos Recargas247', icon: '📱' }
+    ]
+  },
+  {
+    group: 'Bots & Automatización',
     items: [
       { id: 'telegram', label: 'Bot Telegram', icon: '🤖' },
       { id: 'bot_commands', label: 'Respuestas Bot', icon: '⚡' },
@@ -8013,11 +7998,47 @@ const ADMIN_MENU = [
   }
 ];
 
+const ADMIN_MENU_FINANZAS = [
+  {
+    group: 'Centro Financiero',
+    items: [
+      { id: 'finanzas', label: 'Dashboard Consolidado', icon: '📊' },
+      { id: 'exchange_rates', label: 'Tasa BCV Oficial', icon: '💵' }
+    ]
+  },
+  {
+    group: 'Libro Contable & Flujo de Caja',
+    items: [
+      { id: 'purchases', label: 'Compras a Proveedores', icon: '🛍️' },
+      { id: 'expenses', label: 'Gastos Operativos', icon: '📉' },
+      { id: 'refunds', label: 'Devoluciones & Reembolsos', icon: '🔄' },
+      { id: 'transfers', label: 'Traslados de Fondos', icon: '🔀' }
+    ]
+  },
+  {
+    group: 'Crédito, Cuotas & Activos',
+    items: [
+      { id: 'cuotas', label: 'Cobranza Cuotas (BNPL)', icon: '💳' },
+      { id: 'zeny_ledger', label: 'Billetera Zeny & Recargas', icon: '💰', badgeKey: 'zeny_ledger' },
+      { id: 'mesa_cambio', label: 'Mesa de Cambio USDT', icon: '💱' },
+      { id: 'liquidaciones', label: 'Comisiones & Reparto Socios', icon: '💼' }
+    ]
+  }
+];
+
+const ALL_ADMIN_MENUS = [...ADMIN_MENU_OPERACIONES, ...ADMIN_MENU_FINANZAS];
+
+function getActiveAdminMenu(){
+  const mode = S.adminViewMode || localStorage.getItem('gi_admin_mode') || 'operaciones';
+  S.adminViewMode = mode;
+  return mode === 'finanzas' ? ADMIN_MENU_FINANZAS : ADMIN_MENU_OPERACIONES;
+}
+
 function getTabInfo(t){
   const ALIAS = { installments: 'cuotas', google_integrations: 'google' };
   const effectiveKey = ALIAS[t] || t;
-  for(const g of ADMIN_MENU){
-    const f=g.items.find(x=>x.id===effectiveKey);
+  for(const g of ALL_ADMIN_MENUS){
+    const f = g.items.find(x => x.id === effectiveKey);
     if(f) return f;
   }
   return { id: t, label: t, icon: '📄' };
@@ -8028,16 +8049,64 @@ function renderAdminSidebar(curTab, allTabs){
     installments: 'cuotas',
     google_integrations: 'google'
   };
-  const known = new Set(ADMIN_MENU.flatMap(g => g.items.map(i => i.id)));
-  const extra = allTabs.filter(k => !known.has(k) && !known.has(ALIAS_TO_MODULE[k]));
-  const groups = [...ADMIN_MENU];
+  const activeMenu = getActiveAdminMenu();
+  const curMode = S.adminViewMode || 'operaciones';
+  const known = new Set(activeMenu.flatMap(g => g.items.map(i => i.id)));
+  const extra = allTabs.filter(k => !known.has(k) && !known.has(ALIAS_TO_MODULE[k]) && !ALL_ADMIN_MENUS.some(g => g.items.some(i => i.id === k)));
+  const groups = [...activeMenu];
   if(extra.length) groups.push({ group: 'Otras tablas', items: extra.map(k => ({ id: k, label: k, icon: '📄' })) });
-  return `<div class="admin-backdrop" id="adminBackdrop"></div><aside class="admin-sidebar" id="adminSidebar"><div class="admin-sidebar-head"><div class="admin-sidebar-brand"><div class="admin-sb-icon"><img src="/logo-badge.png" alt="Logo"></div><div><div class="admin-sb-title">Panel Admin</div><div class="admin-sb-sub">Emprendimiento Gregory</div></div></div><button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button></div><div style="padding:8px 12px 4px"><input id="adminSidebarSearch" placeholder="🔍 Buscar módulo..." style="width:100%;font-size:.76rem;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#fff"></div><nav class="admin-nav-scroll">${groups.map(g=>`<div class="admin-sb-group">${esc(g.group)}</div>${g.items.map(it=>{
-    const act = it.id===curTab ? ' active' : '';
-    const bCount = (it.badgeKey && S.badges) ? (S.badges[it.badgeKey]||0) : 0;
-    const bCls = it.id==='incidents' ? 'admin-sb-badge warn' : 'admin-sb-badge';
-    return `<button class="admin-sb-btn${act}" data-k="${esc(it.id)}" type="button"><span class="admin-sb-btn-main"><span class="admin-sb-btn-icon">${it.icon}</span><span>${esc(it.label)}</span></span><span id="sbBadge-${esc(it.id)}" class="${bCls}${bCount?'':' hide'}">${bCount}</span></button>`;
-  }).join('')}`).join('')}</nav></aside>`;
+
+  return `<div class="admin-backdrop" id="adminBackdrop"></div><aside class="admin-sidebar" id="adminSidebar">
+    <div class="admin-sidebar-head">
+      <div class="admin-sidebar-brand">
+        <div class="admin-sb-icon"><img src="/logo-badge.png" alt="Logo"></div>
+        <div><div class="admin-sb-title">Panel Admin</div><div class="admin-sb-sub">Emprendimiento Gregory</div></div>
+      </div>
+      <button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button>
+    </div>
+
+    <!-- SELECTOR DE VISTA: OPERACIONES VS FINANZAS -->
+    <div style="padding:10px 12px 6px;display:grid;grid-template-columns:1fr 1fr;gap:6px;background:rgba(3,8,18,.6);border-bottom:1px solid rgba(22,51,90,.8)">
+      <button id="sbBtnModeOps" type="button" class="admin-mode-pill${curMode==='operaciones'?' active':''}" style="padding:6px 4px;font-size:.73rem;font-weight:700;border-radius:8px;border:1px solid ${curMode==='operaciones'?'rgba(0,245,160,.5)':'rgba(255,255,255,.1)'};background:${curMode==='operaciones'?'linear-gradient(135deg,rgba(0,245,160,.2),rgba(0,212,255,.25))':'transparent'};color:${curMode==='operaciones'?'#00f5a0':'var(--mut)'};cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px">
+        🛠️ Operaciones
+      </button>
+      <button id="sbBtnModeFin" type="button" class="admin-mode-pill${curMode==='finanzas'?' active':''}" style="padding:6px 4px;font-size:.73rem;font-weight:700;border-radius:8px;border:1px solid ${curMode==='finanzas'?'rgba(253,224,71,.5)':'rgba(255,255,255,.1)'};background:${curMode==='finanzas'?'linear-gradient(135deg,rgba(253,224,71,.2),rgba(245,158,11,.25))':'transparent'};color:${curMode==='finanzas'?'#fde047':'var(--mut)'};cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px">
+        📊 Finanzas
+      </button>
+    </div>
+
+    <div style="padding:8px 12px 4px">
+      <input id="adminSidebarSearch" placeholder="🔍 Buscar módulo..." style="width:100%;font-size:.76rem;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#fff">
+    </div>
+
+    <nav class="admin-nav-scroll">
+      ${groups.map(g => `
+        <div class="admin-sb-group">${esc(g.group)}</div>
+        ${g.items.map(it => {
+          const act = it.id === curTab ? ' active' : '';
+          const bCount = (it.badgeKey && S.badges) ? (S.badges[it.badgeKey] || 0) : 0;
+          const bCls = it.id === 'incidents' ? 'admin-sb-badge warn' : 'admin-sb-badge';
+          return `<button class="admin-sb-btn${act}" data-k="${esc(it.id)}" type="button"><span class="admin-sb-btn-main"><span class="admin-sb-btn-icon">${it.icon}</span><span>${esc(it.label)}</span></span><span id="sbBadge-${esc(it.id)}" class="${bCls}${bCount ? '' : ' hide'}">${bCount}</span></button>`;
+        }).join('')}
+      `).join('')}
+    </nav>
+  </aside>`;
+}
+
+function rebuildAdminSidebar(targetTab){
+  const tabs = [...Object.keys(TABLES), ...Object.keys(EXTRA)];
+  const sideHtml = renderAdminSidebar(targetTab, tabs);
+  const oldSidebar = $('#adminSidebar');
+  const oldBackdrop = $('#adminBackdrop');
+  if(oldSidebar && oldSidebar.parentNode){
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = sideHtml;
+    const newSidebar = tempDiv.querySelector('#adminSidebar');
+    const newBackdrop = tempDiv.querySelector('#adminBackdrop');
+    if(oldBackdrop && newBackdrop) oldBackdrop.replaceWith(newBackdrop);
+    if(newSidebar) oldSidebar.replaceWith(newSidebar);
+    setupAdminEvents();
+  }
 }
 
 function setupAdminEvents(){
@@ -8060,6 +8129,27 @@ function setupAdminEvents(){
       });
     };
   }
+
+  const switchAdminMode = async (newMode) => {
+    if(S.adminViewMode === newMode) return;
+    S.adminViewMode = newMode;
+    localStorage.setItem('gi_admin_mode', newMode);
+    const finModules = ['finanzas','expenses','purchases','refunds','transfers','cuotas','zeny_ledger','mesa_cambio','liquidaciones','exchange_rates'];
+    let targetTab = S.t;
+    if(newMode === 'finanzas'){
+      if(!finModules.includes(targetTab)) targetTab = 'finanzas';
+    } else {
+      if(finModules.includes(targetTab)) targetTab = 'orders';
+    }
+    rebuildAdminSidebar(targetTab);
+    await admin(targetTab);
+  };
+  window.switchAdminMode = switchAdminMode;
+
+  const sbOps = $('#sbBtnModeOps'), sbFin = $('#sbBtnModeFin');
+  if(sbOps) sbOps.onclick = () => switchAdminMode('operaciones');
+  if(sbFin) sbFin.onclick = () => switchAdminMode('finanzas');
+
   app.querySelectorAll('[data-k]').forEach(b=>b.onclick=async()=>{
     const sb=$('#adminSidebar'), bd=$('#adminBackdrop');
     if(sb) sb.classList.remove('open');
@@ -8417,7 +8507,10 @@ async function admin(t, opts = {}){
     }
   }
 
-  if(!t || (!TABLES[t] && !EXTRA[t])) t = 'finanzas';
+  if(!t || (!TABLES[t] && !EXTRA[t])) {
+    const curSavedMode = S.adminViewMode || localStorage.getItem('gi_admin_mode') || 'operaciones';
+    t = (curSavedMode === 'finanzas') ? 'finanzas' : 'orders';
+  }
   if(facetDlg && facetDlg.open) facetDlg.close();
   document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
   const tabs = [...Object.keys(TABLES), ...Object.keys(EXTRA)];
@@ -8449,6 +8542,20 @@ async function admin(t, opts = {}){
   const mainHead = $('#adminMainHead');
   const mainContent = $('#adminContent');
   if(!mainContent) return;
+
+  const curMode = S.adminViewMode || localStorage.getItem('gi_admin_mode') || 'operaciones';
+  const modeToggleHtml = `
+    <div class="admin-mode-switch" style="display:inline-flex;align-items:center;background:rgba(3,8,18,.8);padding:3px;border-radius:10px;border:1px solid rgba(255,255,255,.12);gap:3px;margin-left:8px">
+      <button id="headBtnOps" type="button" style="padding:4px 8px;font-size:.72rem;font-weight:700;border-radius:7px;border:none;background:${curMode==='operaciones'?'linear-gradient(135deg,rgba(0,245,160,.25),rgba(0,212,255,.25))':'transparent'};color:${curMode==='operaciones'?'#00f5a0':'var(--mut)'};cursor:pointer;display:inline-flex;align-items:center;gap:4px">🛠️ Operaciones</button>
+      <button id="headBtnFin" type="button" style="padding:4px 8px;font-size:.72rem;font-weight:700;border-radius:7px;border:none;background:${curMode==='finanzas'?'linear-gradient(135deg,rgba(253,224,71,.25),rgba(245,158,11,.25))':'transparent'};color:${curMode==='finanzas'?'#fde047':'var(--mut)'};cursor:pointer;display:inline-flex;align-items:center;gap:4px">📊 Finanzas</button>
+    </div>
+  `;
+
+  const wireHeadToggles = () => {
+    const hOps = $('#headBtnOps'), hFin = $('#headBtnFin');
+    if(hOps) hOps.onclick = () => window.switchAdminMode?.('operaciones');
+    if(hFin) hFin.onclick = () => window.switchAdminMode?.('finanzas');
+  };
 
   // 1. GESTOR DE PANELES PERSISTENTES (KEEP-ALIVE EN DOM PARA CAMBIO INSTANTÁNEO 0ms)
   let targetPane = mainContent.querySelector(`#admin-pane-${t}`);
@@ -8500,6 +8607,7 @@ async function admin(t, opts = {}){
         ${demoBannerHtml}
         <div class="admin-main-title">
           <h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2>
+          ${modeToggleHtml}
           ${targetPane.dataset.recordCount ? `<span class="mut" id="adminRecordCount">${esc(targetPane.dataset.recordCount)}</span>` : ''}
         </div>
         <div class="row">
@@ -8508,6 +8616,7 @@ async function admin(t, opts = {}){
           ${(TABLES[t] && !NOADD.includes(t)) ? '<button id="add">+ Agregar</button>' : ''}
         </div>
       `;
+      wireHeadToggles();
       const bRef = $('#btnAdminQuickRefresh');
       if(bRef) bRef.onclick = () => {
         invalidateAdminCache(t);
@@ -8530,12 +8639,14 @@ async function admin(t, opts = {}){
         ${demoBannerHtml}
         <div class="admin-main-title">
           <h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2>
+          ${modeToggleHtml}
         </div>
         <div class="row">
           ${refreshBtn}
           ${extraHeadBtn || ''}
         </div>
       `;
+      wireHeadToggles();
       const bRef = $('#btnAdminQuickRefresh');
       if(bRef) bRef.onclick = () => {
         invalidateAdminCache(t);
@@ -8648,6 +8759,7 @@ async function admin(t, opts = {}){
       ${demoBannerHtml}
       <div class="admin-main-title">
         <h2>${tabInfo.icon} ${esc(tabInfo.label)}</h2>
+        ${modeToggleHtml}
         <span class="mut" id="adminRecordCount">${error ? esc(error.message) : (data||[]).length + ' registros'}</span>
       </div>
       <div class="row">
@@ -8656,6 +8768,7 @@ async function admin(t, opts = {}){
         ${NOADD.includes(t) ? '' : '<button id="add">+ Agregar</button>'}
       </div>
     `;
+    wireHeadToggles();
     const bRefTab = $('#btnAdminQuickRefresh');
     if(bRefTab) bRefTab.onclick = () => {
       invalidateAdminCache(t);
