@@ -9931,6 +9931,9 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
     }
   }
 };
+if (typeof window !== 'undefined') {
+  window.EXTRA = Object.assign(window.EXTRA || {}, EXTRA);
+}
 
 function cleanValStr(v) {
   if (v == null) return null;
