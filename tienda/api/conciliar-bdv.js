@@ -151,10 +151,15 @@ export default async function handler(req, res) {
       }
     }
 
+    // MODO CAPTURA: Envía el texto crudo de la notificación al Telegram personal de Gregory para auditoría
+    if (rawText && !body.message) {
+      await notifyGregoryTelegram(`📲 <b>Notificación BDV recibida desde teléfono:</b>\n<code>${rawText}</code>`);
+    }
+
     if (!ref || !monto || isNaN(monto) || monto <= 0) {
-      return res.status(400).json({
-        ok: false,
-        error: 'No se pudo extraer la referencia o el monto válido.',
+      return res.status(200).json({
+        ok: true,
+        aviso: 'Notificación guardada en log, pero no contiene referencia o monto de Pago Móvil válido.',
         parsed: { ref, monto, rawText }
       });
     }
