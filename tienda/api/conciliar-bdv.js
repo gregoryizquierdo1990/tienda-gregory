@@ -23,6 +23,25 @@ async function notifyGregoryTelegram(text) {
   }
 }
 
+// Envía credenciales directamente al cliente en Telegram si está vinculado
+async function notifyCustomerTelegram(chatId, text) {
+  if (!chatId) return;
+  try {
+    const token = await getSecret('telegram_bdv_bot_token') || BDV_BOT_TOKEN;
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: String(chatId),
+        text,
+        parse_mode: 'HTML'
+      })
+    });
+  } catch (err) {
+    console.error('Error enviando credenciales a cliente por Telegram:', err);
+  }
+}
+
 // Analizador inteligente de texto de notificación bancaria (SMS / Push BDV / MacroDroid)
 function parseBankNotificationText(raw) {
   if (!raw || typeof raw !== 'string') return null;
@@ -162,6 +181,20 @@ export default async function handler(req, res) {
         `💵 <b>Monto:</b> Bs. ${monto.toFixed(2)} ($${Number(result.total_usd || 0).toFixed(2)})\n` +
         `🔢 <b>Referencia:</b> <code>${cleanRef}</code>\n` +
         `✅ <b>Estado:</b> Credenciales liberadas y entregadas en segundos.`;
+
+      // Si el cliente tiene vinculado su Telegram, entregarle sus credenciales de inmediato
+      if (result.telegram_chat_id) {
+        const clientMsg = `🎉 <b>¡PAGO VERIFICADO CON ÉXITO!</b>\n\n` +
+          `Tu compra de <b>${result.producto}</b> ha sido procesada.\n\n` +
+          `📱 <b>Datos de acceso:</b>\n` +
+          (result.correo_cuenta ? `📧 <b>Correo:</b> <code>${result.correo_cuenta}</code>\n` : '') +
+          (result.clave_cuenta ? `🔑 <b>Clave:</b> <code>${result.clave_cuenta}</code>\n` : '') +
+          (result.nombre_perfil ? `👤 <b>Perfil:</b> ${result.nombre_perfil}\n` : '') +
+          (result.pin_perfil ? `🔒 <b>PIN:</b> <code>${result.pin_perfil}</code>\n` : '') +
+          `\n✅ Tus credenciales también están guardadas y disponibles en <b>Mi Portal</b> en nuestra tienda.\n\n¡Gracias por preferirnos!`;
+
+        await notifyCustomerTelegram(result.telegram_chat_id, clientMsg);
+      }
 
       await notifyGregoryTelegram(msg);
 
