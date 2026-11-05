@@ -4577,13 +4577,24 @@ create policy installments_admin_all on installments for all to authenticated us
   async bnpl_ops(box) {
     box.innerHTML = '<div style="padding:30px;text-align:center"><div class="sk" style="height:120px;max-width:500px;margin:auto"></div><p class="mut" style="margin-top:12px">Cargando Operaciones BNPL...</p></div>';
 
-    const { data: products, error: pErr } = await sb.from('products').select('*').order('categoria', { ascending: true }).order('nombre', { ascending: true });
+    let products = [];
+    const { data: pData, error: pErr } = await sb.from('products').select('*, categories(nombre)').order('nombre', { ascending: true });
     if (pErr) {
-      box.innerHTML = `<div class="card"><p class="mut">Error al cargar productos: ${esc(pErr.message)}</p></div>`;
-      return;
+      const { data: pDataFallback, error: pErrFallback } = await sb.from('products').select('*').order('nombre', { ascending: true });
+      if (pErrFallback) {
+        box.innerHTML = `<div class="card"><p class="mut">Error al cargar productos: ${esc(pErrFallback.message)}</p></div>`;
+        return;
+      }
+      products = pDataFallback || [];
+    } else {
+      products = pData || [];
     }
 
-    const prodList = products || [];
+    const prodList = (products || []).map(p => ({
+      ...p,
+      categoria: p.categoria || p.categories?.nombre || (p.tipo === 'pantalla' ? 'Perfiles & Pantallas' : p.tipo === 'cuenta_completa' ? 'Cuentas Completas' : p.tipo || 'General')
+    }));
+    prodList.sort((a, b) => (a.categoria || '').localeCompare(b.categoria || '') || (a.nombre || '').localeCompare(b.nombre || ''));
     const totalCount = prodList.length;
     const bnplCount = prodList.filter(p => p.permite_cuotas).length;
     const contadoCount = totalCount - bnplCount;
