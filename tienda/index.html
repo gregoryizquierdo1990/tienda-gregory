@@ -10785,7 +10785,14 @@ async function admin(t, opts = {}){
           </div>
         `;
       }
-      return `<input data-c="${c}" ${ro?'disabled':''} value="${esc(v&&typeof v==='object'?JSON.stringify(v):v)}" ${['precio_usd','precio_binance_usd','precio_revendedor_usd','monto_usd','monto_bs','monto_usdt'].includes(c)?'type="number" step="0.01" min="0" placeholder="0.00"':''}>`+extraHtml;};
+      const isDate = ['vence','inicia','fecha','fecha_limite_pago','inicio','fin'].includes(c);
+      const isNum = ['precio_usd','precio_binance_usd','precio_revendedor_usd','monto_usd','monto_bs','monto_usdt'].includes(c);
+      let inpType = isDate ? 'type="date"' : (isNum ? 'type="number" step="0.01" min="0" placeholder="0.00"' : '');
+      let valFormatted = v && typeof v === 'object' ? JSON.stringify(v) : (v != null ? String(v) : '');
+      if (isDate && valFormatted) {
+        valFormatted = valFormatted.slice(0, 10);
+      }
+      return `<input data-c="${c}" ${ro?'disabled':''} value="${esc(valFormatted)}" ${inpType}>`+extraHtml;};
     $('#dlgBody').innerHTML=`<h3>${row?'Editar':'Agregar'} ${t}</h3><div style="max-height:62vh;overflow:auto">`+cols.map(c=>`<label class="mut" style="font-size:.78rem;font-weight:600">${labelFor(c)}</label>${inp(c)}`).join('')+'</div><button id="save" style="margin-top:10px;width:100%">Guardar</button>'; dlg.showModal();
 
     // Agregar nuevo concepto de gasto al vuelo
@@ -10994,8 +11001,14 @@ async function admin(t, opts = {}){
           if (!o.inicio || o.inicio === '') delete o.inicio;
           if (!o.fin || o.fin === '') delete o.fin;
           if (!o.enlace || o.enlace === '') delete o.enlace;
-          if (!o.color_fondo || o.color_fondo === '') delete o.color_fondo;
         }
+        // Normalización automática de fechas (convierte DD/MM/YYYY a YYYY-MM-DD si el usuario lo escribió a mano)
+        ['vence','inicia','fecha','fecha_limite_pago','inicio','fin'].forEach(k => {
+          if (o[k] && typeof o[k] === 'string') {
+            const m = o[k].trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+            if (m) o[k] = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+          }
+        });
 
         const queryPromise = (row ? sb.from(t).update(o).eq(pk, row[pk]) : sb.from(t).insert(o));
         const timeoutPromise = new Promise((_, reject) =>
