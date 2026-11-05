@@ -275,7 +275,10 @@ ${active_file ? `\nARCHIVO ACTUALMENTE ABIERTO EN EL EDITOR:\nNombre: ${active_f
 
       const aiRes = await fetch(geminiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': geminiKey
+        },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents,

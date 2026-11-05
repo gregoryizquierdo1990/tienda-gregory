@@ -1,8 +1,9 @@
-import { requireAdmin, sbRest } from './_lib.js';
+import { requireAdmin, sbRest, getSecret } from './_lib.js';
 
 export default async function handler(req, res) {
   if (!(await requireAdmin(req, res))) return;
-  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: 'Falta GEMINI_API_KEY en las variables de entorno de Vercel' });
+  const apiKey = (await getSecret('gemini_api_key')) || process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'Falta configurar GEMINI_API_KEY en el sistema' });
 
   const body = req.body || {};
   let contents = body.contents;
@@ -76,7 +77,7 @@ FORMATO DE RESPUESTA:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': process.env.GEMINI_API_KEY
+        'x-goog-api-key': apiKey
       },
       body: JSON.stringify({ contents, systemInstruction })
     });
