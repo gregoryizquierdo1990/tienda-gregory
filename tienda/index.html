@@ -7909,7 +7909,14 @@ async function portal(){
 
       const btnResWA = $('#btnReqResellerWA');
       if(btnResWA){
-        btnResWA.onclick = () => {
+        btnResWA.onclick = async () => {
+          try {
+            await sb.from('customers').update({
+              solicita_revendedor: true,
+              solicita_revendedor_at: new Date().toISOString()
+            }).eq('id', S.user.id);
+          } catch(e){}
+
           fetch('/api/notify-event', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -8545,6 +8552,7 @@ const ADMIN_MENU_OPERACIONES = [
       { id: 'bot_commands', label: 'Respuestas Bot', icon: '⚡' },
       { id: 'plantillas', label: 'Plantillas Mensajes', icon: '💬' },
       { id: 'gemini', label: 'Gemini AI', icon: '✨' },
+      { id: 'dev_studio', label: 'Dev Studio (AI Coder)', icon: '💻' },
       { id: 'notificaciones', label: 'Notificaciones', icon: '🔔' }
     ]
   },

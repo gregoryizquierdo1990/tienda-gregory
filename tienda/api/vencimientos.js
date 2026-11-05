@@ -1,15 +1,13 @@
-// Cron diario (8:00 a. m. Venezuela o llamada manual desde Panel Admin):
-// Envía notificaciones separadas, identificadas y con mensajes precargados para WhatsApp/Telegram.
+// Cron diario (8:00 a. m. a 9:00 a. m. Venezuela o llamada manual desde Panel Admin):
+// DIEGO BOT: Cerebro Administrativo, Reportes y Atención.
+// Analiza métricas, nuevos registros, nuevos pedidos, solicitudes de revendedor,
+// vencimientos de servicios/cuentas madre, cuentas por cobrar, cuotas en mora y stock crítico.
 import { sbRest, getSecret } from './_lib.js';
-import { sendTelegram, sendAll } from './_notify.js';
+import { sendTelegram } from './_notify.js';
 
 export default async function handler(req, res) {
-  // Permitir ejecución con CRON_SECRET o si viene de un admin autenticado
-  if (process.env.CRON_SECRET && req.headers.authorization && req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
-    // Si no coincide cron secret, verificamos si es admin
-  }
-
   const hoy = req.query?.fecha || new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  const hace24h = new Date(Date.now() - 24 * 3600e3).toISOString();
   const tokenBotDiego = await getSecret('telegram_token') || '8535286680:AAGCbVKMNk_aeDHwyICqsAqbtMUjDXlMOMg';
 
   const escHtml = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -49,17 +47,44 @@ export default async function handler(req, res) {
     const tasaBcv = Number(rateRes?.[0]?.bs_por_usd || 1);
     const tasaFecha = rateRes?.[0]?.fecha || hoy;
 
-    // 3. Consultar datos en paralelo
-    const [ordersRes, profilesRes, mothersRes, instHoyRes, instOverdueRes, stockRes, productsRes] = await Promise.all([
+    // 3. Consultar datos en paralelo para reporte integral 24h
+    const [
+      newUsersRes,
+      newOrdersRes,
+      solicitudesRevRes,
+      ordersRes,
+      profilesRes,
+      mothersRes,
+      instHoyRes,
+      instOverdueRes,
+      stockRes,
+      productsRes
+    ] = await Promise.all([
+      // Nuevos registros últimas 24h
+      sbRest(`customers?creado=gte.${hace24h}&order=creado.desc&select=id,nombre,email,telefono,codigo_identificacion,creado,es_revendedor`).catch(() => []),
+      // Nuevos pedidos generados últimas 24h
+      sbRest(`orders?created_at=gte.${hace24h}&order=created_at.desc&select=id,created_at,total_usd,total_bs,estado,referencia,customers(nombre,telefono,codigo_identificacion),products(nombre)`).catch(() => []),
+      // Solicitudes pendientes de ascenso a revendedor
+      sbRest(`customers?solicita_revendedor=eq.true&es_revendedor=eq.false&order=solicita_revendedor_at.desc&select=id,nombre,email,telefono,codigo_identificacion,solicita_revendedor_at`).catch(() => []),
+      // Suscripciones directas que vencen hoy
       sbRest(`orders?estado=in.(entregado,pagado)&vence=eq.${hoy}&select=id,inicia,vence,referencia,customers!customer_id(id,nombre,email,telefono,telegram_chat_id),products(nombre)`).catch(() => []),
+      // Perfiles vendidos que vencen hoy
       sbRest(`profiles_inventory?estado=eq.vendido&vence=eq.${hoy}&select=id,nombre_perfil,pin,vence,cliente_final,cliente_telefono,mother_accounts(plataforma,correo)`).catch(() => []),
+      // Cuentas madre que vencen hoy
       sbRest(`mother_accounts?activa=eq.true&vence=eq.${hoy}&select=id,plataforma,correo,vence,max_perfiles,proveedor`).catch(() => []),
+      // Cuotas del día de hoy
       sbRest(`installments?estado=in.(pendiente,en_revision)&fecha_vencimiento=eq.${hoy}&select=id,numero_cuota,total_cuotas,monto_usd,fecha_vencimiento,estado,customers!customer_id(id,nombre,telefono,telegram_chat_id),orders(products(nombre))`).catch(() => []),
+      // Cuotas vencidas en mora
       sbRest(`installments?estado=eq.vencida&fecha_vencimiento=lt.${hoy}&select=id,numero_cuota,total_cuotas,monto_usd,fecha_vencimiento,estado,customers!customer_id(id,nombre,telefono,telegram_chat_id),orders(products(nombre))`).catch(() => []),
+      // Inventario actual disponible
       sbRest('rpc/stock').catch(() => []),
+      // Catálogo de productos activos
       sbRest('products?activo=eq.true&tipo=in.(pantalla,cuenta_completa)&select=id,nombre,tipo').catch(() => [])
     ]);
 
+    const newUsers = newUsersRes || [];
+    const newOrders = newOrdersRes || [];
+    const solicitudesRev = solicitudesRevRes || [];
     const orders = ordersRes || [];
     const profiles = profilesRes || [];
     const mothers = mothersRes || [];
@@ -68,15 +93,126 @@ export default async function handler(req, res) {
     const stockMap = Object.fromEntries((stockRes || []).map(s => [s.product_id, Number(s.disponibles || 0)]));
     const activeProducts = productsRes || [];
 
-    // Detectar productos agotados
+    // Detectar stock crítico y agotado
     const agotados = activeProducts.filter(p => (stockMap[p.id] || 0) <= 0);
+    const criticos = activeProducts.filter(p => (stockMap[p.id] || 0) > 0 && (stockMap[p.id] || 0) <= 1);
+
+    const clientesTotal = orders.length + profiles.length;
+    const totalOrdersUsd = newOrders.reduce((acc, o) => acc + Number(o.total_usd || 0), 0);
+    const totalOrdersBs = totalOrdersUsd * tasaBcv;
+    const totalCuotasHoyUsd = cuotasHoy.reduce((acc, c) => acc + Number(c.monto_usd || 0), 0);
+    const totalCuotasHoyBs = totalCuotasHoyUsd * tasaBcv;
+    const totalCuotasMoraUsd = cuotasVencidas.reduce((acc, c) => acc + Number(c.monto_usd || 0), 0);
+    const totalCuotasMoraBs = totalCuotasMoraUsd * tasaBcv;
 
     const reportesEnviados = [];
 
     // =========================================================================
-    // BLOQUE 1: VENCIMIENTOS DE CLIENTES DE HOY (Con mensajes listos para WhatsApp)
+    // BLOQUE 0: RESUMEN EJECUTIVO MATUTINO (8:00 AM)
     // =========================================================================
-    const clientesTotal = orders.length + profiles.length;
+    const resumenMatutinoHtml = `🌅 <b>REPORTE MATUTINO DE GESTIÓN (8:00 AM)</b>\n` +
+      `📅 <b>Fecha:</b> ${hoy} · 📊 <b>Tasa BCV:</b> <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `📈 <b>MÉTRICAS 24H & GESTIÓN DEL DÍA:</b>\n` +
+      `• 👤 <b>Nuevos Registros (24h):</b> ${newUsers.length}\n` +
+      `• 🛒 <b>Nuevos Pedidos (24h):</b> ${newOrders.length} ($${totalOrdersUsd.toFixed(2)} USD · Bs. ${totalOrdersBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})\n` +
+      `• 🎖️ <b>Solicitudes de Revendedor:</b> ${solicitudesRev.length} pendientes\n` +
+      `• 📅 <b>Suscripciones por Vencer Hoy:</b> ${clientesTotal}\n` +
+      `• 🔑 <b>Cuentas Madre por Vencer Hoy:</b> ${mothers.length}\n` +
+      `• 💳 <b>Cuentas por Cobrar Hoy:</b> ${cuotasHoy.length} ($${totalCuotasHoyUsd.toFixed(2)} USD · Bs. ${totalCuotasHoyBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n` +
+      `• ⚠️ <b>Cuotas Vencidas en Mora:</b> ${cuotasVencidas.length} ($${totalCuotasMoraUsd.toFixed(2)} USD)\n` +
+      `• 🚨 <b>Stock Crítico / Agotado:</b> ${agotados.length} agotados, ${criticos.length} con stock bajo\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Abrir Panel de Control Admin</a>`;
+
+    await sendTelegram(resumenMatutinoHtml);
+    reportesEnviados.push('Resumen Ejecutivo 8:00 AM');
+
+    // =========================================================================
+    // BLOQUE 1: NUEVOS REGISTROS DE USUARIOS (ÚLTIMAS 24H)
+    // =========================================================================
+    if (newUsers.length > 0) {
+      let msgHtml = `👤 <b>NUEVOS REGISTROS DE USUARIOS (ÚLTIMAS 24H: ${newUsers.length})</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      newUsers.forEach((u, idx) => {
+        const nom = u.nombre || 'Usuario';
+        const code = u.codigo_identificacion || (u.es_revendedor ? 'RVD:1001' : 'CLT');
+        const rol = u.es_revendedor ? 'Revendedor' : 'Cliente';
+        const tel = u.telefono ? cleanTel(u.telefono) : '';
+        const wa = tel ? toWaLink(tel, `¡Hola ${nom}! 👋 Bienvenido/a a Emprendimiento Gregory.`) : '';
+
+        msgHtml += `${idx + 1}. <b>${escHtml(nom)}</b> [${rol}] (ID: <code>${escHtml(code)}</code>)\n` +
+          `   ✉️ <code>${escHtml(u.email || 'Sin correo')}</code>\n` +
+          (tel ? `   📱 Teléfono: <code>${tel}</code> ${wa ? `· <a href="${wa}">Saludar</a>` : ''}\n` : '') +
+          `   📅 Registrado: <code>${new Date(u.creado).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</code>\n\n`;
+      });
+
+      await sendTelegram(msgHtml);
+      reportesEnviados.push(`Nuevos Registros (${newUsers.length})`);
+    }
+
+    // =========================================================================
+    // BLOQUE 2: NUEVOS PEDIDOS GENERADOS (ÚLTIMAS 24H)
+    // =========================================================================
+    if (newOrders.length > 0) {
+      let msgHtml = `🛒 <b>NUEVOS PEDIDOS GENERADOS (ÚLTIMAS 24H: ${newOrders.length})</b>\n` +
+        `💵 Total: <b>$${totalOrdersUsd.toFixed(2)} USD</b> (Bs. ${totalOrdersBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      newOrders.slice(0, 15).forEach((o, idx) => {
+        const shortId = o.id ? String(o.id).slice(0, 8) : 'OK';
+        const cliNom = o.customers?.nombre || 'Cliente';
+        const prodNom = o.products?.nombre || 'Servicio';
+        const usd = Number(o.total_usd || 0).toFixed(2);
+        const bs = (Number(o.total_usd || 0) * tasaBcv).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+        let badge = '🟡 Pendiente';
+        if (o.estado === 'entregado') badge = '✅ Entregado';
+        else if (o.estado === 'pagado') badge = '💳 Pagado';
+        else if (o.estado === 'cancelado') badge = '❌ Cancelado';
+
+        msgHtml += `${idx + 1}. <b>Pedido #${shortId}</b> [${badge}]\n` +
+          `   👤 ${escHtml(cliNom)} · 📺 <b>${escHtml(prodNom)}</b>\n` +
+          `   💵 $${usd} USD (Bs. ${bs})` +
+          (o.referencia ? ` · Ref: <code>${escHtml(o.referencia)}</code>` : '') + `\n\n`;
+      });
+
+      if (newOrders.length > 15) {
+        msgHtml += `<i>... y ${newOrders.length - 15} pedidos adicionales en el panel.</i>\n\n`;
+      }
+
+      await sendTelegram(msgHtml);
+      reportesEnviados.push(`Nuevos Pedidos (${newOrders.length})`);
+    }
+
+    // =========================================================================
+    // BLOQUE 3: SOLICITUDES PENDIENTES DE REVENDEDOR OFICIAL
+    // =========================================================================
+    if (solicitudesRev.length > 0) {
+      let msgHtml = `🎖️ <b>SOLICITUDES PENDIENTES DE REVENDEDOR (${solicitudesRev.length})</b>\n` +
+        `Usuarios esperando ascenso a catálogo mayorista:\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+      solicitudesRev.forEach((s, idx) => {
+        const nom = s.nombre || 'Cliente';
+        const tel = s.telefono ? cleanTel(s.telefono) : '';
+        const waText = `¡Hola ${nom}! 👋 Te escribe Gregory Izquierdo respecto a tu solicitud para ser Revendedor Oficial de la tienda.`;
+        const waLink = toWaLink(tel, waText);
+
+        msgHtml += `${idx + 1}. 👤 <b>${escHtml(nom)}</b> (ID: <code>${escHtml(s.codigo_identificacion || 'CLT')}</code>)\n` +
+          `   ✉️ <code>${escHtml(s.email || 'Sin correo')}</code>\n` +
+          (tel ? `   📱 Teléfono: <code>${tel}</code> ${waLink ? `👉 <a href="${waLink}">Contactar WhatsApp</a>` : ''}\n` : '') +
+          `   📅 Fecha Solicitud: <code>${s.solicita_revendedor_at ? new Date(s.solicita_revendedor_at).toLocaleDateString('es-VE') : 'Reciente'}</code>\n\n`;
+      });
+
+      msgHtml += `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Gestionar en Panel Clientes & Revendedores</a>`;
+      await sendTelegram(msgHtml);
+      reportesEnviados.push(`Solicitudes Revendedor (${solicitudesRev.length})`);
+    }
+
+    // =========================================================================
+    // BLOQUE 4: VENCIMIENTOS DE CLIENTES DE HOY (Con mensajes listos para WhatsApp)
+    // =========================================================================
     if (clientesTotal > 0) {
       let msgHtml = `📅 <b>VENCIMIENTOS DE SERVICIOS - HOY (${hoy})</b>\n` +
         `Total clientes por vencer: <b>${clientesTotal}</b>\n` +
@@ -134,7 +270,7 @@ export default async function handler(req, res) {
     }
 
     // =========================================================================
-    // BLOQUE 2: CUENTAS MADRE POR VENCER HOY (Para renovar con proveedores)
+    // BLOQUE 5: CUENTAS MADRE POR VENCER HOY (Para renovar con proveedores)
     // =========================================================================
     if (mothers.length > 0) {
       let msgHtml = `🔑 <b>CUENTAS MADRE POR VENCER HOY (${hoy})</b>\n` +
@@ -154,12 +290,12 @@ export default async function handler(req, res) {
     }
 
     // =========================================================================
-    // BLOQUE 3: CUOTAS / CUENTAS POR COBRAR DE HOY (Con monto en USD y Bs BCV)
+    // BLOQUE 6: CUOTAS / CUENTAS POR COBRAR DE HOY (Con monto en USD y Bs BCV)
     // =========================================================================
     if (cuotasHoy.length > 0) {
-      let msgHtml = `💳 <b>CUOTAS POR COBRAR DE HOY (${hoy})</b>\n` +
+      let msgHtml = `💳 <b>CUENTAS POR COBRAR DE HOY (${hoy})</b>\n` +
         `📊 Tasa Oficial BCV: <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
-        `Total cuotas de hoy: <b>${cuotasHoy.length}</b>\n` +
+        `Total cuotas de hoy: <b>${cuotasHoy.length}</b> ($${totalCuotasHoyUsd.toFixed(2)} USD · Bs. ${totalCuotasHoyBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
       for (const c of cuotasHoy) {
@@ -199,11 +335,11 @@ export default async function handler(req, res) {
     }
 
     // =========================================================================
-    // BLOQUE 4: CUOTAS VENCIDAS EN MORA (Llamado a la acción amistoso para evitar recargos)
+    // BLOQUE 7: CUOTAS VENCIDAS EN MORA (Llamado a la acción amistoso CTA)
     // =========================================================================
     if (cuotasVencidas.length > 0) {
       let msgHtml = `⚠️ <b>CUOTAS VENCIDAS EN MORA</b>\n` +
-        `Total cuotas atrasadas: <b>${cuotasVencidas.length}</b>\n` +
+        `Total cuotas atrasadas: <b>${cuotasVencidas.length}</b> ($${totalCuotasMoraUsd.toFixed(2)} USD · Bs. ${totalCuotasMoraBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n` +
         `📊 Tasa Oficial BCV: <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
@@ -226,7 +362,7 @@ export default async function handler(req, res) {
           `💵 Monto: <b>$${montoUsd} USD</b> · <b>Bs. ${montoBs}</b>\n` +
           `📦 Servicio: ${escHtml(srvNom)} (Cuota ${c.numero_cuota}/${c.total_cuotas})\n` +
           (tel ? `📱 Teléfono: <code>${cleanTel(tel)}</code> ${waLink ? `👉 <a href="${waLink}">Enviar Alerta WhatsApp</a>` : ''}\n` : '') +
-          `📝 <b>Llamado de atención precargado:</b>\n<code>${escHtml(waText)}</code>\n\n`;
+          `📝 <b>Llamado de atención precargado (CTA):</b>\n<code>${escHtml(waText)}</code>\n\n`;
 
         // Notificar directo al cliente por Bot Diego
         if (cChatId) {
@@ -244,34 +380,51 @@ export default async function handler(req, res) {
     }
 
     // =========================================================================
-    // BLOQUE 5: ALERTA DE STOCK AGOTADO EN CATÁLOGO
+    // BLOQUE 8: ALERTA DE STOCK CRÍTICO Y AGOTADO
     // =========================================================================
-    if (agotados.length > 0) {
-      let msgHtml = `🚨 <b>ALERTA DE INVENTARIO: STOCK AGOTADO</b>\n` +
-        `Productos con 0 unidades disponibles: <b>${agotados.length}</b>\n` +
+    if (agotados.length > 0 || criticos.length > 0) {
+      let msgHtml = `🚨 <b>ALERTA DE INVENTARIO: STOCK CRÍTICO / AGOTADO</b>\n` +
+        `Agotados (0 unidades): <b>${agotados.length}</b> · Stock Crítico (1 unidad): <b>${criticos.length}</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-      agotados.forEach((p, idx) => {
-        msgHtml += `${idx + 1}. 📦 <b>${escHtml(p.nombre)}</b> (${escHtml(p.tipo)})\n` +
-          `   ⚠️ <i>Sin perfiles o cuentas disponibles para entrega inmediata.</i>\n\n`;
-      });
+      if (agotados.length > 0) {
+        msgHtml += `🔴 <b>PRODUCTOS AGOTADOS (0 DISPONIBLES):</b>\n`;
+        agotados.forEach((p, idx) => {
+          msgHtml += `${idx + 1}. 📦 <b>${escHtml(p.nombre)}</b> (${escHtml(p.tipo)})\n`;
+        });
+        msgHtml += '\n';
+      }
 
-      msgHtml += `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Cargar Inventario en Panel Admin</a>`;
+      if (criticos.length > 0) {
+        msgHtml += `🟡 <b>PRODUCTOS CON STOCK CRÍTICO (1 DISPONIBLE):</b>\n`;
+        criticos.forEach((p, idx) => {
+          msgHtml += `${idx + 1}. ⚠️ <b>${escHtml(p.nombre)}</b> (${escHtml(p.tipo)}) - <i>Solo 1 restante</i>\n`;
+        });
+        msgHtml += '\n';
+      }
+
+      msgHtml += `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Cargar Cuentas e Inventario en Panel Admin</a>`;
 
       await sendTelegram(msgHtml);
-      reportesEnviados.push(`Stock Agotado (${agotados.length})`);
-    }
-
-    if (reportesEnviados.length === 0) {
-      await sendTelegram(`✅ <b>CONTROL DIARIO 8:00 AM (${hoy}):</b>\nTodo al día. No hay vencimientos, cuotas pendientes ni stock agotado para hoy.`);
-      reportesEnviados.push('Todo al día');
+      reportesEnviados.push(`Stock Crítico (${agotados.length + criticos.length})`);
     }
 
     return res.json({
       ok: true,
       fecha: hoy,
       tasa_bcv: tasaBcv,
-      reportes_enviados: reportesEnviados
+      reportes_enviados: reportesEnviados,
+      metricas: {
+        nuevos_usuarios: newUsers.length,
+        nuevos_pedidos: newOrders.length,
+        solicitudes_revendedor: solicitudesRev.length,
+        vencimientos_hoy: clientesTotal,
+        cuentas_madre_hoy: mothers.length,
+        cuotas_hoy: cuotasHoy.length,
+        cuotas_mora: cuotasVencidas.length,
+        agotados: agotados.length,
+        stock_critico: criticos.length
+      }
     });
 
   } catch (err) {

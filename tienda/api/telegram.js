@@ -5,21 +5,22 @@ import { sbRest, getSecret, U, K } from './_lib.js';
 const GREETING_BASE = 'Hola Mi nombre es Diego_bot Asistente de Gestión de Emprendimiento Gregory Izquierdo, ¿en qué puedo ayudarte?';
 const DIEGO_DEFAULT_TOKEN = '8535286680:AAGCbVKMNk_aeDHwyICqsAqbtMUjDXlMOMg';
 
-// Teclado interactivo para Clientes finales
+// Teclado interactivo para Clientes finales (Bot Público)
 const CLIENT_KEYBOARD = [
-  [{ text: '📦 Mis Servicios Activos' }, { text: '💰 Mi Saldo Zeny' }],
-  [{ text: '📅 Mis Cuotas Pendientes' }, { text: '💳 Mi Límite Financiamiento' }],
-  [{ text: '🛒 Catálogo Tienda' }, { text: '💵 Tasa BCV Oficial' }],
-  [{ text: '💳 Métodos de Pago' }, { text: '💬 Contactar Soporte' }],
+  [{ text: '🛍️ Catálogo Tienda' }, { text: '💱 Tasa BCV Actual' }],
+  [{ text: '💳 Métodos de Pago' }, { text: '📊 Cuotas & Financiamiento' }],
+  [{ text: '📅 Calendario Vencimientos' }, { text: '📦 Historial de Compras' }],
+  [{ text: '💰 Mi Saldo Zeny' }, { text: '📞 Soporte Técnico' }],
   [{ text: '🚪 Cerrar Sesión' }]
 ];
 
-// Teclado interactivo para Revendedores Autorizados
+// Teclado interactivo para Revendedores Autorizados (B2B)
 const RESELLER_KEYBOARD = [
-  [{ text: '👥 Mis Clientes & Suscripciones' }, { text: '📦 Catálogo Revendedor' }],
-  [{ text: '💳 Mis Cuotas & Línea Crédito' }, { text: '💰 Mi Saldo Zeny' }],
-  [{ text: '💵 Tasa BCV Oficial' }, { text: '💳 Métodos de Pago' }],
-  [{ text: '💬 Soporte Directo Gregory' }, { text: '🚪 Cerrar Sesión' }]
+  [{ text: '📦 Catálogo Mayorista' }, { text: '💱 Tasa BCV & Pagos' }],
+  [{ text: '📈 Cuotas & Línea Crédito' }, { text: '📅 Vencimientos Clientes' }],
+  [{ text: '👥 Mi Red de Clientes' }, { text: '📦 Historial de Pedidos' }],
+  [{ text: '💰 Mi Saldo Zeny' }, { text: '📞 Soporte Prioritario' }],
+  [{ text: '🚪 Cerrar Sesión' }]
 ];
 
 function getCustomerKeyboard(cust) {
@@ -737,7 +738,7 @@ export default async function handler(req, res) {
         }).join('\n');
     }
 
-    const creditoMsg = (isReseller ? `💳 <b>Línea de Crédito Comercial de Revendedor:</b>\n\n` : `💳 <b>Estado de tu Línea de Crédito & Financiamiento:</b>\n\n`) +
+    const creditoMsg = (isReseller ? `📈 <b>Línea de Crédito Comercial de Revendedor:</b>\n\n` : `📊 <b>Estado de tu Financiamiento & Cuotas:</b>\n\n`) +
       `📈 <b>Límite Aprobado:</b> $${limiteUsd.toFixed(2)} USD\n` +
       `🔴 <b>Deuda Total Pendiente:</b> $${deudaUsd.toFixed(2)} USD (${deudaBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs)\n` +
       `🟢 <b>Crédito Disponible:</b> $${dispUsd.toFixed(2)} USD` +
@@ -746,6 +747,157 @@ export default async function handler(req, res) {
 
     await sendTelegram(token, chatId, creditoMsg, userKeyboard);
     return res.status(200).end();
+  }
+
+  // =========================================================================
+  // BOTÓN: 📦 Historial de Compras / Historial de Pedidos Recientes
+  // =========================================================================
+  const isHistorial = lowerText.includes('historial') || lowerText.includes('pedidos') ||
+    lowerText.includes('compras recientes') || lowerText === '/pedidos' || lowerText === '/historial';
+
+  if (isHistorial) {
+    const { rate } = await getBcvRate();
+    const orders = await sbRest(
+      `orders?customer_id=eq.${customerId}&order=created_at.desc&limit=6&select=id,created_at,total_usd,total_bs,estado,referencia,conciliado_por,products(nombre)`
+    );
+
+    if (!orders || orders.length === 0) {
+      const noOrdersMsg = `📦 <b>Historial de Compras & Pedidos:</b>\n\n` +
+        `Aún no has registrado pedidos en la tienda.\n\n` +
+        `🌐 <i>Explora nuestro catálogo online para adquirir tus membresías:</i>\n<a href="https://www.gregoryizquierdo.xyz">https://www.gregoryizquierdo.xyz</a>`;
+      await sendTelegram(token, chatId, noOrdersMsg, userKeyboard);
+      return res.status(200).end();
+    }
+
+    const orderLines = orders.map((o, idx) => {
+      const shortId = o.id ? String(o.id).slice(0, 8) : 'OK';
+      const prod = o.products?.nombre || 'Suscripción Digital';
+      const usd = Number(o.total_usd || 0).toFixed(2);
+      const bs = o.total_bs ? Number(o.total_bs).toLocaleString('es-VE', { minimumFractionDigits: 2 }) : (Number(o.total_usd || 0) * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+      const fStr = o.created_at ? new Date(o.created_at).toLocaleDateString('es-VE') : 'Reciente';
+
+      let statusBadge = '🟡 Pendiente';
+      if (o.estado === 'entregado') statusBadge = '✅ Entregado / Activo';
+      else if (o.estado === 'pagado') statusBadge = '💳 Pagado';
+      else if (o.estado === 'cancelado') statusBadge = '❌ Cancelado';
+
+      return `<b>${idx + 1}. Pedido #${shortId}</b> [${statusBadge}]\n` +
+        `   📺 <b>${escHtml(prod)}</b>\n` +
+        `   💵 Total: <b>$${usd} USD</b> (Bs. ${bs})\n` +
+        `   📅 Fecha: <code>${fStr}</code>\n` +
+        (o.referencia ? `   🔢 Ref: <code>${escHtml(o.referencia)}</code>\n` : '');
+    }).join('\n');
+
+    const histMsg = (isReseller ? `📦 <b>Tus Pedidos Mayoristas Recientes (${orders.length}):</b>\n` : `📦 <b>Tu Historial de Compras Recientes (${orders.length}):</b>\n`) +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `${orderLines}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `💡 <i>Las credenciales de pedidos entregados están siempre accesibles en la opción "📦 Mis Servicios Activos" o en Mi Portal.</i>`;
+    await sendTelegram(token, chatId, histMsg, userKeyboard);
+    return res.status(200).end();
+  }
+
+  // =========================================================================
+  // BOTÓN: 📅 Calendario de Vencimientos (Clientes y Revendedores)
+  // =========================================================================
+  const isCalendarioVenc = lowerText.includes('calendario') || lowerText.includes('vencimientos clientes') ||
+    lowerText === '/calendario' || lowerText === '/vencimientos';
+
+  if (isCalendarioVenc) {
+    const hoyIso = new Date().toISOString().slice(0, 10);
+    const { rate } = await getBcvRate();
+
+    if (isReseller) {
+      // Para revendedor: Calendario de vencimiento de las suscripciones de sus propios clientes
+      const myProfiles = await sbRest(
+        `profiles_inventory?or=(vendedor_id.eq.${customerId},vendedor.ilike.%25${encodeURIComponent(cust.nombre)}%25)&estado=eq.vendido&order=vence.asc&limit=30`
+      );
+
+      if (!myProfiles || myProfiles.length === 0) {
+        await sendTelegram(token, chatId, '📅 No tienes clientes con perfiles activos por vencer en este momento.', userKeyboard);
+        return res.status(200).end();
+      }
+
+      const lines = myProfiles.map((p, idx) => {
+        const cliNom = p.cliente_final || 'Cliente';
+        const srvNom = p.nombre_perfil || 'Servicio';
+        const vence = p.vence || 'N/D';
+        const tel = p.cliente_telefono ? String(p.cliente_telefono).replace(/\D/g, '') : '';
+
+        let badge = '';
+        if (p.vence) {
+          const msDiff = new Date(p.vence).getTime() - new Date(hoyIso).getTime();
+          const diasRest = Math.ceil(msDiff / 864e5);
+          if (diasRest > 1) badge = `⏱ En ${diasRest} días (${vence})`;
+          else if (diasRest === 1) badge = `⚠️ ¡Vence mañana! (${vence})`;
+          else if (diasRest === 0) badge = `🔴 ¡Vence hoy! (${vence})`;
+          else badge = `⛔ Vencido (${vence})`;
+        }
+
+        let waBtn = '';
+        if (tel) {
+          const full = tel.startsWith('58') ? tel : (tel.startsWith('0') ? '58' + tel.slice(1) : '58' + tel);
+          waBtn = ` · <a href="https://wa.me/${full}?text=${encodeURIComponent(`Hola ${cliNom}! 👋 Te recordamos que tu servicio de ${srvNom} vence el ${vence}. ¿Deseas renovarlo hoy?`)}">Avisar WhatsApp</a>`;
+        }
+
+        return `<b>${idx + 1}. ${escHtml(cliNom)}</b> (${escHtml(srvNom)})\n` +
+          `   📅 ${badge}${waBtn}`;
+      }).join('\n\n');
+
+      const calMsg = `📅 <b>Calendario de Vencimiento de tus Clientes (${myProfiles.length}):</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `${lines}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💡 <i>Toca sobre "Avisar WhatsApp" para notificar la renovación con un solo toque.</i>`;
+      await sendTelegram(token, chatId, calMsg, userKeyboard);
+      return res.status(200).end();
+    } else {
+      // Para cliente final: Calendario de sus servicios y sus cuotas
+      const [items, cuotas] = await Promise.all([
+        sbRest('rpc/bot_get_customer_credentials', { method: 'POST', body: JSON.stringify({ p_customer_id: customerId }) }).catch(() => []),
+        sbRest(`installments?customer_id=eq.${customerId}&estado=in.(pendiente,vencida)&order=fecha_vencimiento.asc&select=numero_cuota,total_cuotas,monto_usd,fecha_vencimiento,estado,orders(products(nombre))`).catch(() => [])
+      ]);
+
+      let bodyParts = [];
+
+      if (items && items.length > 0) {
+        const srvLines = items.map((it, idx) => {
+          let badge = '';
+          if (it.dias_restantes > 1) badge = `⏱ En ${it.dias_restantes} días (${it.vence})`;
+          else if (it.dias_restantes === 1) badge = `⚠️ ¡Vence mañana! (${it.vence})`;
+          else if (it.dias_restantes === 0) badge = `🔴 ¡Vence hoy! (${it.vence})`;
+          else badge = `⏳ Vence: ${it.vence || 'N/D'}`;
+
+          return `${idx + 1}. <b>${escHtml(it.servicio)}</b> (${escHtml(it.perfil || 'Perfil')})\n   📅 ${badge}`;
+        }).join('\n');
+        bodyParts.push(`📺 <b>Membresías Activas:</b>\n${srvLines}`);
+      }
+
+      if (cuotas && cuotas.length > 0) {
+        const cuotaLines = cuotas.map((c, idx) => {
+          const mUsd = Number(c.monto_usd || 0).toFixed(2);
+          const mBs = (Number(c.monto_usd || 0) * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+          const isVencida = c.estado === 'vencida';
+          const badge = isVencida ? '🔴 Vencida' : '🟡 Por Pagar';
+          return `${idx + 1}. Cuota ${c.numero_cuota}/${c.total_cuotas} de <b>${escHtml(c.orders?.products?.nombre || 'Servicio')}</b>\n   💵 $${mUsd} USD (Bs. ${mBs}) · Vence: <code>${c.fecha_vencimiento}</code> [${badge}]`;
+        }).join('\n');
+        bodyParts.push(`💳 <b>Cuotas Programadas:</b>\n${cuotaLines}`);
+      }
+
+      if (bodyParts.length === 0) {
+        await sendTelegram(token, chatId, '✨ No posees membresías ni cuotas con vencimiento próximo.', userKeyboard);
+        return res.status(200).end();
+      }
+
+      const outMsg = `📅 <b>Tu Calendario de Vencimientos:</b>\n` +
+        `📊 <i>Tasa BCV del día: ${rate.toFixed(4)} Bs/USD</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        bodyParts.join('\n\n') + '\n\n' +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🌐 <i>Renueva o salda tus cuotas en:</i> <a href="https://www.gregoryizquierdo.xyz">https://www.gregoryizquierdo.xyz</a>`;
+      await sendTelegram(token, chatId, outMsg, userKeyboard);
+      return res.status(200).end();
+    }
   }
 
   // =========================================================================

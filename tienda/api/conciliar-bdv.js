@@ -250,9 +250,10 @@ export default async function handler(req, res) {
     if (result?.matched) {
       // MATCH Y LIBERACIÓN INMEDIATA
       const nowStr = new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' });
-      const orderShort = result.order_id ? result.order_id.slice(0, 8) : 'OK';
+      const orderShort = result.order_id ? String(result.order_id).slice(0, 8) : 'OK';
       const cliNom = result.cliente || 'Cliente';
       const cliTel = result.telefono || cleanTel || '';
+      const cliRol = result.cliente_rol || (result.es_revendedor ? 'Revendedor Oficial' : 'Cliente Directo');
       const prodNom = result.producto || 'Suscripción Digital';
       const usdVal = Number(result.total_usd || 0).toFixed(2);
       const bsVal = Number(monto).toFixed(2);
@@ -260,6 +261,10 @@ export default async function handler(req, res) {
       const cPass = result.clave_cuenta || '';
       const cProf = result.nombre_perfil || '';
       const cPin = result.pin_perfil || '';
+      const bancoNombre = banco === 'BNC' ? 'Banco Nacional de Crédito (0191)' : 'Banco de Venezuela (0102)';
+      const fechaHoraBanco = (parsedInfo?.fechaBanco || parsedInfo?.horaBanco)
+        ? `${parsedInfo?.fechaBanco || 'Hoy'} ${parsedInfo?.horaBanco || ''}`.trim()
+        : nowStr;
 
       const confirmText = `¡Hola ${cliNom}! 🎉 Confirmamos tu pago de ${prodNom} (${banco} Ref: ${cleanRef}).\n` +
         `Tus credenciales ya están activas:\n` +
@@ -268,36 +273,37 @@ export default async function handler(req, res) {
         (cPin ? `🔒 PIN: ${cPin}\n` : '') +
         `¡Que disfrutes tu servicio! ⭐`;
 
-      const msg = `⚡ <b>¡ENTREGA AUTOMÁTICA DE PEDIDO (${banco})!</b>\n` +
+      const msg = `🧾 <b>COMPROBANTE DE CONCILIACIÓN AUTOMÁTICA</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `📦 <b>Pedido:</b> <code>#${orderShort}</code>\n` +
-        `🏦 <b>Banco:</b> <b>${banco}</b>\n` +
-        `🔢 <b>Referencia:</b> <code>${cleanRef}</code>\n` +
-        `💵 <b>Monto:</b> Bs. ${bsVal} ($${usdVal} USD)\n` +
-        `📅 <b>Fecha/Hora:</b> ${parsedInfo?.fechaBanco || nowStr} ${parsedInfo?.horaBanco || ''}\n` +
-        `👤 <b>Cliente:</b> <b>${cliNom}</b>\n` +
-        (cliTel ? `📱 <b>Teléfono:</b> <code>${cliTel}</code>\n` : '') +
-        `📺 <b>Producto:</b> <b>${prodNom}</b>\n\n` +
+        `🆔 <b>Nro. de Orden:</b> <code>#${orderShort}</code>\n` +
+        `🏦 <b>Banco Involucrado:</b> <b>${bancoNombre}</b>\n` +
+        `🔢 <b>Nro. de Referencia:</b> <code>${cleanRef}</code>\n` +
+        `💵 <b>Monto Recibido:</b> <b>Bs. ${bsVal}</b> (<b>$${usdVal} USD</b>)\n` +
+        `⏰ <b>Fecha y Hora (Banco):</b> ${fechaHoraBanco}\n` +
+        `🛒 <b>Producto / Servicio:</b> <b>${prodNom}</b>\n` +
+        `👤 <b>Usuario Involucrado:</b> <b>${cliNom}</b> [<b>${cliRol}</b>]\n` +
+        `📱 <b>Teléfono de Origen:</b> <code>${cleanTel || (cliTel ? String(cliTel).replace(/\D/g, '') : 'No detectado')}</code>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
         `🔑 <b>Credenciales Entregadas:</b>\n` +
-        `📧 Correo: <code>${cEmail}</code>\n` +
-        `🔑 Clave: <code>${cPass}</code>\n` +
-        (cProf ? `👤 Perfil: <code>${cProf}</code>\n` : '') +
-        (cPin ? `🔒 PIN: <code>${cPin}</code>\n` : '') +
+        (cEmail ? `📧 <b>Correo:</b> <code>${cEmail}</code>\n` : '') +
+        (cPass ? `🔑 <b>Clave:</b> <code>${cPass}</code>\n` : '') +
+        (cProf ? `👤 <b>Perfil:</b> <code>${cProf}</code>\n` : '') +
+        (cPin ? `🔒 <b>PIN:</b> <code>${cPin}</code>\n` : '') +
         `\n📝 <b>Mensaje listo para copiar:</b>\n` +
         `<code>${confirmText}</code>\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `✅ <i>Credenciales liberadas y entregadas automáticamente.</i>`;
+        `✅ <i>Pago validado por coincidencia (4/6 dígitos en 24h) y liberado de forma segura en la tienda.</i>`;
 
       // Si el cliente tiene vinculado su Telegram, entregarle sus credenciales de inmediato por Bot Diego
       if (result.telegram_chat_id) {
         const clientMsg = `🎉 <b>¡PAGO VERIFICADO CON ÉXITO (${banco})!</b>\n\n` +
-          `Tu compra de <b>${prodNom}</b> ha sido procesada.\n\n` +
-          `📱 <b>Datos de acceso:</b>\n` +
+          `Tu compra de <b>${prodNom}</b> ha sido validada y entregada al instante.\n\n` +
+          `📱 <b>Datos de acceso activados:</b>\n` +
           (cEmail ? `📧 <b>Correo:</b> <code>${cEmail}</code>\n` : '') +
           (cPass ? `🔑 <b>Clave:</b> <code>${cPass}</code>\n` : '') +
           (cProf ? `👤 <b>Perfil:</b> ${cProf}\n` : '') +
           (cPin ? `🔒 <b>PIN:</b> <code>${cPin}</code>\n` : '') +
-          `\n✅ Tus credenciales también están guardadas y disponibles en <b>Mi Portal</b> en nuestra tienda.\n\n¡Gracias por preferirnos!`;
+          `\n✅ Tus credenciales también quedan respaldadas en <b>Mi Portal</b> en nuestra tienda web.\n\n¡Gracias por preferirnos!`;
 
         await notifyCustomerTelegram(result.telegram_chat_id, clientMsg);
       }
@@ -313,13 +319,20 @@ export default async function handler(req, res) {
       });
     } else {
       // REGISTRADO EN BUFFER A LA ESPERA DEL CLIENTE
-      const msg = `📥 <b>Pago Móvil ${banco} recibido en buffer:</b>\n\n` +
-        `🏦 <b>Banco:</b> ${banco}\n` +
-        `💵 <b>Monto:</b> Bs. ${monto.toFixed(2)}\n` +
+      const bancoNombre = banco === 'BNC' ? 'Banco Nacional de Crédito (0191)' : 'Banco de Venezuela (0102)';
+      const fechaHoraBanco = (parsedInfo?.fechaBanco || parsedInfo?.horaBanco)
+        ? `${parsedInfo?.fechaBanco || 'Hoy'} ${parsedInfo?.horaBanco || ''}`.trim()
+        : 'Recibido ahora';
+
+      const msg = `📥 <b>PAGO MÓVIL RECIBIDO EN BUFFER (${banco})</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🏦 <b>Banco Receptor:</b> <b>${bancoNombre}</b>\n` +
+        `💵 <b>Monto Recibido:</b> <b>Bs. ${monto.toFixed(2)}</b>\n` +
         `🔢 <b>Referencia:</b> <code>${cleanRef}</code>\n` +
-        (cleanTel ? `📱 <b>Origen:</b> <code>${cleanTel}</code>\n` : '') +
-        (parsedInfo?.horaBanco ? `⏰ <b>Hora Banco:</b> ${parsedInfo.horaBanco}\n` : '') +
-        `⏳ <i>Guardado en el sistema. En cuanto el cliente pulse Confirmar en la tienda con esta referencia, se liberará al instante.</i>`;
+        (cleanTel ? `📱 <b>Teléfono Origen:</b> <code>${cleanTel}</code>\n` : '') +
+        `⏰ <b>Fecha/Hora Banco:</b> ${fechaHoraBanco}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⏳ <i>Guardado en el sistema (vigencia 24h). En cuanto el cliente confirme su compra con esta referencia, se liberará al instante.</i>`;
 
       await notifyGregoryTelegram(msg);
 

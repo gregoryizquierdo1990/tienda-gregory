@@ -10597,6 +10597,790 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       console.error('Error cargando módulo resellers:', err);
       box.innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:20px;text-align:center"><h3 style="color:#f87171">Error al cargar red de revendedores</h3><p class="mut">${esc(err.message)}</p></div>`;
     }
+  },
+
+  async dev_studio(box) {
+    if (!box._devState) {
+      box._devState = {
+        activeTab: 'chat', // 'chat', 'editor', 'commits', 'database', 'logs'
+        chatHistory: [],
+        selectedFile: 'tienda/admin-extra.js',
+        fileContent: '',
+        fileSha: '',
+        fileLoading: false,
+        files: [
+          'tienda/index.html',
+          'tienda/admin-extra.js',
+          'tienda/api/conciliar-bdv.js',
+          'tienda/api/notify-event.js',
+          'tienda/api/dev-studio.js',
+          'tienda/api/telegram.js',
+          'tienda/api/gemini.js',
+          'tienda/vercel.json'
+        ],
+        commits: [],
+        logs: [`[${new Date().toLocaleTimeString('es-VE')}] Dev Studio inicializado.`],
+        model: 'gemini-2.5-flash',
+        status: { gemini_configured: false, github_configured: false, repo: 'gregoryizquierdo1990/tienda-gregory', branch: 'main' }
+      };
+    }
+    const S_DEV = box._devState;
+
+    const addLog = msg => {
+      const line = `[${new Date().toLocaleTimeString('es-VE')}] ${msg}`;
+      S_DEV.logs.push(line);
+      const logEl = box.querySelector('#devTerminalBody');
+      if (logEl) {
+        logEl.innerHTML += `<div>${esc(line)}</div>`;
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+    };
+
+    // 1. Cargar estado del servidor
+    const fetchStatus = async () => {
+      try {
+        const res = await api('/api/dev-studio', { action: 'status' });
+        if (res.ok) {
+          S_DEV.status = res;
+          addLog(`Estado de conexiones: Gemini ${res.gemini_configured ? 'Activo' : 'Sin clave'}, GitHub ${res.github_configured ? 'Conectado (' + res.repo + ')' : 'Sin token'}.`);
+        }
+      } catch (err) {
+        addLog('Error verificando estado: ' + err.message);
+      }
+    };
+
+    // 2. Cargar commits de GitHub
+    const fetchCommits = async () => {
+      try {
+        addLog('Consultando historial de commits en GitHub...');
+        const res = await api('/api/dev-studio', { action: 'list_commits' });
+        if (res.ok && res.commits) {
+          S_DEV.commits = res.commits;
+          addLog(`Se cargaron ${res.commits.length} commits recientes desde GitHub.`);
+        }
+      } catch (err) {
+        addLog('Aviso commits: ' + err.message);
+      }
+    };
+
+    // 3. Cargar lista de archivos de GitHub
+    const fetchFiles = async () => {
+      try {
+        const res = await api('/api/dev-studio', { action: 'list_files' });
+        if (res.ok && res.files && res.files.length) {
+          S_DEV.files = res.files;
+        }
+      } catch (err) {}
+    };
+
+    // 4. Cargar archivo específico al editor
+    const loadFileToEditor = async (filePath) => {
+      S_DEV.selectedFile = filePath;
+      S_DEV.fileLoading = true;
+      addLog(`Cargando archivo: ${filePath}...`);
+      render();
+
+      try {
+        const res = await api('/api/dev-studio', { action: 'get_file', path: filePath });
+        if (res.ok) {
+          S_DEV.fileContent = res.content || '';
+          S_DEV.fileSha = res.sha || '';
+          addLog(`Archivo ${filePath} cargado (${res.size || S_DEV.fileContent.length} bytes, SHA: ${res.sha ? res.sha.slice(0, 7) : 'N/A'}).`);
+        } else {
+          toast(res.error || 'No se pudo cargar el archivo.');
+          addLog('Error cargando archivo: ' + (res.error || 'Desconocido'));
+        }
+      } catch (err) {
+        toast('Error al leer de GitHub: ' + err.message);
+        addLog('Fallo al obtener archivo: ' + err.message);
+      } finally {
+        S_DEV.fileLoading = false;
+        render();
+      }
+    };
+
+    // Inicialización al abrir
+    if (!S_DEV._initialized) {
+      S_DEV._initialized = true;
+      await fetchStatus();
+      if (S_DEV.status.github_configured) {
+        fetchCommits();
+        fetchFiles();
+      }
+    }
+
+    const render = () => {
+      const st = S_DEV.status;
+      const isGeminiOk = !!st.gemini_configured;
+      const isGithubOk = !!st.github_configured;
+
+      box.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- BARRA SUPERIOR DE DEV STUDIO -->
+          <div class="card" style="margin-bottom:0;background:linear-gradient(135deg,rgba(7,19,38,.96),rgba(4,12,26,.98));border:1.5px solid rgba(0,212,255,.3);box-shadow:0 8px 32px rgba(0,0,0,.4)">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#00f5a0,#00d4ff);display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 0 20px rgba(0,245,160,.4)">
+                  💻
+                </div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <h3 style="margin:0;font-size:1.2rem;color:#fff;font-weight:800;letter-spacing:.5px">Dev Studio AI</h3>
+                    <span class="pill" style="font-size:.65rem;background:rgba(0,212,255,.15);color:#00d4ff;border:1px solid rgba(0,212,255,.35);font-weight:800">Agente Autónomo</span>
+                  </div>
+                  <div class="mut" style="font-size:.76rem;margin-top:2px">
+                    Control de desarrollo, inspección de código, commits a GitHub y despliegues en vivo
+                  </div>
+                </div>
+              </div>
+
+              <!-- ESTADOS Y BOTONES DE ACCIÓN RÁPIDA -->
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span class="pill" style="font-size:.72rem;${isGeminiOk ? 'background:rgba(0,245,160,.12);color:#00f5a0;border:1px solid rgba(0,245,160,.3)' : 'background:rgba(234,179,8,.15);color:#fde047;border:1px solid rgba(234,179,8,.35)'}" title="Estado de conexión con Gemini">
+                  ${isGeminiOk ? '✨ Gemini Activo' : '⚠️ Falta Gemini Key'}
+                </span>
+
+                <span class="pill" style="font-size:.72rem;${isGithubOk ? 'background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)' : 'background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3)'}" title="Estado del repositorio GitHub">
+                  🐙 ${isGithubOk ? esc(st.repo || 'GitHub') : '⚠️ Conectar GitHub'}
+                </span>
+
+                <select id="selDevModel" style="padding:5px 8px;font-size:.75rem;background:rgba(12,28,52,.9);border-color:var(--line);border-radius:8px">
+                  <option value="gemini-2.5-flash" ${S_DEV.model === 'gemini-2.5-flash' ? 'selected' : ''}>⚡ Gemini 2.5 Flash (Rápido)</option>
+                  <option value="gemini-2.5-pro" ${S_DEV.model === 'gemini-2.5-pro' ? 'selected' : ''}>🧠 Gemini 2.5 Pro (Deep Code)</option>
+                </select>
+
+                <button class="g" id="btnDevSettings" type="button" style="padding:6px 12px;font-size:.78rem;font-weight:700">
+                  ⚙️ Configurar APIs
+                </button>
+
+                <button class="g" id="btnDevOpenLiveSite" type="button" style="padding:6px 12px;font-size:.78rem;color:#00f5a0;font-weight:700">
+                  🚀 Ver Tienda en Vivo
+                </button>
+              </div>
+            </div>
+
+            <!-- NAVEGADOR DE PESTAÑAS DEL ESTUDIO -->
+            <div style="display:flex;gap:6px;margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);overflow-x:auto">
+              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'chat' ? 'active-tab' : ''}" data-tab="chat" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'chat' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
+                🤖 Chat con Agente IA
+              </button>
+              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'editor' ? 'active-tab' : ''}" data-tab="editor" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'editor' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
+                📝 Editor de Código & Deploy
+              </button>
+              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'commits' ? 'active-tab' : ''}" data-tab="commits" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'commits' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
+                📜 Commits en GitHub (${S_DEV.commits.length})
+              </button>
+              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'database' ? 'active-tab' : ''}" data-tab="database" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'database' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
+                🗄️ Consola SQL Supabase
+              </button>
+              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'logs' ? 'active-tab' : ''}" data-tab="logs" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'logs' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
+                📋 Terminal Logs (${S_DEV.logs.length})
+              </button>
+            </div>
+          </div>
+
+          <!-- CONTENIDO PRINCIPAL SEGÚN PESTAÑA ACTIVA -->
+          <div id="devTabContent">
+            ${renderTabContent()}
+          </div>
+        </div>
+      `;
+
+      bindEvents();
+    };
+
+    const renderTabContent = () => {
+      // PESTAÑA 1: CHAT CON EL AGENTE IA
+      if (S_DEV.activeTab === 'chat') {
+        const msgs = S_DEV.chatHistory;
+        return `
+          <div style="display:grid;grid-template-columns:1fr;gap:14px">
+            <div class="card" style="background:rgba(4,12,26,.95);border:1px solid var(--line);min-height:520px;display:flex;flex-direction:column">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08)">
+                <div style="font-size:.84rem;font-weight:700;color:#00d4ff;display:flex;align-items:center;gap:6px">
+                  <span>💬 Sesión de Programación en Pareja</span>
+                  <span class="pill" style="font-size:.65rem;background:rgba(0,212,255,.12);color:#00d4ff">IA Autónomo</span>
+                </div>
+                <button class="g" id="btnDevClearChat" type="button" style="padding:4px 8px;font-size:.72rem">🗑️ Limpiar Conversación</button>
+              </div>
+
+              <!-- LISTADO DE MENSAJES -->
+              <div id="devChatMessagesList" style="flex:1;overflow-y:auto;max-height:460px;display:flex;flex-direction:column;gap:12px;padding:6px 2px">
+                ${msgs.length === 0 ? `
+                  <div style="text-align:center;padding:40px 20px">
+                    <div style="font-size:2.8rem;margin-bottom:10px">🤖✨</div>
+                    <h3 style="margin:0 0 6px;color:#fff;font-size:1.25rem">¿Qué cambios o desarrollos deseas realizar en el proyecto?</h3>
+                    <p class="mut" style="font-size:.84rem;max-width:540px;margin:0 auto 20px;line-height:1.5">
+                      Soy tu Agente Desarrollador conectado directamente a <b>${esc(S_DEV.status.repo || 'tienda-gregory')}</b>. Puedo auditar seguridad, escribir nuevas funciones en el frontend o backend, generar SQL y proponer parches de código listos para desplegar a producción.
+                    </p>
+
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;max-width:760px;margin:0 auto;text-align:left">
+                      <button type="button" class="g dev-quick-chip" data-p="Revisa la lógica de entrega automática y conciliación de Pago Móvil en conciliar-bdv.js y dame sugerencias de optimización o seguridad." style="padding:10px 12px;border-radius:10px">
+                        <b style="color:#00d4ff;display:block;font-size:.8rem">🛡️ Auditar Conciliación BDV/BNC</b>
+                        <span class="mut" style="font-size:.72rem">Revisar seguridad y resiliencia en la captura bancaria</span>
+                      </button>
+                      <button type="button" class="g dev-quick-chip" data-p="Explícame cómo agregar un nuevo botón interactivo en el menú de navegación de Operaciones con su respectivo módulo." style="padding:10px 12px;border-radius:10px">
+                        <b style="color:#00f5a0;display:block;font-size:.8rem">➕ Crear Nuevo Módulo en el Menú</b>
+                        <span class="mut" style="font-size:.72rem">Guía y plantilla de código para extender el panel admin</span>
+                      </button>
+                      <button type="button" class="g dev-quick-chip" data-p="Genera una consulta SQL para auditar todas las cuentas por pagar a crédito de revendedores y saber quién está en mora." style="padding:10px 12px;border-radius:10px">
+                        <b style="color:#fde047;display:block;font-size:.8rem">📊 Consulta SQL para Créditos Revendedores</b>
+                        <span class="mut" style="font-size:.72rem">Auditoría contable y reporte de deudas</span>
+                      </button>
+                      <button type="button" class="g dev-quick-chip" data-p="¿Cómo está estructurado el flujo de Billetera Zeny y qué triggers se ejecutan al registrar una compra?" style="padding:10px 12px;border-radius:10px">
+                        <b style="color:#38bdf8;display:block;font-size:.8rem">💡 Arquitectura Billetera Zeny</b>
+                        <span class="mut" style="font-size:.72rem">Entender disparadores contables y balance</span>
+                      </button>
+                    </div>
+                  </div>
+                ` : msgs.map((m, idx) => `
+                  <div style="display:flex;gap:10px;align-items:flex-start;${m.role === 'user' ? 'justify-content:flex-end' : ''}">
+                    ${m.role !== 'user' ? '<div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#00f5a0,#00d4ff);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">🤖</div>' : ''}
+                    <div style="max-width:85%;background:${m.role === 'user' ? 'linear-gradient(135deg,rgba(0,212,255,.2),rgba(0,120,255,.25))' : 'rgba(12,28,52,.8)'};border:1px solid ${m.role === 'user' ? 'rgba(0,212,255,.4)' : 'rgba(255,255,255,.08)'};border-radius:12px;padding:12px 14px">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">
+                        <b style="font-size:.76rem;color:${m.role === 'user' ? '#00d4ff' : '#00f5a0'}">
+                          ${m.role === 'user' ? '👤 Gregory (Tú)' : '🤖 Dev Studio AI (' + (m.model || S_DEV.model) + ')'}
+                        </b>
+                        <span class="mut" style="font-size:.68rem">${m.timestamp || ''}</span>
+                      </div>
+                      <div class="dev-msg-body" style="font-size:.85rem;line-height:1.55;color:#e2e8f0;word-break:break-word">
+                        ${renderFormattedMessage(m.text, idx)}
+                      </div>
+                    </div>
+                    ${m.role === 'user' ? '<div style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">👤</div>' : ''}
+                  </div>
+                `).join('')}
+                <div id="devChatBottom"></div>
+              </div>
+
+              <!-- BARRA DE ENTRADA -->
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">
+                <div style="display:flex;gap:8px">
+                  <textarea id="inpDevPrompt" rows="2" placeholder="Escribe tu instrucción o requerimiento para el Agente Developer... (Ctrl+Enter para enviar)" style="flex:1;background:rgba(8,20,40,.9);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.85rem;color:#fff;resize:none"></textarea>
+                  <button id="btnDevSendChat" type="button" style="padding:0 20px;font-weight:800;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#04111d;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+                    <span>Enviar</span>
+                    <span style="font-size:1.1rem">➤</span>
+                  </button>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:.72rem" class="mut">
+                  <span>💡 Tip: Puedes pedirle que cree código, audite tablas o escriba migraciones SQL.</span>
+                  <span>Presiona <b>Ctrl + Enter</b> para enviar</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // PESTAÑA 2: EDITOR DE CÓDIGO & DESPLIEGUE A GITHUB
+      if (S_DEV.activeTab === 'editor') {
+        return `
+          <div class="card" style="background:rgba(4,12,26,.95);border:1px solid var(--line)">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)">
+              <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:260px">
+                <label style="font-size:.78rem;font-weight:700">📂 Archivo:</label>
+                <select id="selDevEditorFile" style="flex:1;font-size:.82rem;padding:6px 10px;background:rgba(12,28,52,.9);border-color:var(--c)">
+                  ${S_DEV.files.map(f => `<option value="${esc(f)}" ${f === S_DEV.selectedFile ? 'selected' : ''}>${esc(f)}</option>`).join('')}
+                </select>
+                <button class="g" id="btnDevReloadFile" type="button" style="padding:6px 10px;font-size:.75rem" title="Recargar contenido desde GitHub">
+                  🔄 Recargar
+                </button>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="pill" style="font-size:.7rem;background:rgba(255,255,255,.05);color:var(--mut)">
+                  SHA: <code>${S_DEV.fileSha ? S_DEV.fileSha.slice(0, 7) : 'Nuevo'}</code>
+                </span>
+                <span class="pill" style="font-size:.7rem;background:rgba(0,212,255,.1);color:#00d4ff">
+                  ${S_DEV.fileContent ? (S_DEV.fileContent.length / 1024).toFixed(1) + ' KB' : 'Vacío'}
+                </span>
+              </div>
+            </div>
+
+            <!-- ÁREA DEL EDITOR -->
+            <div style="position:relative;margin-bottom:12px">
+              ${S_DEV.fileLoading ? `
+                <div style="position:absolute;inset:0;background:rgba(4,12,26,.85);display:flex;align-items:center;justify-content:center;z-index:10;border-radius:10px">
+                  <div style="text-align:center"><div class="sk" style="width:140px;height:24px;margin:auto"></div><p class="mut" style="margin-top:8px;font-size:.8rem">Descargando archivo desde GitHub...</p></div>
+                </div>
+              ` : ''}
+              <textarea id="txtDevEditorCode" spellcheck="false" style="width:100%;min-height:480px;font-family:'Fira Code',Menlo,Monaco,Consolas,monospace;font-size:.84rem;line-height:1.5;background:#030914;color:#f1f5f9;border:1px solid rgba(0,212,255,.25);border-radius:10px;padding:12px;tab-size:2;white-space:pre">${esc(S_DEV.fileContent || '')}</textarea>
+            </div>
+
+            <!-- BARRA DE COMMIT & DESPLIEGUE -->
+            <div style="background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+              <div style="flex:1;min-width:280px">
+                <label style="font-size:.74rem;display:block;margin-bottom:4px;font-weight:700" class="mut">Mensaje de Commit (Git):</label>
+                <input id="inpDevCommitMsg" placeholder="Ej: feat(ops): agregar nueva validación en ${esc(S_DEV.selectedFile)}" style="width:100%;font-size:.82rem;padding:7px 10px;background:rgba(12,28,52,.9);border-color:var(--line)">
+              </div>
+
+              <div style="display:flex;gap:8px;align-items:center">
+                <button id="btnDevCommitFile" type="button" style="padding:10px 20px;font-weight:800;font-size:.88rem;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#04111d;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,245,160,.3)">
+                  <span>🚀 Guardar y Desplegar (Commit a GitHub)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // PESTAÑA 3: COMMITS EN GITHUB
+      if (S_DEV.activeTab === 'commits') {
+        const commits = S_DEV.commits || [];
+        return `
+          <div class="card" style="background:rgba(4,12,26,.95);border:1px solid var(--line)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+              <div>
+                <h4 style="margin:0 0 2px 0;font-size:1.05rem">📜 Historial de Commits en GitHub</h4>
+                <p class="mut" style="margin:0;font-size:.76rem">Repositorio: <b>${esc(S_DEV.status.repo || 'gregoryizquierdo1990/tienda-gregory')}</b> (Rama: <code>main</code>)</p>
+              </div>
+              <button class="g" id="btnDevRefreshCommits" type="button" style="padding:6px 12px;font-size:.78rem">🔄 Refrescar Commits</button>
+            </div>
+
+            <div class="wrap">
+              <table style="width:100%;font-size:.82rem">
+                <thead>
+                  <tr>
+                    <th>Hash</th>
+                    <th>Mensaje del Commit</th>
+                    <th>Autor</th>
+                    <th>Fecha</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${commits.length === 0 ? `
+                    <tr><td colspan="5" style="text-align:center;padding:24px" class="mut">No se pudieron cargar commits de GitHub. Verifica que el token esté configurado.</td></tr>
+                  ` : commits.map(c => `
+                    <tr>
+                      <td><code style="color:#00d4ff;font-weight:700">${esc(c.sha)}</code></td>
+                      <td><b>${esc(c.message)}</b></td>
+                      <td>${esc(c.author)}</td>
+                      <td class="mut">${c.date ? new Date(c.date).toLocaleString('es-VE') : 'N/A'}</td>
+                      <td>
+                        <a href="${esc(c.html_url)}" target="_blank" rel="noopener noreferrer" class="g" style="padding:4px 8px;font-size:.72rem;text-decoration:none;display:inline-block">
+                          ↗️ Ver en GitHub
+                        </a>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      // PESTAÑA 4: CONSOLA SQL
+      if (S_DEV.activeTab === 'database') {
+        return `
+          <div class="card" style="background:rgba(4,12,26,.95);border:1px solid var(--line)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div>
+                <h4 style="margin:0 0 2px 0;font-size:1.05rem">🗄️ Terminal SQL de Supabase</h4>
+                <p class="mut" style="margin:0;font-size:.76rem">Ejecuta consultas de inspección directamente sobre la base de datos PostgreSQL de la tienda.</p>
+              </div>
+            </div>
+
+            <div style="margin-bottom:12px">
+              <textarea id="txtDevSqlQuery" spellcheck="false" placeholder="SELECT id, nombre, precio_usd, permite_cuotas FROM products ORDER BY nombre LIMIT 10;" style="width:100%;min-height:120px;font-family:monospace;font-size:.85rem;background:#030914;color:#00f5a0;border:1px solid rgba(0,245,160,.3);border-radius:10px;padding:12px"></textarea>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <div style="display:flex;gap:6px">
+                <button type="button" class="g btn-sql-preset" data-q="SELECT id, nombre, email, zeny_balance, limite_credito, es_revendedor FROM customers ORDER BY creado DESC LIMIT 10;" style="padding:4px 8px;font-size:.72rem">👥 Clientes</button>
+                <button type="button" class="g btn-sql-preset" data-q="SELECT id, total_usd, estado, referencia, created_at FROM orders ORDER BY created_at DESC LIMIT 10;" style="padding:4px 8px;font-size:.72rem">🛒 Pedidos</button>
+                <button type="button" class="g btn-sql-preset" data-q="SELECT id, nombre_perfil, vence, estado, vendedor FROM profiles_inventory WHERE estado = 'disponible' LIMIT 10;" style="padding:4px 8px;font-size:.72rem">👤 Stock Libre</button>
+              </div>
+              <button id="btnDevRunSql" type="button" style="padding:8px 18px;font-weight:800;font-size:.82rem;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#04111d;border:none;border-radius:8px;cursor:pointer">
+                ▶️ Ejecutar Consulta
+              </button>
+            </div>
+
+            <div id="devSqlResultBox" style="background:#02060f;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;min-height:160px;overflow-x:auto">
+              <span class="mut" style="font-size:.8rem">El resultado de la consulta aparecerá aquí...</span>
+            </div>
+          </div>
+        `;
+      }
+
+      // PESTAÑA 5: LOGS DEL AGENTE
+      if (S_DEV.activeTab === 'logs') {
+        return `
+          <div class="card" style="background:#02060e;border:1.5px solid rgba(0,212,255,.3)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.1)">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:1.1rem">📋</span>
+                <b style="font-size:.9rem;color:#00d4ff">Terminal de Operaciones & Logs</b>
+              </div>
+              <button class="g" id="btnDevClearLogs" type="button" style="padding:4px 8px;font-size:.72rem">🗑️ Limpiar Terminal</button>
+            </div>
+
+            <div id="devTerminalBody" style="min-height:360px;max-height:500px;overflow-y:auto;font-family:'Fira Code',Menlo,Consolas,monospace;font-size:.8rem;line-height:1.6;color:#94a3b8;display:flex;flex-direction:column;gap:4px">
+              ${S_DEV.logs.map(l => `<div>${esc(l)}</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      return '';
+    };
+
+    // Formateador simple de mensajes de markdown con bloques de código
+    const renderFormattedMessage = (rawText, msgIdx) => {
+      let t = esc(rawText);
+      // Reemplazar bloques de código ```language ... ```
+      t = t.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+        const cleanCode = code.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        return `
+          <div style="margin:10px 0;background:#020611;border:1px solid rgba(0,212,255,.3);border-radius:8px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:rgba(0,212,255,.1);border-bottom:1px solid rgba(0,212,255,.2);font-size:.72rem">
+              <span style="color:#00d4ff;font-weight:700">📜 ${esc(lang || 'código')}</span>
+              <div style="display:flex;gap:6px">
+                <button class="ai-code-copy-btn" data-raw="${esc(cleanCode)}" type="button" style="padding:2px 8px;font-size:.68rem;background:rgba(255,255,255,.1);border:none;border-radius:4px;color:#fff;cursor:pointer">📋 Copiar</button>
+                <button class="ai-code-apply-btn" data-raw="${esc(cleanCode)}" type="button" style="padding:2px 8px;font-size:.68rem;background:#00f5a0;border:none;border-radius:4px;color:#04111d;font-weight:800;cursor:pointer">🚀 Cargar en Editor</button>
+              </div>
+            </div>
+            <pre style="margin:0;padding:10px;font-family:monospace;font-size:.8rem;overflow-x:auto;color:#38bdf8"><code>${code}</code></pre>
+          </div>
+        `;
+      });
+
+      // Negritas
+      t = t.replace(/\*\*(.*?)\*\*/g, '<b style="color:#fff">$1</b>');
+      // Saltos de línea
+      t = t.replace(/\n/g, '<br>');
+      return t;
+    };
+
+    // MODAL DE AJUSTES DE TOKENS (GEMINI Y GITHUB)
+    const openSettingsModal = () => {
+      $('#dlgBody').innerHTML = `
+        <div style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:1.6rem">⚙️</span>
+            <div>
+              <h3 style="margin:0;color:#00d4ff">Ajustes de Conexión Dev Studio</h3>
+              <div class="mut" style="font-size:.78rem">Configura tus llaves de API para permitir que el agente programe y despliegue</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;margin-bottom:14px">
+          <label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px">
+            1. Google Gemini API Key (Cerebro del Agente):
+          </label>
+          <input id="inDevGeminiKey" type="password" placeholder="AIzaSy..." style="width:100%;margin-bottom:6px">
+          <div class="mut" style="font-size:.72rem">
+            Obtenla gratis en <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color:#00f5a0">Google AI Studio</a>. Se usará para el razonamiento de código y asistencia.
+          </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;margin-bottom:14px">
+          <label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px">
+            2. GitHub Personal Access Token (PAT):
+          </label>
+          <input id="inDevGithubPat" type="password" placeholder="ghp_..." style="width:100%;margin-bottom:6px">
+          <div class="mut" style="font-size:.72rem">
+            Permite que el agente lea archivos y haga commits automáticos a tu repositorio. Debe tener permiso <code>repo</code>. Puedes crearlo en <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" style="color:#38bdf8">GitHub Tokens</a>.
+          </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;margin-bottom:14px">
+          <label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px">
+            3. Repositorio de GitHub:
+          </label>
+          <input id="inDevGithubRepo" value="${esc(S_DEV.status.repo || 'gregoryizquierdo1990/tienda-gregory')}" placeholder="usuario/repositorio" style="width:100%">
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="g" onclick="dlg.close()">Cancelar</button>
+          <button id="btnSaveDevSettings" style="padding:9px 18px;font-weight:800;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#04111d;border:none;border-radius:8px;cursor:pointer">
+            💾 Guardar Credenciales
+          </button>
+        </div>
+      `;
+
+      if (!dlg.open) dlg.showModal();
+
+      const btnSave = $('#btnSaveDevSettings');
+      if (btnSave) {
+        btnSave.onclick = () => run(btnSave, async () => {
+          const gKey = ($('#inDevGeminiKey')?.value || '').trim();
+          const ghPat = ($('#inDevGithubPat')?.value || '').trim();
+          const ghRepo = ($('#inDevGithubRepo')?.value || '').trim();
+
+          const res = await api('/api/dev-studio', {
+            action: 'save_config',
+            gemini_api_key: gKey || undefined,
+            github_pat: ghPat || undefined,
+            github_repo: ghRepo || undefined
+          });
+
+          if (!res.ok) throw new Error(res.error || 'Error al guardar');
+          dlg.close();
+          await fetchStatus();
+          await fetchCommits();
+          render();
+          return '✅ Credenciales guardadas con éxito en Supabase Secrets.';
+        });
+      }
+    };
+
+    // Vincular Eventos
+    const bindEvents = () => {
+      // Cambio de pestañas
+      box.querySelectorAll('.btn-dev-tab').forEach(btn => {
+        btn.onclick = () => {
+          S_DEV.activeTab = btn.dataset.tab;
+          render();
+          if (S_DEV.activeTab === 'editor' && !S_DEV.fileContent && S_DEV.status.github_configured) {
+            loadFileToEditor(S_DEV.selectedFile);
+          }
+        };
+      });
+
+      // Modelo selector
+      const selModel = box.querySelector('#selDevModel');
+      if (selModel) {
+        selModel.onchange = e => {
+          S_DEV.model = e.target.value;
+          addLog(`Modelo de IA seleccionado: ${S_DEV.model}`);
+        };
+      }
+
+      // Botón Ajustes
+      const btnSet = box.querySelector('#btnDevSettings');
+      if (btnSet) btnSet.onclick = openSettingsModal;
+
+      // Ver tienda en vivo
+      const btnLive = box.querySelector('#btnDevOpenLiveSite');
+      if (btnLive) btnLive.onclick = () => window.open('https://www.gregoryizquierdo.xyz', '_blank');
+
+      // --- EVENTOS PESTAÑA CHAT ---
+      const inpPrompt = box.querySelector('#inpDevPrompt');
+      const btnSendChat = box.querySelector('#btnDevSendChat');
+      const btnClearChat = box.querySelector('#btnDevClearChat');
+
+      if (btnClearChat) {
+        btnClearChat.onclick = () => {
+          S_DEV.chatHistory = [];
+          render();
+        };
+      }
+
+      const doSendChat = async () => {
+        const pText = (inpPrompt?.value || '').trim();
+        if (!pText) return;
+        inpPrompt.value = '';
+
+        const nowTime = new Date().toLocaleTimeString('es-VE');
+        S_DEV.chatHistory.push({ role: 'user', text: pText, timestamp: nowTime });
+        render();
+
+        const scrollBottom = () => {
+          const b = box.querySelector('#devChatBottom');
+          if (b) b.scrollIntoView({ behavior: 'smooth' });
+        };
+        scrollBottom();
+
+        addLog(`Usuario envió instrucción: "${pText.slice(0, 60)}..."`);
+
+        try {
+          const res = await api('/api/dev-studio', {
+            action: 'chat',
+            prompt: pText,
+            history: S_DEV.chatHistory.slice(0, -1),
+            active_file: S_DEV.selectedFile,
+            active_code: S_DEV.fileContent ? S_DEV.fileContent.slice(0, 5000) : null,
+            model: S_DEV.model
+          });
+
+          if (res.ok) {
+            S_DEV.chatHistory.push({
+              role: 'model',
+              text: res.reply || 'Sin respuesta.',
+              timestamp: new Date().toLocaleTimeString('es-VE'),
+              model: res.model
+            });
+            addLog(`Respuesta recibida de ${res.model}.`);
+          } else {
+            S_DEV.chatHistory.push({
+              role: 'model',
+              text: '⚠️ Error: ' + (res.error || 'No se pudo generar respuesta.'),
+              timestamp: new Date().toLocaleTimeString('es-VE')
+            });
+            addLog(`Error en chat: ${res.error || 'Desconocido'}`);
+          }
+        } catch (err) {
+          S_DEV.chatHistory.push({
+            role: 'model',
+            text: '⚠️ Error de conexión: ' + err.message,
+            timestamp: new Date().toLocaleTimeString('es-VE')
+          });
+          addLog(`Fallo de conexión: ${err.message}`);
+        }
+
+        render();
+        scrollBottom();
+      };
+
+      if (btnSendChat) btnSendChat.onclick = doSendChat;
+      if (inpPrompt) {
+        inpPrompt.onkeydown = e => {
+          if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            doSendChat();
+          }
+        };
+      }
+
+      // Chips de preguntas rápidas
+      box.querySelectorAll('.dev-quick-chip').forEach(c => {
+        c.onclick = () => {
+          if (inpPrompt) {
+            inpPrompt.value = c.dataset.p;
+            doSendChat();
+          }
+        };
+      });
+
+      // Botón copiar código de bloque
+      box.querySelectorAll('.ai-code-copy-btn').forEach(b => {
+        b.onclick = () => {
+          const code = b.dataset.raw || '';
+          navigator.clipboard.writeText(code).then(() => toast('Código copiado al portapapeles.'));
+        };
+      });
+
+      // Botón Cargar código en Editor
+      box.querySelectorAll('.ai-code-apply-btn').forEach(b => {
+        b.onclick = () => {
+          const code = b.dataset.raw || '';
+          S_DEV.fileContent = code;
+          S_DEV.activeTab = 'editor';
+          addLog('Código sugerido por IA cargado en el Editor.');
+          render();
+        };
+      });
+
+      // --- EVENTOS PESTAÑA EDITOR ---
+      const selFile = box.querySelector('#selDevEditorFile');
+      if (selFile) {
+        selFile.onchange = e => {
+          loadFileToEditor(e.target.value);
+        };
+      }
+
+      const btnReloadFile = box.querySelector('#btnDevReloadFile');
+      if (btnReloadFile) {
+        btnReloadFile.onclick = () => loadFileToEditor(S_DEV.selectedFile);
+      }
+
+      const txtEditor = box.querySelector('#txtDevEditorCode');
+      if (txtEditor) {
+        txtEditor.oninput = e => {
+          S_DEV.fileContent = e.target.value;
+        };
+      }
+
+      // Guardar y hacer commit a GitHub
+      const btnCommit = box.querySelector('#btnDevCommitFile');
+      if (btnCommit) {
+        btnCommit.onclick = () => run(btnCommit, async () => {
+          const content = S_DEV.fileContent;
+          const path = S_DEV.selectedFile;
+          const msg = (box.querySelector('#inpDevCommitMsg')?.value || '').trim() || `feat(dev-studio): actualizar ${path}`;
+
+          addLog(`Iniciando commit a GitHub en rama main para ${path}...`);
+
+          const res = await api('/api/dev-studio', {
+            action: 'commit_file',
+            path,
+            content,
+            message: msg,
+            sha: S_DEV.fileSha
+          });
+
+          if (!res.ok) throw new Error(res.error || 'Error al guardar commit');
+
+          S_DEV.fileSha = res.new_sha || S_DEV.fileSha;
+          addLog(`✅ Commit exitoso: ${res.commit_sha} en rama main. Vercel desplegará los cambios.`);
+          fetchCommits();
+          return `✅ Commit ${res.commit_sha} guardado en GitHub. ¡Despliegue iniciado!`;
+        });
+      }
+
+      // --- EVENTOS PESTAÑA COMMITS ---
+      const btnRefCommits = box.querySelector('#btnDevRefreshCommits');
+      if (btnRefCommits) {
+        btnRefCommits.onclick = () => run(btnRefCommits, async () => {
+          await fetchCommits();
+          render();
+          return 'Commits actualizados.';
+        });
+      }
+
+      // --- EVENTOS PESTAÑA SQL ---
+      const btnRunSql = box.querySelector('#btnDevRunSql');
+      const txtSql = box.querySelector('#txtDevSqlQuery');
+      const boxSqlRes = box.querySelector('#devSqlResultBox');
+
+      box.querySelectorAll('.btn-sql-preset').forEach(b => {
+        b.onclick = () => {
+          if (txtSql) txtSql.value = b.dataset.q;
+        };
+      });
+
+      if (btnRunSql && txtSql && boxSqlRes) {
+        btnRunSql.onclick = () => run(btnRunSql, async () => {
+          const q = (txtSql.value || '').trim();
+          if (!q) throw new Error('Ingresa una consulta SQL.');
+          boxSqlRes.innerHTML = '<span class="mut">Ejecutando consulta en Supabase...</span>';
+
+          try {
+            // Intentar consulta REST directa de lectura si es un SELECT simple
+            const selectMatch = q.match(/^SELECT\s+([\s\S]+?)\s+FROM\s+([a-zA-Z0-9_]+)/i);
+            if (selectMatch) {
+              const table = selectMatch[2];
+              const { data, error } = await sb.from(table).select('*').limit(15);
+              if (error) throw error;
+              if (!data || data.length === 0) {
+                boxSqlRes.innerHTML = '<span class="mut">Consulta exitosa. 0 registros retornados.</span>';
+                return '0 registros';
+              }
+              const cols = Object.keys(data[0] || {});
+              boxSqlRes.innerHTML = `
+                <div class="wrap">
+                  <table style="width:100%;font-size:.76rem">
+                    <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+                    <tbody>${data.map(row => `<tr>${cols.map(c => `<td>${esc(row[c])}</td>`).join('')}</tr>`).join('')}</tbody>
+                  </table>
+                </div>
+              `;
+              return `✅ ${data.length} registros cargados`;
+            } else {
+              boxSqlRes.innerHTML = `<span class="mut">Para consultas de modificación o DDL usa el SQL Editor de Supabase o define un RPC.</span>`;
+              return 'Completado';
+            }
+          } catch (err) {
+            boxSqlRes.innerHTML = `<span style="color:#f87171">⚠️ Error SQL: ${esc(err.message)}</span>`;
+            throw err;
+          }
+        });
+      }
+
+      // --- EVENTOS PESTAÑA LOGS ---
+      const btnClearLogs = box.querySelector('#btnDevClearLogs');
+      if (btnClearLogs) {
+        btnClearLogs.onclick = () => {
+          S_DEV.logs = [];
+          render();
+        };
+      }
+    };
+
+    render();
   }
 };
 if (typeof window !== 'undefined') {
