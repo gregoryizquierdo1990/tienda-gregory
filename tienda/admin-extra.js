@@ -4599,6 +4599,10 @@ create policy installments_admin_all on installments for all to authenticated us
     const bnplCount = prodList.filter(p => p.permite_cuotas).length;
     const contadoCount = totalCount - bnplCount;
 
+    // Estado de filtro y búsqueda en la tabla de productos
+    let currentFilterTab = box._bnplFilterTab || 'all';
+    let currentSearchQuery = box._bnplSearchQuery || '';
+
     // Estado local seleccionado
     let selectedProdId = box._selectedBnplProdId || (prodList.find(p => p.permite_cuotas)?.id || prodList[0]?.id || '');
     let selectedProduct = prodList.find(p => p.id === selectedProdId) || prodList[0] || null;
@@ -4658,15 +4662,15 @@ create policy installments_admin_all on installments for all to authenticated us
           </div>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px">
-            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:10px 14px;border-radius:12px">
+            <div class="card-kpi-bnpl" data-tab="all" style="background:${currentFilterTab==='all'?'rgba(0,212,255,.12)':'rgba(255,255,255,.04)'};border:1px solid ${currentFilterTab==='all'?'var(--c)':'rgba(255,255,255,.08)'};padding:10px 14px;border-radius:12px;cursor:pointer;transition:all .2s" title="Clic para ver todos los productos">
               <span class="mut" style="font-size:.72rem;display:block">Total Productos</span>
               <b style="font-size:1.2rem;color:#fff">${totalCount}</b>
             </div>
-            <div style="background:rgba(0,245,160,.06);border:1px solid rgba(0,245,160,.2);padding:10px 14px;border-radius:12px">
+            <div class="card-kpi-bnpl" data-tab="activo" style="background:${currentFilterTab==='activo'?'rgba(0,245,160,.16)':'rgba(0,245,160,.06)'};border:1px solid ${currentFilterTab==='activo'?'#00f5a0':'rgba(0,245,160,.2)'};padding:10px 14px;border-radius:12px;cursor:pointer;transition:all .2s" title="Clic para ver productos con cuotas activas">
               <span class="mut" style="font-size:.72rem;display:block">En Cuotas (BNPL)</span>
               <b style="font-size:1.2rem;color:#00f5a0">${bnplCount}</b>
             </div>
-            <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:10px 14px;border-radius:12px">
+            <div class="card-kpi-bnpl" data-tab="inactivo" style="background:${currentFilterTab==='inactivo'?'rgba(148,163,184,.16)':'rgba(255,255,255,.04)'};border:1px solid ${currentFilterTab==='inactivo'?'#94a3b8':'rgba(255,255,255,.08)'};padding:10px 14px;border-radius:12px;cursor:pointer;transition:all .2s" title="Clic para ver productos solo de contado">
               <span class="mut" style="font-size:.72rem;display:block">Solo Contado</span>
               <b style="font-size:1.2rem;color:var(--mut)">${contadoCount}</b>
             </div>
@@ -4840,35 +4844,55 @@ create policy installments_admin_all on installments for all to authenticated us
 
         <!-- TABLA RESUMEN DE TODOS LOS PRODUCTOS -->
         <div class="card" style="background:rgba(4,12,26,.9);border:1px solid var(--line)">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-            <h4 style="margin:0;font-size:1.05rem">📋 Matriz de BNPL por Producto</h4>
-            <div style="flex:1;max-width:320px">
-              <input id="inpSearchBnplTable" placeholder="🔍 Filtrar por nombre o categoría..." style="width:100%;font-size:.8rem;padding:6px 10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+            <div>
+              <h4 style="margin:0 0 4px 0;font-size:1.05rem">📋 Matriz de BNPL por Producto</h4>
+              <p class="mut" style="margin:0;font-size:.78rem">Filtra y visualiza qué productos tienen activo el plan de cuotas y cuáles operan solo de contado.</p>
+            </div>
+
+            <!-- PESTAÑAS / BOTONES DE FILTRADO BNPL -->
+            <div style="display:flex;gap:6px;background:rgba(255,255,255,.04);padding:4px;border-radius:10px;border:1px solid rgba(255,255,255,.1);flex-wrap:wrap">
+              <button type="button" class="g btn-filter-bnpl ${currentFilterTab === 'all' ? 'active-tab' : ''}" data-tab="all" style="padding:6px 14px;font-size:.78rem;font-weight:700;border-radius:8px;${currentFilterTab === 'all' ? 'background:var(--c);color:#040d1a;' : 'color:var(--text);'}">
+                Todos (${totalCount})
+              </button>
+              <button type="button" class="g btn-filter-bnpl ${currentFilterTab === 'activo' ? 'active-tab' : ''}" data-tab="activo" style="padding:6px 14px;font-size:.78rem;font-weight:700;border-radius:8px;${currentFilterTab === 'activo' ? 'background:#00f5a0;color:#040d1a;' : 'color:#00f5a0;'}">
+                ✅ BNPL Activo (${bnplCount})
+              </button>
+              <button type="button" class="g btn-filter-bnpl ${currentFilterTab === 'inactivo' ? 'active-tab' : ''}" data-tab="inactivo" style="padding:6px 14px;font-size:.78rem;font-weight:700;border-radius:8px;${currentFilterTab === 'inactivo' ? 'background:#64748b;color:#fff;' : 'color:#94a3b8;'}">
+                ⚪ Solo Contado (${contadoCount})
+              </button>
+            </div>
+
+            <div style="flex:1;max-width:300px;min-width:200px">
+              <input id="inpSearchBnplTable" value="${esc(currentSearchQuery)}" placeholder="🔍 Filtrar por nombre o categoría..." style="width:100%;font-size:.8rem;padding:7px 12px">
             </div>
           </div>
 
           <div class="wrap">
             <table style="width:100%;font-size:.82rem" id="tableBnplProducts">
-              <tr>
-                <th>Producto / Categoría</th>
-                <th>Precio USD</th>
-                <th>BNPL Estado</th>
-                <th>Cuota Inicial</th>
-                <th>Cuotas</th>
-                <th>Frecuencia</th>
-                <th>Recargo Mora</th>
-                <th>Acción</th>
-              </tr>
+              <thead>
+                <tr>
+                  <th>Producto / Categoría</th>
+                  <th>Precio USD</th>
+                  <th>BNPL Estado</th>
+                  <th>Cuota Inicial</th>
+                  <th>Cuotas</th>
+                  <th>Frecuencia</th>
+                  <th>Recargo Mora</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
               ${prodList.map(p => {
                 const pB = p.bnpl_config;
-                const isAct = p.permite_cuotas;
+                const isAct = !!p.permite_cuotas;
                 const iniText = pB ? (pB.inicial_tipo === 'fijo' ? `$${Number(pB.inicial_valor||0).toFixed(2)}` : `${pB.inicial_valor||50}%`) : (isAct ? '50%' : '—');
                 const cuotText = pB ? `${pB.numero_cuotas||2} cuotas` : (isAct ? '2 cuotas' : '—');
                 const frecText = pB ? `c/${pB.frecuencia_dias||15}d` : (isAct ? 'c/15d' : '—');
                 const moraText = pB ? (pB.mora_tipo === 'fijo' ? `+$${Number(pB.mora_valor||1).toFixed(2)}` : `+${pB.mora_valor||5}%`) : (isAct ? '+5%' : '—');
 
                 return `
-                  <tr class="bnpl-prod-row" data-name="${esc(p.nombre).toLowerCase()}" data-cat="${esc(p.categoria || '').toLowerCase()}">
+                  <tr class="bnpl-prod-row" data-name="${esc(p.nombre).toLowerCase()}" data-cat="${esc(p.categoria || '').toLowerCase()}" data-status="${isAct ? 'activo' : 'inactivo'}">
                     <td>
                       <b>${esc(p.nombre)}</b>
                       <span class="mut" style="display:block;font-size:.7rem">${esc(p.categoria || 'Sin categoría')}</span>
@@ -4896,6 +4920,12 @@ create policy installments_admin_all on installments for all to authenticated us
                   </tr>
                 `;
               }).join('')}
+                <tr id="bnplEmptyFilterRow" style="display:none">
+                  <td colspan="8" style="text-align:center;padding:26px" class="mut">
+                    🔍 No se encontraron productos que coincidan con el filtro seleccionado.
+                  </td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -5084,16 +5114,87 @@ create policy installments_admin_all on installments for all to authenticated us
         }));
       });
 
-      // Búsqueda en tabla
-      const inpSearch = $('#inpSearchBnplTable');
+      // Filtrado instantáneo (Pestañas + Búsqueda en vivo)
+      const applyTableFilter = () => {
+        const rows = box.querySelectorAll('.bnpl-prod-row');
+        let visibleCount = 0;
+        rows.forEach(row => {
+          const n = row.dataset.name || '';
+          const c = row.dataset.cat || '';
+          const s = row.dataset.status || '';
+          const matchesTab = (currentFilterTab === 'all') || (s === currentFilterTab);
+          const matchesSearch = !currentSearchQuery || n.includes(currentSearchQuery) || c.includes(currentSearchQuery);
+          const show = matchesTab && matchesSearch;
+          row.style.display = show ? '' : 'none';
+          if (show) visibleCount++;
+        });
+        const emptyRow = box.querySelector('#bnplEmptyFilterRow');
+        if (emptyRow) {
+          emptyRow.style.display = visibleCount === 0 ? '' : 'none';
+        }
+      };
+
+      // Ejecutar filtrado inicial según estado actual
+      applyTableFilter();
+
+      const updateTabButtonsUI = () => {
+        box.querySelectorAll('.btn-filter-bnpl').forEach(b => {
+          const isSelected = b.dataset.tab === currentFilterTab;
+          if (b.dataset.tab === 'all') {
+            b.style.background = isSelected ? 'var(--c)' : '';
+            b.style.color = isSelected ? '#040d1a' : 'var(--text)';
+          } else if (b.dataset.tab === 'activo') {
+            b.style.background = isSelected ? '#00f5a0' : '';
+            b.style.color = isSelected ? '#040d1a' : '#00f5a0';
+          } else if (b.dataset.tab === 'inactivo') {
+            b.style.background = isSelected ? '#64748b' : '';
+            b.style.color = isSelected ? '#fff' : '#94a3b8';
+          }
+        });
+
+        box.querySelectorAll('.card-kpi-bnpl').forEach(k => {
+          const isSelected = k.dataset.tab === currentFilterTab;
+          if (k.dataset.tab === 'all') {
+            k.style.background = isSelected ? 'rgba(0,212,255,.14)' : 'rgba(255,255,255,.04)';
+            k.style.borderColor = isSelected ? 'var(--c)' : 'rgba(255,255,255,.08)';
+          } else if (k.dataset.tab === 'activo') {
+            k.style.background = isSelected ? 'rgba(0,245,160,.2)' : 'rgba(0,245,160,.06)';
+            k.style.borderColor = isSelected ? '#00f5a0' : 'rgba(0,245,160,.2)';
+          } else if (k.dataset.tab === 'inactivo') {
+            k.style.background = isSelected ? 'rgba(148,163,184,.2)' : 'rgba(255,255,255,.04)';
+            k.style.borderColor = isSelected ? '#94a3b8' : 'rgba(255,255,255,.08)';
+          }
+        });
+      };
+
+      // Clic en Pestañas de Filtro
+      box.querySelectorAll('.btn-filter-bnpl').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentFilterTab = btn.dataset.tab;
+          box._bnplFilterTab = currentFilterTab;
+          updateTabButtonsUI();
+          applyTableFilter();
+        });
+      });
+
+      // Clic en Tarjetas KPI superiores como atajo de filtrado
+      box.querySelectorAll('.card-kpi-bnpl').forEach(k => {
+        k.addEventListener('click', () => {
+          currentFilterTab = k.dataset.tab;
+          box._bnplFilterTab = currentFilterTab;
+          updateTabButtonsUI();
+          applyTableFilter();
+          box.querySelector('#tableBnplProducts')?.scrollIntoView({ behavior: 'smooth' });
+        });
+      });
+
+      // Búsqueda en vivo en la tabla
+      const inpSearch = box.querySelector('#inpSearchBnplTable');
       if (inpSearch) {
         inpSearch.oninput = e => {
-          const q = (e.target.value || '').toLowerCase().trim();
-          box.querySelectorAll('.bnpl-prod-row').forEach(row => {
-            const n = row.dataset.name || '';
-            const c = row.dataset.cat || '';
-            row.style.display = (!q || n.includes(q) || c.includes(q)) ? '' : 'none';
-          });
+          currentSearchQuery = (e.target.value || '').toLowerCase().trim();
+          box._bnplSearchQuery = currentSearchQuery;
+          applyTableFilter();
         };
       }
     };
