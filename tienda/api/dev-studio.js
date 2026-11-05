@@ -270,7 +270,7 @@ DIRECTIVAS PARA TUS RESPUESTAS:
 ${active_file ? `\nARCHIVO ACTUALMENTE ABIERTO EN EL EDITOR:\nNombre: ${active_file}\nCódigo actual:\n\`\`\`\n${(active_code || '').slice(0, 10000)}\n\`\`\`\n` : ''}`;
 
     try {
-      const targetModel = model.includes('pro') ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+      const targetModel = model.includes('pro') ? 'gemini-3.1-pro-preview' : 'gemini-3.5-flash-lite';
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${geminiKey}`;
 
       const aiRes = await fetch(geminiUrl, {
