@@ -2,7 +2,26 @@
 const today = () => new Date().toISOString().slice(0, 10);
 const addDay = d => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + 1); return x.toISOString().slice(0, 10); };
 const jwt = async () => (await sb.auth.getSession()).data.session?.access_token;
-const api = async (path, body) => { const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await jwt() }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.status); return j; };
+const api = async (path, body, timeoutMs = 15000) => {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await jwt() },
+      body: JSON.stringify(body),
+      signal: ctrl.signal
+    });
+    clearTimeout(tid);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || r.statusText || ('HTTP ' + r.status));
+    return j;
+  } catch (err) {
+    clearTimeout(tid);
+    if (err.name === 'AbortError') throw new Error('Tiempo de espera agotado al conectar con el servidor (15s).');
+    throw err;
+  }
+};
 const G = async (url, opt = {}) => {
   const t = sessionStorage.getItem('gtk'); if (!t) throw new Error('Conecta Google primero (botón "Conectar Google").');
   const headers = { Authorization: 'Bearer ' + t, ...(opt.headers || {}) };
@@ -20,7 +39,19 @@ const G = async (url, opt = {}) => {
 };
 const dump = async () => { const o = {}; for (const t of ['settings', 'customers', 'products', 'categories', 'banners', 'orders', 'invoices', 'zeny_ledger', 'payment_methods', 'faqs', 'incidents', 'bot_commands', 'exchange_rates']) o[t] = (await sb.from(t).select('*')).data || []; return o; };
 const loadXLSX = () => window.XLSX ? Promise.resolve() : new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = ok; s.onerror = () => ko(new Error('No se pudo cargar el lector de Excel')); document.head.appendChild(s); });
-const run = async (btn, fn) => { btn.disabled = true; try { toast(await fn()); } catch (e) { toast('Error: ' + e.message); } btn.disabled = false; };
+const run = async (btn, fn) => {
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  try {
+    const res = await fn();
+    if (res) toast(res);
+  } catch (e) {
+    toast('Error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
+  }
+};
 
 const GCal = {
   CAL_ID: 'emprendimientogregoryizquierdo@gmail.com',
