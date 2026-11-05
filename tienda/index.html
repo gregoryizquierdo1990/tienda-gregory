@@ -1723,23 +1723,31 @@ async function openRenewalModal(opts = {}) {
       // Refrescar el portal de inmediato para reflejar cuotas y nuevo vencimiento
       try { if(S.view === 'portal') portal(); checkVenc(); } catch(e){}
 
-      // Notificar evento
+      // Notificar evento a Telegram (Bot Julián / Gregory)
       fetch('/api/notify-event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'renovacion_suscripcion',
+          type: selMetodo === 'zeny' ? 'despacho_automatico_zeny' : 'renovacion_suscripcion',
           data: {
+            operacion: 'Renovación de Suscripción (+30 días)',
             cliente: nom || S.me?.nombre || S.user?.email,
             email: S.user?.email,
             telefono: tel || S.me?.telefono,
+            es_revendedor: !!isReseller,
             revendedor: isReseller ? (S.me?.nombre || S.user?.email) : 'Directo',
             servicio: srv,
+            producto: srv,
             perfil: prof,
+            pin: pin || '',
+            cuenta_madre: mail || '',
             nuevo_vencimiento: result.nuevo_vencimiento || nextVenceStr,
             metodo: selMetodo === 'zeny' ? 'Billetera Zeny' : (selMetodo === 'credito' ? 'Línea de Crédito' : 'Transferencia / Pago Móvil'),
-            referencia: refVal || 'Pago directo',
-            monto_usd: priceUsd
+            referencia: refVal || 'Pago directo Zeny',
+            total_usd: priceUsd,
+            monto_usd: priceUsd,
+            saldo_restante: result.saldo_restante != null ? result.saldo_restante : Math.max(0, zenyBal - priceUsd),
+            order_id: result.order_id
           }
         })
       }).catch(()=>{});
@@ -3937,7 +3945,8 @@ async function buyDlg(id){
   let currentStep = 'method'; // 'method' (Paso 1) o 'details' (Paso 2)
   let payPlan = 'contado'; // 'contado' o 'cuotas'
   let selectedMethodId = (pmList && pmList.length > 0) ? pmList[0].id : null;
-  let appliedZeny = 0;
+  // Regla automática: si el cliente o revendedor tiene saldo Zeny suficiente para cubrir el total, aplicar por defecto para despacho inmediato
+  let appliedZeny = (availZeny >= Number(p.precio_usd)) ? Number(p.precio_usd) : 0;
   let paySplit = 'unico'; // 'unico' o 'mixto'
   let splitM1Id = (pmList && pmList.length > 0) ? pmList[0].id : null;
   let splitM2Id = (pmList && pmList.length > 1) ? pmList[1].id : splitM1Id;
@@ -4623,6 +4632,29 @@ async function buyDlg(id){
             }
           }
 
+          // Notificar despacho automático con Zeny a Telegram (Bot Julián / Gregory)
+          fetch('/api/notify-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'despacho_automatico_zeny',
+              data: {
+                operacion: payPlan === 'cuotas' ? 'Compra en Cuotas (Inicial Zeny)' : 'Nueva Compra Catálogo (Pago Completo Zeny)',
+                producto: p?.nombre || 'Suscripción Digital',
+                servicio: p?.nombre || 'Suscripción Digital',
+                cliente: S.user?.user_metadata?.nombre || S.me?.nombre || S.user?.email || 'Cliente',
+                email: S.user?.email,
+                telefono: S.me?.telefono || (isRechargeService ? rechargeData.telefono : ''),
+                es_revendedor: !!S.me?.es_revendedor,
+                total_usd: appliedZeny,
+                monto_usd: appliedZeny,
+                saldo_restante: Math.max(0, availZeny - appliedZeny),
+                order_id: ordId,
+                datos_activacion: isServicio ? (rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || '') : (isGaming ? `ID: ${rechargeData.player_id}` : (isTelecom ? `Tlf: ${rechargeData.telefono}` : ''))
+              }
+            })
+          }).catch(()=>{});
+
           checkoutDlg.close();
           await loadPublic();
           toast(payPlan === 'cuotas' ? 'Inicial enviada. Tus cuotas quedaron agendadas en tu portal.' : '⚡ ¡Servicio activado al instante! Tus credenciales ya están disponibles en tu portal.');
@@ -4662,6 +4694,29 @@ async function buyDlg(id){
               await sb.from('installments').insert(buildInstallmentsData(ordId, refCard)).catch(()=>{});
             }
           }
+
+          // Notificar despacho automático con Tarjeta Zeny a Telegram (Bot Julián / Gregory)
+          fetch('/api/notify-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'despacho_automatico_zeny',
+              data: {
+                operacion: payPlan === 'cuotas' ? 'Compra con Tarjeta Zeny (Inicial Cuota 1)' : 'Nueva Compra con Tarjeta Zeny (Pago Completo)',
+                producto: p?.nombre || 'Suscripción Digital',
+                servicio: p?.nombre || 'Suscripción Digital',
+                cliente: S.user?.user_metadata?.nombre || S.me?.nombre || S.user?.email || 'Cliente',
+                email: S.user?.email,
+                telefono: S.me?.telefono || (isRechargeService ? rechargeData.telefono : ''),
+                es_revendedor: !!S.me?.es_revendedor,
+                total_usd: totalToPayToday,
+                monto_usd: totalToPayToday,
+                saldo_restante: Math.max(0, availZeny - totalToPayToday),
+                order_id: ordId,
+                datos_activacion: isServicio ? (rechargeData.texto_activacion || rechargeData.datos_activacion || rechargeData.correo_activacion || '') : (isGaming ? `ID: ${rechargeData.player_id}` : (isTelecom ? `Tlf: ${rechargeData.telefono}` : ''))
+              }
+            })
+          }).catch(()=>{});
 
           checkoutDlg.close();
           await loadPublic();

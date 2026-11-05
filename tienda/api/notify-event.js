@@ -323,6 +323,40 @@ ${perfil ? `👤 <b>Perfil:</b> <code>${perfil}</code>\n` : ''}${pin ? `🔒 <b>
       break;
     }
 
+    // 14. DESPACHO AUTOMÁTICO CON BILLETERA ZENY (SIN CONCILIACIÓN MANUAL)
+    case 'despacho_automatico_zeny': {
+      const operacion = escHtml(data.operacion || data.tipo_operacion || 'Compra Instantánea');
+      const prod = escHtml(data.producto || data.servicio || 'Suscripción Digital');
+      const nom = escHtml(data.cliente || data.nombre || 'Cliente');
+      const correo = escHtml(data.correo || data.email || 'No especificado');
+      const rol = data.es_revendedor ? 'Revendedor Oficial' : 'Cliente Directo';
+      const usd = Number(data.total_usd || data.monto_usd || 0).toFixed(2);
+      const saldoRestante = Number(data.saldo_restante != null ? data.saldo_restante : (data.zeny_balance || 0)).toFixed(2);
+      const perfil = escHtml(data.perfil || data.nombre_perfil || '');
+      const pin = escHtml(data.pin || '');
+      const cuentaMadre = escHtml(data.cuenta_madre || data.correo_cuenta || '');
+      const vencimiento = escHtml(data.nuevo_vencimiento || data.vence || '');
+      const ordId = escHtml(data.order_id ? String(data.order_id).slice(0, 8) : 'OK');
+      const datosAct = escHtml(data.datos_activacion || '');
+
+      plainMsg = `⚡ ¡DESPACHO AUTOMÁTICO ZENY! [${operacion}] ${prod} - $${usd} USD. Destinatario: ${nom} (${rol}). Saldo rest: $${saldoRestante} ZP.`;
+      htmlMsg = `⚡ <b>¡DESPACHO AUTOMÁTICO CON BILLETERA ZENY!</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>Operación:</b> <b>${operacion}</b>
+👤 <b>Destinatario:</b> <b>${nom}</b> (<b>${rol}</b>)
+📱 <b>WhatsApp:</b> ${waLink ? `<a href="${waLink}">+${cleanPhone}</a>` : 'No registrado'}
+✉️ <b>Correo:</b> <code>${correo}</code>
+📺 <b>Servicio / Producto:</b> <b>${prod}</b>
+${perfil ? `👤 <b>Perfil:</b> <code>${perfil}</code>\n` : ''}${pin ? `🔒 <b>PIN:</b> <code>${pin}</code>\n` : ''}${cuentaMadre ? `📧 <b>Cuenta:</b> <code>${cuentaMadre}</code>\n` : ''}${vencimiento ? `📅 <b>Vencimiento (+30d):</b> <code>${vencimiento}</code>\n` : ''}${datosAct ? `📝 <b>Datos:</b> <code>${datosAct}</code>\n` : ''}━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💰 <b>Monto Descontado:</b> <b>$${usd} ZP (USD)</b>
+💳 <b>Saldo Zeny Restante:</b> <b>$${saldoRestante} ZP</b>
+🆔 <b>Pedido ID:</b> <code>#${ordId}</code>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ <i>Despachado y entregado automáticamente. 0 segundos sin conciliación manual.</i>
+👉 <a href="${siteUrl}/#admin">Ver en Panel Admin</a>`;
+      break;
+    }
+
     default: {
       plainMsg = `🔔 Aviso: ${JSON.stringify(data).slice(0, 200)}`;
       htmlMsg = `🔔 <b>AVISO DEL SISTEMA</b><br><code>${escHtml(JSON.stringify(data, null, 2))}</code>`;
