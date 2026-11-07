@@ -1,22 +1,52 @@
-// Envía un aviso al administrador por Telegram y por notificación push (a todos sus dispositivos registrados).
-import webpush from 'web-push';
 import { sbRest, getSecret } from './_lib.js';
 
-const JULIAN_BOT_TOKEN = '8571549759:AAHqPS64PQTyVjMEwecJN937dHzLQd-Et_A';
-const GREGORY_CHAT_ID = '7154250409';
+let webpush = null;
+try {
+  const mod = await import('web-push');
+  webpush = mod.default || mod;
+} catch {}
 
-export async function sendTelegram(msgHtml, plainMsg) {
+export const ADMIN_CHAT_ID = '1252102820';
+
+export const BOTS = {
+  milos: {
+    name: 'Milos',
+    username: 'agentemilos_bot',
+    token: '9018604803:AAGrRViH6W6Ct2FTP65RqbUga6u0uFZ6gDg',
+    role: 'Orquestador Inteligente & Supervisor'
+  },
+  esteban: {
+    name: 'Esteban',
+    username: 'agenteesteban_bot',
+    token: '9281654307:AAFOfFL0PlLFHAyaoGRyBlhz-faKrFqV8E4',
+    role: 'Reporte Matutino 8:00 AM'
+  },
+  ramses: {
+    name: 'Ramses',
+    username: 'agenteramses_bot',
+    token: '9010437688:AAGJ6VaBNo_vls_zdgw4QA-Ol6Tce6D3mQY',
+    role: 'Reporte Cierre 9:00 PM'
+  },
+  sahara: {
+    name: 'Sahara',
+    username: 'agentesahara_bot',
+    token: '9130459367:AAGpInOIOdln8MrxmcUZqhP6y0q-Zc-CDl8',
+    role: 'Finanzas & Despachos Zeny'
+  }
+};
+
+export async function sendTelegramBot(botKey = 'milos', msgHtml, plainMsg, targetChatId = null) {
   try {
-    const cfg = (await sbRest('settings?key=eq.notificaciones&select=value'))?.[0]?.value || {};
-    const token = (await getSecret('telegram_admin_bot_token')) || process.env.TELEGRAM_ADMIN_BOT_TOKEN || JULIAN_BOT_TOKEN;
-    const chatId = cfg.telegram_chat_id || process.env.TELEGRAM_ADMIN_CHAT_ID || GREGORY_CHAT_ID;
+    const botCfg = BOTS[botKey] || BOTS.milos;
+    const token = botCfg.token;
+    const chatId = targetChatId || ADMIN_CHAT_ID;
 
     if (!chatId || !token) {
-      return { ok: false, error: 'Telegram sin configurar (guarda el token y tu ID en el módulo Notificaciones)' };
+      return { ok: false, error: `Bot ${botKey} sin token o chat_id no especificado` };
     }
 
     const payload = {
-      chat_id: chatId,
+      chat_id: String(chatId),
       text: msgHtml,
       parse_mode: 'HTML',
       disable_web_page_preview: true
@@ -29,38 +59,62 @@ export async function sendTelegram(msgHtml, plainMsg) {
     });
 
     if (!r.ok) {
-      // Reintentar en texto plano si Telegram rechaza etiquetas HTML mal balanceadas
+      // Reintentar en texto plano si Telegram rechaza formato HTML
       r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: plainMsg || msgHtml.replace(/<[^>]+>/g, '') })
+        body: JSON.stringify({
+          chat_id: String(chatId),
+          text: plainMsg || msgHtml.replace(/<[^>]+>/g, '')
+        })
       });
     }
 
     if (!r.ok) {
       const errText = await r.text();
-      return { ok: false, error: 'Telegram: ' + errText.slice(0, 160) };
+      return { ok: false, error: `Telegram (${botCfg.name}): ${errText.slice(0, 160)}` };
     }
 
-    return { ok: true };
+    return { ok: true, bot: botCfg.name };
   } catch (err) {
-    return { ok: false, error: 'Telegram: ' + err.message };
+    return { ok: false, error: `Telegram (${botKey}): ${err.message}` };
   }
 }
 
-export async function sendAll(kind, msg, htmlMsg, targetUserId = null) {
+export async function sendMilos(msgHtml, plainMsg, targetChatId = null) {
+  return sendTelegramBot('milos', msgHtml, plainMsg, targetChatId);
+}
+
+export async function sendEsteban(msgHtml, plainMsg, targetChatId = null) {
+  return sendTelegramBot('esteban', msgHtml, plainMsg, targetChatId);
+}
+
+export async function sendRamses(msgHtml, plainMsg, targetChatId = null) {
+  return sendTelegramBot('ramses', msgHtml, plainMsg, targetChatId);
+}
+
+export async function sendSahara(msgHtml, plainMsg, targetChatId = null) {
+  return sendTelegramBot('sahara', msgHtml, plainMsg, targetChatId);
+}
+
+// Mantener compatibilidad directa con código existente
+export async function sendTelegram(msgHtml, plainMsg, botKey = 'milos', targetChatId = null) {
+  return sendTelegramBot(botKey, msgHtml, plainMsg, targetChatId);
+}
+
+export async function sendAll(kind, msg, htmlMsg, targetUserId = null, botKey = 'milos') {
   const out = { telegram: false, push: 0, errores: [] };
 
-  // 1. Envío a Telegram con formato HTML enriquecido (solo para admin o cuando no es privado)
+  // 1. Envío a Telegram por el bot indicado (por defecto Milos o Sahara para zeny)
   if (!targetUserId) {
-    const tgRes = await sendTelegram(htmlMsg || msg, msg);
+    const tgRes = await sendTelegramBot(botKey, htmlMsg || msg, msg);
     out.telegram = tgRes.ok;
     if (!tgRes.ok && tgRes.error) {
       out.errores.push(tgRes.error);
     }
   }
 
-  // 2. Envío a Web Push (al usuario específico o a todos según corresponda)
+  // 2. Envío a Web Push (al usuario específico o a todos los administradores)
   try {
     const pub = (await getSecret('vapid_public')) || process.env.VAPID_PUBLIC_KEY;
     const priv = (await getSecret('vapid_private')) || process.env.VAPID_PRIVATE_KEY;

@@ -1,9 +1,9 @@
-// Webhook de Telegram interactivo y automatizado para @Diego1asistente_bot
+// Webhook de Telegram interactivo y automatizado para @agentemilos_bot
 // Vinculado a la tienda de Emprendimiento Gregory Izquierdo
 import { sbRest, getSecret, U, K } from './_lib.js';
 
-const GREETING_BASE = 'Hola Mi nombre es Diego_bot Asistente de Gestión de Emprendimiento Gregory Izquierdo, ¿en qué puedo ayudarte?';
-const DIEGO_DEFAULT_TOKEN = '8535286680:AAGCbVKMNk_aeDHwyICqsAqbtMUjDXlMOMg';
+const GREETING_BASE = 'Hola Mi nombre es Milos Asistente y Orquestador de Emprendimiento Gregory Izquierdo, ¿en qué puedo ayudarte?';
+const MILOS_DEFAULT_TOKEN = '9018604803:AAGrRViH6W6Ct2FTP65RqbUga6u0uFZ6gDg';
 
 // Teclado interactivo para Clientes finales (Bot Público)
 const CLIENT_KEYBOARD = [
@@ -139,7 +139,7 @@ export default async function handler(req, res) {
   const rawText = (cb ? (cb.data || '') : (msg.text || '')).trim();
   const lowerText = rawText.toLowerCase();
 
-  const token = (await getSecret('telegram_token')) || DIEGO_DEFAULT_TOKEN;
+  const token = (await getSecret('telegram_token')) || MILOS_DEFAULT_TOKEN;
 
   if (isCallback && cb?.id) {
     await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
@@ -376,7 +376,7 @@ export default async function handler(req, res) {
       const keyboard = getCustomerKeyboard(cust);
 
       const successMsg = `✅ <b>¡Inicio de sesión exitoso!</b>\n` +
-        `Bienvenido/a <b>${escHtml(cust.nombre)}</b> al Asistente Interactivo Bot Diego.` +
+        `Bienvenido/a <b>${escHtml(cust.nombre)}</b> al Asistente Interactivo Bot Milos.` +
         (isRev ? `\n\n🏢 <b>Acceso de Revendedor Autorizado:</b> Dispones de catálogo mayorista, gestión de tus clientes y línea de crédito aprobada.` : '') +
         (isDemo ? `\n\n🔒 <b>Modo Demostración Activo:</b> Cuenta habilitada para pruebas y visualización.` : '') +
         `\n\n¿Qué deseas consultar? Elige una opción abajo 👇`;
@@ -446,7 +446,7 @@ export default async function handler(req, res) {
     lowerText.includes('asesor') || lowerText.includes('whatsapp') || lowerText === '/soporte';
   if (isSoporte) {
     const neg = (await sbRest('settings?key=eq.negocio&select=value'))?.[0]?.value || {};
-    const tel = (neg.telefono || '+584241983648').replace(/\D/g, '');
+    const tel = (neg.telefono || '+584242809333').replace(/\D/g, '');
     const sopText = `💬 <b>Atención Directa y Soporte con Gregory:</b>\n\n` +
       `¿Tienes consultas con una membresía, recarga o gestión comercial?\n\n` +
       `📲 <b>WhatsApp Directo:</b> <a href="https://wa.me/${tel}">Escribir por WhatsApp a Gregory</a>\n` +
@@ -947,7 +947,7 @@ export default async function handler(req, res) {
 
   // Fallback amigable adaptado según el rol
   const fallbackMsg = isReseller
-    ? `🤖 <b>Diego_bot:</b> Hola <b>${escHtml(cust.nombre)}</b> (Revendedor Autorizado).\n\n` +
+    ? `🤖 <b>Milos:</b> Hola <b>${escHtml(cust.nombre)}</b> (Revendedor Autorizado).\n\n` +
       `Usa los botones del menú inferior para gestionar tu negocio:\n` +
       `• 👥 <b>Mis Clientes & Suscripciones</b>: Monitorea vencimientos y contactos.\n` +
       `• 📦 <b>Catálogo Revendedor</b>: Precios de mayorista y márgenes de ganancia.\n` +
@@ -955,7 +955,7 @@ export default async function handler(req, res) {
       `• 💰 <b>Mi Saldo Zeny</b>: Balance disponible.\n` +
       `• 💵 <b>Tasa BCV Oficial</b>: Tasa del día.\n` +
       `• 💳 <b>Métodos de Pago</b>: Cuentas BDV, BNC y Binance.`
-    : `🤖 <b>Diego_bot:</b> Hola <b>${escHtml(cust.nombre)}</b>, ¿en qué puedo ayudarte?\n\n` +
+    : `🤖 <b>Milos:</b> Hola <b>${escHtml(cust.nombre)}</b>, ¿en qué puedo ayudarte?\n\n` +
       `Usa los botones del menú inferior para consultar al instante:\n` +
       `• 📦 <b>Mis Servicios Activos</b>: Ver credenciales, perfiles y PINs.\n` +
       `• 💰 <b>Mi Saldo Zeny</b>: Consultar saldo en USD y Bolívares.\n` +

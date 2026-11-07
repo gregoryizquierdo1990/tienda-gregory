@@ -30,7 +30,7 @@ begin if not is_admin() then raise exception 'No autorizado'; end if;
 -- ===== AJUSTES =====
 create table if not exists settings (key text primary key, value jsonb not null, updated_at timestamptz default now());
 insert into settings values
- ('negocio','{"nombre":"Emprendimiento Gregory Izquierdo","rif":"J-50639379-4","telefono":"+584241983648","correo":"emprendimientogregoryizquierdo@gmail.com"}'),
+ ('negocio','{"nombre":"Emprendimiento Gregory Izquierdo","rif":"J-50639379-4","telefono":"+584242809333","correo":"emprendimientogregoryizquierdo@gmail.com"}'),
  ('zeny','{"nombre":"Zeny","moneda":"ZenyPoints","valor_usd":1}'),
  ('reserva','{"minutos":60}') on conflict do nothing;
 create table if not exists exchange_rates (fecha date primary key default current_date, bs_por_usd numeric(14,4) not null check (bs_por_usd > 0), fuente text default 'BCV', created_at timestamptz default now());

@@ -365,8 +365,9 @@ ${perfil ? `👤 <b>Perfil:</b> <code>${perfil}</code>\n` : ''}${pin ? `🔒 <b>
   }
 
   try {
-    const resNotify = await sendAll(kind, plainMsg, htmlMsg);
-    return res.json({ ok: true, ...resNotify });
+    const botKey = type === 'despacho_automatico_zeny' ? 'sahara' : 'milos';
+    const resNotify = await sendAll(kind, plainMsg, htmlMsg, null, botKey);
+    return res.json({ ok: true, bot: botKey, ...resNotify });
   } catch (err) {
     console.error('Error enviando notificación Telegram/Push:', err);
     return res.status(500).json({ error: err.message });

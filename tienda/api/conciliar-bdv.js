@@ -9,14 +9,13 @@
 // ==============================================================================
 import { U, K, sbRest, getSecret } from './_lib.js';
 
-const JULIAN_BOT_TOKEN = '8571549759:AAHqPS64PQTyVjMEwecJN937dHzLQd-Et_A'; // Bot Administrativo Privado
-const DIEGO_DEFAULT_TOKEN = '8535286680:AAGCbVKMNk_aeDHwyICqsAqbtMUjDXlMOMg'; // Bot Oficial para Clientes
-const GREGORY_CHAT_ID = '7154250409';
+const MILOS_BOT_TOKEN = '9018604803:AAGrRViH6W6Ct2FTP65RqbUga6u0uFZ6gDg';
+const GREGORY_CHAT_ID = '1252102820';
 
-// Bot Julián: Notifica exclusivamente a Gregory en su chat personal
+// Bot Milos: Notifica a Gregory en su chat personal
 async function notifyGregoryTelegram(text) {
   try {
-    const token = await getSecret('telegram_bdv_bot_token') || JULIAN_BOT_TOKEN;
+    const token = await getSecret('telegram_bdv_bot_token') || MILOS_BOT_TOKEN;
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -31,11 +30,11 @@ async function notifyGregoryTelegram(text) {
   }
 }
 
-// Bot Diego: Entrega credenciales y avisos exclusivamente a clientes y revendedores
+// Bot Milos: Entrega credenciales y avisos a clientes y revendedores
 async function notifyCustomerTelegram(chatId, text) {
   if (!chatId) return;
   try {
-    const token = await getSecret('telegram_token') || DIEGO_DEFAULT_TOKEN;
+    const token = await getSecret('telegram_token') || MILOS_BOT_TOKEN;
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -46,7 +45,7 @@ async function notifyCustomerTelegram(chatId, text) {
       })
     });
   } catch (err) {
-    console.error('Error enviando credenciales a cliente por Bot Diego:', err);
+    console.error('Error enviando credenciales a cliente por Bot Milos:', err);
   }
 }
 

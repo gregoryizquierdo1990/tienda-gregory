@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     })
   });
 
-  const botUsername = 'Diego1asistente_bot';
+  const botUsername = 'agentemilos_bot';
   const url = `https://t.me/${botUsername}?start=${linkToken}`;
 
   res.status(200).json({

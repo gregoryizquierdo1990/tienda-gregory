@@ -1033,7 +1033,7 @@ async function ensureAdminExtraLoaded() {
       existing.remove();
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=16';
+    script.src = '/admin-extra.js?v=17';
     script.async = true;
     const timeout = setTimeout(() => {
       if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) resolve(true);
@@ -1356,7 +1356,7 @@ function formatMessageTemplate(key, data = {}) {
   const srv = data.servicio || data.producto || '';
   const merged = {
     negocio: S.franchise?.nombre_comercial || S.settings?.negocio?.nombre || 'Emprendimiento Gregory Izquierdo',
-    telefono_negocio: S.settings?.negocio?.telefono || '+584241983648',
+    telefono_negocio: S.settings?.negocio?.telefono || '+584242809333',
     rif: S.settings?.negocio?.rif || 'J-50639379-4',
     portal_url: S.franchise ? location.origin : 'https://www.gregoryizquierdo.xyz',
     vendedor: S.me?.nombre || S.user?.user_metadata?.full_name || 'Revendedor Autorizado',
@@ -5278,7 +5278,7 @@ function openFranchiseModal(){
       }
 
       const waMsg = `¡Hola Gregory! 👋 Acabo de postularme a la Franquicia Oficial con mi negocio *${formData.businessName}* (${formData.ownerName}, C.I: ${formData.cedulaRif}). Ya cargué mi expediente KYC en la plataforma y deseo activar mi tienda web.`;
-      const waUrl = `https://wa.me/584241983648?text=${encodeURIComponent(waMsg)}`;
+      const waUrl = `https://wa.me/584242809333?text=${encodeURIComponent(waMsg)}`;
 
       if(window.confetti) {
         window.confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
@@ -5776,7 +5776,7 @@ function openMesaCambioModal(){
           Nuestra mesa de cambio para compra de USDT se encuentra actualmente en pausa operativa o actualización de liquidez.
         </p>
         <div style="display:flex;gap:10px;justify-content:center">
-          <a href="https://wa.me/584241983648?text=${encodeURIComponent('¡Hola Gregory! 👋 Quería consultar la disponibilidad de la Mesa de Cambio USDT.')}" target="_blank" rel="noopener noreferrer" style="background:#25D366;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:6px">
+          <a href="https://wa.me/584242809333?text=${encodeURIComponent('¡Hola Gregory! 👋 Quería consultar la disponibilidad de la Mesa de Cambio USDT.')}" target="_blank" rel="noopener noreferrer" style="background:#25D366;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:6px">
             💬 Consultar por WhatsApp
           </a>
           <button class="g" id="mcCloseOff">Cerrar</button>
@@ -7425,23 +7425,23 @@ async function portal(){
         ` : '')}
       </div>
 
-      <!-- 4. Asistente Interactivo Diego_bot (Telegram) -->
+      <!-- 4. Asistente Interactivo Milos (Telegram) -->
       <div class="card portal-summary-card" style="border:1.5px solid rgba(0,136,204,.35);background:linear-gradient(135deg,rgba(0,136,204,.08),rgba(15,23,42,.6))">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span class="mut" style="font-size:.82rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#38bdf8">🤖 Diego_bot Telegram</span>
+          <span class="mut" style="font-size:.82rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#38bdf8">🤖 Milos Telegram</span>
           <span class="pill" style="font-size:.7rem;${S.me?.telegram_chat_id ? 'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.35)' : 'background:rgba(0,136,204,.15);color:#38bdf8;border-color:rgba(0,136,204,.35)'}">
             ${S.me?.telegram_chat_id ? '🟢 Conectado' : '⚡ 1 Clic'}
           </span>
         </div>
         <div>
-          <div style="font-weight:800;font-size:1.15rem;color:#fff;margin:4px 0">@Diego1asistente_bot</div>
+          <div style="font-weight:800;font-size:1.15rem;color:#fff;margin:4px 0">@agentemilos_bot</div>
           <div class="mut" style="font-size:.8rem;line-height:1.35">
             ${S.me?.telegram_chat_id ? 'Tu cuenta está sincronizada. Consulta tus credenciales activas, PINs, saldos en Wallet Zeny y deudas en tiempo real.' : 'Conecta tu cuenta para consultar tus membresías, PINs, deudas y saldo en tiempo real desde Telegram.'}
           </div>
         </div>
         <div style="margin-top:14px">
           <button id="btnConnectTelegram" style="width:100%;background:linear-gradient(135deg,#0088cc,#00a884);color:#fff;font-weight:800;border:none;border-radius:10px;padding:9px 12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-            ✈️ ${S.me?.telegram_chat_id ? 'Abrir @Diego1asistente_bot' : 'Conectar con Diego_bot'}
+            ✈️ ${S.me?.telegram_chat_id ? 'Abrir @agentemilos_bot' : 'Conectar con Milos'}
           </button>
         </div>
       </div>
@@ -7784,12 +7784,12 @@ async function portal(){
     };
   }
 
-  // Conectar con Asistente Telegram Diego_bot
+  // Conectar con Asistente Telegram Milos
   const btnTg = $('#btnConnectTelegram');
   if(btnTg){
     btnTg.onclick = async () => {
       if(S.me?.telegram_chat_id){
-        window.open('https://t.me/Diego1asistente_bot', '_blank');
+        window.open('https://t.me/agentemilos_bot', '_blank');
         return;
       }
       const prevHtml = btnTg.innerHTML;
@@ -7807,11 +7807,11 @@ async function portal(){
           window.open(d.url, '_blank');
           toast('Redirigiendo a Telegram... Presiona INICIAR para vincular.');
         } else {
-          window.open('https://t.me/Diego1asistente_bot', '_blank');
+          window.open('https://t.me/agentemilos_bot', '_blank');
           toast('Escribe /start en el bot e ingresa tu ID o correo.');
         }
       } catch(err){
-        window.open('https://t.me/Diego1asistente_bot', '_blank');
+        window.open('https://t.me/agentemilos_bot', '_blank');
         toast('Escribe /start en el bot e ingresa tu ID o correo.');
       } finally {
         btnTg.disabled = false;
@@ -7824,7 +7824,7 @@ async function portal(){
   const bVer = $('#btnVerBeneficios');
   if(bVer){
     bVer.onclick = () => {
-      const bizTel = (S.settings?.negocio?.telefono || '+584241983648').replace(/\D/g, '');
+      const bizTel = (S.settings?.negocio?.telefono || '+584242809333').replace(/\D/g, '');
       const reqMsgReseller = encodeURIComponent(`¡Hola! Soy ${S.me?.nombre||'Cliente'} (ID: ${userCode}). Quisiera solicitar el ascenso de mi cuenta a Revendedor Mayorista VIP para acceder a los precios con descuento comercial.`);
       const reqMsgFranchise = encodeURIComponent(`¡Hola! Soy ${S.me?.nombre||'Cliente'} (ID: ${userCode}). Me interesa la Franquicia Digital SaaS para tener mi propia tienda web con subdominio propio.`);
 
@@ -7945,7 +7945,7 @@ async function portal(){
   const reqBtn = $('#btnReqCard');
   if(reqBtn){
     reqBtn.onclick = () => {
-      const bizTel = (S.settings?.negocio?.telefono || '+584241983648').replace(/\D/g, '');
+      const bizTel = (S.settings?.negocio?.telefono || '+584242809333').replace(/\D/g, '');
       const reqMsg = encodeURIComponent(`¡Hola Gregory! 👋 Soy ${S.me?.nombre || S.user.email || 'Cliente'} (ID: ${userCode}, Tel: ${S.me?.telefono || ''}).\n\n💳 Deseo solicitar mi Tarjeta Digital Zeny oficial para acceder al 5% de descuento en mis compras.`);
 
       $('#dlgBody').innerHTML = `
@@ -8436,11 +8436,11 @@ const TABLES = {
  zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
  products:['nombre','descripcion','tipo','es_exclusivo_central','precio_usd','precio_binance_usd','precio_revendedor_usd','permite_cuotas','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
  banners:['titulo','texto','tipo','destinatario','imagen_url','enlace','boton_texto','transicion_segundos','popup_frecuencia','color_fondo','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
- payment_methods:['nombre','tipo','datos','orden','activo'], faqs:['pregunta','respuesta','orden','activo'],
+ payment_methods:['nombre','tipo','datos','orden','activo'],
  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
  profiles_inventory:['mother_id','product_id','nombre_perfil','pin','cliente_final','vendedor','inicia','vence','estado'],
   customers:['codigo_identificacion','nombre','email','telefono','vendedor_nombre','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
-  bot_commands:['trigger','response','orden','activo'], login_log:['email','user_agent','created_at'],
+  login_log:['email','user_agent','created_at'],
   exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','monto_bs','notas'], purchases:['fecha','proveedor','plataforma','mother_id','es_credito','dias_credito','fecha_limite_pago','estado_pago','monto_usdt','monto_usd','monto_bs','notas'],
   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
 const SEL={products:'*,categories(nombre)',orders:'*,customers!customer_id(nombre,email,telefono),products(nombre,tipo)',installments:'*,customers!customer_id(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre),customers!assigned_customer_id(nombre,email,telefono)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
@@ -8585,98 +8585,67 @@ const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) r
   return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
 const ADMIN_MENU_OPERACIONES = [
   {
-    group: 'Operaciones & Despacho',
+    group: '🛠️ Operaciones & Despacho',
     items: [
       { id: 'orders', label: 'Pedidos de Clientes', icon: '🛒', badgeKey: 'orders' },
-      { id: 'cuotas', label: 'Cuotas BNPL (Cobranza)', icon: '💳' },
-      { id: 'bnpl_ops', label: 'Cuotas BNPL (Operaciones)', icon: '⚙️' },
-      { id: 'transfers', label: 'Traslados & Reposición (Hogar)', icon: '🔀' },
-      { id: 'vencimientos', label: 'Vencimientos', icon: '📅' },
-      { id: 'incidents', label: 'Incidencias & Soporte', icon: '⚠️', badgeKey: 'incidents' }
-    ]
-  },
-  {
-    group: 'Inventario & Catálogo',
-    items: [
-      { id: 'mother_accounts', label: 'Cuentas madre', icon: '🔑' },
-      { id: 'profiles_inventory', label: 'Perfiles', icon: '👤' },
+      { id: 'vencimientos', label: 'Control de Vencimientos', icon: '📅' },
+      { id: 'incidents', label: 'Incidencias & Soporte', icon: '🎧', badgeKey: 'incidents' },
+      { id: 'zeny_ledger', label: 'Billetera Zeny & Recargas', icon: '💰', badgeKey: 'zeny_ledger' },
+      { id: 'tarjetas', label: 'Tarjetas Zeny TDC', icon: '💳' },
+      { id: 'cuotas', label: 'Cuotas BNPL - Cobranza', icon: '💳' },
+      { id: 'bnpl_ops', label: 'Cuotas BNPL - Operaciones', icon: '⚙️' },
+      { id: 'transfers', label: 'Traslados & Reposición', icon: '🔀' },
+      { id: 'customers', label: 'Clientes Finales', icon: '👥' },
+      { id: 'resellers', label: 'Red de Revendedores', icon: '🤝' },
+      { id: 'mother_accounts', label: 'Cuentas Madre', icon: '🏢' },
+      { id: 'profiles_inventory', label: 'Perfiles & Pantallas', icon: '📺' },
       { id: 'products', label: 'Productos', icon: '📦' },
       { id: 'categories', label: 'Categorías', icon: '🏷️' },
       { id: 'banners', label: 'Banners & Popups', icon: '🎨' },
-      { id: 'importar', label: 'Importar Excel', icon: '📥' }
-    ]
-  },
-  {
-    group: 'Clientes & Red de Ventas',
-    items: [
-      { id: 'customers', label: 'Clientes Finales', icon: '👥' },
-      { id: 'resellers', label: 'Red de Revendedores', icon: '🤝' },
-      { id: 'niveles', label: 'Niveles & Beneficios', icon: '🎖️' },
-      { id: 'tarjetas', label: 'Tarjetas Zeny (TDC)', icon: '💳' },
-      { id: 'login_log', label: 'Log accesos', icon: '📋' }
-    ]
-  },
-  {
-    group: 'Puntos & Franquicias',
-    items: [
-      { id: 'franquicias', label: 'Franquicias SaaS', icon: '🏢' },
-      { id: 'recargas247', label: 'Puntos Recargas247', icon: '📱' }
-    ]
-  },
-  {
-    group: 'Bots & Automatización',
-    items: [
-      { id: 'telegram', label: 'Bot Telegram', icon: '🤖' },
-      { id: 'bot_commands', label: 'Respuestas Bot', icon: '⚡' },
-      { id: 'plantillas', label: 'Plantillas Mensajes', icon: '💬' },
+      { id: 'importar', label: 'Importar Excel', icon: '📥' },
       { id: 'gemini', label: 'Gemini AI', icon: '✨' },
-      { id: 'dev_studio', label: 'Dev Studio (AI Coder)', icon: '💻' },
-      { id: 'notificaciones', label: 'Notificaciones', icon: '🔔' }
-    ]
-  },
-  {
-    group: 'Ajustes & Sistema',
-    items: [
-      { id: 'payment_methods', label: 'Métodos pago', icon: '💳' },
-      { id: 'google', label: 'Google Cloud', icon: '🌐' },
-      { id: 'faqs', label: 'Preguntas FAQ', icon: '❓' },
-      { id: 'settings', label: 'Ajustes', icon: '⚙️' }
+      { id: 'notificaciones', label: 'Notificaciones Push', icon: '🔔' },
+      { id: 'franquicias', label: 'Franquicias SaaS', icon: '🏢' },
+      { id: 'niveles', label: 'Niveles & Beneficios', icon: '🎖️' }
     ]
   }
 ];
 
 const ADMIN_MENU_FINANZAS = [
   {
-    group: 'Centro Financiero',
+    group: '📊 Centro Financiero & Caja',
     items: [
       { id: 'finanzas', label: 'Dashboard Consolidado', icon: '📊' },
-      { id: 'exchange_rates', label: 'Tasa BCV Oficial', icon: '💵' }
-    ]
-  },
-  {
-    group: 'Libro Contable & Flujo de Caja',
-    items: [
+      { id: 'mesa_cambio', label: 'Mesa de Cambio USDT', icon: '💱' },
+      { id: 'exchange_rates', label: 'Tasa BCV Oficial', icon: '💵' },
+      { id: 'payment_methods', label: 'Métodos de Pago', icon: '💳' },
       { id: 'purchases', label: 'Compras a Proveedores', icon: '🛍️' },
       { id: 'expenses', label: 'Gastos Operativos', icon: '📉' },
-      { id: 'refunds', label: 'Devoluciones & Reembolsos', icon: '🔄' }
-    ]
-  },
-  {
-    group: 'Billetera, Cambio & Liquidaciones',
-    items: [
-      { id: 'zeny_ledger', label: 'Billetera Zeny & Recargas', icon: '💰', badgeKey: 'zeny_ledger' },
-      { id: 'mesa_cambio', label: 'Mesa de Cambio USDT', icon: '💱' },
-      { id: 'liquidaciones', label: 'Comisiones & Reparto Socios', icon: '💼' }
+      { id: 'refunds', label: 'Devoluciones & Reembolsos', icon: '🔄' },
+      { id: 'liquidaciones', label: 'Comisiones & Socios', icon: '💼' }
     ]
   }
 ];
 
-const ALL_ADMIN_MENUS = [...ADMIN_MENU_OPERACIONES, ...ADMIN_MENU_FINANZAS];
+const ADMIN_MENU_SISTEMA = [
+  {
+    group: '⚙️ Inventario & Sistema',
+    items: [
+      { id: 'plantillas', label: 'Plantillas Mensajes', icon: '💬' },
+      { id: 'google', label: 'Google Cloud', icon: '🌐' },
+      { id: 'settings', label: 'Ajustes', icon: '⚙️' }
+    ]
+  }
+];
+
+const ALL_ADMIN_MENUS = [...ADMIN_MENU_OPERACIONES, ...ADMIN_MENU_FINANZAS, ...ADMIN_MENU_SISTEMA];
 
 function getActiveAdminMenu(){
   const mode = S.adminViewMode || localStorage.getItem('gi_admin_mode') || 'operaciones';
   S.adminViewMode = mode;
-  return mode === 'finanzas' ? ADMIN_MENU_FINANZAS : ADMIN_MENU_OPERACIONES;
+  if(mode === 'finanzas') return ADMIN_MENU_FINANZAS;
+  if(mode === 'sistema') return ADMIN_MENU_SISTEMA;
+  return ADMIN_MENU_OPERACIONES;
 }
 
 function getTabInfo(t){
@@ -8710,13 +8679,16 @@ function renderAdminSidebar(curTab, allTabs){
       <button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button>
     </div>
 
-    <!-- SELECTOR DE VISTA: OPERACIONES VS FINANZAS -->
-    <div style="padding:10px 12px 6px;display:grid;grid-template-columns:1fr 1fr;gap:6px;background:rgba(3,8,18,.6);border-bottom:1px solid rgba(22,51,90,.8)">
-      <button id="sbBtnModeOps" type="button" class="admin-mode-pill${curMode==='operaciones'?' active':''}" style="padding:6px 4px;font-size:.73rem;font-weight:700;border-radius:8px;border:1px solid ${curMode==='operaciones'?'rgba(0,245,160,.5)':'rgba(255,255,255,.1)'};background:${curMode==='operaciones'?'linear-gradient(135deg,rgba(0,245,160,.2),rgba(0,212,255,.25))':'transparent'};color:${curMode==='operaciones'?'#00f5a0':'var(--mut)'};cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px">
-        🛠️ Operaciones
+    <!-- SELECTOR DE VISTA: OPERACIONES / FINANZAS / SISTEMA -->
+    <div style="padding:10px 12px 6px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;background:rgba(3,8,18,.6);border-bottom:1px solid rgba(22,51,90,.8)">
+      <button id="sbBtnModeOps" type="button" class="admin-mode-pill${curMode==='operaciones'?' active':''}" style="padding:6px 2px;font-size:.68rem;font-weight:700;border-radius:8px;border:1px solid ${curMode==='operaciones'?'rgba(0,245,160,.5)':'rgba(255,255,255,.1)'};background:${curMode==='operaciones'?'linear-gradient(135deg,rgba(0,245,160,.2),rgba(0,212,255,.25))':'transparent'};color:${curMode==='operaciones'?'#00f5a0':'var(--mut)'};cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px">
+        🛠️ Ops
       </button>
-      <button id="sbBtnModeFin" type="button" class="admin-mode-pill${curMode==='finanzas'?' active':''}" style="padding:6px 4px;font-size:.73rem;font-weight:700;border-radius:8px;border:1px solid ${curMode==='finanzas'?'rgba(253,224,71,.5)':'rgba(255,255,255,.1)'};background:${curMode==='finanzas'?'linear-gradient(135deg,rgba(253,224,71,.2),rgba(245,158,11,.25))':'transparent'};color:${curMode==='finanzas'?'#fde047':'var(--mut)'};cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px">
-        📊 Finanzas
+      <button id="sbBtnModeFin" type="button" class="admin-mode-pill${curMode==='finanzas'?' active':''}" style="padding:6px 2px;font-size:.68rem;font-weight:700;border-radius:8px;border:1px solid ${curMode==='finanzas'?'rgba(253,224,71,.5)':'rgba(255,255,255,.1)'};background:${curMode==='finanzas'?'linear-gradient(135deg,rgba(253,224,71,.2),rgba(245,158,11,.25))':'transparent'};color:${curMode==='finanzas'?'#fde047':'var(--mut)'};cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px">
+        📊 Caja
+      </button>
+      <button id="sbBtnModeSys" type="button" class="admin-mode-pill${curMode==='sistema'?' active':''}" style="padding:6px 2px;font-size:.68rem;font-weight:700;border-radius:8px;border:1px solid ${curMode==='sistema'?'rgba(56,189,248,.5)':'rgba(255,255,255,.1)'};background:${curMode==='sistema'?'linear-gradient(135deg,rgba(56,189,248,.2),rgba(168,85,247,.25))':'transparent'};color:${curMode==='sistema'?'#38bdf8':'var(--mut)'};cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px">
+        ⚙️ Sistema
       </button>
     </div>
 
@@ -8779,21 +8751,25 @@ function setupAdminEvents(){
     if(S.adminViewMode === newMode) return;
     S.adminViewMode = newMode;
     localStorage.setItem('gi_admin_mode', newMode);
-    const finModules = ['finanzas','expenses','purchases','refunds','zeny_ledger','mesa_cambio','liquidaciones','exchange_rates'];
+    const finModules = ['finanzas','mesa_cambio','exchange_rates','payment_methods','purchases','expenses','refunds','liquidaciones'];
+    const sysModules = ['plantillas','google','settings'];
     let targetTab = S.t;
     if(newMode === 'finanzas'){
       if(!finModules.includes(targetTab)) targetTab = 'finanzas';
+    } else if(newMode === 'sistema'){
+      if(!sysModules.includes(targetTab)) targetTab = 'plantillas';
     } else {
-      if(finModules.includes(targetTab)) targetTab = 'orders';
+      if(finModules.includes(targetTab) || sysModules.includes(targetTab)) targetTab = 'orders';
     }
     rebuildAdminSidebar(targetTab);
     await admin(targetTab);
   };
   window.switchAdminMode = switchAdminMode;
 
-  const sbOps = $('#sbBtnModeOps'), sbFin = $('#sbBtnModeFin');
+  const sbOps = $('#sbBtnModeOps'), sbFin = $('#sbBtnModeFin'), sbSys = $('#sbBtnModeSys');
   if(sbOps) sbOps.onclick = () => switchAdminMode('operaciones');
   if(sbFin) sbFin.onclick = () => switchAdminMode('finanzas');
+  if(sbSys) sbSys.onclick = () => switchAdminMode('sistema');
 
   app.querySelectorAll('[data-k]').forEach(b=>b.onclick=async()=>{
     const sb=$('#adminSidebar'), bd=$('#adminBackdrop');
@@ -9250,10 +9226,20 @@ async function admin(t, opts = {}){
     }
   }
 
-  if(!t || (!TABLES[t] && !EXTRA[t])) {
+  const finModules = ['finanzas','mesa_cambio','exchange_rates','payment_methods','purchases','expenses','refunds','liquidaciones'];
+  const sysModules = ['plantillas','google','settings'];
+  if(finModules.includes(t)) S.adminViewMode = 'finanzas';
+  else if(sysModules.includes(t)) S.adminViewMode = 'sistema';
+  else if(!t || (!TABLES[t] && !EXTRA[t])) {
     const curSavedMode = S.adminViewMode || localStorage.getItem('gi_admin_mode') || 'operaciones';
-    t = (curSavedMode === 'finanzas') ? 'finanzas' : 'orders';
+    if(curSavedMode === 'finanzas') t = 'finanzas';
+    else if(curSavedMode === 'sistema') t = 'plantillas';
+    else t = 'orders';
+    S.adminViewMode = curSavedMode;
+  } else {
+    S.adminViewMode = 'operaciones';
   }
+  localStorage.setItem('gi_admin_mode', S.adminViewMode);
   if(facetDlg && facetDlg.open) facetDlg.close();
   document.body.classList.add('is-admin'); S.view='admin'; S.t=t;
   const tabs = [...Object.keys(TABLES), ...Object.keys(EXTRA)];
@@ -9291,13 +9277,15 @@ async function admin(t, opts = {}){
     <div class="admin-mode-switch" style="display:inline-flex;align-items:center;background:rgba(3,8,18,.8);padding:3px;border-radius:10px;border:1px solid rgba(255,255,255,.12);gap:3px;margin-left:8px">
       <button id="headBtnOps" type="button" style="padding:4px 8px;font-size:.72rem;font-weight:700;border-radius:7px;border:none;background:${curMode==='operaciones'?'linear-gradient(135deg,rgba(0,245,160,.25),rgba(0,212,255,.25))':'transparent'};color:${curMode==='operaciones'?'#00f5a0':'var(--mut)'};cursor:pointer;display:inline-flex;align-items:center;gap:4px">🛠️ Operaciones</button>
       <button id="headBtnFin" type="button" style="padding:4px 8px;font-size:.72rem;font-weight:700;border-radius:7px;border:none;background:${curMode==='finanzas'?'linear-gradient(135deg,rgba(253,224,71,.25),rgba(245,158,11,.25))':'transparent'};color:${curMode==='finanzas'?'#fde047':'var(--mut)'};cursor:pointer;display:inline-flex;align-items:center;gap:4px">📊 Finanzas</button>
+      <button id="headBtnSys" type="button" style="padding:4px 8px;font-size:.72rem;font-weight:700;border-radius:7px;border:none;background:${curMode==='sistema'?'linear-gradient(135deg,rgba(56,189,248,.25),rgba(168,85,247,.25))':'transparent'};color:${curMode==='sistema'?'#38bdf8':'var(--mut)'};cursor:pointer;display:inline-flex;align-items:center;gap:4px">⚙️ Sistema</button>
     </div>
   `;
 
   const wireHeadToggles = () => {
-    const hOps = $('#headBtnOps'), hFin = $('#headBtnFin');
+    const hOps = $('#headBtnOps'), hFin = $('#headBtnFin'), hSys = $('#headBtnSys');
     if(hOps) hOps.onclick = () => window.switchAdminMode?.('operaciones');
     if(hFin) hFin.onclick = () => window.switchAdminMode?.('finanzas');
+    if(hSys) hSys.onclick = () => window.switchAdminMode?.('sistema');
   };
 
   // 1. GESTOR DE PANELES PERSISTENTES (KEEP-ALIVE EN DOM PARA CAMBIO INSTANTÁNEO 0ms)
@@ -10781,7 +10769,7 @@ async function admin(t, opts = {}){
           <label class="mut" style="font-size:.78rem;display:block;margin-bottom:4px">
             Pega tu lista de WhatsApp (Nombre, Teléfono - un cliente por línea):
           </label>
-          <textarea id="preBatchText" rows="6" style="width:100%;font-family:monospace;font-size:.82rem" placeholder="Carlos Pérez, 04121234567&#10;Ana Silva, 04149876543&#10;Pedro Gómez, 04241983648"></textarea>
+          <textarea id="preBatchText" rows="6" style="width:100%;font-family:monospace;font-size:.82rem" placeholder="Carlos Pérez, 04121234567&#10;Ana Silva, 04149876543&#10;Pedro Gómez, 04242809333"></textarea>
           <div class="mut" style="font-size:.74rem;margin:6px 0 14px">
             * Contraseña = últimos 6 dígitos de su WhatsApp. Límite de crédito inicial $0.00.
           </div>

@@ -1,14 +1,32 @@
-// Cron diario (8:00 a. m. a 9:00 a. m. Venezuela o llamada manual desde Panel Admin):
-// DIEGO BOT: Cerebro Administrativo, Reportes y Atención.
-// Analiza métricas, nuevos registros, nuevos pedidos, solicitudes de revendedor,
-// vencimientos de servicios/cuentas madre, cuentas por cobrar, cuotas en mora y stock crítico.
+// Motor de Notificaciones Automáticas y Reportes Programados:
+// 1. ESTEBAN BOT (@agenteesteban_bot): Reporte Matutino Diario (8:00 AM)
+//    - Tasa de Cambio BCV y USDT
+//    - Vencimientos de Cuentas Madre
+//    - Vencimientos de Clientes Directos y de Revendedores (mensajes separados y listos para WhatsApp)
+//    - Nuevos usuarios registrados (24h)
+//    - Solicitudes de ascenso a revendedor
+//    - Solicitudes de recarga de billetera Zeny
+//
+// 2. RAMSES BOT (@agenteramses_bot): Reporte de Cierre Diario (9:00 PM)
+//    - Ventas del día
+//    - Gastos operativos del día
+//    - Compras a proveedores del día
+//    - Devoluciones y reembolsos del día
+//    - Saldo Zeny aprobado del día
+//    - Compras de USDT aprobadas en Mesa de Cambio
+//
+// 3. MILOS BOT (@agentemilos_bot): Notificaciones directas a clientes vinculados
+
 import { sbRest, getSecret } from './_lib.js';
-import { sendTelegram } from './_notify.js';
+import { sendEsteban, sendRamses, sendMilos, ADMIN_CHAT_ID } from './_notify.js';
 
 export default async function handler(req, res) {
   const hoy = req.query?.fecha || new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
   const hace24h = new Date(Date.now() - 24 * 3600e3).toISOString();
-  const tokenBotDiego = await getSecret('telegram_token') || '8535286680:AAGCbVKMNk_aeDHwyICqsAqbtMUjDXlMOMg';
+  const requestedTipo = req.query?.tipo || null; // 'matutino', 'cierre', o automático por hora
+
+  const vzlaDate = new Date(Date.now() - 4 * 3600e3);
+  const horaVzla = vzlaDate.getUTCHours();
 
   const escHtml = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const cleanTel = t => String(t || '').replace(/\D/g, '');
@@ -19,437 +37,318 @@ export default async function handler(req, res) {
     return `https://wa.me/${full}?text=${encodeURIComponent(text)}`;
   };
 
-  async function sendDirectTelegramToUser(chatId, text) {
-    if (!chatId || !tokenBotDiego) return false;
-    try {
-      const r = await fetch(`https://api.telegram.org/bot${tokenBotDiego}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: String(chatId),
-          text,
-          parse_mode: 'HTML',
-          disable_web_page_preview: true
-        })
-      });
-      return r.ok;
-    } catch {
-      return false;
-    }
-  }
-
   try {
-    // 1. Ejecutar marcaje automático de cuotas vencidas en base de datos
+    // Marcaje automático de cuotas vencidas
     await sbRest('rpc/check_overdue_installments', { method: 'POST', body: '{}' }).catch(() => {});
 
-    // 2. Obtener tasa BCV oficial
-    const rateRes = await sbRest('exchange_rates?select=bs_por_usd,fecha&order=fecha.desc&limit=1').catch(() => []);
-    const tasaBcv = Number(rateRes?.[0]?.bs_por_usd || 1);
-    const tasaFecha = rateRes?.[0]?.fecha || hoy;
-
-    // 3. Consultar datos en paralelo para reporte integral 24h
-    const [
-      newUsersRes,
-      newOrdersRes,
-      solicitudesRevRes,
-      ordersRes,
-      profilesRes,
-      mothersRes,
-      instHoyRes,
-      instOverdueRes,
-      stockRes,
-      productsRes
-    ] = await Promise.all([
-      // Nuevos registros últimas 24h
-      sbRest(`customers?creado=gte.${hace24h}&order=creado.desc&select=id,nombre,email,telefono,codigo_identificacion,creado,es_revendedor`).catch(() => []),
-      // Nuevos pedidos generados últimas 24h
-      sbRest(`orders?created_at=gte.${hace24h}&order=created_at.desc&select=id,created_at,total_usd,total_bs,estado,referencia,customers(nombre,telefono,codigo_identificacion),products(nombre)`).catch(() => []),
-      // Solicitudes pendientes de ascenso a revendedor
-      sbRest(`customers?solicita_revendedor=eq.true&es_revendedor=eq.false&order=solicita_revendedor_at.desc&select=id,nombre,email,telefono,codigo_identificacion,solicita_revendedor_at`).catch(() => []),
-      // Suscripciones directas que vencen hoy
-      sbRest(`orders?estado=in.(entregado,pagado)&vence=eq.${hoy}&select=id,inicia,vence,referencia,customers!customer_id(id,nombre,email,telefono,telegram_chat_id),products(nombre)`).catch(() => []),
-      // Perfiles vendidos que vencen hoy
-      sbRest(`profiles_inventory?estado=eq.vendido&vence=eq.${hoy}&select=id,nombre_perfil,pin,vence,cliente_final,cliente_telefono,mother_accounts(plataforma,correo)`).catch(() => []),
-      // Cuentas madre que vencen hoy
-      sbRest(`mother_accounts?activa=eq.true&vence=eq.${hoy}&select=id,plataforma,correo,vence,max_perfiles,proveedor`).catch(() => []),
-      // Cuotas del día de hoy
-      sbRest(`installments?estado=in.(pendiente,en_revision)&fecha_vencimiento=eq.${hoy}&select=id,numero_cuota,total_cuotas,monto_usd,fecha_vencimiento,estado,customers!customer_id(id,nombre,telefono,telegram_chat_id),orders(products(nombre))`).catch(() => []),
-      // Cuotas vencidas en mora
-      sbRest(`installments?estado=eq.vencida&fecha_vencimiento=lt.${hoy}&select=id,numero_cuota,total_cuotas,monto_usd,fecha_vencimiento,estado,customers!customer_id(id,nombre,telefono,telegram_chat_id),orders(products(nombre))`).catch(() => []),
-      // Inventario actual disponible
-      sbRest('rpc/stock').catch(() => []),
-      // Catálogo de productos activos
-      sbRest('products?activo=eq.true&tipo=in.(pantalla,cuenta_completa)&select=id,nombre,tipo').catch(() => []),
-      // Movimientos Zeny del día
-      sbRest(`zeny_ledger?created_at=gte.${hoy}T00:00:00-04:00&select=id,tipo,monto,referencia,estado`).catch(() => [])
+    // Tasas oficiales: BCV y Mesa de Cambio USDT
+    const [rateRes, mcCfgRes] = await Promise.all([
+      sbRest('exchange_rates?select=bs_por_usd,fecha&order=fecha.desc&limit=1').catch(() => []),
+      sbRest('settings?key=eq.mesa_cambio_config&select=value').catch(() => [])
     ]);
 
-    const newUsers = newUsersRes || [];
-    const newOrders = newOrdersRes || [];
-    const solicitudesRev = solicitudesRevRes || [];
-    const orders = ordersRes || [];
-    const profiles = profilesRes || [];
-    const mothers = mothersRes || [];
-    const cuotasHoy = instHoyRes || [];
-    const cuotasVencidas = instOverdueRes || [];
-    const stockMap = Object.fromEntries((stockRes || []).map(s => [s.product_id, Number(s.disponibles || 0)]));
-    const activeProducts = productsRes || [];
-    const zenyMovs = zenyRes || [];
+    const tasaBcv = Number(rateRes?.[0]?.bs_por_usd || 1);
+    const mcVal = mcCfgRes?.[0]?.value || {};
+    const tasaUsdt = Number(mcVal?.tasa_usdt_bs || 0);
 
-    const recargasZenyUsd = zenyMovs.filter(z => z.tipo === 'recarga' && z.estado === 'aprobado').reduce((acc, z) => acc + Number(z.monto || 0), 0);
-    const comprasZenyUsd = zenyMovs.filter(z => z.tipo === 'compra' && z.estado === 'aprobado').reduce((acc, z) => acc + Math.abs(Number(z.monto || 0)), 0);
+    const ejecutarCierre = requestedTipo === 'cierre' || (requestedTipo == null && (horaVzla >= 19 || horaVzla < 4));
+    const ejecutarMatutino = requestedTipo === 'matutino' || (requestedTipo == null && (horaVzla >= 4 && horaVzla < 19));
 
-    // Detectar stock crítico y agotado
-    const agotados = activeProducts.filter(p => (stockMap[p.id] || 0) <= 0);
-    const criticos = activeProducts.filter(p => (stockMap[p.id] || 0) > 0 && (stockMap[p.id] || 0) <= 1);
-
-    const clientesTotal = orders.length + profiles.length;
-    const totalOrdersUsd = newOrders.reduce((acc, o) => acc + Number(o.total_usd || 0), 0);
-    const totalOrdersBs = totalOrdersUsd * tasaBcv;
-    const totalCuotasHoyUsd = cuotasHoy.reduce((acc, c) => acc + Number(c.monto_usd || 0), 0);
-    const totalCuotasHoyBs = totalCuotasHoyUsd * tasaBcv;
-    const totalCuotasMoraUsd = cuotasVencidas.reduce((acc, c) => acc + Number(c.monto_usd || 0), 0);
-    const totalCuotasMoraBs = totalCuotasMoraUsd * tasaBcv;
-
-    const reportesEnviados = [];
+    const outResults = {
+      fecha: hoy,
+      hora_vzla: `${String(horaVzla).padStart(2, '0')}:${String(vzlaDate.getUTCMinutes()).padStart(2, '0')}`,
+      tasa_bcv: tasaBcv,
+      tasa_usdt: tasaUsdt,
+      reportes: []
+    };
 
     // =========================================================================
-    // BLOQUE 0: RESUMEN EJECUTIVO DINÁMICO (8:00 AM, 2:00 PM y 9:00 PM) - JULIAN BOT
+    // 1. REPORTE MATUTINO (8:00 AM) - ESTEBAN BOT (@agenteesteban_bot)
     // =========================================================================
-    const vzlaDate = new Date(Date.now() - 4 * 3600e3);
-    const horaVzla = vzlaDate.getUTCHours();
-    let reportTitle = '☀️ <b>REPORTE DE MEDIA JORNADA (2:00 PM) · JULIAN BOT</b>';
-    let subTitle = 'MÉTRICAS Y ACTIVIDAD DE MITAD DE DÍA:';
+    if (ejecutarMatutino) {
+      const [
+        newUsersRes,
+        solicitudesRevRes,
+        recargasZenyPendRes,
+        mothersRes,
+        directOrdersRes,
+        profilesRes
+      ] = await Promise.all([
+        // 4. Registro de Nuevos Usuarios últimas 24h
+        sbRest(`customers?creado=gte.${hace24h}&order=creado.desc&select=id,nombre,email,telefono,codigo_identificacion,creado,es_revendedor`).catch(() => []),
+        // 5. Solicitudes de Ascenso a revendedores pendientes
+        sbRest(`customers?solicita_revendedor=eq.true&es_revendedor=eq.false&order=solicita_revendedor_at.desc&select=id,nombre,email,telefono,codigo_identificacion,solicita_revendedor_at`).catch(() => []),
+        // 6. Solicitudes de recarga billetera zeny pendientes
+        sbRest(`zeny_ledger?tipo=eq.recarga&estado=eq.pendiente&order=created_at.desc&select=id,monto,referencia,created_at,customers(nombre,telefono,codigo_identificacion)`).catch(() => []),
+        // 2. Vencimientos de cuentas madres que vencen hoy
+        sbRest(`mother_accounts?activa=eq.true&vence=eq.${hoy}&select=id,plataforma,correo,vence,max_perfiles,proveedor`).catch(() => []),
+        // 3. Suscripciones directas que vencen hoy
+        sbRest(`orders?estado=in.(entregado,pagado)&vence=eq.${hoy}&select=id,inicia,vence,referencia,total_usd,customers!customer_id(id,nombre,email,telefono,telegram_chat_id,es_revendedor),products(nombre)`).catch(() => []),
+        // 3. Perfiles vendidos asignados que vencen hoy (con datos de revendedor si aplica)
+        sbRest(`profiles_inventory?estado=eq.vendido&vence=eq.${hoy}&select=id,nombre_perfil,pin,vence,cliente_final,cliente_telefono,vendedor,mother_accounts(plataforma,correo)`).catch(() => [])
+      ]);
 
-    if (horaVzla >= 19 || horaVzla < 4) {
-      reportTitle = '🌙 <b>REPORTE DE CIERRE DIARIO (9:00 PM) · JULIAN BOT</b>';
-      subTitle = 'BALANCE FINAL Y CIERRE DE CAJA DEL DÍA:';
-    } else if (horaVzla < 12) {
-      reportTitle = '🌅 <b>REPORTE MATUTINO DE GESTIÓN (8:00 AM) · JULIAN BOT</b>';
-      subTitle = 'MÉTRICAS 24H & GESTIÓN DEL DÍA:';
-    }
+      const newUsers = newUsersRes || [];
+      const solicitudesRev = solicitudesRevRes || [];
+      const recargasZenyPend = recargasZenyPendRes || [];
+      const mothers = mothersRes || [];
+      const directOrders = directOrdersRes || [];
+      const profiles = profilesRes || [];
 
-    const resumenMatutinoHtml = `${reportTitle}\n` +
-      `📅 <b>Fecha:</b> ${hoy} · 📊 <b>Tasa BCV:</b> <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📈 <b>${subTitle}</b>\n` +
-      `• 🛒 <b>Ventas / Nuevos Pedidos:</b> ${newOrders.length} ($${totalOrdersUsd.toFixed(2)} USD · Bs. ${totalOrdersBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})\n` +
-      `• ⚡ <b>Renovaciones Zeny Automáticas:</b> $${comprasZenyUsd.toFixed(2)} USD\n` +
-      `• 💰 <b>Recargas Zeny Aprobadas:</b> +$${recargasZenyUsd.toFixed(2)} USD\n` +
-      `• 👤 <b>Nuevos Registros (24h):</b> ${newUsers.length}\n` +
-      `• 🎖️ <b>Solicitudes de Revendedor:</b> ${solicitudesRev.length} pendientes\n` +
-      `• 📅 <b>Suscripciones por Vencer Hoy:</b> ${clientesTotal}\n` +
-      `• 🔑 <b>Cuentas Madre por Vencer Hoy:</b> ${mothers.length}\n` +
-      `• 💳 <b>Cuentas por Cobrar Hoy:</b> ${cuotasHoy.length} ($${totalCuotasHoyUsd.toFixed(2)} USD · Bs. ${totalCuotasHoyBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n` +
-      `• ⚠️ <b>Cuotas Vencidas en Mora:</b> ${cuotasVencidas.length} ($${totalCuotasMoraUsd.toFixed(2)} USD)\n` +
-      `• 🚨 <b>Stock Crítico / Agotado:</b> ${agotados.length} agotados, ${criticos.length} con stock bajo\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Abrir Panel de Control Admin</a>`;
+      // Mensaje 1 de Esteban: Resumen Matutino y Tasas de Cambio
+      const totalVencimientos = directOrders.length + profiles.length;
+      let estebanSummary = `🌅 <b>REPORTE MATUTINO DE GESTIÓN (8:00 AM)</b>\n` +
+        `🤖 <i>Agente Esteban · Emprendimiento Gregory</i>\n` +
+        `📅 <b>Fecha:</b> ${hoy}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💱 <b>1. TASAS DE CAMBIO OFICIALES:</b>\n` +
+        `• 💵 <b>Tasa BCV Oficial:</b> <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
+        `• 💱 <b>Mesa de Cambio USDT:</b> <b>${tasaUsdt > 0 ? `${tasaUsdt.toFixed(2)} Bs/USDT` : 'No configurada'}</b>\n\n` +
+        `📊 <b>RESUMEN OPERATIVO DEL DÍA:</b>\n` +
+        `• 🔑 <b>Cuentas Madre por vencer:</b> ${mothers.length}\n` +
+        `• 📅 <b>Clientes por vencer hoy:</b> ${totalVencimientos} (${directOrders.length} directos · ${profiles.length} perfiles)\n` +
+        `• 👤 <b>Nuevos Registros (24h):</b> ${newUsers.length}\n` +
+        `• 🎖️ <b>Solicitudes de Revendedor:</b> ${solicitudesRev.length}\n` +
+        `• 💰 <b>Recargas Zeny Pendientes:</b> ${recargasZenyPend.length}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Abrir Panel de Control Admin</a>`;
 
-    await sendTelegram(resumenMatutinoHtml);
-    reportesEnviados.push(reportTitle.replace(/<[^>]+>/g, ''));
+      await sendEsteban(estebanSummary);
+      outResults.reportes.push('Esteban: Resumen Matutino');
 
-    // =========================================================================
-    // BLOQUE 1: NUEVOS REGISTROS DE USUARIOS (ÚLTIMAS 24H)
-    // =========================================================================
-    if (newUsers.length > 0) {
-      let msgHtml = `👤 <b>NUEVOS REGISTROS DE USUARIOS (ÚLTIMAS 24H: ${newUsers.length})</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      // Mensaje 2 de Esteban: Cuentas Madres que vencen hoy
+      if (mothers.length > 0) {
+        let msgMadres = `🔑 <b>2. CUENTAS MADRE POR VENCER HOY (${hoy})</b>\n` +
+          `Total a renovar con proveedores: <b>${mothers.length}</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-      newUsers.forEach((u, idx) => {
-        const nom = u.nombre || 'Usuario';
-        const code = u.codigo_identificacion || (u.es_revendedor ? 'RVD:1001' : 'CLT');
-        const rol = u.es_revendedor ? 'Revendedor' : 'Cliente';
-        const tel = u.telefono ? cleanTel(u.telefono) : '';
-        const wa = tel ? toWaLink(tel, `¡Hola ${nom}! 👋 Bienvenido/a a Emprendimiento Gregory.`) : '';
-
-        msgHtml += `${idx + 1}. <b>${escHtml(nom)}</b> [${rol}] (ID: <code>${escHtml(code)}</code>)\n` +
-          `   ✉️ <code>${escHtml(u.email || 'Sin correo')}</code>\n` +
-          (tel ? `   📱 Teléfono: <code>${tel}</code> ${wa ? `· <a href="${wa}">Saludar</a>` : ''}\n` : '') +
-          `   📅 Registrado: <code>${new Date(u.creado).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</code>\n\n`;
-      });
-
-      await sendTelegram(msgHtml);
-      reportesEnviados.push(`Nuevos Registros (${newUsers.length})`);
-    }
-
-    // =========================================================================
-    // BLOQUE 2: NUEVOS PEDIDOS GENERADOS (ÚLTIMAS 24H)
-    // =========================================================================
-    if (newOrders.length > 0) {
-      let msgHtml = `🛒 <b>NUEVOS PEDIDOS GENERADOS (ÚLTIMAS 24H: ${newOrders.length})</b>\n` +
-        `💵 Total: <b>$${totalOrdersUsd.toFixed(2)} USD</b> (Bs. ${totalOrdersBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      newOrders.slice(0, 15).forEach((o, idx) => {
-        const shortId = o.id ? String(o.id).slice(0, 8) : 'OK';
-        const cliNom = o.customers?.nombre || 'Cliente';
-        const prodNom = o.products?.nombre || 'Servicio';
-        const usd = Number(o.total_usd || 0).toFixed(2);
-        const bs = (Number(o.total_usd || 0) * tasaBcv).toLocaleString('es-VE', { minimumFractionDigits: 2 });
-        let badge = '🟡 Pendiente';
-        if (o.estado === 'entregado') badge = '✅ Entregado';
-        else if (o.estado === 'pagado') badge = '💳 Pagado';
-        else if (o.estado === 'cancelado') badge = '❌ Cancelado';
-
-        msgHtml += `${idx + 1}. <b>Pedido #${shortId}</b> [${badge}]\n` +
-          `   👤 ${escHtml(cliNom)} · 📺 <b>${escHtml(prodNom)}</b>\n` +
-          `   💵 $${usd} USD (Bs. ${bs})` +
-          (o.referencia ? ` · Ref: <code>${escHtml(o.referencia)}</code>` : '') + `\n\n`;
-      });
-
-      if (newOrders.length > 15) {
-        msgHtml += `<i>... y ${newOrders.length - 15} pedidos adicionales en el panel.</i>\n\n`;
-      }
-
-      await sendTelegram(msgHtml);
-      reportesEnviados.push(`Nuevos Pedidos (${newOrders.length})`);
-    }
-
-    // =========================================================================
-    // BLOQUE 3: SOLICITUDES PENDIENTES DE REVENDEDOR OFICIAL
-    // =========================================================================
-    if (solicitudesRev.length > 0) {
-      let msgHtml = `🎖️ <b>SOLICITUDES PENDIENTES DE REVENDEDOR (${solicitudesRev.length})</b>\n` +
-        `Usuarios esperando ascenso a catálogo mayorista:\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      solicitudesRev.forEach((s, idx) => {
-        const nom = s.nombre || 'Cliente';
-        const tel = s.telefono ? cleanTel(s.telefono) : '';
-        const waText = `¡Hola ${nom}! 👋 Te escribe Gregory Izquierdo respecto a tu solicitud para ser Revendedor Oficial de la tienda.`;
-        const waLink = toWaLink(tel, waText);
-
-        msgHtml += `${idx + 1}. 👤 <b>${escHtml(nom)}</b> (ID: <code>${escHtml(s.codigo_identificacion || 'CLT')}</code>)\n` +
-          `   ✉️ <code>${escHtml(s.email || 'Sin correo')}</code>\n` +
-          (tel ? `   📱 Teléfono: <code>${tel}</code> ${waLink ? `👉 <a href="${waLink}">Contactar WhatsApp</a>` : ''}\n` : '') +
-          `   📅 Fecha Solicitud: <code>${s.solicita_revendedor_at ? new Date(s.solicita_revendedor_at).toLocaleDateString('es-VE') : 'Reciente'}</code>\n\n`;
-      });
-
-      msgHtml += `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Gestionar en Panel Clientes & Revendedores</a>`;
-      await sendTelegram(msgHtml);
-      reportesEnviados.push(`Solicitudes Revendedor (${solicitudesRev.length})`);
-    }
-
-    // =========================================================================
-    // BLOQUE 4: VENCIMIENTOS DE CLIENTES DE HOY (Con mensajes listos para WhatsApp)
-    // =========================================================================
-    if (clientesTotal > 0) {
-      let msgHtml = `📅 <b>VENCIMIENTOS DE SERVICIOS - HOY (${hoy})</b>\n` +
-        `Total clientes por vencer: <b>${clientesTotal}</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      for (const o of orders) {
-        const cliNom = o.customers?.nombre || o.customers?.email || 'Cliente';
-        const srvNom = o.products?.nombre || 'Suscripción Digital';
-        const tel = o.customers?.telefono || '';
-        const cChatId = o.customers?.telegram_chat_id;
-
-        const waText = `Hola ${cliNom}! 👋 Te saluda Gregory Izquierdo.\n` +
-          `Te recordamos que hoy *${hoy}* vence tu servicio de *${srvNom}*.\n` +
-          `Para mantener tus accesos activos y evitar cortes, puedes renovar directamente en la tienda:\n` +
-          `🌐 https://www.gregoryizquierdo.xyz\n` +
-          `O reportando tu pago móvil BDV / BNC (04242809333 - V 18931731).\n¡Gracias por tu preferencia!`;
-
-        const waLink = toWaLink(tel, waText);
-
-        msgHtml += `👤 <b>${escHtml(cliNom)}</b> · ${escHtml(srvNom)}\n` +
-          (tel ? `📱 Teléfono: <code>${cleanTel(tel)}</code> ${waLink ? `👉 <a href="${waLink}">Enviar WhatsApp</a>` : ''}\n` : '') +
-          `📝 <b>Mensaje listo para copiar:</b>\n<code>${escHtml(waText)}</code>\n\n`;
-
-        // Notificar directo al cliente por Bot Diego si tiene Telegram vinculado
-        if (cChatId) {
-          const directTgMsg = `👋 ¡Hola <b>${escHtml(cliNom)}</b>!\n\n` +
-            `⏱ Te recordamos que hoy <b>${hoy}</b> vence tu servicio de <b>${escHtml(srvNom)}</b>.\n\n` +
-            `Para renovar tus accesos y mantener tus pantallas activas:\n` +
-            `🌐 Renueva en línea: <a href="https://www.gregoryizquierdo.xyz">https://www.gregoryizquierdo.xyz</a>\n` +
-            `⚡ O por Pago Móvil BDV / BNC (04242809333 - V 18931731).\n\n¡Gracias por preferirnos!`;
-          await sendDirectTelegramToUser(cChatId, directTgMsg);
-        }
-      }
-
-      for (const p of profiles) {
-        const cliNom = p.cliente_final || 'Cliente';
-        const srvNom = `${p.mother_accounts?.plataforma || 'Servicio'} (${p.nombre_perfil || 'Perfil'})`;
-        const tel = p.cliente_telefono || '';
-
-        const waText = `Hola ${cliNom}! 👋 Te saluda Gregory Izquierdo.\n` +
-          `Te recordamos que hoy *${hoy}* vence tu perfil de *${srvNom}*.\n` +
-          `Para mantener tus accesos activos y evitar cortes, puedes renovar directamente en la tienda:\n` +
-          `🌐 https://www.gregoryizquierdo.xyz\n` +
-          `O reportando tu pago móvil BDV / BNC (04242809333 - V 18931731).\n¡Gracias por tu preferencia!`;
-
-        const waLink = toWaLink(tel, waText);
-
-        msgHtml += `👤 <b>${escHtml(cliNom)}</b> · ${escHtml(srvNom)}\n` +
-          (tel ? `📱 Teléfono: <code>${cleanTel(tel)}</code> ${waLink ? `👉 <a href="${waLink}">Enviar WhatsApp</a>` : ''}\n` : '') +
-          `📝 <b>Mensaje listo para copiar:</b>\n<code>${escHtml(waText)}</code>\n\n`;
-      }
-
-      await sendTelegram(msgHtml);
-      reportesEnviados.push(`Vencimientos Clientes (${clientesTotal})`);
-    }
-
-    // =========================================================================
-    // BLOQUE 5: CUENTAS MADRE POR VENCER HOY (Para renovar con proveedores)
-    // =========================================================================
-    if (mothers.length > 0) {
-      let msgHtml = `🔑 <b>CUENTAS MADRE POR VENCER HOY (${hoy})</b>\n` +
-        `Total cuentas por renovar: <b>${mothers.length}</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      mothers.forEach((m, idx) => {
-        msgHtml += `${idx + 1}. <b>${escHtml(m.plataforma || 'Plataforma')}</b>\n` +
-          `   📧 Correo: <code>${escHtml(m.correo)}</code>\n` +
-          `   👥 Perfiles asignados: ${m.max_perfiles || 5}\n` +
-          `   🤝 Proveedor: <b>${escHtml(m.proveedor || 'No especificado')}</b>\n` +
-          `   ⚠️ <i>Renovar antes de que caigan los perfiles activos.</i>\n\n`;
-      });
-
-      await sendTelegram(msgHtml);
-      reportesEnviados.push(`Cuentas Madre (${mothers.length})`);
-    }
-
-    // =========================================================================
-    // BLOQUE 6: CUOTAS / CUENTAS POR COBRAR DE HOY (Con monto en USD y Bs BCV)
-    // =========================================================================
-    if (cuotasHoy.length > 0) {
-      let msgHtml = `💳 <b>CUENTAS POR COBRAR DE HOY (${hoy})</b>\n` +
-        `📊 Tasa Oficial BCV: <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
-        `Total cuotas de hoy: <b>${cuotasHoy.length}</b> ($${totalCuotasHoyUsd.toFixed(2)} USD · Bs. ${totalCuotasHoyBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      for (const c of cuotasHoy) {
-        const cliNom = c.customers?.nombre || 'Cliente';
-        const srvNom = c.orders?.products?.nombre || 'Servicio Digital';
-        const tel = c.customers?.telefono || '';
-        const cChatId = c.customers?.telegram_chat_id;
-        const montoUsd = Number(c.monto_usd || 0).toFixed(2);
-        const montoBs = (Number(c.monto_usd || 0) * tasaBcv).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-        const waText = `Hola ${cliNom}! 👋 Te saluda Gregory Izquierdo.\n` +
-          `Te recordamos que hoy corresponde tu cuota ${c.numero_cuota}/${c.total_cuotas} de *${srvNom}* por un monto de *$${montoUsd} USD* (Bs. ${montoBs} a tasa oficial BCV de ${tasaBcv.toFixed(2)}).\n` +
-          `Puedes cancelar fácilmente por Pago Móvil BDV o BNC al 04242809333 - V 18931731 o reportar tu pago en la tienda:\n` +
-          `🌐 https://www.gregoryizquierdo.xyz\n¡Gracias por tu puntualidad!`;
-
-        const waLink = toWaLink(tel, waText);
-
-        msgHtml += `👤 <b>${escHtml(cliNom)}</b> (Cuota ${c.numero_cuota}/${c.total_cuotas})\n` +
-          `💵 Monto: <b>$${montoUsd} USD</b> · <b>Bs. ${montoBs}</b>\n` +
-          `📦 Servicio: ${escHtml(srvNom)}\n` +
-          (tel ? `📱 Teléfono: <code>${cleanTel(tel)}</code> ${waLink ? `👉 <a href="${waLink}">Cobrar WhatsApp</a>` : ''}\n` : '') +
-          `📝 <b>Mensaje precargado:</b>\n<code>${escHtml(waText)}</code>\n\n`;
-
-        // Notificar directo al cliente por Bot Diego
-        if (cChatId) {
-          const directTgMsg = `💳 ¡Hola <b>${escHtml(cliNom)}</b>!\n\n` +
-            `Te recordamos que hoy corresponde tu cuota <b>${c.numero_cuota}/${c.total_cuotas}</b> de <b>${escHtml(srvNom)}</b>.\n\n` +
-            `💵 <b>Monto a pagar:</b> $${montoUsd} USD (Bs. ${montoBs})\n` +
-            `📊 <b>Tasa BCV del día:</b> ${tasaBcv.toFixed(4)} Bs/USD\n\n` +
-            `Puedes saldar tu cuota en línea desde el portal o mediante Pago Móvil BDV / BNC (04242809333 - V 18931731).\n¡Gracias por tu puntualidad!`;
-          await sendDirectTelegramToUser(cChatId, directTgMsg);
-        }
-      }
-
-      await sendTelegram(msgHtml);
-      reportesEnviados.push(`Cuotas de Hoy (${cuotasHoy.length})`);
-    }
-
-    // =========================================================================
-    // BLOQUE 7: CUOTAS VENCIDAS EN MORA (Llamado a la acción amistoso CTA)
-    // =========================================================================
-    if (cuotasVencidas.length > 0) {
-      let msgHtml = `⚠️ <b>CUOTAS VENCIDAS EN MORA</b>\n` +
-        `Total cuotas atrasadas: <b>${cuotasVencidas.length}</b> ($${totalCuotasMoraUsd.toFixed(2)} USD · Bs. ${totalCuotasMoraBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n` +
-        `📊 Tasa Oficial BCV: <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      for (const c of cuotasVencidas) {
-        const cliNom = c.customers?.nombre || 'Cliente';
-        const srvNom = c.orders?.products?.nombre || 'Servicio Digital';
-        const tel = c.customers?.telefono || '';
-        const cChatId = c.customers?.telegram_chat_id;
-        const montoUsd = Number(c.monto_usd || 0).toFixed(2);
-        const montoBs = (Number(c.monto_usd || 0) * tasaBcv).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-        const waText = `Hola ${cliNom}! 👋 Te saluda Gregory Izquierdo.\n` +
-          `Esperamos te encuentres bien. Notamos que tu cuota ${c.numero_cuota}/${c.total_cuotas} de *${srvNom}* por *$${montoUsd} USD* (Bs. ${montoBs}) tiene fecha de vencimiento pendiente del ${c.fecha_vencimiento}.\n` +
-          `Por favor ponte al día a la brevedad para mantener tus accesos activos y evitar cargos adicionales por mora.\n` +
-          `Reporta tu pago directamente en: https://www.gregoryizquierdo.xyz o avísanos por acá. ¡Estamos a tu orden!`;
-
-        const waLink = toWaLink(tel, waText);
-
-        msgHtml += `🔴 <b>${escHtml(cliNom)}</b> (Vencida desde: ${escHtml(c.fecha_vencimiento)})\n` +
-          `💵 Monto: <b>$${montoUsd} USD</b> · <b>Bs. ${montoBs}</b>\n` +
-          `📦 Servicio: ${escHtml(srvNom)} (Cuota ${c.numero_cuota}/${c.total_cuotas})\n` +
-          (tel ? `📱 Teléfono: <code>${cleanTel(tel)}</code> ${waLink ? `👉 <a href="${waLink}">Enviar Alerta WhatsApp</a>` : ''}\n` : '') +
-          `📝 <b>Llamado de atención precargado (CTA):</b>\n<code>${escHtml(waText)}</code>\n\n`;
-
-        // Notificar directo al cliente por Bot Diego
-        if (cChatId) {
-          const directTgMsg = `⚠️ ¡Hola <b>${escHtml(cliNom)}</b>!\n\n` +
-            `Notamos que tienes la cuota <b>${c.numero_cuota}/${c.total_cuotas}</b> de <b>${escHtml(srvNom)}</b> pendiente por pagar (Venció el ${escHtml(c.fecha_vencimiento)}).\n\n` +
-            `💵 <b>Monto pendiente:</b> $${montoUsd} USD (Bs. ${montoBs})\n\n` +
-            `Por favor ponte al día para mantener tus servicios activos y evitar recargos por mora.\n` +
-            `🌐 Pagar en el portal: <a href="https://www.gregoryizquierdo.xyz">https://www.gregoryizquierdo.xyz</a>`;
-          await sendDirectTelegramToUser(cChatId, directTgMsg);
-        }
-      }
-
-      await sendTelegram(msgHtml);
-      reportesEnviados.push(`Cuotas Vencidas (${cuotasVencidas.length})`);
-    }
-
-    // =========================================================================
-    // BLOQUE 8: ALERTA DE STOCK CRÍTICO Y AGOTADO
-    // =========================================================================
-    if (agotados.length > 0 || criticos.length > 0) {
-      let msgHtml = `🚨 <b>ALERTA DE INVENTARIO: STOCK CRÍTICO / AGOTADO</b>\n` +
-        `Agotados (0 unidades): <b>${agotados.length}</b> · Stock Crítico (1 unidad): <b>${criticos.length}</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-      if (agotados.length > 0) {
-        msgHtml += `🔴 <b>PRODUCTOS AGOTADOS (0 DISPONIBLES):</b>\n`;
-        agotados.forEach((p, idx) => {
-          msgHtml += `${idx + 1}. 📦 <b>${escHtml(p.nombre)}</b> (${escHtml(p.tipo)})\n`;
+        mothers.forEach((m, idx) => {
+          msgMadres += `${idx + 1}. <b>${escHtml(m.plataforma || 'Plataforma')}</b>\n` +
+            `   📧 <code>${escHtml(m.correo)}</code>\n` +
+            `   🤝 Proveedor: <b>${escHtml(m.proveedor || 'No especificado')}</b>\n` +
+            `   👥 Perfiles asignados: ${m.max_perfiles || 5}\n\n`;
         });
-        msgHtml += '\n';
+
+        msgMadres += `⚠️ <i>Renovar antes de que finalice la jornada con el proveedor.</i>`;
+        await sendEsteban(msgMadres);
+        outResults.reportes.push(`Esteban: Cuentas Madre (${mothers.length})`);
       }
 
-      if (criticos.length > 0) {
-        msgHtml += `🟡 <b>PRODUCTOS CON STOCK CRÍTICO (1 DISPONIBLE):</b>\n`;
-        criticos.forEach((p, idx) => {
-          msgHtml += `${idx + 1}. ⚠️ <b>${escHtml(p.nombre)}</b> (${escHtml(p.tipo)}) - <i>Solo 1 restante</i>\n`;
+      // Mensaje 3 de Esteban: Vencimientos de Clientes Directos y de Revendedores (mensajes separados y listos para WhatsApp)
+      if (directOrders.length > 0) {
+        let msgCliDirectos = `📅 <b>3. VENCIMIENTOS DE CLIENTES DIRECTOS (${directOrders.length})</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        for (const o of directOrders) {
+          const cliNom = o.customers?.nombre || o.customers?.email || 'Cliente';
+          const srvNom = o.products?.nombre || 'Suscripción Digital';
+          const tel = o.customers?.telefono || '';
+          const cChatId = o.customers?.telegram_chat_id;
+
+          const waText = `Hola ${cliNom}! 👋 Te saluda Gregory Izquierdo.\n` +
+            `Te recordamos que hoy *${hoy}* vence tu servicio de *${srvNom}*.\n` +
+            `Para mantener tus accesos activos y evitar cortes, puedes renovar directamente en la tienda:\n` +
+            `🌐 https://www.gregoryizquierdo.xyz\n` +
+            `O por Pago Móvil BDV / BNC (04242809333 - V 18931731).\n¡Gracias por tu preferencia!`;
+
+          const waLink = toWaLink(tel, waText);
+
+          msgCliDirectos += `👤 <b>${escHtml(cliNom)}</b> · ${escHtml(srvNom)}\n` +
+            (tel ? `📱 Teléfono: <code>${cleanTel(tel)}</code> ${waLink ? `👉 <a href="${waLink}">Enviar WhatsApp</a>` : ''}\n` : '') +
+            `📝 <b>Copy listo para WhatsApp:</b>\n<code>${escHtml(waText)}</code>\n\n`;
+
+          // Aviso directo al cliente mediante Bot Milos si tiene Telegram
+          if (cChatId) {
+            const directTg = `👋 ¡Hola <b>${escHtml(cliNom)}</b>!\n\n` +
+              `⏱ Te recordamos que hoy <b>${hoy}</b> vence tu servicio de <b>${escHtml(srvNom)}</b>.\n\n` +
+              `Renueva tus accesos en línea:\n` +
+              `🌐 <a href="https://www.gregoryizquierdo.xyz">https://www.gregoryizquierdo.xyz</a>\n` +
+              `⚡ O por Pago Móvil al 04242809333 (V 18931731). ¡Gracias por preferirnos!`;
+            await sendMilos(directTg, null, cChatId).catch(() => {});
+          }
+        }
+
+        await sendEsteban(msgCliDirectos);
+        outResults.reportes.push(`Esteban: Vencimientos Clientes Directos (${directOrders.length})`);
+      }
+
+      if (profiles.length > 0) {
+        let msgPerfiles = `👥 <b>3B. VENCIMIENTOS DE PERFILES / CLIENTES DE REVENDEDOR (${profiles.length})</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        for (const p of profiles) {
+          const cliNom = p.cliente_final || 'Cliente';
+          const srvNom = `${p.mother_accounts?.plataforma || 'Servicio'} (${p.nombre_perfil || 'Perfil'})`;
+          const tel = p.cliente_telefono || '';
+          const revendedor = p.vendedor || 'Revendedor';
+
+          const waText = `Hola ${cliNom}! 👋 Te saluda Gregory Izquierdo.\n` +
+            `Te recordamos que hoy *${hoy}* vence tu perfil de *${srvNom}* gestionado a través de tu asesor comercial.\n` +
+            `Para renovar tus accesos y seguir disfrutando del servicio sin interrupciones, comunícate con nosotros o renueva en:\n` +
+            `🌐 https://www.gregoryizquierdo.xyz\n¡Gracias por tu preferencia!`;
+
+          const waLink = toWaLink(tel, waText);
+
+          msgPerfiles += `👤 <b>${escHtml(cliNom)}</b> [Asesor: <i>${escHtml(revendedor)}</i>]\n` +
+            `📺 Servicio: ${escHtml(srvNom)}\n` +
+            (tel ? `📱 Teléfono: <code>${cleanTel(tel)}</code> ${waLink ? `👉 <a href="${waLink}">Enviar WhatsApp</a>` : ''}\n` : '') +
+            `📝 <b>Copy listo para WhatsApp:</b>\n<code>${escHtml(waText)}</code>\n\n`;
+        }
+
+        await sendEsteban(msgPerfiles);
+        outResults.reportes.push(`Esteban: Vencimientos Clientes Revendedor (${profiles.length})`);
+      }
+
+      // Mensaje 4 de Esteban: Nuevos usuarios registrados (24h)
+      if (newUsers.length > 0) {
+        let msgNuevos = `👤 <b>4. NUEVOS USUARIOS REGISTRADOS EN LA TIENDA (ÚLTIMAS 24H: ${newUsers.length})</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        newUsers.forEach((u, idx) => {
+          const nom = u.nombre || 'Usuario';
+          const code = u.codigo_identificacion || (u.es_revendedor ? 'RVD' : 'CLT');
+          const rol = u.es_revendedor ? 'Revendedor' : 'Cliente';
+          const tel = u.telefono ? cleanTel(u.telefono) : '';
+          const wa = tel ? toWaLink(tel, `¡Hola ${nom}! 👋 Bienvenido/a a Emprendimiento Gregory.`) : '';
+
+          msgNuevos += `${idx + 1}. <b>${escHtml(nom)}</b> [${rol}] (ID: <code>${escHtml(code)}</code>)\n` +
+            `   ✉️ <code>${escHtml(u.email || 'Sin correo')}</code>\n` +
+            (tel ? `   📱 Teléfono: <code>${tel}</code> ${wa ? `· <a href="${wa}">Saludar WhatsApp</a>` : ''}\n` : '') +
+            `   📅 Registro: <code>${new Date(u.creado).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</code>\n\n`;
         });
-        msgHtml += '\n';
+
+        await sendEsteban(msgNuevos);
+        outResults.reportes.push(`Esteban: Nuevos Registros (${newUsers.length})`);
       }
 
-      msgHtml += `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Cargar Cuentas e Inventario en Panel Admin</a>`;
+      // Mensaje 5 de Esteban: Solicitudes de ascenso a revendedor
+      if (solicitudesRev.length > 0) {
+        let msgSolRev = `🎖️ <b>5. SOLICITUDES DE ASCENSO A REVENDEDOR (${solicitudesRev.length})</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-      await sendTelegram(msgHtml);
-      reportesEnviados.push(`Stock Crítico (${agotados.length + criticos.length})`);
+        solicitudesRev.forEach((s, idx) => {
+          const nom = s.nombre || 'Cliente';
+          const tel = s.telefono ? cleanTel(s.telefono) : '';
+          const waLink = toWaLink(tel, `¡Hola ${nom}! 👋 Te escribe Gregory Izquierdo respecto a tu solicitud para ser Revendedor Oficial.`);
+
+          msgSolRev += `${idx + 1}. 👤 <b>${escHtml(nom)}</b> (ID: <code>${escHtml(s.codigo_identificacion || 'CLT')}</code>)\n` +
+            `   ✉️ <code>${escHtml(s.email || 'Sin correo')}</code>\n` +
+            (tel ? `   📱 Teléfono: <code>${tel}</code> ${waLink ? `👉 <a href="${waLink}">Contactar WhatsApp</a>` : ''}\n` : '') +
+            `   📅 Fecha: <code>${s.solicita_revendedor_at ? new Date(s.solicita_revendedor_at).toLocaleDateString('es-VE') : 'Reciente'}</code>\n\n`;
+        });
+
+        msgSolRev += `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Aprobar en Red de Revendedores</a>`;
+        await sendEsteban(msgSolRev);
+        outResults.reportes.push(`Esteban: Solicitudes Revendedor (${solicitudesRev.length})`);
+      }
+
+      // Mensaje 6 de Esteban: Solicitudes de recarga billetera Zeny
+      if (recargasZenyPend.length > 0) {
+        let msgZeny = `💰 <b>6. SOLICITUDES DE RECARGA BILLETERA ZENY PENDIENTES (${recargasZenyPend.length})</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        recargasZenyPend.forEach((z, idx) => {
+          const nom = z.customers?.nombre || 'Cliente';
+          const usd = Number(z.monto || 0).toFixed(2);
+          const bs = (Number(z.monto || 0) * tasaBcv).toLocaleString('es-VE', { minimumFractionDigits: 2 });
+          const ref = z.referencia || 'N/A';
+
+          msgZeny += `${idx + 1}. 👤 <b>${escHtml(nom)}</b>\n` +
+            `   💵 <b>$${usd} USD</b> (Bs. ${bs})\n` +
+            `   🔢 Referencia: <code>${escHtml(ref)}</code>\n\n`;
+        });
+
+        msgZeny += `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Revisar y Conciliar en Billetera Zeny</a>`;
+        await sendEsteban(msgZeny);
+        outResults.reportes.push(`Esteban: Recargas Zeny Pendientes (${recargasZenyPend.length})`);
+      }
+    }
+
+    // =========================================================================
+    // 2. REPORTE DE CIERRE (9:00 PM) - RAMSES BOT (@agenteramses_bot)
+    // =========================================================================
+    if (ejecutarCierre) {
+      const inicioDia = `${hoy}T00:00:00-04:00`;
+      const [
+        ventasRes,
+        gastosRes,
+        comprasRes,
+        refundsRes,
+        zenyAprobadosRes,
+        usdtAprobadosRes
+      ] = await Promise.all([
+        // 1. Ventas del día (orders creadas hoy)
+        sbRest(`orders?created_at=gte.${inicioDia}&select=id,total_usd,total_bs,estado,referencia,products(nombre),customers(nombre)`).catch(() => []),
+        // 2. Gastos operativos del día
+        sbRest(`expenses?fecha=eq.${hoy}&select=id,concepto,categoria,monto_usd,monto_bs,notas`).catch(() => []),
+        // 3. Compras a proveedores del día
+        sbRest(`purchases?fecha=eq.${hoy}&select=id,proveedor,plataforma,monto_usd,monto_usdt,monto_bs,es_credito,estado_pago`).catch(() => []),
+        // 4. Devoluciones y reembolsos del día
+        sbRest(`refunds?created_at=gte.${inicioDia}&select=id,monto_usd,motivo,customers(nombre)`).catch(() => []),
+        // 5. Saldo Zeny aprobados del día
+        sbRest(`zeny_ledger?tipo=eq.recarga&estado=eq.aprobado&created_at=gte.${inicioDia}&select=id,monto,referencia,customers(nombre)`).catch(() => []),
+        // 6. Compras de USDT aprobadas en Mesa de Cambio
+        sbRest(`mesa_cambio_operaciones?estado=in.(completado,aprobado)&created_at=gte.${inicioDia}&select=id,monto_usdt,total_bs,tasa_bs,cliente_nombre,referencia_bancaria`).catch(() => [])
+      ]);
+
+      const ventas = ventasRes || [];
+      const gastos = gastosRes || [];
+      const compras = comprasRes || [];
+      const devoluciones = refundsRes || [];
+      const zenyAprobados = zenyAprobadosRes || [];
+      const usdtAprobados = usdtAprobadosRes || [];
+
+      // Cálculos consolidados
+      const totalVentasUsd = ventas.filter(v => ['entregado', 'pagado'].includes(v.estado)).reduce((a, v) => a + Number(v.total_usd || 0), 0);
+      const totalGastosUsd = gastos.reduce((a, g) => a + Number(g.monto_usd || 0), 0);
+      const totalComprasUsd = compras.reduce((a, c) => a + Number(c.monto_usd || c.monto_usdt || 0), 0);
+      const totalDevolucionesUsd = devoluciones.reduce((a, d) => a + Number(d.monto_usd || 0), 0);
+      const totalZenyAprobadoUsd = zenyAprobados.reduce((a, z) => a + Number(z.monto || 0), 0);
+      const totalUsdtAprobado = usdtAprobados.reduce((a, u) => a + Number(u.monto_usdt || 0), 0);
+      const totalUsdtBs = usdtAprobados.reduce((a, u) => a + Number(u.total_bs || 0), 0);
+
+      const balanceNetoUsd = totalVentasUsd - totalGastosUsd - totalComprasUsd - totalDevolucionesUsd;
+
+      let ramsesMsg = `🌙 <b>REPORTE DE CIERRE DIARIO (9:00 PM)</b>\n` +
+        `🤖 <i>Agente Ramses · Auditor Financiero de Emprendimiento Gregory</i>\n` +
+        `📅 <b>Fecha:</b> ${hoy} · 📊 <b>Tasa BCV:</b> <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📊 <b>BALANCE FINANCIERO Y CIERRE DE CAJA:</b>\n\n` +
+        `1. 🛒 <b>VENTAS DEL DÍA:</b>\n` +
+        `   • Pedidos cobrados: <b>${ventas.filter(v => ['entregado', 'pagado'].includes(v.estado)).length}</b>\n` +
+        `   • Total Ventas: <b>$${totalVentasUsd.toFixed(2)} USD</b> (Bs. ${(totalVentasUsd * tasaBcv).toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n\n` +
+        `2. 📉 <b>GASTOS OPERATIVOS DEL DÍA:</b>\n` +
+        `   • Registros de gasto: <b>${gastos.length}</b>\n` +
+        `   • Total Gastos: <b>$${totalGastosUsd.toFixed(2)} USD</b>\n\n` +
+        `3. 🛍️ <b>COMPRAS A PROVEEDORES DEL DÍA:</b>\n` +
+        `   • Cuentas / Compras: <b>${compras.length}</b>\n` +
+        `   • Total Inversión: <b>$${totalComprasUsd.toFixed(2)} USD</b>\n\n` +
+        `4. 🔄 <b>DEVOLUCIONES & REEMBOLSOS:</b>\n` +
+        `   • Casos atendidos: <b>${devoluciones.length}</b>\n` +
+        `   • Total Devoluciones: <b>$${totalDevolucionesUsd.toFixed(2)} USD</b>\n\n` +
+        `5. 💰 <b>SALDO ZENY APROBADO:</b>\n` +
+        `   • Recargas acreditadas: <b>${zenyAprobados.length}</b>\n` +
+        `   • Monto Aprobado: <b>+$${totalZenyAprobadoUsd.toFixed(2)} USD</b>\n\n` +
+        `6. 💱 <b>COMPRAS DE USDT APROBADAS (MESA DE CAMBIO):</b>\n` +
+        `   • Operaciones completadas: <b>${usdtAprobados.length}</b>\n` +
+        `   • Total USDT Despachado: <b>$${totalUsdtAprobado.toFixed(2)} USDT</b>\n` +
+        `   • Bolívares Recibidos: <b>Bs. ${totalUsdtBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📈 <b>RESULTADO OPERATIVO NETO:</b> <b>$${balanceNetoUsd.toFixed(2)} USD</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Ver Libro Contable Completo en Panel Admin</a>`;
+
+      await sendRamses(ramsesMsg);
+      outResults.reportes.push('Ramses: Reporte Cierre 9:00 PM');
     }
 
     return res.json({
       ok: true,
-      fecha: hoy,
-      tasa_bcv: tasaBcv,
-      reportes_enviados: reportesEnviados,
-      metricas: {
-        nuevos_usuarios: newUsers.length,
-        nuevos_pedidos: newOrders.length,
-        solicitudes_revendedor: solicitudesRev.length,
-        vencimientos_hoy: clientesTotal,
-        cuentas_madre_hoy: mothers.length,
-        cuotas_hoy: cuotasHoy.length,
-        cuotas_mora: cuotasVencidas.length,
-        agotados: agotados.length,
-        stock_critico: criticos.length
-      }
+      ...outResults
     });
 
   } catch (err) {
-    console.error('Error procesando cron de vencimientos:', err);
+    console.error('Error procesando cron de vencimientos y reportes:', err);
     return res.status(500).json({ error: err.message });
   }
 }

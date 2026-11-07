@@ -61,8 +61,8 @@ ${leadWhatsappUrl}`;
     console.error('Error enviando notificación push/tg:', err);
   }
 
-  // URL de WhatsApp para que el cliente contacte inmediatamente a Gregory (+584241983648)
-  const gregoryWhatsappUrl = `https://wa.me/584241983648?text=${encodeURIComponent(
+  // URL de WhatsApp para que el cliente contacte inmediatamente a Gregory (+584242809333)
+  const gregoryWhatsappUrl = `https://wa.me/584242809333?text=${encodeURIComponent(
 `¡Hola Gregory! 👋 Acabo de enviar mi postulación para operar una Franquicia de Streaming Oficial:
 
 🏢 Negocio: ${businessName}

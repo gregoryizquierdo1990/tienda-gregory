@@ -9069,7 +9069,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       total_usd: '15.00',
       total_bs: '600.00',
       negocio: S.franchise?.nombre_comercial || S.settings?.negocio?.nombre || 'Emprendimiento Gregory Izquierdo',
-      telefono_negocio: S.settings?.negocio?.telefono || '+584241983648',
+      telefono_negocio: S.settings?.negocio?.telefono || '+584242809333',
       rif: S.settings?.negocio?.rif || 'J-50639379-4',
       portal_url: location.origin,
       estado: 'Activo',

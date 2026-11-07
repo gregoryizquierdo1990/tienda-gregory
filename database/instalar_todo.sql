@@ -4926,7 +4926,7 @@ INSERT INTO public.settings (key, value)
 VALUES ('mesa_cambio_config', '{"banco":"BNC (0191)","activo":false,"titular":"Gregory Izquierdo","max_usdt":10,"min_usdt":2,"telefono":"04242809333","documento":"18931731","metodo_pago":"Pago Móvil (BNC)","tasa_usdt_bs":1050.52,"mensaje_aviso":"⚠️ IMPORTANTE: Por favor verifica cuidadosamente tu ID de Binance Pay o Correo electrónico antes de enviar la solicitud. No nos hacemos responsables ni realizaremos reembolsos por mala identificación de sus datos.","fondo_caja_usdt":3,"tasa_adquisicion_bs":1004.43}'::jsonb)
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 INSERT INTO public.settings (key, value)
-VALUES ('negocio', '{"rif":"J-50639379-4","correo":"emprendimientogregoryizquierdo@gmail.com","nombre":"Emprendimiento Gregory Izquierdo","telefono":"+584241983648"}'::jsonb)
+VALUES ('negocio', '{"rif":"J-50639379-4","correo":"emprendimientogregoryizquierdo@gmail.com","nombre":"Emprendimiento Gregory Izquierdo","telefono":"+584242809333"}'::jsonb)
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 INSERT INTO public.settings (key, value)
 VALUES ('app', '{"apk_url":"https://github.com/gregoryizquierdo1990/tienda-gregory/releases/download/v1.0.0/Emprendimiento-Gregory-Izquierdo.apk"}'::jsonb)
