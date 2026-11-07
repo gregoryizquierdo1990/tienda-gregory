@@ -8431,7 +8431,7 @@ async function portal(){
 }
 // ---------- PANEL ADMIN (CRUD generico, protegido por RLS) ----------
 const TABLES = {
- orders:['created_at','customer_id','product_id','datos_recarga','total_usd','zeny_aplicado','referencia','estado','estado_recarga','conciliado_por','inicia','vence','proximo_pago'],
+ orders:['created_at','customer_id','product_id','vendedor_nombre','total_usd','referencia','estado','vence','datos_recarga'],
  installments:['order_id','customer_id','numero_cuota','total_cuotas','monto_usd','fecha_vencimiento','estado','referencia','pagada_at'],
  zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
  products:['nombre','descripcion','tipo','es_exclusivo_central','precio_usd','precio_binance_usd','precio_revendedor_usd','permite_cuotas','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
@@ -8448,7 +8448,7 @@ const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido'],'banners.tipo':['carrusel','popup','barra_superior'],'banners.destinatario':['todos','clientes','revendedores'],'banners.popup_frecuencia':['una_vez_dia','una_vez_sesion','siempre']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
 const NOADD=['transfers'];
-const acts=(t,r)=>t==='banners'?`<button class="g" data-preview-banner="${r.id}" style="color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700">👁️ Previsualizar</button>`:t==='orders'?`${['pendiente','vencido'].includes(r.estado)?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button>`:''}${r.estado==='pendiente'?`<button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}">Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button><button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar este perfil a un revendedor">🤝 Revendedor</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar o transferir este perfil y cliente a un revendedor">🤝 Revendedor</button><button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
+const acts=(t,r)=>t==='banners'?`<button class="g" data-preview-banner="${r.id}" style="color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700">👁️ Previsualizar</button>`:t==='orders'?`${r.estado==='pendiente'?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button><button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-cust-order="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-prod="${esc(r.products?.nombre||'Servicio')}" style="padding:4px 8px;font-size:.72rem;color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Contactar cliente por WhatsApp">📲 WA</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}" style="padding:4px 8px;font-size:.72rem">🔀 Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}" style="padding:4px 8px;font-size:.72rem">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button><button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar este perfil a un revendedor">🤝 Revendedor</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar o transferir este perfil y cliente a un revendedor">🤝 Revendedor</button><button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
 const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='created_at'||c==='creado'){
@@ -8456,7 +8456,133 @@ const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) r
     const d=new Date(v);
     return `<div style="font-size:.76rem;white-space:nowrap"><b>${d.toLocaleDateString('es-VE')}</b><br><span class="mut" style="font-size:.7rem">${d.toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
   }
+  if(c==='customer_id'){
+    const cNom = r.customers?.nombre;
+    const cTel = r.customers?.telefono;
+    const cMail = r.customers?.email;
+    if(!cNom && !cTel && !cMail) return '<span class="mut">—</span>';
+    const cleanPhone = (cTel||'').replace(/\D/g,'');
+    const waTarget = cleanPhone.startsWith('58') ? cleanPhone : (cleanPhone ? '58'+cleanPhone.replace(/^0+/,'') : '');
+    return `
+      <div style="font-size:.78rem;line-height:1.35">
+        <b style="color:#fff">${esc(cNom || 'Cliente')}</b>
+        ${cTel ? `<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><a href="https://wa.me/${waTarget}" target="_blank" rel="noopener noreferrer" style="color:#25d366;text-decoration:none;font-weight:700;font-size:.72rem">📱 ${esc(cTel)}</a></div>` : ''}
+        ${cMail && !cMail.includes('@cliente.gregoryizquierdo.xyz') ? `<div class="mut" style="font-size:.68rem">${esc(cMail)}</div>` : ''}
+      </div>
+    `;
+  }
+  if(c==='total_usd'){
+    const z = Number(r.zeny_aplicado || 0);
+    return `
+      <div style="font-size:.82rem">
+        <b style="color:#00f5a0">$${Number(v||0).toFixed(2)}</b>
+        ${z > 0 ? `<div style="font-size:.68rem;color:#c084fc;font-weight:700">💎 $${z.toFixed(2)} Zeny</div>` : ''}
+      </div>
+    `;
+  }
+  if(c==='referencia'){
+    if(!v) return '<span class="mut">—</span>';
+    let badge = '';
+    let cleanText = v;
+    if(v.startsWith('[RENOVACIÓN ZENY]')){
+      badge = '<span class="pill" style="font-size:.66rem;background:rgba(168,85,247,.18);color:#c084fc;border-color:rgba(168,85,247,.4);font-weight:800;margin-bottom:3px;display:inline-block">🔄 Renovación Zeny</span><br>';
+      cleanText = v.replace('[RENOVACIÓN ZENY]', '').trim();
+    } else if(v.startsWith('[CRÉDITO ADMIN]')){
+      badge = '<span class="pill" style="font-size:.66rem;background:rgba(250,204,21,.18);color:#facc15;border-color:rgba(250,204,21,.4);font-weight:800;margin-bottom:3px;display:inline-block">💳 Crédito Directo</span><br>';
+      cleanText = v.replace('[CRÉDITO ADMIN]', '').trim();
+    } else if(v.startsWith('[RENOVACIÓN CRÉDITO REVENDEDOR]')){
+      badge = '<span class="pill" style="font-size:.66rem;background:rgba(56,189,248,.18);color:#38bdf8;border-color:rgba(56,189,248,.4);font-weight:800;margin-bottom:3px;display:inline-block">🤝 Crédito Revendedor</span><br>';
+      cleanText = v.replace('[RENOVACIÓN CRÉDITO REVENDEDOR]', '').trim();
+    } else if(v.startsWith('[IMPORTADO EXCEL]')){
+      badge = '<span class="pill" style="font-size:.66rem;background:rgba(148,163,184,.15);color:#94a3b8;border-color:rgba(148,163,184,.3);font-weight:700;margin-bottom:3px;display:inline-block">📥 Importado Excel</span><br>';
+      cleanText = v.replace('[IMPORTADO EXCEL]', '').trim();
+    } else if(v.startsWith('[RENOVACIÓN PENDIENTE]')){
+      badge = '<span class="pill" style="font-size:.66rem;background:rgba(251,146,60,.18);color:#fb923c;border-color:rgba(251,146,60,.4);font-weight:800;margin-bottom:3px;display:inline-block">⏳ Renovación</span><br>';
+      cleanText = v.replace('[RENOVACIÓN PENDIENTE]', '').trim();
+    } else if(v.startsWith('[RENOVACIÓN PAGO MÓVIL]')){
+      badge = '<span class="pill" style="font-size:.66rem;background:rgba(0,245,160,.18);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:800;margin-bottom:3px;display:inline-block">💵 Pago Móvil</span><br>';
+      cleanText = v.replace('[RENOVACIÓN PAGO MÓVIL]', '').trim();
+    }
+    return `<div style="font-size:.76rem;max-width:260px;line-height:1.3">${badge}<span style="color:#cbd5e1">${esc(cleanText)}</span></div>`;
+  }
+  if(c==='estado'){
+    const stMap = {
+      entregado: { label: '🟢 Entregado', bg: 'rgba(0,245,160,.12)', col: '#00f5a0', bdr: 'rgba(0,245,160,.3)' },
+      pendiente: { label: '🟡 Pendiente', bg: 'rgba(234,179,8,.15)', col: '#facc15', bdr: 'rgba(234,179,8,.3)' },
+      pagado:    { label: '💳 Pagado', bg: 'rgba(56,189,248,.12)', col: '#38bdf8', bdr: 'rgba(56,189,248,.3)' },
+      vencido:   { label: '🔴 Vencido', bg: 'rgba(239,68,68,.12)', col: '#f87171', bdr: 'rgba(239,68,68,.3)' },
+      rechazado: { label: '❌ Rechazado', bg: 'rgba(148,163,184,.12)', col: '#94a3b8', bdr: 'rgba(148,163,184,.3)' },
+      cancelado: { label: '⚪ Cancelado', bg: 'rgba(148,163,184,.12)', col: '#94a3b8', bdr: 'rgba(148,163,184,.3)' }
+    };
+    const s = stMap[v] || { label: v, bg: 'rgba(255,255,255,.05)', col: '#fff', bdr: 'rgba(255,255,255,.1)' };
+    return `<span class="pill" style="font-size:.72rem;background:${s.bg};color:${s.col};border-color:${s.bdr};font-weight:700">${esc(s.label)}</span>`;
+  }
+  if(c==='vence'){
+    if(!v) return '<span class="mut">—</span>';
+    const diff = Math.ceil((new Date(v+'T00:00:00') - new Date()) / 86400000);
+    const isVencido = diff < 0;
+    const isPorVencer = diff >= 0 && diff <= 5;
+    const badgeCls = isVencido 
+      ? `<span class="pill" style="font-size:.65rem;background:rgba(239,68,68,.15);color:#f87171">🔴 Hace ${Math.abs(diff)}d</span>`
+      : (isPorVencer 
+          ? `<span class="pill" style="font-size:.65rem;background:rgba(234,179,8,.15);color:#facc15">⏳ en ${diff}d</span>`
+          : `<span class="pill" style="font-size:.65rem;background:rgba(0,245,160,.12);color:#00f5a0">🟢 en ${diff}d</span>`);
+    return `<div style="font-size:.76rem;white-space:nowrap"><b>${esc(v)}</b><br>${badgeCls}</div>`;
+  }
   if(c==='category_id') return esc(r.categories?.nombre || v || '—');
+  if(c==='tipo'&&r.tipo){
+    const tMap={carrusel:'🎡 Carrusel',popup:'⚡ Popup',barra_superior:'📢 Barra Sup.'};
+    return `<span class="pill" style="font-size:.72rem;background:rgba(0,212,255,.15);color:#38bdf8;border-color:rgba(0,212,255,.3)">${tMap[r.tipo]||r.tipo}</span>`;
+  }
+  if(c==='destinatario'&&r.destinatario){
+    const dMap={todos:'👥 Todos',clientes:'👤 Clientes',revendedores:'⭐ Revendedores'};
+    const dCol=r.destinatario==='revendedores'?'#fde047':(r.destinatario==='clientes'?'#38bdf8':'#00f5a0');
+    return `<span class="pill" style="font-size:.72rem;color:${dCol};border-color:${dCol}44">${dMap[r.destinatario]||r.destinatario}</span>`;
+  }
+  if(c==='popup_frecuencia'&&r.popup_frecuencia){
+    const fMap={una_vez_dia:'📅 1x Día',una_vez_sesion:'⚡ 1x Sesión',siempre:'🔄 Siempre'};
+    return `<span class="pill" style="font-size:.7rem">${fMap[r.popup_frecuencia]||r.popup_frecuencia}</span>`;
+  }
+  if(c==='transicion_segundos'&&r.transicion_segundos!=null){
+    return `<span style="font-size:.78rem;color:#facc15">⏱️ ${r.transicion_segundos}s</span>`;
+  }
+  if(c==='product_id'){
+    const nom = esc(r.products?.nombre||'');
+    const isC = (r.products?.nombre||'').toLowerCase().includes('combo');
+    if(isC) return nom + ' <span class="pill" style="font-size:.65rem;background:rgba(244,63,94,.18);color:#fb7185;border:1px solid rgba(244,63,94,.4);font-weight:800">🔥 Combo</span>';
+    if(r.products?.tipo==='servicio') return nom + ' <span class="pill" style="font-size:.65rem;background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.4);font-weight:800">📦 Bajo Pedido</span>';
+    return nom;
+  }
+  if(c==='datos_recarga'){
+    const d=r.datos_recarga;
+    const servVal = d ? (d.texto_activacion || d.datos_activacion || d.correo_activacion) : null;
+    if(!d||(!d.player_id&&!d.telefono&&!d.operadora&&!servVal)) return '<span class="mut">—</span>';
+    const info=d.player_id?`🎮 ID: ${d.player_id}${d.servidor?' ('+d.servidor+')':''}${d.nickname?' ['+d.nickname+']':''}`:(d.telefono?`📱 ${d.operadora||''}: ${d.telefono||''}`:`📝 Dato: ${servVal}`);
+    const copyVal=d.player_id||d.telefono||servVal||'';
+    return `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem"><b style="word-break:break-word">${esc(info)}</b><button type="button" class="g" style="padding:2px 6px;font-size:.7rem;flex-shrink:0" data-clean-copy="${esc(copyVal)}" title="Copiar dato de activación">📋</button></div>`;
+  }
+  if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):'');
+  if(c==='cliente_final'){
+    if(v) return `<b style="color:#00f5a0;font-size:.78rem">👤 ${esc(v)}</b>`;
+    const cNom = r.customers?.nombre || r.customers?.email;
+    if(cNom) return `<span style="font-size:.75rem;color:#38bdf8" title="Cliente asignado">👤 ${esc(cNom)}</span>`;
+    return '<span class="mut" style="font-size:.75rem">—</span>';
+  }
+  if(c==='vendedor'){
+    const sBadge = v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 ${esc(v)}</span>` : '<span class="mut" style="font-size:.75rem">Tienda Central</span>';
+    return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${sBadge}<button type="button" class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:2px 7px;font-size:.68rem;border-radius:6px;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700;cursor:pointer" title="Asignar este perfil y cliente a un revendedor">🤝 Asignar</button></div>`;
+  }
+  if(c==='vendedor_nombre') return v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3);font-weight:700">🤝 ${esc(v)}</span>` : '<span class="pill" style="font-size:.72rem;background:rgba(255,255,255,.05);color:var(--mut);border-color:rgba(255,255,255,.1)">🏢 Tienda Central</span>';
+  if(c==='es_credito') return `<span class="pill" style="font-size:.72rem;${r.es_credito?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">${r.es_credito?'💳 A Crédito':'💵 Contado'}</span>`;
+  if(c==='estado_pago') return `<span class="pill" style="font-size:.72rem;${r.estado_pago==='pendiente'?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':(r.estado_pago==='vencido'?'background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)')}">${r.estado_pago==='pendiente'?'🟡 Por Pagar':(r.estado_pago==='vencido'?'🔴 Vencido':'🟢 Pagado')}</span>`;
+  if(c==='fecha_limite_pago'){
+    if(!v) return '<span class="mut">—</span>';
+    const diff = Math.ceil((new Date(v+'T00:00:00') - new Date()) / 86400000);
+    const isP = r.estado_pago === 'pendiente';
+    return `<div style="font-size:.78rem"><b>${esc(v)}</b> ${isP ? (diff < 0 ? '<span class="pill" style="font-size:.65rem;background:rgba(239,68,68,.15);color:#f87171">🔴 Venció '+Math.abs(diff)+'d</span>' : '<span class="pill" style="font-size:.65rem;background:rgba(234,179,8,.15);color:#fde047">⏳ en '+diff+'d</span>') : ''}</div>`;
+  }
+  if(c==='monto_usdt') return v!=null ? `<b style="color:#fde047">$${Number(v).toFixed(2)} USDT</b>` : '<span class="mut">—</span>';
+  return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
   if(c==='tipo'&&r.tipo){
     const tMap={carrusel:'🎡 Carrusel',popup:'⚡ Popup',barra_superior:'📢 Barra Sup.'};
     return `<span class="pill" style="font-size:.72rem;background:rgba(0,212,255,.15);color:#38bdf8;border-color:rgba(0,212,255,.3)">${tMap[r.tipo]||r.tipo}</span>`;
@@ -9459,16 +9585,20 @@ async function admin(t, opts = {}){
 
   let topBarHtml = '';
   if (t === 'orders') {
+    const rawSellers = (data || []).map(r => r.vendedor_nombre).filter(Boolean);
+    const uniqueSellers = [...new Set(rawSellers)].sort((a,b) => a.localeCompare(b));
+    const sellerOptions = uniqueSellers.map(s => `<option value="${esc(s.toLowerCase())}">🤝 ${esc(s)}</option>`).join('');
+
     const savedQ = (S._orderFilters && S._orderFilters.q) || '';
     topBarHtml = `
       <div class="card" style="margin-bottom:14px;padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px">
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
-          <div style="flex:1 1 260px;min-width:220px;position:relative">
-            <input id="orderSearchInput" type="search" placeholder="🔍 Buscar cliente, producto, referencia, monto o fecha..." value="${esc(savedQ)}"
+          <div style="flex:1 1 240px;min-width:200px;position:relative">
+            <input id="orderSearchInput" type="search" placeholder="🔍 Buscar cliente, teléfono, producto, referencia, vendedor..." value="${esc(savedQ)}"
               style="width:100%;font-size:.82rem;padding:8px 12px 8px 32px;border-radius:8px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);color:#fff">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6;font-size:.8rem;pointer-events:none">🔍</span>
           </div>
-          <div style="flex:0 1 180px;min-width:150px">
+          <div style="flex:0 1 170px;min-width:140px">
             <select id="orderStatusFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
               <option value="">🔘 Todos los estados</option>
               <option value="entregado">🟢 Entregados</option>
@@ -9476,6 +9606,13 @@ async function admin(t, opts = {}){
               <option value="pagado">💳 Pagados</option>
               <option value="vencido">🔴 Vencidos</option>
               <option value="rechazado">❌ Rechazados</option>
+            </select>
+          </div>
+          <div style="flex:0 1 190px;min-width:150px">
+            <select id="orderSellerFilter" style="width:100%;font-size:.8rem;padding:8px 10px;border-radius:8px;background:#131c2e;border:1px solid rgba(255,255,255,.15);color:#fff">
+              <option value="">🤝 Todos los vendedores</option>
+              <option value="__central__">🏢 Tienda Central</option>
+              ${sellerOptions}
             </select>
           </div>
           <button id="orderBtnClear" class="g" style="padding:7px 12px;font-size:.78rem" title="Restablecer todos los filtros">
@@ -9487,10 +9624,11 @@ async function admin(t, opts = {}){
             Mostrando <b style="color:var(--c)" id="orderVisibleCount">${(data||[]).length}</b> de ${(data||[]).length} pedidos (más recientes primero)
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button type="button" class="g order-quick-btn" data-o-status="" style="padding:2px 8px;font-size:.7rem">Todos</button>
+            <button type="button" class="g order-quick-btn" data-o-status="" data-o-seller="" style="padding:2px 8px;font-size:.7rem">Todos</button>
             <button type="button" class="g order-quick-btn" data-o-status="entregado" style="padding:2px 8px;font-size:.7rem;color:#00f5a0;border-color:rgba(0,245,160,.3)">🟢 Entregados</button>
             <button type="button" class="g order-quick-btn" data-o-status="pendiente" style="padding:2px 8px;font-size:.7rem;color:#facc15;border-color:rgba(250,204,21,.3)">🟡 Pendientes</button>
-            <button type="button" class="g order-quick-btn" data-o-status="pagado" style="padding:2px 8px;font-size:.7rem;color:#38bdf8;border-color:rgba(56,189,248,.3)">💳 Pagados</button>
+            <button type="button" class="g order-quick-btn" data-o-seller="nelson" style="padding:2px 8px;font-size:.7rem;color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 Nelson</button>
+            <button type="button" class="g order-quick-btn" data-o-seller="pablo" style="padding:2px 8px;font-size:.7rem;color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 Pablo</button>
             <button type="button" class="g order-quick-btn" data-o-status="vencido" style="padding:2px 8px;font-size:.7rem;color:#f87171;border-color:rgba(239,68,68,.3)">🔴 Vencidos</button>
           </div>
         </div>
@@ -9764,13 +9902,16 @@ async function admin(t, opts = {}){
                 r.customers?.email || '',
                 r.customers?.telefono || '',
                 r.products?.nombre || '',
+                r.vendedor_nombre || '',
                 r.estado || '',
                 r.total_usd ? '$' + r.total_usd : '',
-                r.total_bs ? 'bs ' + r.total_bs : ''
+                r.total_bs ? 'bs ' + r.total_bs : '',
+                r.vence || ''
               ].join(' ').toLowerCase();
 
               const statusVal = (r.estado || '').toLowerCase();
-              rowAttrs = ` data-order-row="1" data-search="${esc(searchTerms)}" data-status="${esc(statusVal)}"`;
+              const sellerVal = (r.vendedor_nombre || '__central__').toLowerCase();
+              rowAttrs = ` data-order-row="1" data-search="${esc(searchTerms)}" data-status="${esc(statusVal)}" data-seller="${esc(sellerVal)}"`;
             }
             return `<tr${rowAttrs}>${cols.map(c => `<td>${cell(r, c)}</td>`).join('')}<td class="row">${acts(t, r)}${NOADD.includes(t) ? '' : `<button class="g" data-e="${esc(r[pk])}">Editar</button><button class="d" data-x="${esc(r[pk])}">Borrar</button>`}</td></tr>`;
           }).join('')}
@@ -10129,6 +10270,7 @@ async function admin(t, opts = {}){
   if (t === 'orders') {
     const sInput = $('#orderSearchInput');
     const stFilter = $('#orderStatusFilter');
+    const selFilter = $('#orderSellerFilter');
     const btnClear = $('#orderBtnClear');
     const countBadge = $('#orderVisibleCount');
     const adminCnt = $('#adminRecordCount');
@@ -10136,24 +10278,28 @@ async function admin(t, opts = {}){
 
     if (S._orderFilters) {
       if (stFilter && S._orderFilters.status) stFilter.value = S._orderFilters.status;
+      if (selFilter && S._orderFilters.seller) selFilter.value = S._orderFilters.seller;
     }
 
     const applyOrderFilter = () => {
       const q = (sInput ? sInput.value : '').trim().toLowerCase();
       const status = (stFilter ? stFilter.value : '').toLowerCase();
+      const seller = (selFilter ? selFilter.value : '').toLowerCase();
 
-      S._orderFilters = { q, status };
+      S._orderFilters = { q, status, seller };
 
       const rows = mainContent ? mainContent.querySelectorAll('tr[data-order-row]') : [];
       let visible = 0;
       rows.forEach(tr => {
         const rowSearch = tr.dataset.search || '';
         const rowStatus = tr.dataset.status || '';
+        const rowSeller = tr.dataset.seller || '';
 
         const matchQ = !q || rowSearch.includes(q);
         const matchStatus = !status || rowStatus === status;
+        const matchSeller = !seller || (seller === '__central__' ? (rowSeller === '__central__' || !rowSeller) : rowSeller.includes(seller));
 
-        if (matchQ && matchStatus) {
+        if (matchQ && matchStatus && matchSeller) {
           tr.style.display = '';
           visible++;
         } else {
@@ -10179,11 +10325,13 @@ async function admin(t, opts = {}){
 
     if (sInput) sInput.oninput = applyOrderFilter;
     if (stFilter) stFilter.onchange = applyOrderFilter;
+    if (selFilter) selFilter.onchange = applyOrderFilter;
 
     if (btnClear) {
       btnClear.onclick = () => {
         if (sInput) sInput.value = '';
         if (stFilter) stFilter.value = '';
+        if (selFilter) selFilter.value = '';
         S._orderFilters = null;
         applyOrderFilter();
       };
@@ -10192,18 +10340,33 @@ async function admin(t, opts = {}){
     if (mainContent) {
       mainContent.querySelectorAll('.order-quick-btn').forEach(btn => {
         btn.onclick = () => {
-          if (stFilter) {
-            stFilter.value = btn.dataset.oStatus || '';
-            applyOrderFilter();
+          if (btn.dataset.oStatus !== undefined && stFilter) {
+            stFilter.value = btn.dataset.oStatus;
           }
+          if (btn.dataset.oSeller !== undefined && selFilter) {
+            selFilter.value = btn.dataset.oSeller;
+          }
+          applyOrderFilter();
         };
       });
     }
 
-    if (S._orderFilters && (S._orderFilters.q || S._orderFilters.status)) {
+    if (S._orderFilters && (S._orderFilters.q || S._orderFilters.status || S._orderFilters.seller)) {
       applyOrderFilter();
     }
   }
+
+  app.querySelectorAll('[data-wa-cust-order]').forEach(b => {
+    b.onclick = () => {
+      const rawTel = (b.dataset.tel || '').replace(/\D/g, '');
+      const waTarget = rawTel.startsWith('58') ? rawTel : (rawTel ? '58' + rawTel.replace(/^0+/, '') : '');
+      const nom = b.dataset.nom || 'Cliente';
+      const prod = b.dataset.prod || 'Servicio';
+      const text = encodeURIComponent(`Hola ${nom}, te saludamos de la Tienda de Gregory Izquierdo en relación a tu pedido de *${prod}*. ¿En qué podemos ayudarte?`);
+      if(waTarget) window.open(`https://wa.me/${waTarget}?text=${text}`, '_blank');
+      else toast('No hay teléfono válido para este cliente.');
+    };
+  });
 
   app.querySelectorAll('[data-rv]').forEach(b=>b.onclick=async()=>{const {data:v,error:e}=await sb.rpc('reveal_secret',{p:b.dataset.rv});toast(e?e.message:v);});
   app.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(!confirm(t==='orders'?`¿Verificaste el pago? Total $${b.dataset.tot} (ZenyPoints aplicados: $${b.dataset.z}). Se entregarán las credenciales al cliente.`:'¿Verificaste el pago de esta recarga?'))return;const {error:e}=t==='orders'?await sb.rpc('deliver_order',{p_order:b.dataset.ok}):await sb.from(t).update({estado:'aprobado'}).eq('id',b.dataset.ok);invalidateAdminCache(t);invalidateAdminCache('orders');invalidateAdminCache('zeny_ledger');e?toast(e.message):admin(t);});
