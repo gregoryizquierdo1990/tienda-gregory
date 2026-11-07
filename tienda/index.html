@@ -1033,7 +1033,7 @@ async function ensureAdminExtraLoaded() {
       existing.remove();
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=15';
+    script.src = '/admin-extra.js?v=16';
     script.async = true;
     const timeout = setTimeout(() => {
       if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) resolve(true);
@@ -8573,59 +8573,6 @@ const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) r
     return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${sBadge}<button type="button" class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:2px 7px;font-size:.68rem;border-radius:6px;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700;cursor:pointer" title="Asignar este perfil y cliente a un revendedor">🤝 Asignar</button></div>`;
   }
   if(c==='vendedor_nombre') return v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3);font-weight:700">🤝 ${esc(v)}</span>` : '<span class="pill" style="font-size:.72rem;background:rgba(255,255,255,.05);color:var(--mut);border-color:rgba(255,255,255,.1)">🏢 Tienda Central</span>';
-  if(c==='es_credito') return `<span class="pill" style="font-size:.72rem;${r.es_credito?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">${r.es_credito?'💳 A Crédito':'💵 Contado'}</span>`;
-  if(c==='estado_pago') return `<span class="pill" style="font-size:.72rem;${r.estado_pago==='pendiente'?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':(r.estado_pago==='vencido'?'background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)')}">${r.estado_pago==='pendiente'?'🟡 Por Pagar':(r.estado_pago==='vencido'?'🔴 Vencido':'🟢 Pagado')}</span>`;
-  if(c==='fecha_limite_pago'){
-    if(!v) return '<span class="mut">—</span>';
-    const diff = Math.ceil((new Date(v+'T00:00:00') - new Date()) / 86400000);
-    const isP = r.estado_pago === 'pendiente';
-    return `<div style="font-size:.78rem"><b>${esc(v)}</b> ${isP ? (diff < 0 ? '<span class="pill" style="font-size:.65rem;background:rgba(239,68,68,.15);color:#f87171">🔴 Venció '+Math.abs(diff)+'d</span>' : '<span class="pill" style="font-size:.65rem;background:rgba(234,179,8,.15);color:#fde047">⏳ en '+diff+'d</span>') : ''}</div>`;
-  }
-  if(c==='monto_usdt') return v!=null ? `<b style="color:#fde047">$${Number(v).toFixed(2)} USDT</b>` : '<span class="mut">—</span>';
-  return esc(v&&typeof v==='object'?JSON.stringify(v):v);};
-  if(c==='tipo'&&r.tipo){
-    const tMap={carrusel:'🎡 Carrusel',popup:'⚡ Popup',barra_superior:'📢 Barra Sup.'};
-    return `<span class="pill" style="font-size:.72rem;background:rgba(0,212,255,.15);color:#38bdf8;border-color:rgba(0,212,255,.3)">${tMap[r.tipo]||r.tipo}</span>`;
-  }
-  if(c==='destinatario'&&r.destinatario){
-    const dMap={todos:'👥 Todos',clientes:'👤 Clientes',revendedores:'⭐ Revendedores'};
-    const dCol=r.destinatario==='revendedores'?'#fde047':(r.destinatario==='clientes'?'#38bdf8':'#00f5a0');
-    return `<span class="pill" style="font-size:.72rem;color:${dCol};border-color:${dCol}44">${dMap[r.destinatario]||r.destinatario}</span>`;
-  }
-  if(c==='popup_frecuencia'&&r.popup_frecuencia){
-    const fMap={una_vez_dia:'📅 1x Día',una_vez_sesion:'⚡ 1x Sesión',siempre:'🔄 Siempre'};
-    return `<span class="pill" style="font-size:.7rem">${fMap[r.popup_frecuencia]||r.popup_frecuencia}</span>`;
-  }
-  if(c==='transicion_segundos'&&r.transicion_segundos!=null){
-    return `<span style="font-size:.78rem;color:#facc15">⏱️ ${r.transicion_segundos}s</span>`;
-  }
-  if(c==='product_id'){
-    const nom = esc(r.products?.nombre||'');
-    const isC = (r.products?.nombre||'').toLowerCase().includes('combo');
-    if(isC) return nom + ' <span class="pill" style="font-size:.65rem;background:rgba(244,63,94,.18);color:#fb7185;border:1px solid rgba(244,63,94,.4);font-weight:800">🔥 Combo</span>';
-    if(r.products?.tipo==='servicio') return nom + ' <span class="pill" style="font-size:.65rem;background:rgba(168,85,247,.18);color:#c084fc;border:1px solid rgba(168,85,247,.4);font-weight:800">📦 Bajo Pedido</span>';
-    return nom;
-  }
-  if(c==='datos_recarga'){
-    const d=r.datos_recarga;
-    const servVal = d ? (d.texto_activacion || d.datos_activacion || d.correo_activacion) : null;
-    if(!d||(!d.player_id&&!d.telefono&&!d.operadora&&!servVal)) return '<span class="mut">—</span>';
-    const info=d.player_id?`🎮 ID: ${d.player_id}${d.servidor?' ('+d.servidor+')':''}${d.nickname?' ['+d.nickname+']':''}`:(d.telefono?`📱 ${d.operadora||''}: ${d.telefono||''}`:`📝 Dato: ${servVal}`);
-    const copyVal=d.player_id||d.telefono||servVal||'';
-    return `<div style="display:flex;align-items:center;gap:6px;font-size:.78rem"><b style="word-break:break-word">${esc(info)}</b><button type="button" class="g" style="padding:2px 6px;font-size:.7rem;flex-shrink:0" data-clean-copy="${esc(copyVal)}" title="Copiar dato de activación">📋</button></div>`;
-  }
-  if(['order_id','from_profile','to_profile'].includes(c)) return esc(String(v||'').slice(0,8)); if(c==='mother_id') return esc(r.mother_accounts?(r.mother_accounts.plataforma+' · '+r.mother_accounts.correo):'');
-  if(c==='cliente_final'){
-    if(v) return `<b style="color:#00f5a0;font-size:.78rem">👤 ${esc(v)}</b>`;
-    const cNom = r.customers?.nombre || r.customers?.email;
-    if(cNom) return `<span style="font-size:.75rem;color:#38bdf8" title="Cliente asignado">👤 ${esc(cNom)}</span>`;
-    return '<span class="mut" style="font-size:.75rem">—</span>';
-  }
-  if(c==='vendedor'){
-    const sBadge = v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 ${esc(v)}</span>` : '<span class="mut" style="font-size:.75rem">Tienda Central</span>';
-    return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${sBadge}<button type="button" class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:2px 7px;font-size:.68rem;border-radius:6px;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700;cursor:pointer" title="Asignar este perfil y cliente a un revendedor">🤝 Asignar</button></div>`;
-  }
-  if(c==='vendedor_nombre') return v ? `<span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.12);color:#38bdf8;border-color:rgba(56,189,248,.3)">🤝 ${esc(v)}</span>` : '<span class="mut" style="font-size:.75rem">Directo Tienda</span>';
   if(c==='es_credito') return `<span class="pill" style="font-size:.72rem;${r.es_credito?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)'}">${r.es_credito?'💳 A Crédito':'💵 Contado'}</span>`;
   if(c==='estado_pago') return `<span class="pill" style="font-size:.72rem;${r.estado_pago==='pendiente'?'background:rgba(234,179,8,.15);color:#fde047;border-color:rgba(234,179,8,.3)':(r.estado_pago==='vencido'?'background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3)':'background:rgba(0,245,160,.12);color:#00f5a0;border-color:rgba(0,245,160,.3)')}">${r.estado_pago==='pendiente'?'🟡 Por Pagar':(r.estado_pago==='vencido'?'🔴 Vencido':'🟢 Pagado')}</span>`;
   if(c==='fecha_limite_pago'){
