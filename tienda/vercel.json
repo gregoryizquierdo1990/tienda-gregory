@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/vencimientos",
-      "schedule": "0 12 * * *"
+      "schedule": "0 12,18,1 * * *"
     }
   ],
   "rewrites": [

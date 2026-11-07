@@ -79,7 +79,9 @@ export default async function handler(req, res) {
       // Inventario actual disponible
       sbRest('rpc/stock').catch(() => []),
       // Catálogo de productos activos
-      sbRest('products?activo=eq.true&tipo=in.(pantalla,cuenta_completa)&select=id,nombre,tipo').catch(() => [])
+      sbRest('products?activo=eq.true&tipo=in.(pantalla,cuenta_completa)&select=id,nombre,tipo').catch(() => []),
+      // Movimientos Zeny del día
+      sbRest(`zeny_ledger?created_at=gte.${hoy}T00:00:00-04:00&select=id,tipo,monto,referencia,estado`).catch(() => [])
     ]);
 
     const newUsers = newUsersRes || [];
@@ -92,6 +94,10 @@ export default async function handler(req, res) {
     const cuotasVencidas = instOverdueRes || [];
     const stockMap = Object.fromEntries((stockRes || []).map(s => [s.product_id, Number(s.disponibles || 0)]));
     const activeProducts = productsRes || [];
+    const zenyMovs = zenyRes || [];
+
+    const recargasZenyUsd = zenyMovs.filter(z => z.tipo === 'recarga' && z.estado === 'aprobado').reduce((acc, z) => acc + Number(z.monto || 0), 0);
+    const comprasZenyUsd = zenyMovs.filter(z => z.tipo === 'compra' && z.estado === 'aprobado').reduce((acc, z) => acc + Math.abs(Number(z.monto || 0)), 0);
 
     // Detectar stock crítico y agotado
     const agotados = activeProducts.filter(p => (stockMap[p.id] || 0) <= 0);
@@ -108,14 +114,29 @@ export default async function handler(req, res) {
     const reportesEnviados = [];
 
     // =========================================================================
-    // BLOQUE 0: RESUMEN EJECUTIVO MATUTINO (8:00 AM)
+    // BLOQUE 0: RESUMEN EJECUTIVO DINÁMICO (8:00 AM, 2:00 PM y 9:00 PM) - JULIAN BOT
     // =========================================================================
-    const resumenMatutinoHtml = `🌅 <b>REPORTE MATUTINO DE GESTIÓN (8:00 AM)</b>\n` +
+    const vzlaDate = new Date(Date.now() - 4 * 3600e3);
+    const horaVzla = vzlaDate.getUTCHours();
+    let reportTitle = '☀️ <b>REPORTE DE MEDIA JORNADA (2:00 PM) · JULIAN BOT</b>';
+    let subTitle = 'MÉTRICAS Y ACTIVIDAD DE MITAD DE DÍA:';
+
+    if (horaVzla >= 19 || horaVzla < 4) {
+      reportTitle = '🌙 <b>REPORTE DE CIERRE DIARIO (9:00 PM) · JULIAN BOT</b>';
+      subTitle = 'BALANCE FINAL Y CIERRE DE CAJA DEL DÍA:';
+    } else if (horaVzla < 12) {
+      reportTitle = '🌅 <b>REPORTE MATUTINO DE GESTIÓN (8:00 AM) · JULIAN BOT</b>';
+      subTitle = 'MÉTRICAS 24H & GESTIÓN DEL DÍA:';
+    }
+
+    const resumenMatutinoHtml = `${reportTitle}\n` +
       `📅 <b>Fecha:</b> ${hoy} · 📊 <b>Tasa BCV:</b> <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📈 <b>MÉTRICAS 24H & GESTIÓN DEL DÍA:</b>\n` +
+      `📈 <b>${subTitle}</b>\n` +
+      `• 🛒 <b>Ventas / Nuevos Pedidos:</b> ${newOrders.length} ($${totalOrdersUsd.toFixed(2)} USD · Bs. ${totalOrdersBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})\n` +
+      `• ⚡ <b>Renovaciones Zeny Automáticas:</b> $${comprasZenyUsd.toFixed(2)} USD\n` +
+      `• 💰 <b>Recargas Zeny Aprobadas:</b> +$${recargasZenyUsd.toFixed(2)} USD\n` +
       `• 👤 <b>Nuevos Registros (24h):</b> ${newUsers.length}\n` +
-      `• 🛒 <b>Nuevos Pedidos (24h):</b> ${newOrders.length} ($${totalOrdersUsd.toFixed(2)} USD · Bs. ${totalOrdersBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})\n` +
       `• 🎖️ <b>Solicitudes de Revendedor:</b> ${solicitudesRev.length} pendientes\n` +
       `• 📅 <b>Suscripciones por Vencer Hoy:</b> ${clientesTotal}\n` +
       `• 🔑 <b>Cuentas Madre por Vencer Hoy:</b> ${mothers.length}\n` +
@@ -126,7 +147,7 @@ export default async function handler(req, res) {
       `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Abrir Panel de Control Admin</a>`;
 
     await sendTelegram(resumenMatutinoHtml);
-    reportesEnviados.push('Resumen Ejecutivo 8:00 AM');
+    reportesEnviados.push(reportTitle.replace(/<[^>]+>/g, ''));
 
     // =========================================================================
     // BLOQUE 1: NUEVOS REGISTROS DE USUARIOS (ÚLTIMAS 24H)
