@@ -21,6 +21,14 @@
     {
       "source": "/api/telegram-setup",
       "destination": "/api/notify-setup?action=telegram"
+    },
+    {
+      "source": "/api/tasa-bcv",
+      "destination": "/api/ejecutar-reportes-diarios?tipo=tasa"
+    },
+    {
+      "source": "/api/vencimientos",
+      "destination": "/api/ejecutar-reportes-diarios?tipo=matutino"
     }
   ],
   "headers": [
