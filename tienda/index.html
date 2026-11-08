@@ -1342,25 +1342,94 @@ function getMessageTemplates() {
   return DEFAULT_MESSAGE_TEMPLATES;
 }
 
-function formatMessageTemplate(key, data = {}) {
-  const tpls = getMessageTemplates();
-  let text = tpls[key]?.cuerpo || DEFAULT_MESSAGE_TEMPLATES[key]?.cuerpo || '';
-  const srv = data.servicio || data.producto || '';
-  const merged = {
-    negocio: S.franchise?.nombre_comercial || S.settings?.negocio?.nombre || 'Emprendimiento Gregory Izquierdo',
-    telefono_negocio: S.settings?.negocio?.telefono || '+584242809333',
-    rif: S.settings?.negocio?.rif || 'J-50639379-4',
-    portal_url: S.franchise ? location.origin : 'https://www.gregoryizquierdo.xyz',
-    vendedor: S.me?.nombre || S.user?.user_metadata?.full_name || 'Revendedor Autorizado',
-    servicio: srv,
-    producto: srv,
-    ...data
-  };
-  for(const [k, v] of Object.entries(merged)){
-    text = text.split(`{${k}}`).join(String(v ?? ''));
+function formatearFecha(f) {
+  if (!f) return 'N/A';
+  if (typeof f === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(f.trim())) return f.trim();
+  try {
+    const str = String(f).trim();
+    const d = new Date(str.includes('-') && !str.includes('T') ? str + 'T00:00:00-04:00' : str);
+    if (isNaN(d.getTime())) return str;
+    return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch(e) {
+    return String(f);
   }
-  return text;
 }
+
+function compilarPlantilla(templateText, datos = {}) {
+  // Si templateText es una clave de plantilla (ej. 'renovacion_exitosa'), obtener su cuerpo
+  if (templateText && !templateText.includes('{') && !templateText.includes('\n')) {
+    const tpls = getMessageTemplates();
+    templateText = tpls[templateText]?.cuerpo || DEFAULT_MESSAGE_TEMPLATES[templateText]?.cuerpo || templateText;
+  }
+
+  // Objeto de mapeo de etiquetas dinámicas con compatibilidad dual
+  const srv = datos.servicio_nombre || datos.servicio || datos.producto || 'Servicio';
+  const cli = datos.cliente_nombre || datos.cliente || 'Cliente';
+  const correo = datos.cuenta_correo || datos.correo || datos.email || 'N/A';
+  const clave = datos.cuenta_clave || datos.clave || datos.password || 'N/A';
+  const perfil = datos.perfil_nombre || datos.perfil || 'General';
+  const pin = datos.perfil_pin || datos.pin || '----';
+  const vence = formatearFecha(datos.fecha_vencimiento || datos.vence);
+  const mUsd = datos.monto_usd != null ? (typeof datos.monto_usd === 'number' ? datos.monto_usd.toFixed(2) : Number(datos.monto_usd || 0).toFixed(2)) : '0.00';
+  const mBs = datos.monto_bs != null ? (typeof datos.monto_bs === 'number' ? datos.monto_bs.toFixed(2) : Number(datos.monto_bs || 0).toFixed(2)) : '0.00';
+  const tasa = datos.tasa_bcv || (typeof S !== 'undefined' && S.rate ? Number(S.rate).toFixed(2) : '0.00');
+  const neg = datos.negocio || (typeof S !== 'undefined' && (S.franchise?.nombre_comercial || S.settings?.negocio?.nombre)) || 'Sede Central / Milos';
+  const portal = datos.portal_url || (typeof S !== 'undefined' && S.franchise ? location.origin : 'https://www.gregoryizquierdo.xyz');
+  const vend = datos.vendedor || (typeof S !== 'undefined' && (S.me?.nombre || S.user?.user_metadata?.full_name)) || 'Revendedor Autorizado';
+  const telVend = datos.telefono_vendedor || (typeof S !== 'undefined' && (S.me?.telefono || S.settings?.negocio?.telefono)) || '+584242809333';
+  const telNeg = datos.telefono_negocio || (typeof S !== 'undefined' && S.settings?.negocio?.telefono) || '+584242809333';
+  const codId = datos.codigo_id || datos.codigo_identificacion || 'ID-000';
+  const gar = datos.garantia || '30';
+  const ref = datos.referencia || 'N/A';
+
+  const variables = {
+    '{cliente}': cli,
+    '{producto}': srv,
+    '{servicio}': srv,
+    '{correo}': correo,
+    '{clave}': clave,
+    '{perfil}': perfil,
+    '{pin}': pin,
+    '{vence}': vence,
+    '{fecha_vence}': vence,
+    '{fecha}': vence,
+    '{monto_usd}': mUsd,
+    '{monto_bs}': mBs,
+    '{tasa_bcv}': tasa,
+    '{negocio}': neg,
+    '{portal_url}': portal,
+    '{vendedor}': vend,
+    '{telefono_vendedor}': telVend,
+    '{telefono_negocio}': telNeg,
+    '{codigo_id}': codId,
+    '{garantia}': gar,
+    '{referencia}': ref
+  };
+
+  // Agregar cualquier variable adicional que venga en datos
+  for (const [k, v] of Object.entries(datos)) {
+    const tag = `{${k}}`;
+    if (!(tag in variables) && v != null) {
+      variables[tag] = String(v);
+    }
+  }
+
+  // Reemplazo global utilizando expresión regular
+  let textoFinal = templateText || '';
+  for (const [tag, valor] of Object.entries(variables)) {
+    const regex = new RegExp(tag.replace(/([{}])/g, '\\$1'), 'g');
+    textoFinal = textoFinal.replace(regex, String(valor ?? ''));
+  }
+
+  return textoFinal;
+}
+
+function formatMessageTemplate(key, data = {}) {
+  return compilarPlantilla(key, data);
+}
+
+window.formatearFecha = formatearFecha;
+window.compilarPlantilla = compilarPlantilla;
 
 function cleanWaPhone(phone) {
   if (!phone) return '';
