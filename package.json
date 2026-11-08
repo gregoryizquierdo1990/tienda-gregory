@@ -1,0 +1,8 @@
+{
+  "name": "tienda-gregory-izquierdo-root",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "26.x"
+  }
+}
