@@ -1230,14 +1230,6 @@ const DEFAULT_MESSAGE_TEMPLATES = {
     tags: ['cliente', 'producto', 'operadora', 'telefono_recarga', 'monto_usd', 'monto_bs', 'codigo_id', 'negocio'],
     cuerpo: '¡Hola {cliente}! 📱⚡\nTu recarga telefónica de {producto} ha sido ACREDITADA EXITOSAMENTE.\n\n📌 Operadora: {operadora}\n📞 Teléfono: {telefono_recarga}\n💵 Monto: ${monto_usd} USD (Bs. {monto_bs})\n🧾 Pedido ID: {codigo_id}\n\n¡Gracias por recargar con {negocio}! Quedamos a tu orden para tus próximas recargas. ✨'
   },
-  abono_recargas247: {
-    id: 'abono_recargas247',
-    canal: 'whatsapp',
-    titulo: 'Confirmación de Abono Punto Recargas247',
-    descripcion: 'Enviado al revendedor cuando Gregory le concilia y acredita saldo en Recargas247.',
-    tags: ['titular', 'nombre_punto', 'usuario_247', 'monto_usd', 'monto_bs', 'referencia', 'negocio'],
-    cuerpo: '¡Hola {titular}! ✅\nTu abono de saldo ha sido verificado y acreditado en tu usuario {usuario_247} de Recargas247.\n\n🏪 Punto de Venta: {nombre_punto}\n💵 Monto Acreditado: ${monto_usd} USD (Bs. {monto_bs})\n🔢 Referencia: {referencia}\n\nTu saldo ya se encuentra disponible para emitir recargas a tus clientes. ¡Éxito en las ventas de hoy! 🚀'
-  },
   pago_recibido_fuera_plataforma: {
     id: 'pago_recibido_fuera_plataforma',
     canal: 'whatsapp',

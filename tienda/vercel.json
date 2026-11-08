@@ -1,12 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/tasa-bcv",
-      "schedule": "0 11 * * *"
-    },
-    {
-      "path": "/api/vencimientos",
-      "schedule": "0 12,18,1 * * *"
+      "path": "/api/ejecutar-reportes-diarios",
+      "schedule": "0 12 * * *"
     }
   ],
   "rewrites": [
