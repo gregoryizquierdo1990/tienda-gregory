@@ -20,3 +20,22 @@ export async function requireAdmin(req, res) {
   if (!amr.some(a => a.method === 'oauth') || !adm?.length) { res.status(403).json({ error: 'No autorizado' }); return null; }
   return u;
 }
+
+export function formatearFecha(fechaIso) {
+  if (!fechaIso) return 'N/A';
+  if (typeof fechaIso === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(fechaIso.trim())) {
+    return fechaIso.trim();
+  }
+  try {
+    const raw = typeof fechaIso === 'string' ? fechaIso : (fechaIso.toISOString ? fechaIso.toISOString() : String(fechaIso));
+    const clean = raw.split('T')[0].trim();
+    const parts = clean.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      const [anio, mes, dia] = parts;
+      return `${dia.padStart(2, '0')}/${mes.padStart(2, '0')}/${anio}`;
+    }
+    return String(fechaIso);
+  } catch (e) {
+    return String(fechaIso);
+  }
+}

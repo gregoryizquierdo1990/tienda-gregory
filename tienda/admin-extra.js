@@ -1,5 +1,22 @@
 // Herramientas avanzadas del panel: Google, Telegram, Gemini e importador de la hoja de control
 const today = () => new Date().toISOString().slice(0, 10);
+const formatearFecha = window.formatearFecha || function(fechaIso) {
+  if (!fechaIso) return 'N/A';
+  if (typeof fechaIso === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(fechaIso.trim())) return fechaIso.trim();
+  try {
+    const raw = typeof fechaIso === 'string' ? fechaIso : (fechaIso.toISOString ? fechaIso.toISOString() : String(fechaIso));
+    const clean = raw.split('T')[0].trim();
+    const parts = clean.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      const [anio, mes, dia] = parts;
+      return `${dia.padStart(2, '0')}/${mes.padStart(2, '0')}/${anio}`;
+    }
+    return String(fechaIso);
+  } catch (e) {
+    return String(fechaIso);
+  }
+};
+window.formatearFecha = formatearFecha;
 const addDay = d => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + 1); return x.toISOString().slice(0, 10); };
 const jwt = async () => (await sb.auth.getSession()).data.session?.access_token;
 const api = async (path, body, timeoutMs = 15000) => {
@@ -2286,7 +2303,8 @@ const EXTRA = {
                 const srvName = p.products?.nombre || p.mother_accounts?.plataforma || 'Servicio';
                 const motherMail = p.mother_accounts?.correo || '—';
                 const clientName = p.nombre_perfil || 'Cliente';
-                const waText = encodeURIComponent(`Hola ${clientName}! 👋 Te recordamos de Emprendimiento Gregory Izquierdo que tu servicio de ${srvName} tiene fecha de cobro/vencimiento el día de hoy (${p.vence}). Por favor indícanos si deseas renovar para mantener tu perfil activo.`);
+                const fechaVenceFmt = formatearFecha(p.vence);
+                const waText = encodeURIComponent(`Hola ${clientName}! 👋 Te recordamos de Emprendimiento Gregory Izquierdo que tu servicio de ${srvName} tiene fecha de cobro/vencimiento el día de hoy (${fechaVenceFmt}). Por favor indícanos si deseas renovar para mantener tu perfil activo.`);
                 return `
                 <tr style="${p.no_renueva ? 'background:rgba(239,68,68,.06)' : ''}">
                   <td>
@@ -2297,7 +2315,7 @@ const EXTRA = {
                   <td><small>${esc(motherMail)}</small></td>
                   <td>${(typeof p.pin === 'string' && p.pin.startsWith('enc:')) ? '<span class="pill" style="font-size:.68rem" title="PIN protegido en base de datos">🔒 Cifrado</span>' : `<code>${esc(p.pin || '—')}</code>`}</td>
                   <td><span class="pill" style="font-size:.7rem">${esc(p.vendedor || 'ADMIN')}</span></td>
-                  <td><b style="color:#f59e0b">${esc(p.vence)}</b></td>
+                  <td><b style="color:#f59e0b">${esc(fechaVenceFmt)}</b></td>
                   <td class="row" style="gap:5px">
                     <button class="g" data-cal-release-prof="${p.id}" data-cur-pin="${esc(p.pin||'')}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" data-mail="${esc(motherMail)}" style="padding:4px 8px;font-size:.73rem;background:${p.no_renueva ? 'rgba(239,68,68,.22)' : 'rgba(0,245,160,.14)'};color:${p.no_renueva ? '#f87171' : '#00f5a0'};border:1.5px solid ${p.no_renueva ? 'rgba(239,68,68,.5)' : 'rgba(0,245,160,.35)'};font-weight:800" title="Liberar perfil para la venta en la tienda">
                       ${p.no_renueva ? '🔓 Liberar YA' : '🔓 Liberar'}
@@ -2375,7 +2393,7 @@ const EXTRA = {
                   <td><code>${esc(m.correo)}</code></td>
                   <td><b>${esc(m.proveedor || '— Sin asignar —')}</b></td>
                   <td><span class="pill ${m.activa ? '' : 'off'}">${m.activa ? 'Activa' : 'Inactiva'}</span></td>
-                  <td><b style="color:#ffb703">${esc(m.vence)}</b></td>
+                  <td><b style="color:#ffb703">${esc(formatearFecha(m.vence))}</b></td>
                   <td class="row" style="gap:5px">
                     <button class="g" data-cal-notify-mother="${m.id}" style="padding:4px 8px;font-size:.73rem;background:rgba(37,211,102,.15);color:#25d366;border:1px solid rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">
                       📢 Avisar Clientes

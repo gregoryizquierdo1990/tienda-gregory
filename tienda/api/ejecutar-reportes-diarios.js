@@ -13,7 +13,7 @@
 //    - Solicitudes pendientes de recarga en Billetera Zeny
 // 4. AGENTE RAMSES (@agenteramses_bot) - Soporta ejecución de cierre de caja (ayer u hoy en demanda).
 
-import { sbRest } from './_lib.js';
+import { sbRest, formatearFecha } from './_lib.js';
 import { sendEsteban, sendRamses, sendMilos } from './_notify.js';
 
 export default async function handler(req, res) {
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
       const totalVencimientos = directOrders.length + profiles.length;
       let estebanSummary = `🌅 <b>REPORTE MATUTINO DE GESTIÓN (8:00 AM)</b>\n` +
         `🤖 <i>Agente Esteban · Emprendimiento Gregory</i>\n` +
-        `📅 <b>Fecha:</b> ${hoy}\n` +
+        `📅 <b>Fecha:</b> ${formatearFecha(hoy)}\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
         `💱 <b>1. TASAS DE CAMBIO OFICIALES:</b>\n` +
         `• 💵 <b>Tasa BCV Oficial:</b> <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
@@ -135,7 +135,7 @@ export default async function handler(req, res) {
 
       // 2. Cuentas Madres por vencer
       if (mothers.length > 0) {
-        let msgMadres = `🔑 <b>2. CUENTAS MADRE POR VENCER HOY (${hoy})</b>\n` +
+        let msgMadres = `🔑 <b>2. CUENTAS MADRE POR VENCER HOY (${formatearFecha(hoy)})</b>\n` +
           `Total a renovar con proveedores: <b>${mothers.length}</b>\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
@@ -162,7 +162,7 @@ export default async function handler(req, res) {
           const cChatId = o.customers?.telegram_chat_id;
 
           const waText = `¡Hola ${cliNom}! 👋 Te saluda Gregory Izquierdo.\n` +
-            `Te recordamos que hoy *${hoy}* se cumple el vencimiento de tu servicio *${srvNom}*.\n` +
+            `Te recordamos que hoy *${formatearFecha(hoy)}* se cumple el vencimiento de tu servicio *${srvNom}*.\n` +
             `Para mantener tu perfil activo sin cortes, renueva directamente en nuestra tienda:\n` +
             `🌐 https://www.gregoryizquierdo.xyz\n` +
             `O contáctanos por WhatsApp al 04242809333. ¡Muchas gracias por tu preferencia! ⭐`;
@@ -175,7 +175,7 @@ export default async function handler(req, res) {
 
           if (cChatId) {
             const directTg = `👋 ¡Hola <b>${escHtml(cliNom)}</b>!\n\n` +
-              `⏱ Te recordamos que hoy <b>${hoy}</b> vence tu servicio de <b>${escHtml(srvNom)}</b>.\n\n` +
+              `⏱ Te recordamos que hoy <b>${formatearFecha(hoy)}</b> vence tu servicio de <b>${escHtml(srvNom)}</b>.\n\n` +
               `Renueva tus accesos en línea:\n` +
               `🌐 <a href="https://www.gregoryizquierdo.xyz">https://www.gregoryizquierdo.xyz</a>\n` +
               `⚡ O por Pago Móvil al 04242809333. ¡Gracias por preferirnos!`;
@@ -199,7 +199,7 @@ export default async function handler(req, res) {
           const revendedor = p.vendedor || 'Revendedor';
 
           const waText = `¡Hola ${cliNom}! 👋 Te saludamos de parte de tu asesor ${revendedor}.\n` +
-            `Te recordamos que hoy *${hoy}* vence tu perfil de *${srvNom}*.\n` +
+            `Te recordamos que hoy *${formatearFecha(hoy)}* vence tu perfil de *${srvNom}*.\n` +
             `Comunícate con nosotros para renovar tu pantalla y no perder tus contenidos. ¡Gracias! ⭐`;
 
           const waLink = toWaLink(tel, waText);
@@ -249,7 +249,7 @@ export default async function handler(req, res) {
           msgSolRev += `${idx + 1}. 👤 <b>${escHtml(nom)}</b> (ID: <code>${escHtml(s.codigo_identificacion || 'CLT')}</code>)\n` +
             `   ✉️ <code>${escHtml(s.email || 'Sin correo')}</code>\n` +
             (tel ? `   📱 Teléfono: <code>${tel}</code> ${waLink ? `👉 <a href="${waLink}">Contactar WhatsApp</a>` : ''}\n` : '') +
-            `   📅 Fecha: <code>${s.solicita_revendedor_at ? new Date(s.solicita_revendedor_at).toLocaleDateString('es-VE') : 'Reciente'}</code>\n\n`;
+            `   📅 Fecha: <code>${s.solicita_revendedor_at ? formatearFecha(s.solicita_revendedor_at) : 'Reciente'}</code>\n\n`;
         });
 
         msgSolRev += `👉 <a href="https://www.gregoryizquierdo.xyz/#admin">Aprobar en Red de Revendedores</a>`;
@@ -323,7 +323,7 @@ export default async function handler(req, res) {
 
       let ramsesMsg = `🌙 <b>REPORTE FINANCIERO Y AUDITORÍA DE CAJA</b>\n` +
         `🤖 <i>Agente Ramses · Auditor Financiero</i>\n` +
-        `📅 <b>Período Evaluado:</b> ${fechaCierre} · 📊 <b>Tasa BCV:</b> <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
+        `📅 <b>Período Evaluado:</b> ${formatearFecha(fechaCierre)} · 📊 <b>Tasa BCV:</b> <b>${tasaBcv.toFixed(4)} Bs/USD</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
         `📊 <b>BALANCE FINANCIERO CONSOLIDADO:</b>\n\n` +
         `1. 🛒 <b>VENTAS:</b>\n` +

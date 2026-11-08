@@ -1033,7 +1033,7 @@ async function ensureAdminExtraLoaded() {
       existing.remove();
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=17';
+    script.src = '/admin-extra.js?v=18';
     script.async = true;
     const timeout = setTimeout(() => {
       if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) resolve(true);
@@ -1342,16 +1342,20 @@ function getMessageTemplates() {
   return DEFAULT_MESSAGE_TEMPLATES;
 }
 
-function formatearFecha(f) {
-  if (!f) return 'N/A';
-  if (typeof f === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(f.trim())) return f.trim();
+function formatearFecha(fechaIso) {
+  if (!fechaIso) return 'N/A';
+  if (typeof fechaIso === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(fechaIso.trim())) return fechaIso.trim();
   try {
-    const str = String(f).trim();
-    const d = new Date(str.includes('-') && !str.includes('T') ? str + 'T00:00:00-04:00' : str);
-    if (isNaN(d.getTime())) return str;
-    return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  } catch(e) {
-    return String(f);
+    const raw = typeof fechaIso === 'string' ? fechaIso : (fechaIso.toISOString ? fechaIso.toISOString() : String(fechaIso));
+    const clean = raw.split('T')[0].trim();
+    const parts = clean.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      const [anio, mes, dia] = parts;
+      return `${dia.padStart(2, '0')}/${mes.padStart(2, '0')}/${anio}`;
+    }
+    return String(fechaIso);
+  } catch (e) {
+    return String(fechaIso);
   }
 }
 
