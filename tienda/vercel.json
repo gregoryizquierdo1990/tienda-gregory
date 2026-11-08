@@ -7,6 +7,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/webhooks/bnc",
+      "destination": "/api/conciliar-bdv"
+    },
+    {
       "source": "/api/webhook-banco",
       "destination": "/api/conciliar-bdv"
     },

@@ -2298,25 +2298,41 @@ const EXTRA = {
           </h5>
           <div class="wrap" style="margin-bottom:12px">
             <table>
-              <tr><th>Cliente / Perfil</th><th>Servicio</th><th>Cuenta Madre</th><th>PIN</th><th>Vendedor</th><th>Vence</th><th>Acciones</th></tr>
+              <tr><th>Evento (Suscripción - Perfil)</th><th>Cuenta Madre</th><th>PIN</th><th>Canal / Vendedor</th><th>Vence</th><th>Acciones Rápidas</th></tr>
               ${selEvents.profiles.map(p => {
                 const srvName = p.products?.nombre || p.mother_accounts?.plataforma || 'Servicio';
                 const motherMail = p.mother_accounts?.correo || '—';
                 const clientName = p.nombre_perfil || 'Cliente';
                 const fechaVenceFmt = formatearFecha(p.vence);
-                const waText = encodeURIComponent(`Hola ${clientName}! 👋 Te recordamos de Emprendimiento Gregory Izquierdo que tu servicio de ${srvName} tiene fecha de cobro/vencimiento el día de hoy (${fechaVenceFmt}). Por favor indícanos si deseas renovar para mantener tu perfil activo.`);
+                const isSede = !p.vendedor || p.vendedor === 'ADMIN' || String(p.vendedor).toLowerCase().includes('sede central');
+                const vendNombre = isSede ? 'Sede Central' : p.vendedor;
+                const vendContacto = isSede ? '+584242809333' : (p.cliente_telefono || '+584242809333');
+                const eventTitle = isSede ? `${srvName} - ${clientName}` : `${srvName} - ${clientName} (Revendedor: ${vendNombre})`;
+
+                const waMessageBody = `¡Hola, *${clientName}*! 👋 \n\nTe escribimos desde el equipo de soporte. Te recordamos que tu suscripción a *${srvName}* (Perfil: *${clientName}*) ha llegado a su fecha de corte programada. \n\n📌 *Detalles de tu servicio:*\n• Servicio: ${srvName}\n• Perfil: ${clientName}\n• Vendedor: ${vendNombre}\n• Contacto de Soporte: ${vendContacto}\n\nPara mantener tu servicio activo sin interrupciones, puedes realizar tu renovación de forma rápida y automática ingresando directamente a nuestra tienda en línea:\n🌐 www.gregoryizquierdo.xyz\n\nSi tienes alguna duda o requieres asistencia con tu pago, puedes escribirnos a través de nuestro canal oficial de Whatsapp *04242809333* 🤖\n\n¡Quedamos a tu disposición para ayudarte al instante! 🚀`;
+
+                const cleanTel = String(p.cliente_telefono || '').replace(/\D/g, '');
+                const waTargetUrl = cleanTel 
+                  ? `https://api.whatsapp.com/send?phone=${cleanTel.startsWith('58') ? cleanTel : (cleanTel.startsWith('0') ? '58' + cleanTel.slice(1) : '58' + cleanTel)}&text=${encodeURIComponent(waMessageBody)}`
+                  : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessageBody)}`;
+
                 return `
                 <tr style="${p.no_renueva ? 'background:rgba(239,68,68,.06)' : ''}">
                   <td>
-                    <b>${esc(clientName)}</b>
+                    <b>${esc(eventTitle)}</b>
                     ${p.no_renueva ? `<div style="margin-top:3px"><span class="pill" style="font-size:.68rem;padding:2px 6px;background:rgba(239,68,68,.18);color:#f87171;border:1px solid rgba(239,68,68,.4);font-weight:800">🔴 NO RENUEVA</span></div>` : ''}
                   </td>
-                  <td><b style="color:var(--c)">${esc(srvName)}</b></td>
                   <td><small>${esc(motherMail)}</small></td>
                   <td>${(typeof p.pin === 'string' && p.pin.startsWith('enc:')) ? '<span class="pill" style="font-size:.68rem" title="PIN protegido en base de datos">🔒 Cifrado</span>' : `<code>${esc(p.pin || '—')}</code>`}</td>
-                  <td><span class="pill" style="font-size:.7rem">${esc(p.vendedor || 'ADMIN')}</span></td>
+                  <td><span class="pill" style="font-size:.7rem">${esc(vendNombre)}</span></td>
                   <td><b style="color:#f59e0b">${esc(fechaVenceFmt)}</b></td>
                   <td class="row" style="gap:5px">
+                    <button class="g" data-cal-copy="${esc(waMessageBody)}" style="padding:4px 8px;font-size:.73rem;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2);font-weight:700" title="Copiar mensaje oficial listo para enviar">
+                      📋 Copiar
+                    </button>
+                    <a href="${waTargetUrl}" target="_blank" rel="noopener noreferrer" class="cal-sheet-btn" style="text-decoration:none;padding:4px 8px;font-size:.73rem;background:rgba(37,211,102,.18);color:#25d366;border-radius:6px;border:1px solid rgba(37,211,102,.4);font-weight:700" title="Enviar recordatorio oficial por WhatsApp">
+                      💬 WhatsApp
+                    </a>
                     <button class="g" data-cal-release-prof="${p.id}" data-cur-pin="${esc(p.pin||'')}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" data-mail="${esc(motherMail)}" style="padding:4px 8px;font-size:.73rem;background:${p.no_renueva ? 'rgba(239,68,68,.22)' : 'rgba(0,245,160,.14)'};color:${p.no_renueva ? '#f87171' : '#00f5a0'};border:1.5px solid ${p.no_renueva ? 'rgba(239,68,68,.5)' : 'rgba(0,245,160,.35)'};font-weight:800" title="Liberar perfil para la venta en la tienda">
                       ${p.no_renueva ? '🔓 Liberar YA' : '🔓 Liberar'}
                     </button>
@@ -2332,9 +2348,6 @@ const EXTRA = {
                     <button class="g" data-cal-edit-prof-date="${p.id}" data-cur-date="${p.vence}" data-nom="${esc(clientName)}" data-srv="${esc(srvName)}" style="padding:4px 8px;font-size:.73rem" title="Modificar fecha de vencimiento">
                       ✏️ Fecha
                     </button>
-                    <a href="https://api.whatsapp.com/send?text=${waText}" target="_blank" rel="noopener noreferrer" class="cal-sheet-btn" style="text-decoration:none;padding:4px 8px;font-size:.73rem;background:rgba(0,245,160,.15);color:#00f5a0;border-radius:6px;border:1px solid rgba(0,245,160,.3)" title="Enviar recordatorio por WhatsApp">
-                      💬 Recordar WA
-                    </a>
                   </td>
                 </tr>
               `;}).join('')}
@@ -3253,6 +3266,23 @@ Cobrar antes de ${fVenceCred}`;
         }
       };
     }
+
+    // Copiar mensaje oficial de vencimiento listo para WhatsApp
+    box.querySelectorAll('[data-cal-copy]').forEach(btn => {
+      btn.onclick = () => {
+        const text = btn.dataset.calCopy;
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            toast('📋 Mensaje oficial de vencimiento copiado listo para enviar');
+          }).catch(() => {
+            toast('Mensaje copiado al portapapeles');
+          });
+        } else {
+          toast('Mensaje copiado al portapapeles');
+        }
+      };
+    });
 
     // Liberar perfil para la venta directamente desde la lista de vencimientos
     box.querySelectorAll('[data-cal-release-prof]').forEach(btn => {
