@@ -1529,6 +1529,13 @@ async function openRenewalModal(opts = {}) {
   prof = prof || 'Perfil';
   nom = nom || S.me?.nombre || S.user?.email || 'Cliente';
 
+  // Buscar el producto en S.products si RLS bloqueó la consulta a profiles_inventory
+  if(!prodRec && srv) {
+    const sLow = srv.toLowerCase().trim();
+    prodRec = (S.products || []).find(p => p.nombre.toLowerCase().trim() === sLow)
+           || (S.products || []).find(p => sLow.includes(p.nombre.toLowerCase().trim()) || p.nombre.toLowerCase().trim().includes(sLow));
+  }
+
   // Calcular precio
   const isReseller = S.me?.es_revendedor === true;
   let priceUsd = 0;
@@ -1537,7 +1544,7 @@ async function openRenewalModal(opts = {}) {
   } else if(prodRec?.precio_usd && Number(prodRec.precio_usd) > 0) {
     priceUsd = Number(prodRec.precio_usd);
   } else {
-    priceUsd = 3.00;
+    priceUsd = isReseller ? 4.50 : 5.00;
   }
 
   const bcvRate = Number(S.rate || 1);
@@ -3574,6 +3581,105 @@ function checkAndShowPopups(){
   }
 }
 
+// ---------- LISTADO DE STOCK EN VIVO POR PLATAFORMA ----------
+async function loadLiveStockData(){
+  try {
+    const { data, error } = await sb.rpc('get_available_stock');
+    if(!error && Array.isArray(data)){
+      S.liveStock = data;
+      return data;
+    }
+  } catch(e){
+    console.warn('Error loading live stock:', e);
+  }
+  return S.liveStock || [];
+}
+window.loadLiveStockData = loadLiveStockData;
+
+function renderLiveStockHtml(stock = [], opts = {}){
+  if(!stock || !stock.length) return '';
+  const totalDisp = stock.reduce((acc, s) => acc + Number(s.disponibles || 0), 0);
+  const totalVend = stock.reduce((acc, s) => acc + Number(s.vendidos || 0), 0);
+  const title = opts.title || 'Suscripciones Disponibles en Vivo';
+  const isAdmin = !!opts.isAdmin;
+  const isReseller = !!opts.isReseller;
+
+  return `
+    <div class="live-stock-widget" style="background:rgba(13,29,54,.65);border:1px solid rgba(0,245,160,.25);border-radius:14px;padding:12px 16px;margin:12px 0;box-shadow:0 4px 14px rgba(0,0,0,.25)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:1.25rem">📦</span>
+          <div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <b style="font-size:.88rem;color:#00f5a0">${esc(title)}</b>
+              <span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.15);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:800">
+                ${totalDisp} disponibles
+              </span>
+            </div>
+            <div class="mut" style="font-size:.73rem;margin-top:2px">
+              ${isAdmin ? `Perfiles listos para entrega inmediata (${totalVend} asignados en total). Clic en una plataforma para filtrar en inventario.` : (isReseller ? 'Perfiles listos para entrega inmediata a tus clientes sin esperas.' : 'Suscripciones activas listas para entrega rápida.')}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:.72rem;color:#38bdf8;display:inline-flex;align-items:center;gap:4px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#00f5a0;box-shadow:0 0 8px #00f5a0"></span>
+            <span>En vivo</span>
+          </span>
+          ${isAdmin ? `<button type="button" class="g" id="btnAdminRefreshStock" style="font-size:.68rem;padding:3px 8px;border-radius:6px">🔄 Actualizar</button>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        ${stock.map(s => {
+          const count = Number(s.disponibles || 0);
+          const hasStock = count > 0;
+          const bg = hasStock ? 'rgba(0,245,160,.09)' : 'rgba(255,255,255,.02)';
+          const border = hasStock ? 'rgba(0,245,160,.28)' : 'rgba(255,255,255,.08)';
+          const textCol = hasStock ? '#f1f5f9' : '#64748b';
+          const badgeCol = hasStock ? '#00f5a0' : '#64748b';
+          const badgeBg = hasStock ? 'rgba(0,245,160,.16)' : 'rgba(255,255,255,.05)';
+          const cursor = isAdmin ? 'cursor:pointer' : '';
+
+          return `
+            <div class="live-stock-item" data-plat="${esc(s.plataforma)}" style="background:${bg};border:1px solid ${border};color:${textCol};padding:5px 10px;border-radius:8px;font-size:.76rem;display:inline-flex;align-items:center;gap:6px;${cursor}" ${isAdmin ? `title="Filtrar ${esc(s.plataforma)} en inventario"` : ''}>
+              <span>${hasStock ? '🟢' : '⚪'} <b>${esc(s.plataforma)}:</b></span>
+              <span style="font-weight:800;color:${badgeCol};background:${badgeBg};padding:1px 6px;border-radius:5px;font-size:.76rem">${count}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+window.renderLiveStockHtml = renderLiveStockHtml;
+
+async function updateAdminLiveStockBox(){
+  const adminStockBox = $('#adminLiveStockBox');
+  if(!adminStockBox) return;
+  const stk = await loadLiveStockData();
+  adminStockBox.innerHTML = renderLiveStockHtml(stk, { isAdmin: true, title: 'Inventario de Suscripciones Disponibles en Vivo' });
+  $('#btnAdminRefreshStock')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    invalidateAdminCache('profiles_inventory');
+    updateAdminLiveStockBox();
+    toast('Stock en vivo actualizado.');
+  });
+  adminStockBox.querySelectorAll('.live-stock-item').forEach(it => {
+    it.onclick = () => {
+      const pName = it.dataset.plat;
+      admin('profiles_inventory');
+      setTimeout(() => {
+        const inp = $('#profSearchInput');
+        if(inp){
+          inp.value = pName;
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 150);
+    };
+  });
+}
+window.updateAdminLiveStockBox = updateAdminLiveStockBox;
+
 function home(){
   document.body.classList.remove('is-admin');
   S.view='home';
@@ -3707,6 +3813,7 @@ function home(){
       ` : ''}
     </div>
     <input id="q" class="search" type="search" placeholder="Buscar servicio…" value="${esc(S.q||'')}" aria-label="Buscar servicio" autocomplete="off">
+    <div id="homeLiveStockContainer" style="margin-top:12px;width:100%;text-align:left"></div>
   </section>
   <div class="tabs" id="tabs"></div><div class="pgrid" id="grid"></div>
   <footer class="mut" style="margin:34px 0 20px;text-align:center;line-height:1.6">
@@ -3773,6 +3880,12 @@ function home(){
     initBannerCarousel(carouselBanners);
   }
   checkAndShowPopups();
+  loadLiveStockData().then(stk => {
+    const box = $('#homeLiveStockContainer');
+    if(box && S.view === 'home'){
+      box.innerHTML = renderLiveStockHtml(stk, { title: '⚡ Suscripciones con Entrega Rápida' });
+    }
+  });
 }
 
 const DEFAULT_PAYMENT_METHODS = [
@@ -6906,6 +7019,7 @@ async function portal(){
       resellerBlockHtml = `
       <div style="margin:28px 0;background:rgba(255,255,255,.02);border:1px solid rgba(255,183,3,.25);border-radius:16px;padding:20px 16px">
         ${alertHoyHtml}
+        <div id="resellerLiveStockContainer"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
           <div>
             <div style="display:flex;align-items:center;gap:8px">
@@ -8231,6 +8345,15 @@ async function portal(){
       };
     }
 
+    if(showResellerBlock){
+      loadLiveStockData().then(stk => {
+        const rBox = app.querySelector('#resellerLiveStockContainer');
+        if(rBox){
+          rBox.innerHTML = renderLiveStockHtml(stk, { isReseller: true, title: '📦 Suscripciones Disponibles para Venta Inmediata' });
+        }
+      });
+    }
+
     app.querySelectorAll('[data-wa-client-debt]').forEach(b => {
       b.onclick = () => {
         let tel = b.dataset.tel || '';
@@ -9318,7 +9441,7 @@ async function admin(t, opts = {}){
   if(!hasLayout){
     const sideHtml = renderAdminSidebar(t, tabs);
     const mobBar = `<div class="admin-mobile-bar"><button class="admin-mobile-toggle" id="adminToggle" type="button"><span>☰ Menú: <strong>${tabInfo.icon} ${esc(tabInfo.label)}</strong></span><span class="mut" style="font-size:.74rem">Abrir ▾</span></button></div>`;
-    app.innerHTML = `<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main" id="adminMain"><div class="admin-main-head" id="adminMainHead"></div><div id="adminContent"></div></div></div></div>`;
+    app.innerHTML = `<div class="admin-wrapper">${mobBar}<div class="admin-layout">${sideHtml}<div class="admin-main" id="adminMain"><div class="admin-main-head" id="adminMainHead"></div><div id="adminLiveStockBox"></div><div id="adminContent"></div></div></div></div>`;
     setupAdminEvents();
   } else {
     // Si ya existe: Actualizar botones activos sin destruir ni re-renderizar la barra lateral
@@ -9332,6 +9455,9 @@ async function admin(t, opts = {}){
     const activeBtn = document.querySelector(`.admin-sb-btn[data-k="${t}"]`);
     if(activeBtn){ try{ activeBtn.scrollIntoView({ block:'nearest' }); }catch(e){} }
   }
+
+  // Actualizar la barra de suscripciones disponibles en vivo en el Panel Admin
+  if(typeof updateAdminLiveStockBox === 'function') updateAdminLiveStockBox();
 
   const mainHead = $('#adminMainHead');
   const mainContent = $('#adminContent');
