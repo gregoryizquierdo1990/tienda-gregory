@@ -3813,7 +3813,6 @@ function home(){
       ` : ''}
     </div>
     <input id="q" class="search" type="search" placeholder="Buscar servicio…" value="${esc(S.q||'')}" aria-label="Buscar servicio" autocomplete="off">
-    <div id="homeLiveStockContainer" style="margin-top:12px;width:100%;text-align:left"></div>
   </section>
   <div class="tabs" id="tabs"></div><div class="pgrid" id="grid"></div>
   <footer class="mut" style="margin:34px 0 20px;text-align:center;line-height:1.6">
@@ -3880,12 +3879,6 @@ function home(){
     initBannerCarousel(carouselBanners);
   }
   checkAndShowPopups();
-  loadLiveStockData().then(stk => {
-    const box = $('#homeLiveStockContainer');
-    if(box && S.view === 'home'){
-      box.innerHTML = renderLiveStockHtml(stk, { title: '⚡ Suscripciones con Entrega Rápida' });
-    }
-  });
 }
 
 const DEFAULT_PAYMENT_METHODS = [
