@@ -1033,7 +1033,7 @@ async function ensureAdminExtraLoaded() {
       existing.remove();
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=19';
+    script.src = '/admin-extra.js?v=20';
     script.async = true;
     const timeout = setTimeout(() => {
       if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) resolve(true);
@@ -9409,8 +9409,10 @@ async function admin(t, opts = {}){
 
   const finModules = ['finanzas','mesa_cambio','exchange_rates','payment_methods','purchases','expenses','refunds','liquidaciones'];
   const sysModules = ['plantillas','google','settings'];
+  const opsModules = ['orders','vencimientos','incidents','zeny_ledger','tarjetas','cuotas','bnpl_ops','transfers','customers','resellers','mother_accounts','profiles_inventory','products','categories','banners','importar','gemini','notificaciones','franquicias','niveles'];
   if(finModules.includes(t)) S.adminViewMode = 'finanzas';
   else if(sysModules.includes(t)) S.adminViewMode = 'sistema';
+  else if(opsModules.includes(t)) S.adminViewMode = 'operaciones';
   else if(!t || (!TABLES[t] && !EXTRA[t])) {
     const curSavedMode = S.adminViewMode || localStorage.getItem('gi_admin_mode') || 'operaciones';
     if(curSavedMode === 'finanzas') t = 'finanzas';

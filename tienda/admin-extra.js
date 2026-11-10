@@ -39,11 +39,21 @@ const api = async (path, body, timeoutMs = 15000) => {
     throw err;
   }
 };
-const G = async (url, opt = {}) => {
+const G = async (url, opt = {}, timeoutMs = 4000) => {
   const t = sessionStorage.getItem('gtk'); if (!t) throw new Error('Conecta Google primero (botón "Conectar Google").');
   const headers = { Authorization: 'Bearer ' + t, ...(opt.headers || {}) };
   if (opt.body) headers['Content-Type'] = 'application/json';
-  const r = await fetch(url, { ...opt, headers });
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  let r;
+  try {
+    r = await fetch(url, { ...opt, headers, signal: ctrl.signal });
+  } catch (e) {
+    clearTimeout(tid);
+    if (e.name === 'AbortError') throw new Error('Tiempo de espera agotado al conectar con Google API (4s).');
+    throw e;
+  }
+  clearTimeout(tid);
   if (r.status === 401) { sessionStorage.removeItem('gtk'); throw new Error('Sesión de Google vencida: vuelve a conectar.'); }
   if (r.status === 204) return true;
   if (!r.ok) {
@@ -140,7 +150,16 @@ const GCal = {
     const startStr = `${year}-${pad(month)}-01T00:00:00-04:00`;
     const lastDay = new Date(year, month, 0).getDate();
     const endStr = `${year}-${pad(month)}-${pad(lastDay)}T23:59:59-04:00`;
-    return this.listEvents({ timeMin: startStr, timeMax: endStr, maxResults: 250 });
+    try {
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('GCal timeout')), 3500));
+      return await Promise.race([
+        this.listEvents({ timeMin: startStr, timeMax: endStr, maxResults: 250 }),
+        timeoutPromise
+      ]);
+    } catch (e) {
+      console.warn('GCal listMonthEvents warning:', e);
+      return [];
+    }
   },
 
   async getEvent(eventId) {
@@ -2121,58 +2140,97 @@ const EXTRA = {
     if (window.setupCleanCopy) window.setupCleanCopy(box);
   },
   async vencimientos(box) {
+    if (!box) return;
+    const getVzlaDateStr = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+    const todayStr = getVzlaDateStr();
+
     if (!box._calState) {
-      const now = new Date();
-      box._calState = { year: now.getFullYear(), month: now.getMonth(), selectedDate: now.toISOString().slice(0, 10) };
+      const [curY, curM] = todayStr.split('-').map(Number);
+      box._calState = { year: curY, month: curM - 1, selectedDate: todayStr };
     }
     const state = box._calState;
     const pad = n => String(n).padStart(2, '0');
     const startMonth = `${state.year}-${pad(state.month + 1)}-01`;
     const lastDayOfMonth = new Date(state.year, state.month + 1, 0).getDate();
     const endMonth = `${state.year}-${pad(state.month + 1)}-${pad(lastDayOfMonth)}`;
-    const calConnected = GCal.isConnected();
+    const calConnected = typeof GCal !== 'undefined' && GCal.isConnected();
 
-    box.innerHTML = '<p class="mut">Cargando calendario de vencimientos y Google Calendar…</p>';
+    box.innerHTML = `
+      <div style="text-align:center;padding:36px">
+        <div class="sk" style="height:32px;border-radius:10px;margin-bottom:12px;max-width:320px;margin-inline:auto"></div>
+        <div class="sk" style="height:240px;border-radius:14px"></div>
+        <p class="mut" style="margin-top:14px;font-size:.85rem">Cargando calendario de vencimientos...</p>
+      </div>
+    `;
 
-    // Consultamos pedidos entregados/activos, cuentas madre, inventario de perfiles y eventos de Google Calendar en paralelo
-    const pms = [
-      sb.from('orders')
-        .select('id,customer_id,product_id,profile_id,total_usd,referencia,inicia,vence,gcal_event_id,estado,customers!customer_id(nombre,email,telefono),products(nombre)')
-        .not('vence', 'is', null)
-        .gte('vence', startMonth)
-        .lte('vence', endMonth),
-      sb.from('mother_accounts')
-        .select('id,plataforma,correo,vence,activa,proveedor,costo_usd')
-        .not('vence', 'is', null)
-        .gte('vence', startMonth)
-        .lte('vence', endMonth),
-      sb.from('profiles_inventory')
-        .select('id,nombre_perfil,vence,vendedor,pin,estado,product_id,mother_id,no_renueva,no_renueva_motivo,products(nombre),mother_accounts(plataforma,correo)')
-        .eq('estado', 'vendido')
-        .not('vence', 'is', null)
-        .gte('vence', startMonth)
-        .lte('vence', endMonth)
-    ];
+    let resOrd = { data: [] }, resMoth = { data: [] }, resProf = { data: [] }, resGcal = [];
+    try {
+      const pms = [
+        sb.from('orders')
+          .select('id,customer_id,product_id,profile_id,total_usd,referencia,inicia,vence,gcal_event_id,estado,customers!customer_id(nombre,email,telefono),products(nombre)')
+          .not('vence', 'is', null)
+          .gte('vence', startMonth)
+          .lte('vence', endMonth),
+        sb.from('mother_accounts')
+          .select('id,plataforma,correo,vence,activa,proveedor,costo_usd')
+          .not('vence', 'is', null)
+          .gte('vence', startMonth)
+          .lte('vence', endMonth),
+        sb.from('profiles_inventory')
+          .select('id,nombre_perfil,vence,vendedor,pin,estado,product_id,mother_id,no_renueva,no_renueva_motivo,products(nombre),mother_accounts(plataforma,correo)')
+          .eq('estado', 'vendido')
+          .not('vence', 'is', null)
+          .gte('vence', startMonth)
+          .lte('vence', endMonth)
+      ];
 
-    if (calConnected) {
-      pms.push(GCal.listMonthEvents(state.year, state.month + 1).catch(e => {
-        console.warn('GCal fetch warning:', e);
-        return [];
-      }));
+      if (calConnected) {
+        pms.push(GCal.listMonthEvents(state.year, state.month + 1).catch(e => {
+          console.warn('GCal fetch warning:', e);
+          return [];
+        }));
+      }
+
+      const results = await Promise.all(pms);
+      resOrd = results[0] || { data: [] };
+      resMoth = results[1] || { data: [] };
+      resProf = results[2] || { data: [] };
+      resGcal = calConnected ? (Array.isArray(results[3]) ? results[3] : []) : [];
+    } catch (errFetch) {
+      console.error('Error fetching vencimientos data:', errFetch);
+      box.innerHTML = `
+        <div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:24px;border-radius:14px;max-width:640px;margin:20px auto;text-align:center">
+          <h3 style="margin:0 0 8px;color:#f87171">⚠️ Error al consultar vencimientos</h3>
+          <p class="mut" style="margin:0 0 16px;font-size:.85rem">${esc(errFetch.message || errFetch)}</p>
+          <button class="g" id="btnRetryVencimientos">🔄 Reintentar</button>
+        </div>
+      `;
+      const btnRetry = box.querySelector('#btnRetryVencimientos');
+      if (btnRetry) btnRetry.onclick = () => EXTRA.vencimientos(box);
+      return;
     }
 
-    const [resOrd, resMoth, resProf, resGcal] = await Promise.all(pms);
     const orders = resOrd?.data || [];
     const mothers = resMoth?.data || [];
     const profiles = resProf?.data || [];
     const gcalEvents = Array.isArray(resGcal) ? resGcal : [];
 
-    if (resOrd?.error || resMoth?.error || resProf?.error) {
-      return box.innerHTML = `<p class="mut">Error al cargar datos: ${esc((resOrd?.error || resMoth?.error || resProf?.error).message)}</p>`;
+    const hasDbError = resOrd?.error || resMoth?.error || resProf?.error;
+    if (hasDbError && !orders.length && !mothers.length && !profiles.length) {
+      const errMsg = (resOrd?.error || resMoth?.error || resProf?.error)?.message || 'Error de conexión con la base de datos';
+      box.innerHTML = `
+        <div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:24px;border-radius:14px;max-width:640px;margin:20px auto;text-align:center">
+          <h3 style="margin:0 0 8px;color:#f87171">⚠️ Error al cargar datos de vencimientos</h3>
+          <p class="mut" style="margin:0 0 16px;font-size:.85rem">${esc(errMsg)}</p>
+          <button class="g" id="btnRetryVencimientos">🔄 Reintentar</button>
+        </div>
+      `;
+      const btnRetry = box.querySelector('#btnRetryVencimientos');
+      if (btnRetry) btnRetry.onclick = () => EXTRA.vencimientos(box);
+      return;
     }
 
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
     // Mapear eventos por fecha (YYYY-MM-DD)
     const linkedGcalIds = new Set(orders.map(o => o.gcal_event_id).filter(Boolean));
@@ -2193,6 +2251,7 @@ const EXTRA = {
       eventsByDate[d].profiles.push(p);
     });
     gcalEvents.forEach(g => {
+      if (!g || !g.id) return;
       g._isLinked = linkedGcalIds.has(g.id);
       if (g._isLinked) {
         g._order = orders.find(o => o.gcal_event_id === g.id);
@@ -2503,30 +2562,42 @@ const EXTRA = {
     `;
 
     // Asignar eventos de navegación y selección
-    $('#calPrev').onclick = () => {
-      if (state.month === 0) { state.month = 11; state.year--; } else { state.month--; }
-      EXTRA.vencimientos(box);
-    };
-    $('#calNext').onclick = () => {
-      if (state.month === 11) { state.month = 0; state.year++; } else { state.month++; }
-      EXTRA.vencimientos(box);
-    };
-    $('#calToday').onclick = () => {
-      const n = new Date();
-      state.year = n.getFullYear(); state.month = n.getMonth(); state.selectedDate = todayStr;
-      EXTRA.vencimientos(box);
-    };
-
-    if ($('#calAuthGCal')) {
-      $('#calAuthGCal').onclick = () => GCal.connect();
+    const bPrev = box.querySelector('#calPrev');
+    if (bPrev) {
+      bPrev.onclick = () => {
+        if (state.month === 0) { state.month = 11; state.year--; } else { state.month--; }
+        EXTRA.vencimientos(box);
+      };
     }
-    if ($('#calOpenGCal')) {
-      $('#calOpenGCal').onclick = () => GCal.openEmbedView();
+    const bNext = box.querySelector('#calNext');
+    if (bNext) {
+      bNext.onclick = () => {
+        if (state.month === 11) { state.month = 0; state.year++; } else { state.month++; }
+        EXTRA.vencimientos(box);
+      };
+    }
+    const bToday = box.querySelector('#calToday');
+    if (bToday) {
+      bToday.onclick = () => {
+        const [curY, curM] = todayStr.split('-').map(Number);
+        state.year = curY; state.month = curM - 1; state.selectedDate = todayStr;
+        EXTRA.vencimientos(box);
+      };
+    }
+
+    const bAuth = box.querySelector('#calAuthGCal');
+    if (bAuth) {
+      bAuth.onclick = () => GCal.connect();
+    }
+    const bOpen = box.querySelector('#calOpenGCal');
+    if (bOpen) {
+      bOpen.onclick = () => GCal.openEmbedView();
     }
 
     // Sincronización Bidireccional Manual
-    if ($('#calSyncGCal')) {
-      $('#calSyncGCal').onclick = e => run(e.target, async () => {
+    const bSync = box.querySelector('#calSyncGCal');
+    if (bSync) {
+      bSync.onclick = e => run(e.target, async () => {
         if (!GCal.isConnected()) throw new Error('Conecta Google Calendar primero.');
 
         // 1. Obtener eventos de Google Calendar del mes
@@ -3244,17 +3315,18 @@ Cobrar antes de ${fVenceCred}`;
     });
 
     // Enviar listado de vencimientos del día a Telegram
-    if ($('#calSendTelegram')) {
-      $('#calSendTelegram').onclick = async e => {
+    const bTg = box.querySelector('#calSendTelegram');
+    if (bTg) {
+      bTg.onclick = async e => {
         const btn = e.target;
         btn.disabled = true;
         const oldText = btn.textContent;
         btn.textContent = '⏳ Enviando...';
         try {
           const res = await fetch(`/api/vencimientos?fecha=${state.selectedDate || todayStr}`);
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
           if (data.ok) {
-            toast(`✅ Vencimientos enviados a Telegram (${data.itemsCount || 0} registros).`);
+            toast(`✅ Vencimientos enviados a Telegram con éxito.`);
           } else {
             toast('⚠️ Aviso: ' + (data.error || 'No se pudo enviar'));
           }
