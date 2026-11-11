@@ -3006,8 +3006,11 @@ async function init(){
     home();
   }
   // Realtime: cualquier cambio en catalogo/tasa se refleja en vivo
-  const _pubCh = sb.channel('pub'); window._pubCh=_pubCh; _pubCh.on('postgres_changes',{event:'*',schema:'public',table:'products'},()=>loadPublic().then(()=>S.view==='home'&&home()))
+  if (!window._pubCh) {
+    const _pubCh = sb.channel('pub'); window._pubCh = _pubCh;
+    _pubCh.on('postgres_changes',{event:'*',schema:'public',table:'products'},()=>loadPublic().then(()=>S.view==='home'&&home()))
     .on('postgres_changes',{event:'*',schema:'public',table:'exchange_rates'},loadPublic).on('postgres_changes',{event:'*',schema:'public',table:'banners'},()=>loadPublic().then(()=>S.view==='home'&&home())).subscribe();
+}
 }
 async function loadPublic(){
   // 1. Deteccion de subdominio de Franquicia
@@ -3171,7 +3174,7 @@ async function onSession(session){
     $('#bPortal').title = 'Mi portal de cliente';
   }
   // Boton de Notificaciones visible para todos los usuarios autenticados
-  $('#bSnd').classList.toggle('hide', !S.user); updSnd(); badge(true); checkVenc();
+  $('#bSnd').classList.toggle('hide', !S.user); updSnd(); badge(true); checkVenc(); ensurePubChannel(); ensureLiveChannel();
   if(S.isAdmin) {
     if(window.initGeminiFloatingWidget) initGeminiFloatingWidget();
   } else {
@@ -6991,8 +6994,26 @@ async function portal(){
       const noRenuevanList = rcList.filter(rc => rc.no_renueva === true);
 
       let alertHoyHtml = '';
+      if(vencidosList.length > 0){
+        alertHoyHtml += `
+          <div style="background:rgba(239,68,68,.18);border:1.5px solid rgba(239,68,68,.5);border-radius:14px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="font-size:2rem">⚠️</span>
+              <div>
+                <b style="color:#f87171;font-size:1.02rem">¡Atención! Tienes ${vencidosList.length} cliente(s) con suscripción VENCIDA</b>
+                <div class="mut" style="font-size:.8rem;margin-top:2px">
+                  Por favor contacta a tus clientes para tramitar su renovación o pulsa <b>"❌ No Renueva"</b> si no continuarán.
+                </div>
+              </div>
+            </div>
+            <button class="g" id="btnQuickFilterVencidos" style="background:#ef4444;color:#fff;border:none;font-weight:800;padding:8px 14px;border-radius:10px;font-size:.8rem;cursor:pointer">
+              Ver ${vencidosList.length} Vencido(s)
+            </button>
+          </div>
+        `;
+      }
       if(vencenHoyList.length > 0){
-        alertHoyHtml = `
+        alertHoyHtml += `
           <div style="background:rgba(239,68,68,.14);border:1.5px solid rgba(239,68,68,.4);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
             <div style="display:flex;align-items:center;gap:12px">
               <span style="font-size:2rem">⏰</span>
@@ -7003,7 +7024,7 @@ async function portal(){
                 </div>
               </div>
             </div>
-            <button class="g" id="btnQuickFilterHoy" style="background:#ef4444;color:#fff;border:none;font-weight:800;padding:8px 14px;border-radius:10px;font-size:.8rem">
+            <button class="g" id="btnQuickFilterHoy" style="background:#ef4444;color:#fff;border:none;font-weight:800;padding:8px 14px;border-radius:10px;font-size:.8rem;cursor:pointer">
               Ver ${vencenHoyList.length} de Hoy
             </button>
           </div>
@@ -7034,6 +7055,11 @@ async function portal(){
           <button class="g rc-filter-btn active" data-filter="todos" style="padding:6px 12px;font-size:.76rem;border-radius:99px;font-weight:700">
             Todos (${rcList.length})
           </button>
+          ${vencidosList.length > 0 ? `
+            <button class="g rc-filter-btn" data-filter="vencidos" style="padding:6px 12px;font-size:.76rem;border-radius:99px;font-weight:700;color:#f87171;border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.12)">
+              ⚠️ Vencidos (${vencidosList.length})
+            </button>
+          ` : ''}
           <button class="g rc-filter-btn" data-filter="hoy" style="padding:6px 12px;font-size:.76rem;border-radius:99px;font-weight:700;color:#f87171;border-color:rgba(239,68,68,.4)">
             ⏰ Vencen Hoy (${vencenHoyList.length})
           </button>
@@ -8316,6 +8342,7 @@ async function portal(){
       tblRc.querySelectorAll('tbody tr').forEach(tr => {
         const trCat = tr.dataset.rcCat || '';
         if(cat === 'todos') tr.style.display = '';
+        else if(cat === 'vencidos') tr.style.display = (trCat === 'vencido') ? '' : 'none';
         else if(cat === 'hoy') tr.style.display = (trCat === 'hoy') ? '' : 'none';
         else if(cat === 'proximos') tr.style.display = (trCat === 'proximos' || trCat === 'hoy') ? '' : 'none';
         else if(cat === 'norenueva') tr.style.display = (trCat === 'norenueva') ? '' : 'none';
@@ -8325,6 +8352,9 @@ async function portal(){
 
     const bQuickHoy = app.querySelector('#btnQuickFilterHoy');
     if(bQuickHoy) bQuickHoy.onclick = () => applyFilter('hoy');
+
+    const bQuickVencidos = app.querySelector('#btnQuickFilterVencidos');
+    if(bQuickVencidos) bQuickVencidos.onclick = () => applyFilter('vencidos');
 
     const bResPush = app.querySelector('#btnResellerActPush');
     if(bResPush){
@@ -11787,7 +11817,9 @@ const ALERTS = {
   incidents: { ok: () => true, kind: 'incidencia', msg: 'Nueva incidencia reportada por un cliente' }
 };
 
-const _liveCh = sb.channel('live'); window._liveCh=_liveCh;
+function ensureLiveChannel(){
+  if (window._liveCh) return window._liveCh;
+  const _liveCh = sb.channel('live'); window._liveCh = _liveCh;
 Object.entries(ALERTS).reduce((ch, [t, a]) => ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: t }, p => {
   if (S.isAdmin && a.ok(p.new)) {
     const text = typeof a.msg === 'function' ? a.msg(p.new) : a.msg;
@@ -11880,6 +11912,17 @@ Object.entries(ALERTS).reduce((ch, [t, a]) => ch.on('postgres_changes', { event:
   ;
 ['orders','installments','partner_commissions','zeny_ledger','customers','incidents','profiles_inventory','mother_accounts','franchises','refunds','expenses','purchases','transfers','zeny_cards','invoices','mesa_cambio_operaciones','mesa_cambio_caja'].forEach(t => _liveCh.on('postgres_changes',{event:'*',schema:'public',table:t},p=>refresh(p)));
 _liveCh.subscribe();
+  return _liveCh;
+}
+ensureLiveChannel();
+function ensurePubChannel(){
+  if (window._pubCh) return window._pubCh;
+  const _pubCh = sb.channel('pub'); window._pubCh = _pubCh;
+  _pubCh.on('postgres_changes',{event:'*',schema:'public',table:'products'},()=>loadPublic().then(()=>S.view==='home'&&home()))
+    .on('postgres_changes',{event:'*',schema:'public',table:'exchange_rates'},loadPublic)
+    .on('postgres_changes',{event:'*',schema:'public',table:'banners'},()=>loadPublic().then(()=>S.view==='home'&&home())).subscribe();
+  return _pubCh;
+}
 // Vencimientos del dia: servicios de clientes y cuentas madre para Admin, y vencimientos de sus propios clientes para Revendedores.
 function teardownRealtime(){
   try { if(window._pubCh) sb.removeChannel(window._pubCh); } catch{}
@@ -12166,7 +12209,7 @@ window.openGeminiFloatingWidget = openGeminiFloatingWidget;
 window.closeGeminiFloatingWidget = closeGeminiFloatingWidget;
 window.toggleMinimizeGeminiFloatingWidget = toggleMinimizeGeminiFloatingWidget;
 
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').then(reg=>{reg.addEventListener('updatefound',()=>{const nw=reg.installing;if(!nw)return;nw.addEventListener('statechange',()=>{if(nw.state==='installed' && navigator.serviceWorker.controller){if(confirm('Hay una nueva versión de la app. ¿Recargar para actualizar?')) location.reload();}});});}).catch(()=>{});
 init();
 if(location.hash === '#franquicia' || location.hash === '#solicitud-franquicia' || location.pathname.includes('solicitud-franquicia')){
   setTimeout(() => openFranchiseModal(), 450);
