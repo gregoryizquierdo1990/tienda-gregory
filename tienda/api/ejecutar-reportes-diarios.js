@@ -101,8 +101,8 @@ export default async function handler(req, res) {
         sbRest(`customers?solicita_revendedor=eq.true&es_revendedor=eq.false&order=solicita_revendedor_at.desc&select=id,nombre,email,telefono,codigo_identificacion,solicita_revendedor_at`).catch(() => []),
         sbRest(`zeny_ledger?tipo=eq.recarga&estado=eq.pendiente&order=created_at.desc&select=id,monto,referencia,created_at,customers(nombre,telefono,codigo_identificacion)`).catch(() => []),
         sbRest(`mother_accounts?activa=eq.true&vence=eq.${hoy}&select=id,plataforma,correo,vence,max_perfiles,proveedor`).catch(() => []),
-        sbRest(`orders?estado=in.(entregado,pagado)&vence=eq.${hoy}&select=id,inicia,vence,referencia,total_usd,customers!customer_id(id,nombre,email,telefono,telegram_chat_id,es_revendedor),products(nombre)`).catch(() => []),
-        sbRest(`profiles_inventory?estado=eq.vendido&vence=eq.${hoy}&select=id,nombre_perfil,pin,vence,cliente_final,cliente_telefono,vendedor,mother_accounts(plataforma,correo)`).catch(() => [])
+        sbRest(`orders?estado=in.(entregado,pagado)&vence=in.(${hoy},${ayer})&select=id,inicia,vence,referencia,total_usd,customers!customer_id(id,nombre,email,telefono,telegram_chat_id,es_revendedor),products(nombre)`).catch(() => []),
+        sbRest(`profiles_inventory?estado=eq.vendido&vence=in.(${hoy},${ayer})&select=id,nombre_perfil,pin,vence,cliente_final,cliente_telefono,vendedor,mother_accounts(plataforma,correo)`).catch(() => [])
       ]);
 
       const newUsers = newUsersRes || [];
