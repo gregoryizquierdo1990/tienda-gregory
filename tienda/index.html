@@ -1033,7 +1033,7 @@ async function ensureAdminExtraLoaded() {
       existing.remove();
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=20';
+    script.src = '/admin-extra.js?v=21';
     script.async = true;
     const timeout = setTimeout(() => {
       if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) resolve(true);

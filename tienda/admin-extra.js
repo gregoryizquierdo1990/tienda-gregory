@@ -1,6 +1,6 @@
 // Herramientas avanzadas del panel: Google, Telegram, Gemini e importador de la hoja de control
 const today = () => new Date().toISOString().slice(0, 10);
-const formatearFecha = window.formatearFecha || function(fechaIso) {
+var formatearFecha = window.formatearFecha || function(fechaIso) {
   if (!fechaIso) return 'N/A';
   if (typeof fechaIso === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(fechaIso.trim())) return fechaIso.trim();
   try {
