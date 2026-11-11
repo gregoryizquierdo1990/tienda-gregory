@@ -69,7 +69,7 @@ Patrones en código:
 - Realtime publica 17 tablas → tráfico elevado. Considerar publicar solo `orders`, `profiles_inventory`, `zeny_ledger` y usar polling para el resto.
 
 ### 5. Serverless / Vercel (bajo-medio impacto)
-**Aplicado**: `engines.node` 20.x (LTS) en root y `tienda/`.
+**Aplicado**: `engines.node` 26.x (requerido por Vercel) en root y `tienda/`.
 **Observaciones**:
 - 10 endpoints agrupados por rewrites (límite Hobby 12 funciones). OK.
 - `requireAdmin` hace 2 fetch por request (auth + admins). Aceptable; podría cachear admins en memoria (cold start).
