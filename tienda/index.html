@@ -2955,20 +2955,22 @@ async function init(){
   await loadPublic();
 
   // 1. Escuchar cambios de autenticación (OAuth callback o refresh de sesión)
-  sb.auth.onAuthStateChange(async (_e,s)=>{
-    if(s) await onSession(s);
-    const wantAdmin = sessionStorage.getItem('oauth_dest') === 'admin'
-      || location.hash.startsWith('#admin')
-      || new URLSearchParams(location.search).get('app') === 'admin';
-    if(wantAdmin && S.isAdmin){
-      sessionStorage.removeItem('oauth_dest');
-      if(facetDlg && facetDlg.open) facetDlg.close();
-      let tab = 'finanzas';
-      const cleanHash = location.hash.replace(/^#admin\/?/, '');
-      if(cleanHash && (TABLES[cleanHash] || EXTRA[cleanHash])) tab = cleanHash;
-      history.replaceState(null, '', location.pathname + '#admin');
-      admin(tab);
-    }
+  sb.auth.onAuthStateChange((_e,s)=>{
+    setTimeout(async ()=>{
+      if(s) await onSession(s);
+      const wantAdmin = sessionStorage.getItem('oauth_dest') === 'admin'
+        || location.hash.startsWith('#admin')
+        || new URLSearchParams(location.search).get('app') === 'admin';
+      if(wantAdmin && S.isAdmin){
+        sessionStorage.removeItem('oauth_dest');
+        if(facetDlg && facetDlg.open) facetDlg.close();
+        let tab = 'finanzas';
+        const cleanHash = location.hash.replace(/^#admin\/?/, '');
+        if(cleanHash && (TABLES[cleanHash] || EXTRA[cleanHash])) tab = cleanHash;
+        history.replaceState(null, '', location.pathname + '#admin');
+        admin(tab);
+      }
+    }, 0);
   });
 
   // 2. Obtener sesión actual
@@ -6526,7 +6528,7 @@ function loginDlg(mode = 'login'){
         password: pwVal
       });
 
-      // Si falló y era teléfono, intentar con variantes comunes (ej. 0412 vs 58412):
+      // Si falló y era teléfono, intentar con variantes comunes (ej. 0412 vs 58412) o resolver email asociado:
       if(error && isPhone){
         const cleanDigits = inputId.replace(/\D/g, '');
         const altPhone = cleanDigits.startsWith('58') ? ('0' + cleanDigits.slice(2)) : (cleanDigits.startsWith('0') ? ('58' + cleanDigits.slice(1)) : ('0' + cleanDigits));
@@ -6534,6 +6536,14 @@ function loginDlg(mode = 'login'){
         const retry = await sb.auth.signInWithPassword({ email: altEmail, password: pwVal });
         if(!retry.error){
           error = null;
+        } else {
+          try {
+            const { data: realEmail } = await sb.rpc('obtener_email_login', { p_telefono: cleanDigits });
+            if(realEmail && realEmail !== loginEmail && realEmail !== altEmail){
+              const retryReal = await sb.auth.signInWithPassword({ email: realEmail, password: pwVal });
+              if(!retryReal.error) error = null;
+            }
+          } catch(e){}
         }
       }
 
@@ -6657,29 +6667,41 @@ function forceChangePasswordDlg(){
     btn.textContent = 'Actualizando seguridad...';
 
     try {
-      // 1. Actualizar contraseña en Supabase Auth para la sesión activa
-      const { error: authErr } = await sb.auth.updateUser({ password: newPw });
+      // 1. Actualizar contraseña en Supabase Auth para la sesión activa (con timeout de protección)
+      let authErr = null;
+      try {
+        const updatePromise = sb.auth.updateUser({ password: newPw });
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 6000));
+        const res = await Promise.race([updatePromise, timeoutPromise]);
+        if(res?.error) authErr = res.error;
+      } catch(e) {
+        if(e && e.message !== 'TIMEOUT') authErr = e;
+      }
+
       if(authErr){
         btn.disabled = false;
         btn.textContent = '🔒 GUARDAR Y ACTIVAR MI CUENTA';
-        return toast('Error al actualizar contraseña: ' + authErr.message);
+        return toast('Error al actualizar contraseña: ' + (authErr.message || authErr));
       }
 
-      // 2. Marcar en base de datos que ya completó el cambio obligatorio y registrar email opcional
-      const { error: rpcErr } = await sb.rpc('completar_primer_cambio_clave', { p_nuevo_email: optEmail || null });
-      if(rpcErr){
-        try {
+      // 2. Marcar en memoria de inmediato para desbloquear la sesión del usuario
+      if(S.me) S.me.debe_cambiar_password = false;
+      if(optEmail && S.me) S.me.email = optEmail;
+
+      // 3. Marcar en base de datos que ya completó el cambio obligatorio y registrar email opcional
+      try {
+        await sb.rpc('completar_primer_cambio_clave', { p_nuevo_email: optEmail || null });
+      } catch(e){}
+
+      try {
+        const custId = S.user?.id || S.me?.id;
+        if(custId){
           await sb.from('customers').update({
             debe_cambiar_password: false,
             ...(optEmail ? { email: optEmail } : {})
-          }).eq('id', S.user.id);
-        } catch(e){}
-      }
-
-      if(S.me){
-        S.me.debe_cambiar_password = false;
-        if(optEmail) S.me.email = optEmail;
-      }
+          }).eq('id', custId);
+        }
+      } catch(e){}
 
       facetDlg.oncancel = null;
       facetDlg.close();
