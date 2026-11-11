@@ -985,8 +985,8 @@ body.is-admin main{max-width:100%!important;width:100%!important;padding:0!impor
   .invoice-acts{display:none!important}
 }
 </style></head><body>
-<div class="watermark-bg" id="watermarkBg" aria-hidden="true"><img src="/logo.png" alt="" id="watermarkImg"></div>
-<header><div class="brand"><div class="logo"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo"></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
+<div class="watermark-bg" id="watermarkBg" aria-hidden="true"><picture><source srcset="/logo.webp" type="image/webp"><img src="/logo.png" alt="" id="watermarkImg" loading="lazy" decoding="async"></picture></div>
+<header><div class="brand"><div class="logo"><picture><source srcset="/logo-badge.webp" type="image/webp"><img src="/logo-badge.png" alt="Emprendimiento Gregory Izquierdo" loading="eager" decoding="async" fetchpriority="high"></picture></div><div><h1 id="biz">Emprendimiento Gregory Izquierdo</h1><div class="rate" id="rate">Cargando tasa BCV…</div></div></div>
 <div class="row"><select id="cur" style="width:auto"><option value="USD">USD $</option><option value="VES">Bs.</option></select>
 <button class="g" id="bHome">Tienda</button><button class="g" id="bInstall">Instalar app</button><button class="g" id="bMesaCambio" style="color:#fde047;border-color:rgba(253,224,71,.35);font-weight:700">💱 Mesa de Cambio</button><button class="g" id="bFranchise" style="color:#a5b4fc;border-color:rgba(165,180,252,.35)">💼 Franquicias</button><button class="g hide" id="bSnd">🔔 Sonido</button><button class="g hide" id="bPortal">Mi portal</button><button class="g" id="bAdmin">Admin</button><button class="g" id="bRegister">Registrarse</button><button id="bLogin">Ingresar</button><button class="g hide" id="bOut">Salir</button></div></header>
 <main id="app"></main>
@@ -1507,7 +1507,7 @@ async function openRenewalModal(opts = {}) {
   if(profileId) {
     try {
       const { data: pData } = await sb.from('profiles_inventory')
-        .select('*, products(*), mother_accounts(*)')
+        .select('id, nombre_perfil, pin, vence, product_id, mother_id, products(nombre, precio_usd, precio_revendedor_usd), mother_accounts(plataforma, correo)')
         .eq('id', profileId)
         .maybeSingle();
       if(pData) {
@@ -2818,7 +2818,7 @@ function openInvoiceModal(invData){
           </div>
         </div>
         <div class="invoice-logo-box">
-          <img src="/logo-badge.png" alt="Logo">
+          <picture><source srcset="/logo-badge.webp" type="image/webp"><img src="/logo-badge.png" alt="Logo" loading="lazy" decoding="async"></picture>
         </div>
       </div>
 
@@ -3006,7 +3006,7 @@ async function init(){
     home();
   }
   // Realtime: cualquier cambio en catalogo/tasa se refleja en vivo
-  sb.channel('pub').on('postgres_changes',{event:'*',schema:'public',table:'products'},()=>loadPublic().then(()=>S.view==='home'&&home()))
+  const _pubCh = sb.channel('pub'); window._pubCh=_pubCh; _pubCh.on('postgres_changes',{event:'*',schema:'public',table:'products'},()=>loadPublic().then(()=>S.view==='home'&&home()))
     .on('postgres_changes',{event:'*',schema:'public',table:'exchange_rates'},loadPublic).on('postgres_changes',{event:'*',schema:'public',table:'banners'},()=>loadPublic().then(()=>S.view==='home'&&home())).subscribe();
 }
 async function loadPublic(){
@@ -3014,7 +3014,7 @@ async function loadPublic(){
   const sub = detectSubdomain();
   if(sub){
     try {
-      const { data: fq } = await sb.from('public_franchises').select('*').eq('subdominio', sub).maybeSingle();
+      const { data: fq } = await sb.from('public_franchises').select('id, estado, nombre_comercial, logo_url, color_primario, subdominio').eq('subdominio', sub).maybeSingle();
       if(fq){
         S.franchise = fq;
         // Kill-Switch Preventivo / Suspensión por Mora, Fraude o Inactiva
@@ -3171,7 +3171,7 @@ async function onSession(session){
     $('#bPortal').title = 'Mi portal de cliente';
   }
   // Boton de Notificaciones visible para todos los usuarios autenticados
-  $('#bSnd').classList.toggle('hide', !S.user); updSnd(); badge(); checkVenc();
+  $('#bSnd').classList.toggle('hide', !S.user); updSnd(); badge(true); checkVenc();
   if(S.isAdmin) {
     if(window.initGeminiFloatingWidget) initGeminiFloatingWidget();
   } else {
@@ -5343,7 +5343,7 @@ function openFranchiseModal(){
             <b style="font-size:.78rem;display:block;margin:4px 0 2px">1. Cédula / DNI (Frontal) *</b>
             <span class="mut" style="font-size:.68rem" id="lblFrontal">${kycFiles.doc_frontal ? '✅ Foto cargada' : 'Toca para seleccionar foto'}</span>
             <input type="file" accept="image/*" id="fileFrontal" style="display:none">
-            ${kycFiles.doc_frontal ? `<img src="${kycFiles.doc_frontal}" class="kyc-preview-thumb">` : ''}
+            ${kycFiles.doc_frontal ? `<img src="${kycFiles.doc_frontal}" class="kyc-preview-thumb" loading="lazy" decoding="async">` : ''}
           </div>
 
           <!-- 2. Reverso -->
@@ -5352,7 +5352,7 @@ function openFranchiseModal(){
             <b style="font-size:.78rem;display:block;margin:4px 0 2px">2. Cédula / DNI (Reverso) *</b>
             <span class="mut" style="font-size:.68rem" id="lblReverso">${kycFiles.doc_reverso ? '✅ Foto cargada' : 'Toca para seleccionar foto'}</span>
             <input type="file" accept="image/*" id="fileReverso" style="display:none">
-            ${kycFiles.doc_reverso ? `<img src="${kycFiles.doc_reverso}" class="kyc-preview-thumb">` : ''}
+            ${kycFiles.doc_reverso ? `<img src="${kycFiles.doc_reverso}" class="kyc-preview-thumb" loading="lazy" decoding="async">` : ''}
           </div>
 
           <!-- 3. Selfie con documento -->
@@ -5361,7 +5361,7 @@ function openFranchiseModal(){
             <b style="font-size:.78rem;display:block;margin:4px 0 2px">3. Selfie con Documento *</b>
             <span class="mut" style="font-size:.68rem" id="lblSelfie">${kycFiles.selfie_doc ? '✅ Foto cargada' : 'Prueba de vida con documento'}</span>
             <input type="file" accept="image/*" id="fileSelfie" style="display:none">
-            ${kycFiles.selfie_doc ? `<img src="${kycFiles.selfie_doc}" class="kyc-preview-thumb">` : ''}
+            ${kycFiles.selfie_doc ? `<img src="${kycFiles.selfie_doc}" class="kyc-preview-thumb" loading="lazy" decoding="async">` : ''}
           </div>
 
           <!-- 4. Comprobante Domicilio -->
@@ -5370,7 +5370,7 @@ function openFranchiseModal(){
             <b style="font-size:.78rem;display:block;margin:4px 0 2px">4. Comprobante Domicilio *</b>
             <span class="mut" style="font-size:.68rem" id="lblDomicilio">${kycFiles.comprobante_domicilio ? '✅ Foto cargada' : 'Recibo de luz/agua o constancia'}</span>
             <input type="file" accept="image/*" id="fileDomicilio" style="display:none">
-            ${kycFiles.comprobante_domicilio ? `<img src="${kycFiles.comprobante_domicilio}" class="kyc-preview-thumb">` : ''}
+            ${kycFiles.comprobante_domicilio ? `<img src="${kycFiles.comprobante_domicilio}" class="kyc-preview-thumb" loading="lazy" decoding="async">` : ''}
           </div>
         </div>
 
@@ -8854,7 +8854,7 @@ function renderAdminSidebar(curTab, allTabs){
   return `<div class="admin-backdrop" id="adminBackdrop"></div><aside class="admin-sidebar" id="adminSidebar">
     <div class="admin-sidebar-head">
       <div class="admin-sidebar-brand">
-        <div class="admin-sb-icon"><img src="/logo-badge.png" alt="Logo"></div>
+        <div class="admin-sb-icon"><picture><source srcset="/logo-badge.webp" type="image/webp"><img src="/logo-badge.png" alt="Logo" loading="lazy" decoding="async"></picture></div>
         <div><div class="admin-sb-title">Panel Admin</div><div class="admin-sb-sub">Emprendimiento Gregory</div></div>
       </div>
       <button class="admin-sidebar-close g" id="adminCloseSidebar" type="button" aria-label="Cerrar">✕</button>
@@ -9269,7 +9269,7 @@ function previewBannerModal(b){
     previewHtml = `
       <div style="background:linear-gradient(180deg,#0d203a 0%,#050c18 100%);border:1.5px solid rgba(0,212,255,.4);border-radius:20px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.8);margin:12px 0;text-align:center">
         <span class="pill" style="font-size:.72rem;background:rgba(0,245,160,.18);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:800">⚡ MENSAJE PROMO / AVISO</span>
-        ${b.imagen_url ? `<img src="${esc(b.imagen_url)}" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin:10px 0;border:1px solid rgba(255,255,255,.15)">` : ''}
+        ${b.imagen_url ? `<img src="${esc(b.imagen_url)}" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin:10px 0;border:1px solid rgba(255,255,255,.15)" loading="lazy" decoding="async">` : ''}
         <h3 style="margin:8px 0;font-size:1.25rem;color:#fff">${esc(b.titulo)}</h3>
         <p style="font-size:.88rem;color:#cbd5e1;line-height:1.4;margin:0 0 14px;white-space:pre-line">${esc(b.texto || '')}</p>
         <button type="button" class="cta" style="padding:10px 22px;border-radius:10px;font-weight:800;font-size:.85rem">${btnText} ➔</button>
@@ -11512,7 +11512,6 @@ let _rt; const refresh=(payload)=>{clearTimeout(_rt);_rt=setTimeout(async()=>{
   if(S.view==='portal') portal();
   else if(S.view==='home') loadPublic().then(()=>{ if(S.view==='home') home(); });
   else if(S.view==='admin'){
-    badge();
     if(changedTable){
       invalidateAdminCache(changedTable);
     }
@@ -11536,9 +11535,10 @@ let _rt; const refresh=(payload)=>{clearTimeout(_rt);_rt=setTimeout(async()=>{
       admin(S.t);
     }
   }
-  badge();
+  // Solo actualizar el contador de pendientes si la tabla afectada lo amerita
+  if(!changedTable || ['orders','zeny_ledger','incidents'].includes(changedTable)) badge();
 },1200);};
-async function badge(){ if(!S.isAdmin) return; const c=(t,f)=>f(sb.from(t).select('id',{count:'exact',head:true}));
+let _lastBadge=0; async function badge(force=false){ if(!S.isAdmin) return; const _now=Date.now(); if(!force && _now-_lastBadge < 30000) return; _lastBadge=_now; const c=(t,f)=>f(sb.from(t).select('id',{count:'exact',head:true}));
   const [a,b,i]=await Promise.all([c('orders',x=>x.eq('estado','pendiente')),c('zeny_ledger',x=>x.eq('estado','pendiente').eq('tipo','recarga')),c('incidents',x=>x.eq('estado','abierta'))]);
   const n=(a.count||0)+(b.count||0)+(i.count||0); $('#bAdmin').textContent=(n?`Admin (${n})`:'Admin')+(S.venc?` ⏰${S.venc}`:'');
   S.badges={orders:a.count||0,zeny_ledger:b.count||0,incidents:i.count||0};
@@ -11769,7 +11769,7 @@ function banner(msg){ let b=$('#alertbox'); if(!b){ b=document.createElement('di
   const x=document.createElement('button'); x.className='g'; x.textContent='✕'; x.onclick=()=>d.remove(); d.appendChild(x); b.appendChild(d); setTimeout(()=>d.remove(),20000); }
 function notify(kind,msg){ beep(kind); banner(msg); try{ if(navigator.vibrate) navigator.vibrate(kind==='incidencia'?[200,100,200,100,200]:[250]);
   if('Notification' in window&&Notification.permission==='granted'&&document.hidden) new Notification('Gregory Izquierdo',{body:msg,icon:'/icon-192.png',tag:kind}); }catch{}
-  document.title='🔔 '+msg; setTimeout(()=>document.title='Emprendimiento Gregory Izquierdo',8000); badge(); }
+  document.title='🔔 '+msg; setTimeout(()=>document.title='Emprendimiento Gregory Izquierdo',8000); badge(true); }
 
 const ALERTS = {
   orders: {
@@ -11786,12 +11786,13 @@ const ALERTS = {
   incidents: { ok: () => true, kind: 'incidencia', msg: 'Nueva incidencia reportada por un cliente' }
 };
 
+const _liveCh = sb.channel('live'); window._liveCh=_liveCh;
 Object.entries(ALERTS).reduce((ch, [t, a]) => ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: t }, p => {
   if (S.isAdmin && a.ok(p.new)) {
     const text = typeof a.msg === 'function' ? a.msg(p.new) : a.msg;
     notify(a.kind, text);
   }
-}), sb.channel('alerts'))
+}), _liveCh)
   .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, p => {
     const isMyResellerOrder = p.new?.vendedor_id === S.user?.id;
     const isMyCustomerOrder = p.new?.customer_id === S.user?.id;
@@ -11875,8 +11876,15 @@ Object.entries(ALERTS).reduce((ch, [t, a]) => ch.on('postgres_changes', { event:
       }
     }
   })
-  .subscribe();
+  ;
+['orders','installments','partner_commissions','zeny_ledger','customers','incidents','profiles_inventory','mother_accounts','franchises','refunds','expenses','purchases','transfers','zeny_cards','invoices','mesa_cambio_operaciones','mesa_cambio_caja'].forEach(t => _liveCh.on('postgres_changes',{event:'*',schema:'public',table:t},p=>refresh(p)));
+_liveCh.subscribe();
 // Vencimientos del dia: servicios de clientes y cuentas madre para Admin, y vencimientos de sus propios clientes para Revendedores.
+function teardownRealtime(){
+  try { if(window._pubCh) sb.removeChannel(window._pubCh); } catch{}
+  try { if(window._liveCh) sb.removeChannel(window._liveCh); } catch{}
+  window._pubCh = null; window._liveCh = null;
+}
 async function checkVenc(){
   const d=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
   if(S.isAdmin){
@@ -11900,7 +11908,7 @@ async function checkVenc(){
   }
 }
 setInterval(checkVenc,3600000);
-['orders','installments','partner_commissions','zeny_ledger','customers','incidents','profiles_inventory','mother_accounts','franchises','refunds','expenses','purchases','transfers','zeny_cards','invoices','mesa_cambio_operaciones','mesa_cambio_caja'].reduce((ch,t)=>ch.on('postgres_changes',{event:'*',schema:'public',table:t},p=>refresh(p)),sb.channel('live')).subscribe();
+// (consolidado arriba en _liveCh)
 let _dip; addEventListener('beforeinstallprompt',e=>{e.preventDefault();_dip=e;});
 if(matchMedia('(display-mode: standalone)').matches||navigator.standalone) $('#bInstall').classList.add('hide');
 $('#bInstall').onclick=()=>{ const apk=S.settings.app?.apk_url||'', ios=/iphone|ipad|ipod/i.test(navigator.userAgent);

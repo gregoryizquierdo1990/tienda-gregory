@@ -271,8 +271,8 @@ insert into bot_commands(trigger,response,orden) values
 
 -- ===== STORAGE (capturas privadas, catalogo publico) =====
 insert into storage.buckets(id,name,public) values ('capturas','capturas',false), ('catalogo','catalogo',true) on conflict do nothing;
-create policy cap_ins on storage.objects for insert to authenticated with check (bucket_id='capturas' and (storage.foldername(name))[1] = auth.uid()::text);
-create policy cap_sel on storage.objects for select to authenticated using (bucket_id='capturas' and ((storage.foldername(name))[1] = auth.uid()::text or is_admin()));
+create policy cap_ins on storage.objects for insert to authenticated with check (bucket_id='capturas' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy cap_sel on storage.objects for select to authenticated using (bucket_id='capturas' and ((storage.foldername(name))[1] = (select auth.uid())::text or is_admin()));
 create policy cat_admin on storage.objects for all to authenticated using (bucket_id='catalogo' and is_admin()) with check (bucket_id='catalogo' and is_admin());
 create policy cat_pub on storage.objects for select using (bucket_id='catalogo');
 
@@ -285,7 +285,7 @@ do $$ declare t text; begin
  end loop; end $$;
 alter table refunds enable row level security;
 create policy ref_admin on refunds for select to authenticated using (is_admin());
-create policy ref_me on refunds for select to authenticated using (customer_id = auth.uid());
+create policy ref_me on refunds for select to authenticated using (customer_id = (select auth.uid()));
 create policy pub_settings on settings for select using (key in ('negocio','zeny','reserva'));
 create policy pub_rates on exchange_rates for select using (true);
 create policy pub_cat on categories for select using (activo);
@@ -293,15 +293,15 @@ create policy pub_prod on products for select using (activo);
 create policy pub_ban on banners for select using (activo and (inicio is null or inicio <= current_date) and (fin is null or fin >= current_date));
 create policy pub_pm on payment_methods for select using (activo);
 create policy pub_faq on faqs for select using (activo);
-create policy me_cust on customers for select to authenticated using (id = auth.uid());
-create policy me_cust_upd on customers for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
-create policy me_orders on orders for select to authenticated using (customer_id = auth.uid());
-create policy me_inv on invoices for select to authenticated using (customer_id = auth.uid());
-create policy me_ledger on zeny_ledger for select to authenticated using (customer_id = auth.uid());
-create policy me_recarga on zeny_ledger for insert to authenticated with check (customer_id = auth.uid() and tipo = 'recarga' and estado = 'pendiente' and monto > 0);
-create policy me_inc_sel on incidents for select to authenticated using (customer_id = auth.uid());
-create policy me_inc_ins on incidents for insert to authenticated with check (customer_id = auth.uid() and estado = 'abierta');
-create policy me_log on login_log for insert to authenticated with check (customer_id = auth.uid());
+create policy me_cust on customers for select to authenticated using (id = (select auth.uid()));
+create policy me_cust_upd on customers for update to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
+create policy me_orders on orders for select to authenticated using (customer_id = (select auth.uid()));
+create policy me_inv on invoices for select to authenticated using (customer_id = (select auth.uid()));
+create policy me_ledger on zeny_ledger for select to authenticated using (customer_id = (select auth.uid()));
+create policy me_recarga on zeny_ledger for insert to authenticated with check (customer_id = (select auth.uid()) and tipo = 'recarga' and estado = 'pendiente' and monto > 0);
+create policy me_inc_sel on incidents for select to authenticated using (customer_id = (select auth.uid()));
+create policy me_inc_ins on incidents for insert to authenticated with check (customer_id = (select auth.uid()) and estado = 'abierta');
+create policy me_log on login_log for insert to authenticated with check (customer_id = (select auth.uid()));
 
 -- ===== REALTIME =====
 do $$ declare t text; begin

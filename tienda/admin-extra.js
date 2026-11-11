@@ -1368,7 +1368,7 @@ const EXTRA = {
         ]);
         ordList = resOrd?.data;
         if (!ordList) {
-          const { data: rawOrds } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(currentLimit);
+          const { data: rawOrds } = await sb.from('orders').select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion), products(id,nombre,tipo), profiles_inventory(id,nombre_perfil,pin,inicia,vence,mother_id,mother_accounts(id,plataforma,correo,clave))').order('created_at', { ascending: false }).limit(currentLimit);
           ordList = rawOrds || [];
         }
         resellers = resResellers?.data || [];
@@ -1379,7 +1379,7 @@ const EXTRA = {
       } catch(errFetch) {
         console.warn('Error fetching orders:', errFetch);
         try {
-          const { data: rawOrds } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(currentLimit);
+          const { data: rawOrds } = await sb.from('orders').select('*, customers!customer_id(id,nombre,email,telefono,codigo_identificacion), products(id,nombre,tipo), profiles_inventory(id,nombre_perfil,pin,inicia,vence,mother_id,mother_accounts(id,plataforma,correo,clave))').order('created_at', { ascending: false }).limit(currentLimit);
           ordList = rawOrds || [];
           box._cachedOrders = ordList;
         } catch(e2) {
@@ -1786,7 +1786,7 @@ const EXTRA = {
           <h3>🖼️ Comprobante de Pago</h3>
           <div style="text-align:center;margin:14px 0">
             <a href="${esc(imgUrl)}" target="_blank" rel="noopener noreferrer">
-              <img src="${esc(imgUrl)}" alt="Comprobante" style="max-width:100%;max-height:70vh;border-radius:12px;border:1px solid rgba(255,255,255,.15);box-shadow:0 10px 30px rgba(0,0,0,.5)">
+              <img loading="lazy" decoding="async" src="${esc(imgUrl)}" alt="Comprobante" style="max-width:100%;max-height:70vh;border-radius:12px;border:1px solid rgba(255,255,255,.15);box-shadow:0 10px 30px rgba(0,0,0,.5)">
             </a>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center">
@@ -6184,19 +6184,19 @@ Contacto Oficial: emprendimientogregoryizquierdo@gmail.com`;
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
               <div style="background:#02050b;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);text-align:center">
                 <span style="font-size:.75rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px">1. Cédula Frontal</span>
-                ${app.doc_frontal_url ? `<img src="${app.doc_frontal_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.doc_frontal_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
+                ${app.doc_frontal_url ? `<img loading="lazy" decoding="async" src="${app.doc_frontal_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.doc_frontal_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
               </div>
               <div style="background:#02050b;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);text-align:center">
                 <span style="font-size:.75rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px">2. Cédula Reverso</span>
-                ${app.doc_reverso_url ? `<img src="${app.doc_reverso_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.doc_reverso_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
+                ${app.doc_reverso_url ? `<img loading="lazy" decoding="async" src="${app.doc_reverso_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.doc_reverso_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
               </div>
               <div style="background:#02050b;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);text-align:center">
                 <span style="font-size:.75rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px">3. Selfie con Documento (Prueba de vida)</span>
-                ${app.selfie_doc_url ? `<img src="${app.selfie_doc_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.selfie_doc_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
+                ${app.selfie_doc_url ? `<img loading="lazy" decoding="async" src="${app.selfie_doc_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.selfie_doc_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
               </div>
               <div style="background:#02050b;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);text-align:center">
                 <span style="font-size:.75rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px">4. Comprobante Domicilio / Recibo</span>
-                ${app.comprobante_domicilio_url ? `<img src="${app.comprobante_domicilio_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.comprobante_domicilio_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
+                ${app.comprobante_domicilio_url ? `<img loading="lazy" decoding="async" src="${app.comprobante_domicilio_url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${app.comprobante_domicilio_url}','_blank')">` : '<span class="mut">No adjuntada</span>'}
               </div>
             </div>
 
