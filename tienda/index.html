@@ -6392,6 +6392,7 @@ function renderFacetShell({title, subtitle, contentHtml, linksHtml='', closable=
   </div>`;
 }
 
+function openFacetModal(register=false){ loginDlg(register ? 'register' : 'login'); }
 function loginDlg(mode = 'login'){
   const isReg = mode === 'register';
   const isDemoFq = S.franchise?.subdominio === 'demo' || detectSubdomain() === 'demo';
