@@ -3154,6 +3154,12 @@ async function onSession(session){
       sb.from('login_log').insert({customer_id:S.user.id,email:S.user.email,user_agent:navigator.userAgent}).then(()=>{});
       if(S.me?.debe_cambiar_password === true && !S.isAdmin){
         setTimeout(() => forceChangePasswordDlg(), 250);
+      } else {
+        const pendingBuy = sessionStorage.getItem('pending_buy_product');
+        if(pendingBuy && S.user && !S.isAdmin){
+          sessionStorage.removeItem('pending_buy_product');
+          setTimeout(() => buyDlg(pendingBuy), 350);
+        }
       }
     } catch(err) {
       if(isKnown) S.isAdmin = true;
@@ -3375,7 +3381,20 @@ function renderGrid(){
   });
   const g=$('#grid'); if(!g) return;
   g.innerHTML=list.map(productCard).join('')||'<p class="mut empty">Aún no hay productos disponibles en esta categoría. Vuelve pronto.</p>';
-  g.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>buyDlg(b.dataset.buy));
+  g.querySelectorAll('[data-buy]').forEach(b=>b.onclick=(e)=>{
+    e.stopPropagation();
+    buyDlg(b.dataset.buy);
+  });
+  g.querySelectorAll('.pc').forEach(card => {
+    const buyBtn = card.querySelector('[data-buy]');
+    if(buyBtn){
+      card.style.cursor = 'pointer';
+      card.onclick = (e) => {
+        if(e.target.closest('[data-flyer]') || e.target.closest('[data-buy]')) return;
+        buyDlg(buyBtn.dataset.buy);
+      };
+    }
+  });
   g.querySelectorAll('[data-flyer]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();openFlyerDesignerModal({productId:b.dataset.flyer});});
 }
 function renderTabs(){
@@ -4093,27 +4112,33 @@ function openDemoNoticeModal(actionType = 'compra'){
 }
 
 async function buyDlg(id){
-  if(!S.user) return loginDlg('login');
+  if(!S.user){
+    sessionStorage.setItem('pending_buy_product', id);
+    toast('Inicia sesión o regístrate en segundos para comprar tu servicio.');
+    return loginDlg('login');
+  }
   if(S.me?.debe_cambiar_password === true && !S.isAdmin) return forceChangePasswordDlg();
   const p = S.products.find(x => x.id === id);
   if(!p) return toast('Producto no encontrado');
 
-  const pmQuery = S.franchise
-    ? sb.from('payment_methods').select('*').eq('activo', true).or(`franchise_id.eq.${S.franchise.id},franchise_id.is.null`).order('orden')
-    : sb.from('payment_methods').select('*').eq('activo', true).is('franchise_id', null).order('orden');
+  try {
+    const pmQuery = S.franchise
+      ? sb.from('payment_methods').select('*').eq('activo', true).or(`franchise_id.eq.${S.franchise.id},franchise_id.is.null`).order('orden')
+      : sb.from('payment_methods').select('*').eq('activo', true).is('franchise_id', null).order('orden');
 
-  const [{data: rawPmList}, {data: h}, {data: userCard}] = await Promise.all([
-    pmQuery,
-    sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente'),
-    (async () => {
-      try {
-        const r1 = await sb.from('my_zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle();
-        if (r1?.data) return r1;
-        return await sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle();
-      } catch(e) { return { data: null }; }
-    })()
-  ]);
-  const pmList = (rawPmList && rawPmList.length > 0) ? rawPmList : DEFAULT_PAYMENT_METHODS;
+    const [{data: rawPmList}, {data: h}, {data: userCard}] = await Promise.all([
+      Promise.resolve(pmQuery).catch(() => ({ data: null })),
+      Promise.resolve(sb.from('zeny_ledger').select('monto').eq('tipo', 'compra').eq('estado', 'pendiente').eq('customer_id', S.user.id)).catch(() => ({ data: [] })),
+      (async () => {
+        try {
+          if (!S.user?.id) return { data: null };
+          const r1 = await sb.from('my_zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle();
+          if (r1?.data) return r1;
+          return await sb.from('zeny_cards').select('*').eq('customer_id', S.user.id).maybeSingle();
+        } catch(e) { return { data: null }; }
+      })()
+    ]);
+    const pmList = (rawPmList && rawPmList.length > 0) ? rawPmList : DEFAULT_PAYMENT_METHODS;
 
   const hasActiveCard = userCard && userCard.estado === 'activa';
   const availZeny = Math.max(0, Number(S.me?.zeny_balance || 0) + (h || []).reduce((a, x) => a + Number(x.monto), 0));
@@ -4204,19 +4229,21 @@ async function buyDlg(id){
   let nCuotas = 2;
   let cuotaInicialUsd = 0;
   let diasFrecuencia = 15;
+  let pctInicial = 50;
 
   if (pBnpl && pBnpl.habilitado) {
     nCuotas = Math.max(2, Number(pBnpl.numero_cuotas || 2));
     diasFrecuencia = Math.max(1, Number(pBnpl.frecuencia_dias || 15));
     if (pBnpl.inicial_tipo === 'fijo') {
       cuotaInicialUsd = Math.min(totalOriginal, Number(pBnpl.inicial_valor || 0));
+      pctInicial = totalOriginal > 0 ? (cuotaInicialUsd / totalOriginal) * 100 : 50;
     } else {
-      const pct = Math.min(90, Math.max(10, Number(pBnpl.inicial_valor || 50)));
-      cuotaInicialUsd = Math.round((totalOriginal * (pct / 100)) * 100) / 100;
+      pctInicial = Math.min(90, Math.max(10, Number(pBnpl.inicial_valor || 50)));
+      cuotaInicialUsd = Math.round((totalOriginal * (pctInicial / 100)) * 100) / 100;
     }
   } else {
     nCuotas = Math.max(2, Number(cuotasCfg.total_cuotas || 2));
-    const pctInicial = Math.min(90, Math.max(10, Number(cuotasCfg.inicial_porcentaje || 50)));
+    pctInicial = Math.min(90, Math.max(10, Number(cuotasCfg.inicial_porcentaje || 50)));
     cuotaInicialUsd = Math.round((totalOriginal * (pctInicial / 100)) * 100) / 100;
     diasFrecuencia = Number(cuotasCfg.dias_frecuencia || 15);
   }
@@ -5154,8 +5181,12 @@ async function buyDlg(id){
     };
   };
 
-  renderCheckout();
-  if(!checkoutDlg.open) checkoutDlg.showModal();
+    renderCheckout();
+    if(!checkoutDlg.open) checkoutDlg.showModal();
+  } catch(err) {
+    console.error('Error abriendo checkout:', err);
+    toast('Error al abrir proceso de compra: ' + (err.message || err));
+  }
 }
 
 // ---------- SOLICITUD DE FRANQUICIA & VERIFICACIÓN DIGITAL KYC EN 2 PASOS ----------
@@ -6587,6 +6618,12 @@ function loginDlg(mode = 'login'){
       } catch(e){}
 
       facetDlg.close();
+      const pendingBuy = sessionStorage.getItem('pending_buy_product');
+      if(pendingBuy){
+        sessionStorage.removeItem('pending_buy_product');
+        setTimeout(() => buyDlg(pendingBuy), 250);
+        return;
+      }
       if(S.isAdmin){
         history.replaceState(null, '', location.pathname + '#admin');
         admin('finanzas');
