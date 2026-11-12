@@ -1033,7 +1033,7 @@ async function ensureAdminExtraLoaded() {
       existing.remove();
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=22';
+    script.src = '/admin-extra.js?v=23';
     script.async = true;
     const timeout = setTimeout(() => {
       if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) resolve(true);
@@ -6671,11 +6671,10 @@ function loginDlg(mode = 'login'){
       } else {
         home();
       }
-    }
-  };
+    };
 
-  if(!facetDlg.open) facetDlg.showModal();
-}
+    if(!facetDlg.open) facetDlg.showModal();
+  }
 
 function forceChangePasswordDlg(){
   const title = 'SEGURIDAD DE TU CUENTA';
