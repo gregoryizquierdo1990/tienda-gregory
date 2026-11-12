@@ -1033,7 +1033,7 @@ async function ensureAdminExtraLoaded() {
       existing.remove();
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=21';
+    script.src = '/admin-extra.js?v=22';
     script.async = true;
     const timeout = setTimeout(() => {
       if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) resolve(true);
@@ -3151,8 +3151,7 @@ async function onSession(session){
       S.me = m?.data || S.me;
       S.isAdmin = Boolean(rpc?.data === true || a?.data || isKnown);
       if(S.isAdmin && facetDlg && facetDlg.open) facetDlg.close();
-      sb.from('login_log').insert({customer_id:S.user.id,email:S.user.email,user_agent:navigator.userAgent}).then(()=>{});
-      if(S.me?.debe_cambiar_password === true && !S.isAdmin){
+      if(S.me?.debe_cambiar_password === true && S.me?.es_revendedor && !S.isAdmin){
         setTimeout(() => forceChangePasswordDlg(), 250);
       } else {
         const pendingBuy = sessionStorage.getItem('pending_buy_product');
@@ -4117,7 +4116,7 @@ async function buyDlg(id){
     toast('Inicia sesión o regístrate en segundos para comprar tu servicio.');
     return loginDlg('login');
   }
-  if(S.me?.debe_cambiar_password === true && !S.isAdmin) return forceChangePasswordDlg();
+  if(S.me?.debe_cambiar_password === true && S.me?.es_revendedor && !S.isAdmin) return forceChangePasswordDlg();
   const p = S.products.find(x => x.id === id);
   if(!p) return toast('Producto no encontrado');
 
@@ -6451,23 +6450,31 @@ function loginDlg(mode = 'login'){
     </div>
     ` : ''}
     ${isReg ? `
-    <div class="facet-input-wrap">
-      <input id="facetNm" class="facet-input" placeholder="FULL NAME / NOMBRE COMPLETO" autocomplete="name" required>
+    <div style="background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:.76rem;line-height:1.4;color:var(--tx)">
+      💡 <b>Registro Rápido:</b> Tu usuario será tu <b>correo</b> y tu contraseña de acceso será tu <b>número de teléfono</b>.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="facet-input-wrap">
+        <input id="facetNm" class="facet-input" placeholder="NOMBRE" autocomplete="given-name" required>
+      </div>
+      <div class="facet-input-wrap">
+        <input id="facetApe" class="facet-input" placeholder="APELLIDO" autocomplete="family-name" required>
+      </div>
     </div>
     <div class="facet-input-wrap">
-      <input id="facetId" class="facet-input" type="email" placeholder="EMAIL / CORREO ELECTRÓNICO" autocomplete="email" required>
+      <input id="facetId" class="facet-input" type="email" placeholder="CORREO ELECTRÓNICO (USUARIO)" autocomplete="email" required>
     </div>
     <div class="facet-input-wrap">
-      <input id="facetTel" class="facet-input" type="tel" placeholder="TELÉFONO / WHATSAPP (+58…)" autocomplete="tel">
+      <input id="facetTel" class="facet-input" type="tel" placeholder="TELÉFONO / WHATSAPP (CONTRASEÑA)" autocomplete="tel" required>
     </div>
     ` : `
     <div class="facet-input-wrap">
       <input id="facetId" class="facet-input" placeholder="CORREO O N° DE WHATSAPP (0412...)" autocomplete="username" required>
     </div>
-    `}
     <div class="facet-input-wrap">
-      <input id="facetPw" class="facet-input" type="password" placeholder="PASSWORD / CONTRASEÑA" autocomplete="${isReg ? 'new-password' : 'current-password'}" required>
+      <input id="facetPw" class="facet-input" type="password" placeholder="PASSWORD / CONTRASEÑA" autocomplete="current-password" required>
     </div>
+    `}
     <button id="facetAction" class="facet-btn" type="button">${actionLabel}</button>
     <button id="facetGoogle" class="facet-alt-btn" type="button">
       <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.25 21.37 7.31 24 12 24Z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.97 0 12s.46 3.83 1.26 5.42l4.02-3.15Z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.63 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98Z"/></svg>
@@ -6497,36 +6504,56 @@ function loginDlg(mode = 'login'){
     const inputId = ($('#facetId')?.value || '').trim();
     const pwVal = $('#facetPw')?.value || '';
 
-    if(!inputId) return toast(isReg ? 'Ingresa tu correo electrónico' : 'Ingresa tu correo o teléfono de WhatsApp');
-    if(!pwVal || pwVal.length < 6) return toast('La contraseña debe tener al menos 6 caracteres');
-
     if(isReg){
-      if(!inputId.includes('@')) return toast('Debes ingresar un correo electrónico válido (ej: tu@gmail.com).');
       const nombreVal = ($('#facetNm')?.value || '').trim();
+      const apellidoVal = ($('#facetApe')?.value || '').trim();
+      const emailVal = ($('#facetId')?.value || '').trim().toLowerCase();
       const telVal = ($('#facetTel')?.value || '').trim();
-      if(!nombreVal) return toast('Por favor ingresa tu nombre completo');
+
+      if(!nombreVal) return toast('Por favor ingresa tu nombre');
+      if(!apellidoVal) return toast('Por favor ingresa tu apellido');
+      if(!emailVal || !emailVal.includes('@')) return toast('Ingresa un correo electrónico válido (ej: tu@gmail.com)');
+      if(!telVal) return toast('Ingresa tu número de teléfono / WhatsApp');
+
+      const cleanPhone = telVal.replace(/\D/g, '');
+      if(cleanPhone.length < 6) return toast('El número de teléfono debe tener al menos 6 dígitos para usarlo como tu contraseña.');
+
+      const nombreCompleto = `${nombreVal} ${apellidoVal}`.trim();
+      const btn = $('#facetAction');
+      btn.disabled = true;
+      btn.textContent = 'Creando cuenta...';
 
       const {data, error} = await sb.auth.signUp({
-        email: inputId,
-        password: pwVal,
+        email: emailVal,
+        password: telVal,
         options: {
           data: {
-            nombre: nombreVal,
+            nombre: nombreCompleto,
             telefono: telVal
           }
         }
       });
 
       if(error){
-        if(error.message.includes('Phone signups are disabled')){
-          return toast('El registro se realiza con correo electrónico o con Google.');
+        btn.disabled = false;
+        btn.textContent = actionLabel;
+        if(error.message.includes('User already registered') || error.message.includes('already exists')){
+          return toast('Ya existe una cuenta con este correo. Inicia sesión con tu teléfono o correo.');
         }
         return toast(error.message);
       }
 
-      // Si tenemos sesion inmediata y telefono, guardarlo en customers
-      if(data?.user?.id && telVal){
-        try { await sb.from('customers').update({telefono: telVal, nombre: nombreVal}).eq('id', data.user.id); } catch(e){}
+      // Guardar en customers asegurando que debe_cambiar_password sea false
+      if(data?.user?.id){
+        try {
+          await sb.from('customers').upsert({
+            id: data.user.id,
+            nombre: nombreCompleto,
+            email: emailVal,
+            telefono: telVal,
+            debe_cambiar_password: false
+          });
+        } catch(e){}
       }
 
       // Notificar nuevo registro a Telegram
@@ -6534,20 +6561,32 @@ function loginDlg(mode = 'login'){
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'nuevo_cliente',
+          type: 'nuevo_usuario',
           data: {
-            nombre: nombreVal,
-            email: inputId,
+            nombre: nombreCompleto,
+            email: emailVal,
             telefono: telVal
           }
         })
       }).catch(()=>{});
 
+      toast('✅ ¡Registro exitoso! Iniciando tu sesión...');
       facetDlg.close();
-      toast('Cuenta creada exitosamente. Revisa tu correo si requiere confirmación o inicia sesión.');
-    } else {
-      let loginEmail = (inputId || '').trim().toLowerCase();
-      const isPhone = !loginEmail.includes('@');
+      if(!data?.session){
+        const { error: logErr } = await sb.auth.signInWithPassword({
+          email: emailVal,
+          password: telVal
+        });
+        if(logErr) toast('Por favor inicia sesión con tu correo y número de teléfono.');
+      }
+      return;
+    }
+
+    if(!inputId) return toast('Ingresa tu correo o teléfono de WhatsApp');
+    if(!pwVal || pwVal.length < 6) return toast('La contraseña debe tener al menos 6 caracteres');
+
+    let loginEmail = (inputId || '').trim().toLowerCase();
+    const isPhone = !loginEmail.includes('@');
       if(isPhone){
         const cleanPhone = loginEmail.replace(/\D/g, '');
         if(cleanPhone.length < 7) return toast('Ingresa un número de WhatsApp válido (ej: 04121234567).');
@@ -6609,7 +6648,7 @@ function loginDlg(mode = 'login'){
         if(u){
           const m = await sb.from('customers').select('*').eq('id', u.id).maybeSingle();
           if(m?.data) S.me = m.data;
-          if(S.me?.debe_cambiar_password === true && !S.isAdmin){
+          if(S.me?.debe_cambiar_password === true && S.me?.es_revendedor && !S.isAdmin){
             facetDlg.close();
             forceChangePasswordDlg();
             return;
@@ -6880,7 +6919,7 @@ async function portal(){
     history.replaceState(null, '', location.pathname + '#admin');
     return admin('finanzas');
   }
-  if(S.me?.debe_cambiar_password === true && !S.isAdmin) return forceChangePasswordDlg();
+  if(S.me?.debe_cambiar_password === true && S.me?.es_revendedor && !S.isAdmin) return forceChangePasswordDlg();
   document.body.classList.remove('is-admin');
   S.view='portal';
   app.innerHTML = '<div style="text-align:center;padding:40px 10px"><div class="sk" style="max-width:440px;margin:auto;min-height:200px"></div><p class="mut" style="margin-top:14px">Cargando tu portal…</p></div>';
@@ -6908,7 +6947,7 @@ async function portal(){
     ]);
 
     const cardData = zcard?.data || null;
-    const userCode = S.me?.codigo_identificacion || (isReseller ? 'RVD:1001' : 'CLT:001');
+    const userCode = isReseller ? (S.me?.codigo_identificacion || 'RVD:1001') : '';
     const isFranchise = !!S.franchise || S.me?.es_franquicia === true;
     const nivelesCfg = getNivelesConfig();
     const curLevelKey = isFranchise ? 'franquiciado' : (isReseller ? 'revendedor' : 'cliente');
@@ -7525,9 +7564,11 @@ async function portal(){
       <div>
         <h2 style="margin:0">Hola, ${esc(S.me?.nombre||S.user.email||'cliente')}</h2>
         <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span class="pill" style="font-size:.78rem;letter-spacing:.8px;background:${curLevel.color}22;color:${curLevel.color};border:1px solid ${curLevel.color}66">
+          ${userCode ? `<span class="pill" style="font-size:.78rem;letter-spacing:.8px;background:${curLevel.color}22;color:${curLevel.color};border:1px solid ${curLevel.color}66">
             ID: <b>${esc(userCode)}</b> · ${curLevel.badge_icon || '👤'} ${esc(curLevel.nombre)}
-          </span>
+          </span>` : `<span class="pill" style="font-size:.78rem;letter-spacing:.8px;background:${curLevel.color}22;color:${curLevel.color};border:1px solid ${curLevel.color}66">
+            ${curLevel.badge_icon || '👤'} ${esc(curLevel.nombre)}
+          </span>`}
           <button id="btnVerBeneficios" class="g" style="font-size:.76rem;padding:4px 10px;border-radius:99px;border:1px solid ${curLevel.color}55;color:${curLevel.color};display:inline-flex;align-items:center;gap:5px;cursor:pointer">
             🎖️ Ver mis beneficios & Comparativa
           </button>
@@ -7537,6 +7578,18 @@ async function portal(){
         </div>
       </div>
     </div>
+
+    ${!isReseller ? `
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="font-size:.8rem;color:var(--tx);line-height:1.45">
+          🔒 <b>Tus credenciales de acceso:</b> Usuario: <code>${esc(S.user?.email || '')}</code> · Clave: <code>${esc(S.me?.telefono ? 'Tu N° de Teléfono (' + S.me.telefono + ')' : '••••••••')}</code><br>
+          <span style="font-size:.74rem;color:#94a3b8">ℹ️ Para modificar tus datos de acceso, contacta a Soporte / Administrador.</span>
+        </div>
+        <a href="https://wa.me/584142478459?text=${encodeURIComponent('Hola Gregory, solicito soporte con mis datos de acceso a la tienda.')}" target="_blank" rel="noopener noreferrer" class="g" style="padding:6px 12px;font-size:.74rem;color:#00f5a0;border:1px solid rgba(0,245,160,.4);text-decoration:none;border-radius:8px;font-weight:700;display:inline-flex;align-items:center;gap:4px">
+          📲 Contactar Soporte
+        </a>
+      </div>
+    ` : ''}
 
     ${S.me?.es_demo ? `
       <div style="background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(217,119,6,.2));border:1.5px solid #f59e0b;border-radius:14px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
@@ -8707,20 +8760,19 @@ const TABLES = {
  zeny_ledger:['customer_id','tipo','monto','referencia','estado','created_at'],
  products:['nombre','descripcion','tipo','es_exclusivo_central','precio_usd','precio_binance_usd','precio_revendedor_usd','permite_cuotas','duracion_dias','garantia_dias','imagen_url','category_id','orden','activo'],
  banners:['titulo','texto','tipo','destinatario','imagen_url','enlace','boton_texto','transicion_segundos','popup_frecuencia','color_fondo','orden','activo','inicio','fin'], categories:['nombre','orden','activo'],
- payment_methods:['nombre','tipo','datos','orden','activo'],
- mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
- profiles_inventory:['mother_id','product_id','nombre_perfil','pin','cliente_final','vendedor','inicia','vence','estado'],
-  customers:['codigo_identificacion','nombre','email','telefono','vendedor_nombre','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
-  login_log:['email','user_agent','created_at'],
-  exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','monto_bs','notas'], purchases:['fecha','proveedor','plataforma','mother_id','es_credito','dias_credito','fecha_limite_pago','estado_pago','monto_usdt','monto_usd','monto_bs','notas'],
-  refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value'], google_integrations:['service','enabled','config']};
+  payment_methods:['nombre','tipo','datos','orden','activo'],
+  mother_accounts:['plataforma','correo','clave','proveedor','costo_usd','vence','max_perfiles','notas','activa'],
+  profiles_inventory:['mother_id','product_id','nombre_perfil','pin','cliente_final','vendedor','inicia','vence','estado'],
+   customers:['nombre','email','telefono','vendedor_nombre','limite_credito','zeny_balance'], incidents:['customer_id','asunto','detalle','estado','created_at'],
+   exchange_rates:['fecha','bs_por_usd'], expenses:['fecha','concepto','categoria','monto_usd','monto_bs','notas'], purchases:['fecha','proveedor','plataforma','mother_id','es_credito','dias_credito','fecha_limite_pago','estado_pago','monto_usdt','monto_usd','monto_bs','notas'],
+   refunds:['order_id','customer_id','monto_usd','destino','motivo','liberado','created_at'], transfers:['order_id','customer_id','from_profile','to_profile','motivo','created_at'], settings:['key','value']};
 const SEL={products:'*,categories(nombre)',orders:'*,customers!customer_id(nombre,email,telefono),products(nombre,tipo)',installments:'*,customers!customer_id(nombre,email,telefono),orders(products(nombre))',zeny_ledger:'*,customers(nombre,email)',incidents:'*,customers(nombre,email)',profiles_inventory:'*,mother_accounts(plataforma,correo),products(nombre),customers!assigned_customer_id(nombre,email,telefono)',refunds:'*,customers(nombre,email)',transfers:'*,customers(nombre,email)'};
 const FK={product_id:['products','nombre'],mother_id:['mother_accounts','correo'],category_id:['categories','nombre'],customer_id:['customers','email'],order_id:['orders','referencia']};
 const ENUM={'products.tipo':['pantalla','cuenta_completa','servicio','gaming','recarga_telefonica'],'orders.estado':['pendiente','pagado','entregado','rechazado','vencido','cancelado','reembolsado'],'orders.estado_recarga':['pendiente','recargado','fallido'],'installments.estado':['pendiente','en_revision','pagada','vencida'],'zeny_ledger.estado':['pendiente','aprobado','rechazado'],'zeny_ledger.tipo':['recarga','compra','ajuste','reembolso'],'profiles_inventory.estado':['disponible','reservado','vendido','suspendido'],'incidents.estado':['abierta','en_proceso','resuelta'],'expenses.categoria':['Cuentas Madre & Proveedores','Comisiones & Pasarelas (Binance, BNC)','Herramientas & Software (VPS, Dominio, Hosting)','Publicidad & Marketing','Soporte & Reembolsos','Servicios Básicos & Internet','Otro Gasto Operativo'],'purchases.estado_pago':['pagado','pendiente','vencido'],'banners.tipo':['carrusel','popup','barra_superior'],'banners.destinatario':['todos','clientes','revendedores'],'banners.popup_frecuencia':['una_vez_dia','una_vez_sesion','siempre']};
 const BOOL=['activo','activa','enabled','permite_cuotas','es_exclusivo_central','es_credito'], READONLY={customers:['zeny_balance']};
 const NOADD=['transfers'];
-const acts=(t,r)=>t==='banners'?`<button class="g" data-preview-banner="${r.id}" style="color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700">👁️ Previsualizar</button>`:t==='orders'?`${r.estado==='pendiente'?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button><button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-cust-order="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-prod="${esc(r.products?.nombre||'Servicio')}" style="padding:4px 8px;font-size:.72rem;color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Contactar cliente por WhatsApp">📲 WA</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}" style="padding:4px 8px;font-size:.72rem">🔀 Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}" style="padding:4px 8px;font-size:.72rem">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`<button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button><button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar este perfil a un revendedor">🤝 Revendedor</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar o transferir este perfil y cliente a un revendedor">🤝 Revendedor</button><button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
-const PK={settings:'key',google_integrations:'service',exchange_rates:'fecha'};
+const acts=(t,r)=>t==='banners'?`<button class="g" data-preview-banner="${r.id}" style="color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700">👁️ Previsualizar</button>`:t==='orders'?`${r.estado==='pendiente'?`<button data-ok="${r.id}" data-tot="${r.total_usd}" data-z="${r.zeny_aplicado||0}">Conciliar y entregar</button><button class="g" data-cred="${r.id}" data-tot="${r.total_usd}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-tel="${esc(r.customers?.telefono||'')}" data-prod="${esc(r.products?.nombre||'Servicio')}">💳 Entregar a Crédito</button><button class="g" data-rej="${r.id}">Rechazar</button>`:''}${r.customers?.telefono?`<button class="g" data-wa-cust-order="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||'Cliente')}" data-prod="${esc(r.products?.nombre||'Servicio')}" style="padding:4px 8px;font-size:.72rem;color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Contactar cliente por WhatsApp">📲 WA</button>`:''}${r.estado==='entregado'?`<button class="g" data-tr="${r.id}" style="padding:4px 8px;font-size:.72rem">🔀 Trasladar</button>`:''}${['pagado','entregado'].includes(r.estado)?`<button class="g" data-ref="${r.id}" data-tot="${r.total_usd}" style="padding:4px 8px;font-size:.72rem">Devolver</button>`:''}`:t==='purchases'?`${r.es_credito&&r.estado_pago==='pendiente'?`<button class="g" data-pay-purchase="${r.id}" data-prov="${esc(r.proveedor||'Proveedor')}" data-usdt="${r.monto_usdt||r.monto_usd||0}" data-vence="${r.fecha_limite_pago||''}">💳 Pagar Deuda</button>`:''}`:t==='installments'?`${['pendiente','en_revision'].includes(r.estado)?`<button data-ok-inst="${r.id}">Aprobar cuota</button>`:''}${r.estado!=='pagada'?`<button class="g" data-wa-rem="${r.id}" data-tel="${esc(r.customers?.telefono||'')}" data-nom="${esc(r.customers?.nombre||r.customers?.email||'Cliente')}" data-prod="${esc(r.orders?.products?.nombre||'Servicio')}" data-m="${r.monto_usd}" data-f="${r.fecha_vencimiento}" data-c="${r.numero_cuota}" data-tc="${r.total_cuotas||2}">💬 Cobrar WA</button>`:''}`:t==='mother_accounts'?`${r.activa===false?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 PAUSADA</span>':'<span class="pill" style="font-size:.68rem;background:rgba(0,245,160,.15);color:#00f5a0;border-color:rgba(0,245,160,.3);font-weight:800;margin-right:4px">🟢 ACTIVA</span>'}<button class="g" data-toggle-mother-activa="${r.id}" data-activa="${r.activa!==false?'1':'0'}" style="padding:4px 8px;font-size:.73rem;color:${r.activa===false?'#00f5a0':'#f87171'};border-color:${r.activa===false?'rgba(0,245,160,.4)':'rgba(239,68,68,.4)'};font-weight:700" title="Activar o desactivar cuenta madre">${r.activa===false?'▶️ Activar':'⏸️ Desactivar'}</button><button class="g" data-notify-mother="${r.id}" style="color:#25d366;border-color:rgba(37,211,102,.35);font-weight:700" title="Avisar credenciales actualizadas a clientes/revendedores por WhatsApp">📢 Avisar Clientes</button><button class="g" data-gen="${r.id}">Generar perfiles</button>`:t==='zeny_ledger'&&r.estado==='pendiente'&&r.tipo==='recarga'?`<button data-ok="${r.id}">Aprobar</button>`:t==='customers'?`<button class="g" data-admin-cust-credit="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar cuenta o perfil a crédito a este cliente">💳 Dar Crédito</button><button class="g" data-assign-seller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-cur="${esc(r.vendedor_id||'')}" data-curnom="${esc(r.vendedor_nombre||'')}">🤝 Asignar Vendedor</button><button class="g" data-set-credit="${r.id}" data-cur="${r.limite_credito!=null?r.limite_credito:0}" data-nom="${esc(r.nombre||r.email||'Usuario')}">💳 Crédito</button><button class="g" data-reset-pw="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" data-tel="${esc(r.telefono||'')}">🔑 Clave</button>${r.telefono?`<button class="g" data-wa-welcome="${r.id}" data-tel="${esc(r.telefono)}" data-nom="${esc(r.nombre||'Cliente')}">📲 WA</button>`:''}<button class="g" data-promote-reseller="${r.id}" data-nom="${esc(r.nombre||r.email||'Cliente')}" style="color:#38bdf8" title="Promover a Revendedor oficial con código RVD">🤝 Revendedor</button>`:t==='profiles_inventory'?`${r.estado==='disponible'?`<button class="g" data-admin-deliver-credit="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#facc15;border-color:rgba(250,204,21,.4);font-weight:700" title="Entregar este perfil a crédito directamente">💳 Entregar a Crédito</button><button class="g" data-admin-deliver-cash="${r.id}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" data-price="${r.products?.precio_usd||r.products?.precio_revendedor_usd||5.00}" style="padding:4px 8px;font-size:.73rem;color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Entregar este perfil al contado">⚡ Contado</button><button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar este perfil a un revendedor">🤝 Revendedor</button>`:(r.estado==='vendido'?`${r.no_renueva?'<span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800;margin-right:4px">🔴 NO RENUEVA</span>':''}<button class="g" data-admin-assign-reseller="${r.id}" data-cur-id="${esc(r.vendedor_id||'')}" data-cur-name="${esc(r.vendedor||'')}" data-client="${esc(r.cliente_final||r.customers?.nombre||'')}" data-tel="${esc(r.cliente_telefono||r.customers?.telefono||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-prof="${esc(r.nombre_perfil||'')}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Asignar o transferir este perfil y cliente a un revendedor">🤝 Revendedor</button><button class="g" data-notify-mother="${r.mother_id}" style="padding:4px 8px;font-size:.73rem;color:#38bdf8;border-color:rgba(56,189,248,.35);font-weight:700" title="Avisar credenciales actualizadas de esta cuenta madre">📢 Avisar</button><button class="g" data-release-prof="${r.id}" data-nom="${esc(r.nombre_perfil)}" data-pin="${esc(r.pin||'')}" data-srv="${esc(r.products?.nombre||r.mother_accounts?.plataforma||'Servicio')}" data-mail="${esc(r.mother_accounts?.correo||'')}" style="padding:4px 8px;font-size:.73rem;${r.no_renueva?'background:rgba(239,68,68,.25);color:#f87171;border-color:#ef4444;font-weight:800':'color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700'}" title="Liberar perfil para la venta">${r.no_renueva?'🔓 Liberar YA':'🔓 Liberar'}</button><button class="g" data-tr-prof="${r.id}" style="padding:4px 8px;font-size:.73rem">🔀 Reponer</button>`:'')}`:'';
+const PK={settings:'key',exchange_rates:'fecha'};
 const cell=(r,c)=>{const v=r[c]; if(typeof v==='string'&&v.startsWith('enc:')) return `<button class="g" data-rv="${esc(v)}">ver</button>`;
   if(c==='created_at'||c==='creado'){
     if(!v) return '<span class="mut">—</span>';
@@ -8903,13 +8955,14 @@ const ADMIN_MENU_SISTEMA = [
     group: '⚙️ Inventario & Sistema',
     items: [
       { id: 'plantillas', label: 'Plantillas Mensajes', icon: '💬' },
-      { id: 'google', label: 'Google Cloud', icon: '🌐' },
       { id: 'settings', label: 'Ajustes', icon: '⚙️' }
     ]
   }
 ];
 
 const ALL_ADMIN_MENUS = [...ADMIN_MENU_OPERACIONES, ...ADMIN_MENU_FINANZAS, ...ADMIN_MENU_SISTEMA];
+
+const HIDDEN_ADMIN_MODULES = new Set(['login_log', 'google_integrations', 'google', 'telegram', 'recargas247', 'dev_studio']);
 
 function getActiveAdminMenu(){
   const mode = S.adminViewMode || localStorage.getItem('gi_admin_mode') || 'operaciones';
@@ -8920,7 +8973,7 @@ function getActiveAdminMenu(){
 }
 
 function getTabInfo(t){
-  const ALIAS = { installments: 'cuotas', google_integrations: 'google' };
+  const ALIAS = { installments: 'cuotas' };
   const effectiveKey = ALIAS[t] || t;
   for(const g of ALL_ADMIN_MENUS){
     const f = g.items.find(x => x.id === effectiveKey);
@@ -8931,13 +8984,12 @@ function getTabInfo(t){
 
 function renderAdminSidebar(curTab, allTabs){
   const ALIAS_TO_MODULE = {
-    installments: 'cuotas',
-    google_integrations: 'google'
+    installments: 'cuotas'
   };
   const activeMenu = getActiveAdminMenu();
   const curMode = S.adminViewMode || 'operaciones';
   const known = new Set(activeMenu.flatMap(g => g.items.map(i => i.id)));
-  const extra = allTabs.filter(k => !known.has(k) && !known.has(ALIAS_TO_MODULE[k]) && !ALL_ADMIN_MENUS.some(g => g.items.some(i => i.id === k)));
+  const extra = allTabs.filter(k => !HIDDEN_ADMIN_MODULES.has(k) && !known.has(k) && !known.has(ALIAS_TO_MODULE[k]) && !ALL_ADMIN_MENUS.some(g => g.items.some(i => i.id === k)));
   const groups = [...activeMenu];
   if(extra.length) groups.push({ group: 'Otras tablas', items: extra.map(k => ({ id: k, label: k, icon: '📄' })) });
 
@@ -8982,7 +9034,7 @@ function renderAdminSidebar(curTab, allTabs){
 }
 
 function rebuildAdminSidebar(targetTab){
-  const tabs = [...Object.keys(TABLES), ...Object.keys(EXTRA)];
+  const tabs = [...Object.keys(TABLES), ...Object.keys(EXTRA)].filter(k => !HIDDEN_ADMIN_MODULES.has(k));
   const sideHtml = renderAdminSidebar(targetTab, tabs);
   const oldSidebar = $('#adminSidebar');
   const oldBackdrop = $('#adminBackdrop');
@@ -9465,7 +9517,7 @@ window.invalidateAdminCache = invalidateAdminCache;
 
 async function admin(t, opts = {}){
   if(t === 'installments') t = 'cuotas';
-  if(t === 'google_integrations') t = 'google';
+  if(HIDDEN_ADMIN_MODULES.has(t)) t = 'orders';
   if(t === 'gemini') {
     if(window.openGeminiFloatingWidget) {
       window.openGeminiFloatingWidget();
@@ -10819,6 +10871,25 @@ async function admin(t, opts = {}){
     };
   });
   app.querySelectorAll('[data-gen]').forEach(b=>b.onclick=()=>genDlg(b.dataset.gen,()=>admin(t)));
+  app.querySelectorAll('[data-toggle-mother-activa]').forEach(b => {
+    b.onclick = async () => {
+      const mId = b.dataset.toggleMotherActiva;
+      const isCurrentlyActive = b.dataset.activa === '1';
+      const newActive = !isCurrentlyActive;
+      const actionTxt = newActive ? 'activar' : 'desactivar';
+      if (!confirm(`¿Deseas ${actionTxt} esta cuenta madre? ${newActive ? 'Sus perfiles volverán a estar disponibles en la tienda.' : 'Sus perfiles pasarán automáticamente a no disponibles en el catálogo de la tienda/app, pero se preservarán todos sus datos y contraseñas.'}`)) return;
+      b.disabled = true;
+      const { error } = await sb.from('mother_accounts').update({ activa: newActive }).eq('id', mId);
+      if (error) {
+        b.disabled = false;
+        return toast('Error al actualizar cuenta madre: ' + error.message);
+      }
+      invalidateAdminCache('mother_accounts');
+      invalidateAdminCache('profiles_inventory');
+      toast(`Cuenta madre ${newActive ? 'activada' : 'desactivada'} con éxito.`);
+      admin(t);
+    };
+  });
   app.querySelectorAll('[data-notify-mother]').forEach(b=>b.onclick=()=>notifyMotherClients(b.dataset.notifyMother));
   app.querySelectorAll('[data-preview-banner]').forEach(b => {
     b.onclick = () => {

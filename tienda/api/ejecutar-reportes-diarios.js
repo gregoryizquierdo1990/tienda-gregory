@@ -100,7 +100,7 @@ export default async function handler(req, res) {
         sbRest(`customers?creado=gte.${hace24h}&order=creado.desc&select=id,nombre,email,telefono,codigo_identificacion,creado,es_revendedor`).catch(() => []),
         sbRest(`customers?solicita_revendedor=eq.true&es_revendedor=eq.false&order=solicita_revendedor_at.desc&select=id,nombre,email,telefono,codigo_identificacion,solicita_revendedor_at`).catch(() => []),
         sbRest(`zeny_ledger?tipo=eq.recarga&estado=eq.pendiente&order=created_at.desc&select=id,monto,referencia,created_at,customers(nombre,telefono,codigo_identificacion)`).catch(() => []),
-        sbRest(`mother_accounts?activa=eq.true&vence=eq.${hoy}&select=id,plataforma,correo,vence,max_perfiles,proveedor`).catch(() => []),
+        sbRest(`rpc/get_mother_accounts_expiry_report`, { method: 'POST', body: JSON.stringify({ p_date: hoy }) }).catch(() => []),
         sbRest(`orders?estado=in.(entregado,pagado)&vence=in.(${hoy},${ayer})&select=id,inicia,vence,referencia,total_usd,customers!customer_id(id,nombre,email,telefono,telegram_chat_id,es_revendedor),products(nombre)`).catch(() => []),
         sbRest(`profiles_inventory?estado=eq.vendido&vence=in.(${hoy},${ayer})&select=id,nombre_perfil,pin,vence,cliente_final,cliente_telefono,vendedor,mother_accounts(plataforma,correo)`).catch(() => [])
       ]);
@@ -133,17 +133,21 @@ export default async function handler(req, res) {
       await sendEsteban(estebanSummary);
       resultados.reportes_enviados.push('Esteban: Resumen Matutino');
 
-      // 2. Cuentas Madres por vencer
+      // 2. Cuentas Madres por vencer (con perfiles y revendedores asignados)
       if (mothers.length > 0) {
         let msgMadres = `🔑 <b>2. CUENTAS MADRE POR VENCER HOY (${formatearFecha(hoy)})</b>\n` +
           `Total a renovar con proveedores: <b>${mothers.length}</b>\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
         mothers.forEach((m, idx) => {
-          msgMadres += `${idx + 1}. <b>${escHtml(m.plataforma || 'Plataforma')}</b>\n` +
-            `   📧 <code>${escHtml(m.correo)}</code>\n` +
-            `   🤝 Proveedor: <b>${escHtml(m.proveedor || 'No especificado')}</b>\n` +
-            `   👥 Perfiles: ${m.max_perfiles || 5}\n\n`;
+          const perfs = (m.perfiles || []).map(p => {
+            const perfName = p.perfil || 'Perfil';
+            const cliExtra = (p.cliente && p.cliente !== perfName) ? ` (${p.cliente})` : '';
+            return `${perfName}${cliExtra} / Rev. ${p.revendedor || 'Central'}`;
+          }).join(', ');
+
+          msgMadres += `${idx + 1}. <b>${escHtml(m.plataforma || 'Cuenta')}</b>\n` +
+            `   Vencimiento de <code>${escHtml(m.correo)}</code> // Clave: <code>${escHtml(m.clave || 'Sin clave')}</code> // Proveedor: <b>${escHtml(m.proveedor || 'No especificado')}</b> // Perfiles: ${escHtml(perfs || 'Sin perfiles asignados')}\n\n`;
         });
         msgMadres += `⚠️ <i>Gestionar la renovación con el proveedor para no interrumpir pantallas.</i>`;
         await sendEsteban(msgMadres);

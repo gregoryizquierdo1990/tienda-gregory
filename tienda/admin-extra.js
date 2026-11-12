@@ -2554,7 +2554,7 @@ const EXTRA = {
         <div class="cal-sheet-notes" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <div>NOTAS / RESUMEN: Hoy vencen ${todayTotal} · Total mes: ${totalOrdersMonth} servicios clientes, ${totalMothersMonth} cuentas madre${calConnected ? ` y ${totalGcalMonth} eventos en Google Calendar.` : '.'}</div>
           <div style="font-size:.76rem;color:#8ea8c8">
-            Google Calendar (<code>${GCal.CAL_ID}</code>): <b style="${calConnected ? 'color:#00f5a0' : 'color:#ffb703'}">${calConnected ? '🟢 Sincronización Bidireccional Activa' : '⚠️ Desconectado'}</b>
+            Google Calendar (<code>${GCal.CAL_ID}</code>): <b style="${calConnected ? 'color:#00f5a0' : 'color:#ffb703'}">${calConnected ? '🟢 Sincronización Unidireccional Activa (Tienda ➔ Google Calendar)' : '⚠️ Desconectado'}</b>
           </div>
         </div>
       </div>
@@ -2594,73 +2594,39 @@ const EXTRA = {
       bOpen.onclick = () => GCal.openEmbedView();
     }
 
-    // Sincronización Bidireccional Manual
+    // Sincronización Unidireccional Manual (Tienda ➔ Google Calendar)
     const bSync = box.querySelector('#calSyncGCal');
     if (bSync) {
       bSync.onclick = e => run(e.target, async () => {
         if (!GCal.isConnected()) throw new Error('Conecta Google Calendar primero.');
 
-        // 1. Obtener eventos de Google Calendar del mes
+        // 1. Obtener eventos existentes en Google Calendar para este mes
         const gEvents = await GCal.listMonthEvents(state.year, state.month + 1);
         const gMap = new Map();
         for (const ev of gEvents) {
           gMap.set(ev.id, ev);
         }
 
-        // 2. Traer todos los pedidos del mes y los vinculados a Google Calendar
-        const [{ data: curOrders, error: curErr }, { data: linkedOrders }] = await Promise.all([
+        // 2. Traer todos los pedidos y cuentas madre del mes
+        const [{ data: curOrders, error: curErr }, { data: curMothers }] = await Promise.all([
           sb.from('orders')
             .select('id,customer_id,product_id,profile_id,inicia,vence,gcal_event_id,estado,customers!customer_id(nombre,email,telefono),products(nombre)')
             .not('vence', 'is', null)
             .gte('vence', startMonth)
             .lte('vence', endMonth),
-          sb.from('orders')
-            .select('id,customer_id,product_id,profile_id,inicia,vence,gcal_event_id,estado,customers!customer_id(nombre,email,telefono),products(nombre)')
-            .not('gcal_event_id', 'is', null)
+          sb.from('mother_accounts')
+            .select('id,plataforma,correo,vence,activa,proveedor')
+            .not('vence', 'is', null)
+            .gte('vence', startMonth)
+            .lte('vence', endMonth)
         ]);
         if (curErr) throw curErr;
 
-        const ordersMap = new Map();
-        (curOrders || []).forEach(o => ordersMap.set(o.id, o));
-        (linkedOrders || []).forEach(o => ordersMap.set(o.id, o));
-        const allOrders = Array.from(ordersMap.values());
-
-        let updatedFromCalendar = 0;
         let pushedToCalendar = 0;
-        let linkedFromCalendar = 0;
-        let totalGoogleEvents = gEvents.length;
+        let updatedInCalendar = 0;
+        const totalGoogleEvents = gEvents.length;
 
-        // A) Calendar -> Plataforma: Smart Matching y Actualización de fechas
-        for (const ev of gEvents) {
-          const evDate = GCal.getEventDate(ev);
-          let matchedOrd = allOrders.find(o => o.gcal_event_id === ev.id);
-
-          // Si no está vinculado por ID, buscar si el evento menciona el ID de pedido (#uuid o #8chars)
-          if (!matchedOrd) {
-            const txt = `${ev.summary || ''} ${ev.description || ''}`;
-            matchedOrd = allOrders.find(o => {
-              if (o.gcal_event_id) return false;
-              return txt.includes(o.id) || txt.includes(o.id.slice(0, 8));
-            });
-            if (matchedOrd) {
-              await sb.from('orders').update({ gcal_event_id: ev.id }).eq('id', matchedOrd.id);
-              matchedOrd.gcal_event_id = ev.id;
-              linkedFromCalendar++;
-            }
-          }
-
-          // Si el evento está enlazado a un pedido y su fecha cambió en Google Calendar, actualizar pedido en Supabase
-          if (matchedOrd && evDate && evDate !== matchedOrd.vence) {
-            await sb.from('orders').update({ vence: evDate, proximo_pago: evDate }).eq('id', matchedOrd.id);
-            if (matchedOrd.profile_id) {
-              try { await sb.from('profiles_inventory').update({ vence: evDate }).eq('id', matchedOrd.profile_id); } catch(e){}
-            }
-            matchedOrd.vence = evDate;
-            updatedFromCalendar++;
-          }
-        }
-
-        // B) Plataforma -> Calendar: Si hay pedidos activos/entregados sin evento en Calendar, crearlos
+        // Plataforma ➔ Calendar: Sincronizar pedidos hacia Google Calendar
         for (const ord of (curOrders || [])) {
           if (['pagado', 'entregado'].includes(ord.estado)) {
             const prodName = ord.products?.nombre || 'Servicio';
@@ -2680,7 +2646,7 @@ const EXTRA = {
                 pushedToCalendar++;
               }
             } else if (!gMap.has(ord.gcal_event_id)) {
-              // Si el evento fue eliminado en Google Calendar, recrearlo
+              // Si fue eliminado en Google Calendar, re-crearlo para mantener la sincronización
               const newEv = await GCal.createEvent({
                 summary: evSummary,
                 description: evDesc,
@@ -2691,18 +2657,40 @@ const EXTRA = {
                 ord.gcal_event_id = newEv.id;
                 pushedToCalendar++;
               }
+            } else {
+              // Si existe en GCal, asegurar que la fecha esté idéntica a la tienda
+              const ev = gMap.get(ord.gcal_event_id);
+              const evDate = GCal.getEventDate(ev);
+              if (evDate !== ord.vence) {
+                await GCal.updateEvent(ord.gcal_event_id, { summary: evSummary, description: evDesc, date: ord.vence });
+                updatedInCalendar++;
+              }
             }
           }
         }
 
+        // Plataforma ➔ Calendar: Sincronizar cuentas madre hacia Google Calendar
+        for (const m of (curMothers || [])) {
+          const mSummary = `Vence Cuenta Madre: ${m.plataforma} · ${m.correo}`;
+          const existingMothEv = gEvents.find(ev => (ev.summary || '').includes(m.correo));
+          if (!existingMothEv) {
+            const mDesc = `Cuenta Madre Oficial\nPlataforma: ${m.plataforma}\nCorreo: ${m.correo}\nProveedor: ${m.proveedor || 'N/A'}\nVence: ${m.vence}`;
+            await GCal.createEvent({
+              summary: mSummary,
+              description: mDesc,
+              date: m.vence
+            });
+            pushedToCalendar++;
+          }
+        }
+
         EXTRA.vencimientos(box);
-        let msg = `📅 Sincronización con Google Calendar completa:`;
+        let msg = `📅 Sincronización Unidireccional (Tienda ➔ Google Calendar) completa:`;
         msg += `\n• Eventos en Google Calendar: ${totalGoogleEvents}`;
-        if (pushedToCalendar > 0) msg += `\n• Pedidos subidos a Google Calendar: ${pushedToCalendar}`;
-        if (updatedFromCalendar > 0) msg += `\n• Fechas actualizadas desde Calendar: ${updatedFromCalendar}`;
-        if (linkedFromCalendar > 0) msg += `\n• Pedidos vinculados automáticamente: ${linkedFromCalendar}`;
-        if (pushedToCalendar === 0 && updatedFromCalendar === 0 && linkedFromCalendar === 0) {
-          msg += `\n• Todos los vencimientos y eventos están al día.`;
+        if (pushedToCalendar > 0) msg += `\n• Eventos enviados a Google Calendar: ${pushedToCalendar}`;
+        if (updatedInCalendar > 0) msg += `\n• Eventos actualizados en Google Calendar: ${updatedInCalendar}`;
+        if (pushedToCalendar === 0 && updatedInCalendar === 0) {
+          msg += `\n• Todos los vencimientos de la tienda están al día en Google Calendar.`;
         }
         return msg;
       });
@@ -4097,23 +4085,6 @@ Cobrar antes de ${fVenceCred}`;
       }
     };
     box.querySelectorAll('[data-go]').forEach(b => b.onclick = () => run(b, jobs[b.dataset.go]));
-  },
-
-  async telegram(box) {
-    if (!box) return;
-    const { data } = await sb.from('settings').select('value').eq('key', 'bot').maybeSingle();
-    if (!box.isConnected) {
-      const activeBox = document.getElementById('admin-pane-' + (typeof S !== 'undefined' ? (S.t || '') : '')) || document.querySelector('.admin-pane') || document.querySelector('#ex');
-      if (activeBox) box = activeBox;
-      else return;
-    }
-    box.innerHTML = `<p class="mut">Bot: ${data?.value?.username ? '✅ @' + esc(data.value.username) : '⚠️ sin conectar'}. El token se guarda cifrado en el servidor y nunca vuelve al navegador.</p>
-    <div class="row"><input id="tk" type="password" placeholder="Token de @BotFather" autocomplete="off" style="max-width:420px"><button id="cn">Conectar bot</button><button class="g" id="cm">Editar respuestas</button></div>
-    <p class="mut">Variables en las respuestas: {tasa} {telefono} {correo}. El comando * es la respuesta por defecto.</p>`;
-    const bCm = box.querySelector('#cm') || document.querySelector('#cm');
-    if (bCm) bCm.onclick = () => admin('bot_commands');
-    const bCn = box.querySelector('#cn') || document.querySelector('#cn');
-    if (bCn) bCn.onclick = e => run(e.target, async () => { const r = await api('/api/telegram-setup', { token: ($('#tk')?.value || '').trim() }); if ($('#tk')) $('#tk').value = ''; EXTRA.telegram(box); return 'Conectado: @' + r.bot; });
   },
 
   async cuotas(box) {
@@ -6788,684 +6759,6 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
         };
       };
     });
-  },
-
-  async recargas247(box) {
-    box.innerHTML = '<div style="text-align:center;padding:30px"><p class="mut">Cargando Red de Recargas247…</p></div>';
-
-    let subTab = box._r247Tab || 'abonos';
-
-    let puntos = [];
-    let abonos = [];
-    let tableError = false;
-
-    try {
-      const [rPuntos, rAbonos] = await Promise.all([
-        sb.from('recargas_puntos').select('*').order('created_at', { ascending: false }),
-        sb.from('recargas_abonos').select('*, recargas_puntos(nombre, apellido, telefono, nombre_taquilla)').order('created_at', { ascending: false })
-      ]);
-
-      if (rPuntos.error && rPuntos.error.code === 'PGRST205') tableError = true;
-      if (rAbonos.error && rAbonos.error.code === 'PGRST205') tableError = true;
-
-      puntos = rPuntos.data || [];
-      abonos = rAbonos.data || [];
-    } catch (e) {
-      console.warn('Tablas recargas247 no creadas aún:', e);
-      tableError = true;
-    }
-
-    const todayStr = new Date().toISOString().slice(0, 10);
-
-    // Métricas
-    const taquillasActivas = puntos.filter(p => p.estado === 'activo').length;
-    const canonesProyectadosUsd = puntos.filter(p => p.estado === 'activo').reduce((acc, p) => acc + Number(p.canon_mensual_usd || 0), 0);
-    const abonosPendientes = abonos.filter(a => a.estado === 'pendiente');
-    const totalGananciaComisiones = abonos.filter(a => a.estado === 'conciliado_abonado').reduce((acc, a) => acc + Number(a.ganancia_gregory_usd || 0), 0);
-
-    const render = () => {
-      box._r247Tab = subTab;
-      box.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:18px">
-          <div>
-            <h2 style="margin:0 0 6px;display:flex;align-items:center;gap:8px">
-              <span>📱 Red de Distribuidores de Recargas</span>
-              <span class="pill" style="font-size:.72rem;background:rgba(56,189,248,.15);color:#38bdf8;border:1px solid rgba(56,189,248,.3)">Recargas247.net</span>
-            </h2>
-            <p class="mut" style="font-size:.84rem;margin:0;max-width:680px">
-              Control maestro de revendedor: da de alta nuevas taquillas en tu red, supervisa el cobro de cánones mensuales y concilia compras de saldo obteniendo tu comisión de distribuidor.
-            </p>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <a href="https://www.recargas247.net" target="_blank" rel="noopener noreferrer" class="g" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid rgba(56,189,248,.4);color:#38bdf8">
-              <span>🌐 Abrir Panel Recargas247.net</span>
-              <svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
-            <button id="btnNewTaquilla" style="background:var(--grad);color:#03121c;font-weight:800;border:none;border-radius:10px;padding:8px 14px;cursor:pointer">
-              ➕ Registrar Nueva Taquilla
-            </button>
-            <button id="btnNewAbono" class="g" style="padding:8px 14px;border-radius:10px;cursor:pointer">
-              💰 Cargar Solicitud de Abono
-            </button>
-          </div>
-        </div>
-
-        ${tableError ? `
-          <div style="margin-bottom:18px;padding:14px 18px;background:rgba(234,179,8,.12);border:1.5px solid rgba(234,179,8,.4);border-radius:14px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-              <span style="font-size:1.3rem">⚠️</span>
-              <b style="color:#fde047;font-size:.92rem">Tablas de Base de Datos no detectadas</b>
-            </div>
-            <p class="mut" style="font-size:.82rem;margin:0 0 10px;color:#fef08a">
-              Para comenzar a guardar taquillas y abonos en Supabase, ejecuta el script <b>supabase/migracion_20_gaming_y_recargas247.sql</b> en tu panel SQL de Supabase.
-            </p>
-          </div>
-        ` : ''}
-
-        <!-- Tarjetas de Métricas -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:20px">
-          <div class="card" style="padding:16px">
-            <div class="mut" style="font-size:.78rem">🏪 Taquillas en Red</div>
-            <div class="price" style="font-size:1.75rem;margin:6px 0 2px">${taquillasActivas} <span style="font-size:.9rem;color:var(--mut)">/ ${puntos.length}</span></div>
-            <div class="mut" style="font-size:.74rem">Puntos de recarga activos</div>
-          </div>
-          <div class="card" style="padding:16px">
-            <div class="mut" style="font-size:.78rem">💵 Cánones Mensuales</div>
-            <div class="price" style="font-size:1.75rem;margin:6px 0 2px">$${canonesProyectadosUsd.toFixed(2)} <span style="font-size:.85rem;color:var(--mut)">USD/mes</span></div>
-            <div class="mut" style="font-size:.74rem">Mantenimiento de plataforma</div>
-          </div>
-          <div class="card" style="padding:16px">
-            <div class="mut" style="font-size:.78rem">⏳ Abonos por Conciliar</div>
-            <div class="price" style="font-size:1.75rem;margin:6px 0 2px;color:${abonosPendientes.length ? '#fde047' : 'var(--tx)'}">${abonosPendientes.length}</div>
-            <div class="mut" style="font-size:.74rem">Depósitos de saldo pendientes</div>
-          </div>
-          <div class="card" style="padding:16px">
-            <div class="mut" style="font-size:.78rem">💰 Ganancia Comisiones</div>
-            <div class="price" style="font-size:1.75rem;margin:6px 0 2px;color:var(--c)">$${totalGananciaComisiones.toFixed(2)} <span style="font-size:.85rem;color:var(--mut)">USD</span></div>
-            <div class="mut" style="font-size:.74rem">Comisión retenida en depósitos</div>
-          </div>
-        </div>
-
-        <!-- Pestañas de sub-módulos -->
-        <div style="display:flex;gap:8px;border-bottom:1px solid var(--line);margin-bottom:16px">
-          <button id="tabAbonos" class="${subTab === 'abonos' ? '' : 'g'}" style="border-radius:10px 10px 0 0;padding:10px 18px;font-size:.84rem;font-weight:700;border-bottom:none">
-            📥 Solicitudes de Abono de Saldo (${abonos.length})
-          </button>
-          <button id="tabTaquillas" class="${subTab === 'taquillas' ? '' : 'g'}" style="border-radius:10px 10px 0 0;padding:10px 18px;font-size:.84rem;font-weight:700;border-bottom:none">
-            🏪 Directorio de Taquillas & Cánones (${puntos.length})
-          </button>
-        </div>
-
-        <!-- Vista Pestaña 1: Abonos y Depósitos -->
-        ${subTab === 'abonos' ? `
-          ${abonos.length ? `
-            <div class="wrap">
-              <table>
-                <tr>
-                  <th>Taquilla / Titular</th>
-                  <th>Depósito USD</th>
-                  <th>Comisión Gregory</th>
-                  <th>Saldo Acreditar 247</th>
-                  <th>Método / Ref</th>
-                  <th>Estado</th>
-                  <th>Fecha</th>
-                  <th>Acción</th>
-                </tr>
-                ${abonos.map(a => {
-                  const taqNom = a.recargas_puntos?.nombre_taquilla || 'Taquilla';
-                  const titNom = `${a.recargas_puntos?.nombre || ''} ${a.recargas_puntos?.apellido || ''}`.trim() || 'Titular';
-                  const tel = a.recargas_puntos?.telefono || '';
-                  const stPill = a.estado === 'conciliado_abonado' 
-                    ? '<span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.15);color:#00f5a0">✅ Conciliado</span>'
-                    : (a.estado === 'pendiente' 
-                      ? '<span class="pill" style="font-size:.7rem;background:rgba(234,179,8,.15);color:#fde047">⏳ Pendiente</span>'
-                      : '<span class="pill off" style="font-size:.7rem">❌ Rechazado</span>');
-
-                  return `
-                    <tr>
-                      <td>
-                        <b>${esc(taqNom)}</b>
-                        <div style="font-size:.74rem;color:var(--mut)">${esc(titNom)}</div>
-                      </td>
-                      <td><b>$${Number(a.monto_depositado_usd).toFixed(2)}</b></td>
-                      <td>
-                        <span style="color:var(--c);font-weight:700">+$${Number(a.ganancia_gregory_usd || 0).toFixed(2)}</span>
-                        <div style="font-size:.72rem;color:var(--mut)">(${Number(a.comision_distribuidor_pct || 3)}%)</div>
-                      </td>
-                      <td>
-                        <b style="color:#38bdf8;font-size:.95rem">$${Number(a.saldo_acreditado_usd || (a.monto_depositado_usd - (a.ganancia_gregory_usd||0))).toFixed(2)}</b>
-                      </td>
-                      <td>
-                        <div style="font-size:.78rem"><b>${esc(a.metodo_pago)}</b></div>
-                        <div style="font-size:.72rem;color:var(--mut)">Ref: <code>${esc(a.referencia)}</code></div>
-                      </td>
-                      <td>${stPill}</td>
-                      <td style="font-size:.74rem;color:var(--mut)">${a.created_at?.slice(0, 10)}</td>
-                      <td>
-                        ${a.estado === 'pendiente' ? `
-                          <div style="display:flex;gap:4px">
-                            <button data-abono-ok="${a.id}" data-ptoid="${a.punto_id}" data-monto="${a.monto_depositado_usd}" data-saldo="${a.saldo_acreditado_usd}" data-gan="${a.ganancia_gregory_usd}" data-nom="${esc(titNom)}" data-taq="${esc(taqNom)}" data-tel="${esc(tel)}" style="padding:4px 10px;font-size:.75rem">
-                              ✅ Conciliar
-                            </button>
-                            <button class="g" data-abono-rej="${a.id}" style="padding:4px 8px;font-size:.75rem">
-                              ✕
-                            </button>
-                          </div>
-                        ` : (a.estado === 'conciliado_abonado' && tel ? `
-                          <button class="g" data-abono-wa="${a.id}" data-nom="${esc(titNom)}" data-taq="${esc(taqNom)}" data-tel="${esc(tel)}" data-saldo="${a.saldo_acreditado_usd}" style="padding:4px 8px;font-size:.72rem">
-                            💬 Avisar WA
-                          </button>
-                        ` : '<span class="mut" style="font-size:.75rem">—</span>')}
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
-              </table>
-            </div>
-          ` : '<p class="mut empty">No hay solicitudes de abono registradas aún. Puedes cargar depósitos de saldo usando el botón superior.</p>'}
-        ` : `
-          <!-- Vista Pestaña 2: Directorio de Taquillas & Cánones -->
-          ${puntos.length ? `
-            <div class="wrap">
-              <table>
-                <tr>
-                  <th>Taquilla</th>
-                  <th>Titular & Contacto</th>
-                  <th>Ubicación</th>
-                  <th>Canon Mensual</th>
-                  <th>Vencimiento Canon</th>
-                  <th>Comisión</th>
-                  <th>Saldo Red</th>
-                  <th>Acción</th>
-                </tr>
-                ${puntos.map(p => {
-                  const isMora = p.fecha_vencimiento_canon < todayStr;
-                  const diffDays = Math.ceil((new Date(p.fecha_vencimiento_canon) - new Date(todayStr)) / 86400000);
-                  const isSoon = !isMora && diffDays <= 3;
-                  
-                  const duePill = isMora 
-                    ? `<span class="pill off" style="font-size:.7rem">⚠️ Vencido (${esc(p.fecha_vencimiento_canon)})</span>`
-                    : (isSoon 
-                      ? `<span class="pill" style="font-size:.7rem;background:rgba(234,179,8,.15);color:#fde047">⏳ Vence en ${diffDays}d (${esc(p.fecha_vencimiento_canon)})</span>`
-                      : `<span class="pill" style="font-size:.7rem;background:rgba(0,245,160,.15);color:#00f5a0">✅ Al día (${esc(p.fecha_vencimiento_canon)})</span>`);
-
-                  return `
-                    <tr>
-                      <td>
-                        <b>${esc(p.nombre_taquilla)}</b>
-                        <div style="font-size:.72rem;color:var(--mut)">Estado: <b style="color:${p.estado === 'activo' ? '#00f5a0' : '#ef4444'}">${esc(p.estado)}</b></div>
-                      </td>
-                      <td>
-                        <div><b>${esc(p.nombre)} ${esc(p.apellido)}</b></div>
-                        <div style="font-size:.74rem;color:var(--mut)">${esc(p.email)}</div>
-                        <div style="font-size:.74rem;color:#38bdf8">${esc(p.telefono)}</div>
-                      </td>
-                      <td>
-                        <div style="font-size:.78rem">${esc(p.estado_region)}</div>
-                        <div style="font-size:.72rem;color:var(--mut)">${esc(p.pais)}</div>
-                      </td>
-                      <td><b>$${Number(p.canon_mensual_usd).toFixed(2)}</b> <span style="font-size:.72rem;color:var(--mut)">/mes</span></td>
-                      <td>${duePill}</td>
-                      <td><b>${Number(p.comision_deposito_pct || 3)}%</b></td>
-                      <td><b style="color:var(--c)">$${Number(p.saldo_actual_247 || 0).toFixed(2)}</b></td>
-                      <td>
-                        <div style="display:flex;gap:4px;flex-wrap:wrap">
-                          <button class="g" data-wa-canon="${p.id}" data-nom="${esc(p.nombre)}" data-taq="${esc(p.nombre_taquilla)}" data-tel="${esc(p.telefono)}" data-canon="${p.canon_mensual_usd}" data-vence="${p.fecha_vencimiento_canon}" title="Cobrar canon por WhatsApp" style="padding:4px 8px;font-size:.72rem">
-                            💬 Cobrar WA
-                          </button>
-                          <button class="g" data-renovar-canon="${p.id}" data-taq="${esc(p.nombre_taquilla)}" title="Renovar canon por 30 días" style="padding:4px 8px;font-size:.72rem">
-                            📅 Renovar 30d
-                          </button>
-                          <button class="g" data-ver-clave="${p.id}" data-nom="${esc(p.nombre)}" data-mail="${esc(p.email)}" data-clave="${esc(p.clave_acceso || 'No registrada')}" style="padding:4px 8px;font-size:.72rem" title="Ver credenciales">
-                            🔑 Ver
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
-              </table>
-            </div>
-          ` : '<p class="mut empty">No hay taquillas registradas todavía. Pulsa el botón "Registrar Nueva Taquilla" para agregar la primera.</p>'}
-        `}
-      `;
-
-      // Eventos de Pestañas
-      const tabA = $('#tabAbonos');
-      const tabT = $('#tabTaquillas');
-      if (tabA) tabA.onclick = () => { subTab = 'abonos'; render(); };
-      if (tabT) tabT.onclick = () => { subTab = 'taquillas'; render(); };
-
-      // Modal: REGISTRAR NUEVA TAQUILLA (Exactos 8 campos oficiales pedidos por Gregory)
-      const btnNewTaq = $('#btnNewTaquilla');
-      if (btnNewTaq) btnNewTaq.onclick = () => {
-        $('#dlgBody').innerHTML = `
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <span style="font-size:1.4rem">🏪</span>
-            <div>
-              <h3 style="margin:0">REGISTRAR NUEVA TAQUILLA</h3>
-              <p class="mut" style="font-size:.78rem;margin:2px 0 0">Ingrese los datos del titular de la nueva taquilla en Recargas247.</p>
-            </div>
-          </div>
-          
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Nombre *</label>
-              <input id="taqNombre" placeholder="Ej: Pedro" required>
-            </div>
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Apellido *</label>
-              <input id="taqApellido" placeholder="Ej: Perez" required>
-            </div>
-            <div style="grid-column:1/-1">
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Email *</label>
-              <input id="taqEmail" type="email" placeholder="correo@ejemplo.com" required>
-            </div>
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Contraseña *</label>
-              <input id="taqClave" type="password" placeholder="Mínimo 6 caracteres" required>
-            </div>
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Confirmar contraseña *</label>
-              <input id="taqClaveConf" type="password" placeholder="Repite la contraseña" required>
-            </div>
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">País *</label>
-              <input id="taqPais" value="Venezuela" required>
-            </div>
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Estado *</label>
-              <input id="taqEstado" placeholder="Ej: Miranda / Distrito Capital" value="Distrito Capital" required>
-            </div>
-            <div style="grid-column:1/-1">
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Teléfono * (Ej: 584126665544)</label>
-              <input id="taqTelefono" placeholder="584126665544" required>
-            </div>
-            <div style="grid-column:1/-1">
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Nombre de la Taquilla (Punto Comercial)</label>
-              <input id="taqNombreComercial" placeholder="Ej: Bodega San Juan / Inversiones 2026" required>
-            </div>
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Canon Mensual ($ USD)</label>
-              <input id="taqCanon" type="number" step="0.5" value="5.00" required>
-            </div>
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Comisión sobre Depósito (%)</label>
-              <input id="taqComision" type="number" step="0.1" value="3.00" required>
-            </div>
-          </div>
-
-          <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-            <button class="g" onclick="dlg.close()">Cancelar</button>
-            <button id="btnSaveTaquilla" style="background:var(--grad);color:#03121c;font-weight:800;border:none">
-              Guardar y Crear Taquilla
-            </button>
-          </div>
-        `;
-        dlg.showModal();
-
-        $('#btnSaveTaquilla').onclick = async () => {
-          const btn = $('#btnSaveTaquilla');
-          btn.disabled = true;
-
-          const nom = $('#taqNombre').value.trim();
-          const ape = $('#taqApellido').value.trim();
-          const mail = $('#taqEmail').value.trim().toLowerCase();
-          const pass = $('#taqClave').value;
-          const passConf = $('#taqClaveConf').value;
-          const pais = $('#taqPais').value.trim() || 'Venezuela';
-          const est = $('#taqEstado').value.trim() || 'Distrito Capital';
-          const tel = $('#taqTelefono').value.replace(/\D/g, '');
-          const nomCom = $('#taqNombreComercial').value.trim() || `Taquilla ${nom}`;
-          const canon = parseFloat($('#taqCanon').value) || 5.00;
-          const comPct = parseFloat($('#taqComision').value) || 3.00;
-
-          if (!nom || !ape || !mail || !pass || !passConf || !tel) {
-            btn.disabled = false;
-            return toast('Por favor completa todos los campos obligatorios (*).');
-          }
-
-          if (pass !== passConf) {
-            btn.disabled = false;
-            return toast('Las contraseñas no coinciden. Verifícalas.');
-          }
-
-          if (pass.length < 6) {
-            btn.disabled = false;
-            return toast('La contraseña debe tener al menos 6 caracteres.');
-          }
-
-          const { data: newPt, error } = await sb.from('recargas_puntos').insert({
-            nombre: nom,
-            apellido: ape,
-            email: mail,
-            clave_acceso: pass,
-            pais: pais,
-            estado_region: est,
-            telefono: tel,
-            nombre_taquilla: nomCom,
-            canon_mensual_usd: canon,
-            comision_deposito_pct: comPct,
-            fecha_vencimiento_canon: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
-            estado: 'activo'
-          }).select().single();
-
-          if (error) {
-            btn.disabled = false;
-            return toast('Error al registrar taquilla: ' + error.message);
-          }
-
-          fetch('/api/notify-event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'solicitud_taquilla',
-              data: {
-                nombre_punto: nomCom,
-                titular: `${nom} ${ape}`,
-                telefono: tel,
-                ubicacion: `${est}, ${pais}`,
-                usuario_247: mail,
-                canon_usd: canon
-              }
-            })
-          }).catch(()=>{});
-
-          dlg.close();
-
-          const waMsg = encodeURIComponent(
-            `🎉 ¡Bienvenido a nuestra Red de Puntos de Recargas247!\n\n` +
-            `*Titular:* ${nom} ${ape}\n` +
-            `*Punto / Taquilla:* ${nomCom}\n` +
-            `*Panel Oficial:* https://www.recargas247.net\n` +
-            `*Usuario / Email:* ${mail}\n` +
-            `*Contraseña de acceso:* ${pass}\n\n` +
-            `*Condiciones de tu red:*\n` +
-            `• Canon mensual de mantenimiento: $${canon.toFixed(2)} USD\n` +
-            `• Comisión sobre compras de saldo: ${comPct}%\n\n` +
-            `Ya puedes acceder a la plataforma para comenzar a recargar. ¡Mucho éxito en tus ventas!`
-          );
-
-          $('#dlgBody').innerHTML = `
-            <div style="text-align:center;padding:10px 0">
-              <span style="font-size:2.5rem">🎉</span>
-              <h3 style="margin:10px 0 4px">¡Taquilla Creada Exitosamente!</h3>
-              <p class="mut" style="font-size:.85rem;margin:0 0 16px">
-                Se guardó <b>${esc(nomCom)}</b> (${esc(nom)} ${esc(ape)}) en tu base de datos.
-              </p>
-              
-              <div style="display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto">
-                <a href="https://wa.me/${tel}?text=${waMsg}" target="_blank" rel="noopener noreferrer" style="background:#25D366;color:#fff;padding:12px;border-radius:12px;text-decoration:none;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px">
-                  <span>💬 Enviar Accesos por WhatsApp</span>
-                </a>
-                <a href="https://www.recargas247.net" target="_blank" rel="noopener noreferrer" class="g" style="padding:10px;border-radius:12px;text-decoration:none;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">
-                  <span>🌐 Abrir Recargas247.net para validar</span>
-                </a>
-                <button class="g" onclick="dlg.close()">Cerrar</button>
-              </div>
-            </div>
-          `;
-          dlg.showModal();
-          EXTRA.recargas247(box);
-        };
-      };
-
-      // Modal: CARGAR SOLICITUD DE ABONO DE SALDO
-      const btnNewAb = $('#btnNewAbono');
-      if (btnNewAb) btnNewAb.onclick = () => {
-        if (!puntos.length) {
-          return toast('Primero debes registrar al menos una taquilla para cargar abonos.');
-        }
-
-        const ptoOptions = puntos.map(p => `<option value="${p.id}" data-pct="${p.comision_deposito_pct || 3}" data-nom="${esc(p.nombre_taquilla)}">${esc(p.nombre_taquilla)} (${esc(p.nombre)} ${esc(p.apellido)})</option>`).join('');
-
-        $('#dlgBody').innerHTML = `
-          <h3>Cargar Solicitud de Abono de Saldo</h3>
-          <p class="mut" style="font-size:.8rem;margin:0 0 14px">Registra un depósito solicitado por una taquilla. El sistema calculará tu ganancia por comisión automáticamente.</p>
-
-          <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Seleccionar Taquilla *</label>
-          <select id="abPuntoSelect" style="margin-bottom:10px">${ptoOptions}</select>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Monto Depositado ($ USD) *</label>
-              <input id="abMontoUsd" type="number" step="0.5" placeholder="Ej: 50.00" value="50.00" required>
-            </div>
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">% Comisión Distribuidor</label>
-              <input id="abComPct" type="number" step="0.1" value="${puntos[0]?.comision_deposito_pct || 3.00}" required>
-            </div>
-          </div>
-
-          <div style="background:rgba(56,189,248,.08);padding:10px 14px;border-radius:10px;border:1px solid rgba(56,189,248,.25);margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:.82rem">
-              <span>Ganancia para ti (Comisión):</span>
-              <b id="abGananciaText" style="color:var(--c)">$1.50 USD</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:.84rem">
-              <span>Saldo a Acreditar en Recargas247:</span>
-              <b id="abSaldoText" style="color:#38bdf8;font-size:1.05rem">$48.50 USD</b>
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Método de Pago *</label>
-              <select id="abMetodo">
-                <option value="Pago Móvil">Pago Móvil</option>
-                <option value="Binance USDT">Binance USDT</option>
-                <option value="Transferencia Bancaria">Transferencia Bancaria</option>
-                <option value="Billetera Zeny">Billetera Zeny</option>
-              </select>
-            </div>
-            <div>
-              <label class="mut" style="font-size:.76rem;display:block;margin-bottom:3px">Referencia Bancaria *</label>
-              <input id="abRef" placeholder="Ej: 8 dígitos comprobante" required>
-            </div>
-          </div>
-
-          <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-            <button class="g" onclick="dlg.close()">Cancelar</button>
-            <button id="btnSaveAbono" style="background:var(--grad);color:#03121c;font-weight:800;border:none">
-              Registrar Abono
-            </button>
-          </div>
-        `;
-        dlg.showModal();
-
-        const updateCalc = () => {
-          const m = parseFloat($('#abMontoUsd').value) || 0;
-          const p = parseFloat($('#abComPct').value) || 0;
-          const gan = Math.round((m * (p / 100)) * 100) / 100;
-          const sal = Math.round((m - gan) * 100) / 100;
-          $('#abGananciaText').textContent = `$${gan.toFixed(2)} USD`;
-          $('#abSaldoText').textContent = `$${sal.toFixed(2)} USD`;
-        };
-
-        $('#abMontoUsd').oninput = updateCalc;
-        $('#abComPct').oninput = updateCalc;
-        $('#abPuntoSelect').onchange = () => {
-          const opt = $('#abPuntoSelect').selectedOptions[0];
-          if (opt && opt.dataset.pct) {
-            $('#abComPct').value = opt.dataset.pct;
-            updateCalc();
-          }
-        };
-
-        $('#btnSaveAbono').onclick = async () => {
-          const btn = $('#btnSaveAbono');
-          btn.disabled = true;
-
-          const ptoId = $('#abPuntoSelect').value;
-          const mUsd = parseFloat($('#abMontoUsd').value) || 0;
-          const cPct = parseFloat($('#abComPct').value) || 0;
-          const met = $('#abMetodo').value;
-          const ref = $('#abRef').value.trim();
-
-          if (mUsd <= 0 || !ref) {
-            btn.disabled = false;
-            return toast('Ingresa un monto válido y la referencia del depósito.');
-          }
-
-          const gan = Math.round((mUsd * (cPct / 100)) * 100) / 100;
-          const sal = Math.round((mUsd - gan) * 100) / 100;
-
-          const { error: abErr } = await sb.from('recargas_abonos').insert({
-            punto_id: ptoId,
-            monto_depositado_usd: mUsd,
-            comision_distribuidor_pct: cPct,
-            ganancia_gregory_usd: gan,
-            saldo_acreditado_usd: sal,
-            metodo_pago: met,
-            referencia: ref,
-            estado: 'pendiente'
-          });
-
-          if (abErr) {
-            btn.disabled = false;
-            return toast('Error al registrar abono: ' + abErr.message);
-          }
-
-          dlg.close();
-          toast('Solicitud de abono registrada con éxito.');
-          EXTRA.recargas247(box);
-        };
-      };
-
-      // Acciones de Abono: CONCILIAR Y ACREDITAR
-      box.querySelectorAll('[data-abono-ok]').forEach(btn => {
-        btn.onclick = async () => {
-          const abId = btn.dataset.abonoOk;
-          const ptoId = btn.dataset.ptoid;
-          const monto = parseFloat(btn.dataset.monto);
-          const saldo = parseFloat(btn.dataset.saldo);
-          const nom = btn.dataset.nom;
-          const taq = btn.dataset.taq;
-          const tel = btn.dataset.tel;
-
-          if (!confirm(`¿Confirmas la conciliación del abono de $${monto.toFixed(2)} USD para la taquilla "${taq}"? Se le acreditarán $${saldo.toFixed(2)} USD en Recargas247.`)) {
-            return;
-          }
-
-          btn.disabled = true;
-          const { error: updErr } = await sb.from('recargas_abonos').update({
-            estado: 'conciliado_abonado',
-            abonado_at: new Date().toISOString()
-          }).eq('id', abId);
-
-          if (updErr) {
-            btn.disabled = false;
-            return toast('Error al conciliar abono: ' + updErr.message);
-          }
-
-          if (ptoId) {
-            const pto = puntos.find(x => x.id === ptoId);
-            const curSaldo = Number(pto?.saldo_actual_247 || 0);
-            try {
-              await sb.from('recargas_puntos').update({
-                saldo_actual_247: Math.round((curSaldo + saldo) * 100) / 100,
-                updated_at: new Date().toISOString()
-              }).eq('id', ptoId);
-            } catch(e){}
-          }
-
-          toast(`¡Abono conciliado con éxito para ${taq}!`);
-
-          if (tel) {
-            const waText = encodeURIComponent(
-              `✅ ¡Tu compra de saldo ha sido conciliada exitosamente!\n\n` +
-              `*Taquilla:* ${taq}\n` +
-              `*Monto pagado:* $${monto.toFixed(2)} USD\n` +
-              `*Saldo acreditado en Recargas247:* $${saldo.toFixed(2)} USD\n\n` +
-              `Ya tienes tus fondos disponibles en https://www.recargas247.net para seguir recargando. ¡Gracias por tu confianza!`
-            );
-            window.open(`https://wa.me/${tel}?text=${waText}`, '_blank');
-          }
-
-          EXTRA.recargas247(box);
-        };
-      });
-
-      // Acciones de Abono: RECHAZAR
-      box.querySelectorAll('[data-abono-rej]').forEach(btn => {
-        btn.onclick = async () => {
-          const abId = btn.dataset.abonoRej;
-          if (!confirm('¿Deseas rechazar esta solicitud de abono?')) return;
-          await sb.from('recargas_abonos').update({ estado: 'rechazado' }).eq('id', abId);
-          toast('Abono marcado como rechazado.');
-          EXTRA.recargas247(box);
-        };
-      });
-
-      // Acciones de Abono: AVISO POR WHATSAPP
-      box.querySelectorAll('[data-abono-wa]').forEach(btn => {
-        btn.onclick = () => {
-          const tel = btn.dataset.tel;
-          const taq = btn.dataset.taq;
-          const saldo = btn.dataset.saldo;
-          const waText = `✅ ¡Hola! Te confirmamos que tu saldo de *$${saldo} USD* se encuentra disponible y activo en tu taquilla *${taq}* en https://www.recargas247.net. ¡Éxitos en tus ventas!`;
-          openWhatsApp(tel, waText);
-        };
-      });
-
-      // Acciones de Taquillas: COBRAR CANON WA
-      box.querySelectorAll('[data-wa-canon]').forEach(btn => {
-        btn.onclick = () => {
-          const tel = btn.dataset.tel;
-          const nom = btn.dataset.nom;
-          const taq = btn.dataset.taq;
-          const canon = btn.dataset.canon;
-          const vence = btn.dataset.vence;
-
-          const msg = `👋 Hola ${nom}, te saludamos de la administración.\n\n` +
-            `Te recordamos que el canon mensual de mantenimiento para tu punto de recarga *${taq}* ($${Number(canon).toFixed(2)} USD) vence el *${vence}*.\n\n` +
-            `Por favor remítenos tu comprobante de pago por esta vía para mantener tu taquilla operativa en nuestra red de https://www.recargas247.net.\n\n` +
-            `¡Muchas gracias y feliz jornada!`;
-          openWhatsApp(tel, msg);
-        };
-      });
-
-      // Acciones de Taquillas: RENOVAR CANON 30 DÍAS
-      box.querySelectorAll('[data-renovar-canon]').forEach(btn => {
-        btn.onclick = async () => {
-          const pId = btn.dataset.renovarCanon;
-          const taq = btn.dataset.taq;
-          const nextDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-          if (!confirm(`¿Renovar por 30 días el canon de la taquilla "${taq}" hasta el ${nextDate}?`)) return;
-
-          const { error } = await sb.from('recargas_puntos').update({
-            fecha_vencimiento_canon: nextDate,
-            estado: 'activo',
-            updated_at: new Date().toISOString()
-          }).eq('id', pId);
-
-          if (error) return toast(error.message);
-          toast(`Canon de ${taq} renovado hasta el ${nextDate}.`);
-          EXTRA.recargas247(box);
-        };
-      });
-
-      // Acciones de Taquillas: VER CREDENCIALES
-      box.querySelectorAll('[data-ver-clave]').forEach(btn => {
-        btn.onclick = () => {
-          $('#dlgBody').innerHTML = `
-            <h3>Credenciales de la Taquilla</h3>
-            <div style="background:rgba(255,255,255,.05);padding:14px;border-radius:12px;margin:12px 0">
-              <div style="margin-bottom:8px"><b>Titular:</b> ${esc(btn.dataset.nom)}</div>
-              <div style="margin-bottom:8px"><b>Email / Usuario:</b> <code>${esc(btn.dataset.mail)}</code></div>
-              <div><b>Contraseña registrada:</b> <code>${esc(btn.dataset.clave)}</code></div>
-            </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end">
-              <a href="https://www.recargas247.net" target="_blank" rel="noopener noreferrer" class="g" style="padding:8px 12px;border-radius:8px;text-decoration:none;font-size:.82rem">Abrir Recargas247</a>
-              <button class="g" onclick="dlg.close()">Cerrar</button>
-            </div>
-          `;
-          dlg.showModal();
-        };
-      });
-    };
-
-    render();
   },
 
   async mesa_cambio(box) {
@@ -10183,6 +9476,7 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                   const isPablo = r.nombre?.toLowerCase().includes('pablo') || r.email?.toLowerCase().includes('pacun');
                   const limitCredit = Number(r.limite_credito || (isPablo ? 30.00 : 0.00));
                   const availableCredit = Math.max(0, limitCredit - usedCredit);
+                  const isCreditActive = r.credito_activo !== false;
 
                   const cleanPhone = (r.telefono || '').replace(/\D/g, '');
                   const waUrl = cleanPhone ? `https://wa.me/${cleanPhone.startsWith('58') ? cleanPhone : ('58' + cleanPhone.replace(/^0+/, ''))}` : '';
@@ -10216,6 +9510,11 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                         </div>
                       </td>
                       <td style="padding:10px 14px">
+                        ${!isCreditActive ? `
+                          <div style="margin-bottom:4px">
+                            <span class="pill" style="font-size:.68rem;background:rgba(239,68,68,.2);color:#f87171;border-color:rgba(239,68,68,.4);font-weight:800">🔴 CRÉDITO PAUSADO</span>
+                          </div>
+                        ` : ''}
                         <div style="font-size:.82rem">
                           <span class="mut" style="font-size:.68rem;display:block">Límite Otorgado:</span>
                           <b style="color:#fbbf24">$${limitCredit.toFixed(2)} USD</b>
@@ -10245,6 +9544,15 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
                           <button class="g" data-view-portfolio="${esc(r.id)}" data-nom="${esc(r.nombre)}" data-code="${esc(code)}" style="padding:4px 8px;font-size:.74rem" title="Ver clientes y perfiles">
                             👥 Cartera
                           </button>
+                          ${isCreditActive ? `
+                            <button class="g" data-reseller-toggle-credit="${esc(r.id)}" data-active="1" data-nom="${esc(r.nombre)}" style="padding:4px 8px;font-size:.74rem;background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.35);font-weight:700" title="Pausar crédito">
+                              ⏸️ Pausar Crédito
+                            </button>
+                          ` : `
+                            <button class="g" data-reseller-toggle-credit="${esc(r.id)}" data-active="0" data-cur="${limitCredit}" data-nom="${esc(r.nombre)}" style="padding:4px 8px;font-size:.74rem;background:rgba(0,245,160,.18);color:#00f5a0;border-color:rgba(0,245,160,.4);font-weight:700" title="Activar crédito y editar cupo">
+                              ▶️ Activar Crédito
+                            </button>
+                          `}
                           <button class="g" data-reseller-credit="${esc(r.id)}" data-cur="${limitCredit}" data-nom="${esc(r.nombre)}" style="padding:4px 8px;font-size:.74rem" title="Ajustar límite de crédito">
                             ⚙️ Línea
                           </button>
@@ -10652,6 +9960,39 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
           };
         });
 
+        box.querySelectorAll('[data-reseller-toggle-credit]').forEach(b => {
+          b.onclick = async () => {
+            const sellerId = b.dataset.resellerToggleCredit;
+            const isActive = b.dataset.active === '1';
+            const nom = b.dataset.nom;
+            if (isActive) {
+              if (!confirm(`¿Pausar la línea de crédito para "${nom}"?\n\nEl revendedor no podrá realizar pedidos a crédito hasta que sea reactivado.`)) return;
+              b.disabled = true;
+              const { error } = await sb.from('customers').update({ credito_activo: false }).eq('id', sellerId);
+              if (error) {
+                b.disabled = false;
+                return toast('Error al pausar crédito: ' + error.message);
+              }
+              toast(`Línea de crédito pausada para ${nom}`);
+              EXTRA.resellers(box);
+            } else {
+              const cur = parseFloat(b.dataset.cur || '30.00');
+              const val = prompt(`Ingresa el monto de crédito en USD para activar la línea de "${nom}":`, cur > 0 ? cur.toString() : '30.00');
+              if (val === null) return;
+              const num = parseFloat(val);
+              if (isNaN(num) || num < 0) return toast('Monto inválido');
+              b.disabled = true;
+              const { error } = await sb.from('customers').update({ credito_activo: true, limite_credito: num }).eq('id', sellerId);
+              if (error) {
+                b.disabled = false;
+                return toast('Error al activar crédito: ' + error.message);
+              }
+              toast(`Línea de crédito activada ($${num.toFixed(2)} USD) para ${nom}`);
+              EXTRA.resellers(box);
+            }
+          };
+        });
+
         box.querySelectorAll('[data-reseller-pw]').forEach(b => {
           b.onclick = async () => {
             const sellerId = b.dataset.resellerPw;
@@ -10749,791 +10090,8 @@ grant execute on function activate_zeny_card(text, text) to authenticated;`;
       console.error('Error cargando módulo resellers:', err);
       box.innerHTML = `<div class="card" style="border:1.5px solid #ef4444;background:rgba(239,68,68,.08);padding:20px;text-align:center"><h3 style="color:#f87171">Error al cargar red de revendedores</h3><p class="mut">${esc(err.message)}</p></div>`;
     }
-  },
-
-  async dev_studio(box) {
-    if (!box._devState) {
-      box._devState = {
-        activeTab: 'chat', // 'chat', 'editor', 'commits', 'database', 'logs'
-        chatHistory: [],
-        selectedFile: 'tienda/admin-extra.js',
-        fileContent: '',
-        fileSha: '',
-        fileLoading: false,
-        files: [
-          'tienda/index.html',
-          'tienda/admin-extra.js',
-          'tienda/api/conciliar-bdv.js',
-          'tienda/api/notify-event.js',
-          'tienda/api/dev-studio.js',
-          'tienda/api/telegram.js',
-          'tienda/api/gemini.js',
-          'tienda/vercel.json'
-        ],
-        commits: [],
-        logs: [`[${new Date().toLocaleTimeString('es-VE')}] Dev Studio inicializado.`],
-        model: 'gemini-2.5-flash',
-        status: { gemini_configured: false, github_configured: false, repo: 'gregoryizquierdo1990/tienda-gregory', branch: 'main' }
-      };
-    }
-    const S_DEV = box._devState;
-
-    const addLog = msg => {
-      const line = `[${new Date().toLocaleTimeString('es-VE')}] ${msg}`;
-      S_DEV.logs.push(line);
-      const logEl = box.querySelector('#devTerminalBody');
-      if (logEl) {
-        logEl.innerHTML += `<div>${esc(line)}</div>`;
-        logEl.scrollTop = logEl.scrollHeight;
-      }
-    };
-
-    // 1. Cargar estado del servidor
-    const fetchStatus = async () => {
-      try {
-        const res = await api('/api/dev-studio', { action: 'status' });
-        if (res.ok) {
-          S_DEV.status = res;
-          addLog(`Estado de conexiones: Gemini ${res.gemini_configured ? 'Activo' : 'Sin clave'}, GitHub ${res.github_configured ? 'Conectado (' + res.repo + ')' : 'Sin token'}.`);
-        }
-      } catch (err) {
-        addLog('Error verificando estado: ' + err.message);
-      }
-    };
-
-    // 2. Cargar commits de GitHub
-    const fetchCommits = async () => {
-      try {
-        addLog('Consultando historial de commits en GitHub...');
-        const res = await api('/api/dev-studio', { action: 'list_commits' });
-        if (res.ok && res.commits) {
-          S_DEV.commits = res.commits;
-          addLog(`Se cargaron ${res.commits.length} commits recientes desde GitHub.`);
-        }
-      } catch (err) {
-        addLog('Aviso commits: ' + err.message);
-      }
-    };
-
-    // 3. Cargar lista de archivos de GitHub
-    const fetchFiles = async () => {
-      try {
-        const res = await api('/api/dev-studio', { action: 'list_files' });
-        if (res.ok && res.files && res.files.length) {
-          S_DEV.files = res.files;
-        }
-      } catch (err) {}
-    };
-
-    // 4. Cargar archivo específico al editor
-    const loadFileToEditor = async (filePath) => {
-      S_DEV.selectedFile = filePath;
-      S_DEV.fileLoading = true;
-      addLog(`Cargando archivo: ${filePath}...`);
-      render();
-
-      try {
-        const res = await api('/api/dev-studio', { action: 'get_file', path: filePath });
-        if (res.ok) {
-          S_DEV.fileContent = res.content || '';
-          S_DEV.fileSha = res.sha || '';
-          addLog(`Archivo ${filePath} cargado (${res.size || S_DEV.fileContent.length} bytes, SHA: ${res.sha ? res.sha.slice(0, 7) : 'N/A'}).`);
-        } else {
-          toast(res.error || 'No se pudo cargar el archivo.');
-          addLog('Error cargando archivo: ' + (res.error || 'Desconocido'));
-        }
-      } catch (err) {
-        toast('Error al leer de GitHub: ' + err.message);
-        addLog('Fallo al obtener archivo: ' + err.message);
-      } finally {
-        S_DEV.fileLoading = false;
-        render();
-      }
-    };
-
-    // Inicialización al abrir
-    if (!S_DEV._initialized) {
-      S_DEV._initialized = true;
-      await fetchStatus();
-      if (S_DEV.status.github_configured) {
-        fetchCommits();
-        fetchFiles();
-      }
-    }
-
-    const render = () => {
-      const st = S_DEV.status;
-      const isGeminiOk = !!st.gemini_configured;
-      const isGithubOk = !!st.github_configured;
-
-      box.innerHTML = `
-        <div style="display:flex;flex-direction:column;gap:14px">
-          <!-- BARRA SUPERIOR DE DEV STUDIO -->
-          <div class="card" style="margin-bottom:0;background:linear-gradient(135deg,rgba(7,19,38,.96),rgba(4,12,26,.98));border:1.5px solid rgba(0,212,255,.3);box-shadow:0 8px 32px rgba(0,0,0,.4)">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-              <div style="display:flex;align-items:center;gap:12px">
-                <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#00f5a0,#00d4ff);display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 0 20px rgba(0,245,160,.4)">
-                  💻
-                </div>
-                <div>
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <h3 style="margin:0;font-size:1.2rem;color:#fff;font-weight:800;letter-spacing:.5px">Dev Studio AI</h3>
-                    <span class="pill" style="font-size:.65rem;background:rgba(0,212,255,.15);color:#00d4ff;border:1px solid rgba(0,212,255,.35);font-weight:800">Agente Autónomo</span>
-                  </div>
-                  <div class="mut" style="font-size:.76rem;margin-top:2px">
-                    Control de desarrollo, inspección de código, commits a GitHub y despliegues en vivo
-                  </div>
-                </div>
-              </div>
-
-              <!-- ESTADOS Y BOTONES DE ACCIÓN RÁPIDA -->
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <span class="pill" style="font-size:.72rem;${isGeminiOk ? 'background:rgba(0,245,160,.12);color:#00f5a0;border:1px solid rgba(0,245,160,.3)' : 'background:rgba(234,179,8,.15);color:#fde047;border:1px solid rgba(234,179,8,.35)'}" title="Estado de conexión con Gemini">
-                  ${isGeminiOk ? '✨ Gemini Activo' : '⚠️ Falta Gemini Key'}
-                </span>
-
-                <span class="pill" style="font-size:.72rem;${isGithubOk ? 'background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.3)' : 'background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3)'}" title="Estado del repositorio GitHub">
-                  🐙 ${isGithubOk ? esc(st.repo || 'GitHub') : '⚠️ Conectar GitHub'}
-                </span>
-
-                <select id="selDevModel" style="padding:5px 8px;font-size:.75rem;background:rgba(12,28,52,.9);border-color:var(--line);border-radius:8px">
-                  <option value="gemini-2.5-flash" ${S_DEV.model === 'gemini-2.5-flash' ? 'selected' : ''}>⚡ Gemini 2.5 Flash (Rápido)</option>
-                  <option value="gemini-2.5-pro" ${S_DEV.model === 'gemini-2.5-pro' ? 'selected' : ''}>🧠 Gemini 2.5 Pro (Deep Code)</option>
-                </select>
-
-                <button class="g" id="btnDevSettings" type="button" style="padding:6px 12px;font-size:.78rem;font-weight:700">
-                  ⚙️ Configurar APIs
-                </button>
-
-                <button class="g" id="btnDevOpenLiveSite" type="button" style="padding:6px 12px;font-size:.78rem;color:#00f5a0;font-weight:700">
-                  🚀 Ver Tienda en Vivo
-                </button>
-              </div>
-            </div>
-
-            <!-- NAVEGADOR DE PESTAÑAS DEL ESTUDIO -->
-            <div style="display:flex;gap:6px;margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);overflow-x:auto">
-              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'chat' ? 'active-tab' : ''}" data-tab="chat" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'chat' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
-                🤖 Chat con Agente IA
-              </button>
-              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'editor' ? 'active-tab' : ''}" data-tab="editor" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'editor' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
-                📝 Editor de Código & Deploy
-              </button>
-              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'commits' ? 'active-tab' : ''}" data-tab="commits" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'commits' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
-                📜 Commits en GitHub (${S_DEV.commits.length})
-              </button>
-              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'database' ? 'active-tab' : ''}" data-tab="database" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'database' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
-                🗄️ Consola SQL Supabase
-              </button>
-              <button type="button" class="g btn-dev-tab ${S_DEV.activeTab === 'logs' ? 'active-tab' : ''}" data-tab="logs" style="padding:6px 14px;font-size:.8rem;font-weight:700;border-radius:8px;${S_DEV.activeTab === 'logs' ? 'background:linear-gradient(135deg,rgba(0,212,255,.25),rgba(0,245,160,.2));color:#00d4ff;border-color:rgba(0,212,255,.5)' : ''}">
-                📋 Terminal Logs (${S_DEV.logs.length})
-              </button>
-            </div>
-          </div>
-
-          <!-- CONTENIDO PRINCIPAL SEGÚN PESTAÑA ACTIVA -->
-          <div id="devTabContent">
-            ${renderTabContent()}
-          </div>
-        </div>
-      `;
-
-      bindEvents();
-    };
-
-    const renderTabContent = () => {
-      // PESTAÑA 1: CHAT CON EL AGENTE IA
-      if (S_DEV.activeTab === 'chat') {
-        const msgs = S_DEV.chatHistory;
-        return `
-          <div style="display:grid;grid-template-columns:1fr;gap:14px">
-            <div class="card" style="background:rgba(4,12,26,.95);border:1px solid var(--line);min-height:520px;display:flex;flex-direction:column">
-              <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08)">
-                <div style="font-size:.84rem;font-weight:700;color:#00d4ff;display:flex;align-items:center;gap:6px">
-                  <span>💬 Sesión de Programación en Pareja</span>
-                  <span class="pill" style="font-size:.65rem;background:rgba(0,212,255,.12);color:#00d4ff">IA Autónomo</span>
-                </div>
-                <button class="g" id="btnDevClearChat" type="button" style="padding:4px 8px;font-size:.72rem">🗑️ Limpiar Conversación</button>
-              </div>
-
-              <!-- LISTADO DE MENSAJES -->
-              <div id="devChatMessagesList" style="flex:1;overflow-y:auto;max-height:460px;display:flex;flex-direction:column;gap:12px;padding:6px 2px">
-                ${msgs.length === 0 ? `
-                  <div style="text-align:center;padding:40px 20px">
-                    <div style="font-size:2.8rem;margin-bottom:10px">🤖✨</div>
-                    <h3 style="margin:0 0 6px;color:#fff;font-size:1.25rem">¿Qué cambios o desarrollos deseas realizar en el proyecto?</h3>
-                    <p class="mut" style="font-size:.84rem;max-width:540px;margin:0 auto 20px;line-height:1.5">
-                      Soy tu Agente Desarrollador conectado directamente a <b>${esc(S_DEV.status.repo || 'tienda-gregory')}</b>. Puedo auditar seguridad, escribir nuevas funciones en el frontend o backend, generar SQL y proponer parches de código listos para desplegar a producción.
-                    </p>
-
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;max-width:760px;margin:0 auto;text-align:left">
-                      <button type="button" class="g dev-quick-chip" data-p="Revisa la lógica de entrega automática y conciliación de Pago Móvil en conciliar-bdv.js y dame sugerencias de optimización o seguridad." style="padding:10px 12px;border-radius:10px">
-                        <b style="color:#00d4ff;display:block;font-size:.8rem">🛡️ Auditar Conciliación BDV/BNC</b>
-                        <span class="mut" style="font-size:.72rem">Revisar seguridad y resiliencia en la captura bancaria</span>
-                      </button>
-                      <button type="button" class="g dev-quick-chip" data-p="Explícame cómo agregar un nuevo botón interactivo en el menú de navegación de Operaciones con su respectivo módulo." style="padding:10px 12px;border-radius:10px">
-                        <b style="color:#00f5a0;display:block;font-size:.8rem">➕ Crear Nuevo Módulo en el Menú</b>
-                        <span class="mut" style="font-size:.72rem">Guía y plantilla de código para extender el panel admin</span>
-                      </button>
-                      <button type="button" class="g dev-quick-chip" data-p="Genera una consulta SQL para auditar todas las cuentas por pagar a crédito de revendedores y saber quién está en mora." style="padding:10px 12px;border-radius:10px">
-                        <b style="color:#fde047;display:block;font-size:.8rem">📊 Consulta SQL para Créditos Revendedores</b>
-                        <span class="mut" style="font-size:.72rem">Auditoría contable y reporte de deudas</span>
-                      </button>
-                      <button type="button" class="g dev-quick-chip" data-p="¿Cómo está estructurado el flujo de Billetera Zeny y qué triggers se ejecutan al registrar una compra?" style="padding:10px 12px;border-radius:10px">
-                        <b style="color:#38bdf8;display:block;font-size:.8rem">💡 Arquitectura Billetera Zeny</b>
-                        <span class="mut" style="font-size:.72rem">Entender disparadores contables y balance</span>
-                      </button>
-                    </div>
-                  </div>
-                ` : msgs.map((m, idx) => `
-                  <div style="display:flex;gap:10px;align-items:flex-start;${m.role === 'user' ? 'justify-content:flex-end' : ''}">
-                    ${m.role !== 'user' ? '<div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#00f5a0,#00d4ff);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">🤖</div>' : ''}
-                    <div style="max-width:85%;background:${m.role === 'user' ? 'linear-gradient(135deg,rgba(0,212,255,.2),rgba(0,120,255,.25))' : 'rgba(12,28,52,.8)'};border:1px solid ${m.role === 'user' ? 'rgba(0,212,255,.4)' : 'rgba(255,255,255,.08)'};border-radius:12px;padding:12px 14px">
-                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">
-                        <b style="font-size:.76rem;color:${m.role === 'user' ? '#00d4ff' : '#00f5a0'}">
-                          ${m.role === 'user' ? '👤 Gregory (Tú)' : '🤖 Dev Studio AI (' + (m.model || S_DEV.model) + ')'}
-                        </b>
-                        <span class="mut" style="font-size:.68rem">${m.timestamp || ''}</span>
-                      </div>
-                      <div class="dev-msg-body" style="font-size:.85rem;line-height:1.55;color:#e2e8f0;word-break:break-word">
-                        ${renderFormattedMessage(m.text, idx)}
-                      </div>
-                    </div>
-                    ${m.role === 'user' ? '<div style="width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">👤</div>' : ''}
-                  </div>
-                `).join('')}
-                <div id="devChatBottom"></div>
-              </div>
-
-              <!-- BARRA DE ENTRADA -->
-              <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">
-                <div style="display:flex;gap:8px">
-                  <textarea id="inpDevPrompt" rows="2" placeholder="Escribe tu instrucción o requerimiento para el Agente Developer... (Ctrl+Enter para enviar)" style="flex:1;background:rgba(8,20,40,.9);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.85rem;color:#fff;resize:none"></textarea>
-                  <button id="btnDevSendChat" type="button" style="padding:0 20px;font-weight:800;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#04111d;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-                    <span>Enviar</span>
-                    <span style="font-size:1.1rem">➤</span>
-                  </button>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:.72rem" class="mut">
-                  <span>💡 Tip: Puedes pedirle que cree código, audite tablas o escriba migraciones SQL.</span>
-                  <span>Presiona <b>Ctrl + Enter</b> para enviar</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-
-      // PESTAÑA 2: EDITOR DE CÓDIGO & DESPLIEGUE A GITHUB
-      if (S_DEV.activeTab === 'editor') {
-        return `
-          <div class="card" style="background:rgba(4,12,26,.95);border:1px solid var(--line)">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)">
-              <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:260px">
-                <label style="font-size:.78rem;font-weight:700">📂 Archivo:</label>
-                <select id="selDevEditorFile" style="flex:1;font-size:.82rem;padding:6px 10px;background:rgba(12,28,52,.9);border-color:var(--c)">
-                  ${S_DEV.files.map(f => `<option value="${esc(f)}" ${f === S_DEV.selectedFile ? 'selected' : ''}>${esc(f)}</option>`).join('')}
-                </select>
-                <button class="g" id="btnDevReloadFile" type="button" style="padding:6px 10px;font-size:.75rem" title="Recargar contenido desde GitHub">
-                  🔄 Recargar
-                </button>
-              </div>
-
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="pill" style="font-size:.7rem;background:rgba(255,255,255,.05);color:var(--mut)">
-                  SHA: <code>${S_DEV.fileSha ? S_DEV.fileSha.slice(0, 7) : 'Nuevo'}</code>
-                </span>
-                <span class="pill" style="font-size:.7rem;background:rgba(0,212,255,.1);color:#00d4ff">
-                  ${S_DEV.fileContent ? (S_DEV.fileContent.length / 1024).toFixed(1) + ' KB' : 'Vacío'}
-                </span>
-              </div>
-            </div>
-
-            <!-- ÁREA DEL EDITOR -->
-            <div style="position:relative;margin-bottom:12px">
-              ${S_DEV.fileLoading ? `
-                <div style="position:absolute;inset:0;background:rgba(4,12,26,.85);display:flex;align-items:center;justify-content:center;z-index:10;border-radius:10px">
-                  <div style="text-align:center"><div class="sk" style="width:140px;height:24px;margin:auto"></div><p class="mut" style="margin-top:8px;font-size:.8rem">Descargando archivo desde GitHub...</p></div>
-                </div>
-              ` : ''}
-              <textarea id="txtDevEditorCode" spellcheck="false" style="width:100%;min-height:480px;font-family:'Fira Code',Menlo,Monaco,Consolas,monospace;font-size:.84rem;line-height:1.5;background:#030914;color:#f1f5f9;border:1px solid rgba(0,212,255,.25);border-radius:10px;padding:12px;tab-size:2;white-space:pre">${esc(S_DEV.fileContent || '')}</textarea>
-            </div>
-
-            <!-- BARRA DE COMMIT & DESPLIEGUE -->
-            <div style="background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-              <div style="flex:1;min-width:280px">
-                <label style="font-size:.74rem;display:block;margin-bottom:4px;font-weight:700" class="mut">Mensaje de Commit (Git):</label>
-                <input id="inpDevCommitMsg" placeholder="Ej: feat(ops): agregar nueva validación en ${esc(S_DEV.selectedFile)}" style="width:100%;font-size:.82rem;padding:7px 10px;background:rgba(12,28,52,.9);border-color:var(--line)">
-              </div>
-
-              <div style="display:flex;gap:8px;align-items:center">
-                <button id="btnDevCommitFile" type="button" style="padding:10px 20px;font-weight:800;font-size:.88rem;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#04111d;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,245,160,.3)">
-                  <span>🚀 Guardar y Desplegar (Commit a GitHub)</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-
-      // PESTAÑA 3: COMMITS EN GITHUB
-      if (S_DEV.activeTab === 'commits') {
-        const commits = S_DEV.commits || [];
-        return `
-          <div class="card" style="background:rgba(4,12,26,.95);border:1px solid var(--line)">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-              <div>
-                <h4 style="margin:0 0 2px 0;font-size:1.05rem">📜 Historial de Commits en GitHub</h4>
-                <p class="mut" style="margin:0;font-size:.76rem">Repositorio: <b>${esc(S_DEV.status.repo || 'gregoryizquierdo1990/tienda-gregory')}</b> (Rama: <code>main</code>)</p>
-              </div>
-              <button class="g" id="btnDevRefreshCommits" type="button" style="padding:6px 12px;font-size:.78rem">🔄 Refrescar Commits</button>
-            </div>
-
-            <div class="wrap">
-              <table style="width:100%;font-size:.82rem">
-                <thead>
-                  <tr>
-                    <th>Hash</th>
-                    <th>Mensaje del Commit</th>
-                    <th>Autor</th>
-                    <th>Fecha</th>
-                    <th>Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${commits.length === 0 ? `
-                    <tr><td colspan="5" style="text-align:center;padding:24px" class="mut">No se pudieron cargar commits de GitHub. Verifica que el token esté configurado.</td></tr>
-                  ` : commits.map(c => `
-                    <tr>
-                      <td><code style="color:#00d4ff;font-weight:700">${esc(c.sha)}</code></td>
-                      <td><b>${esc(c.message)}</b></td>
-                      <td>${esc(c.author)}</td>
-                      <td class="mut">${c.date ? new Date(c.date).toLocaleString('es-VE') : 'N/A'}</td>
-                      <td>
-                        <a href="${esc(c.html_url)}" target="_blank" rel="noopener noreferrer" class="g" style="padding:4px 8px;font-size:.72rem;text-decoration:none;display:inline-block">
-                          ↗️ Ver en GitHub
-                        </a>
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        `;
-      }
-
-      // PESTAÑA 4: CONSOLA SQL
-      if (S_DEV.activeTab === 'database') {
-        return `
-          <div class="card" style="background:rgba(4,12,26,.95);border:1px solid var(--line)">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <div>
-                <h4 style="margin:0 0 2px 0;font-size:1.05rem">🗄️ Terminal SQL de Supabase</h4>
-                <p class="mut" style="margin:0;font-size:.76rem">Ejecuta consultas de inspección directamente sobre la base de datos PostgreSQL de la tienda.</p>
-              </div>
-            </div>
-
-            <div style="margin-bottom:12px">
-              <textarea id="txtDevSqlQuery" spellcheck="false" placeholder="SELECT id, nombre, precio_usd, permite_cuotas FROM products ORDER BY nombre LIMIT 10;" style="width:100%;min-height:120px;font-family:monospace;font-size:.85rem;background:#030914;color:#00f5a0;border:1px solid rgba(0,245,160,.3);border-radius:10px;padding:12px"></textarea>
-            </div>
-
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-              <div style="display:flex;gap:6px">
-                <button type="button" class="g btn-sql-preset" data-q="SELECT id, nombre, email, zeny_balance, limite_credito, es_revendedor FROM customers ORDER BY creado DESC LIMIT 10;" style="padding:4px 8px;font-size:.72rem">👥 Clientes</button>
-                <button type="button" class="g btn-sql-preset" data-q="SELECT id, total_usd, estado, referencia, created_at FROM orders ORDER BY created_at DESC LIMIT 10;" style="padding:4px 8px;font-size:.72rem">🛒 Pedidos</button>
-                <button type="button" class="g btn-sql-preset" data-q="SELECT id, nombre_perfil, vence, estado, vendedor FROM profiles_inventory WHERE estado = 'disponible' LIMIT 10;" style="padding:4px 8px;font-size:.72rem">👤 Stock Libre</button>
-              </div>
-              <button id="btnDevRunSql" type="button" style="padding:8px 18px;font-weight:800;font-size:.82rem;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#04111d;border:none;border-radius:8px;cursor:pointer">
-                ▶️ Ejecutar Consulta
-              </button>
-            </div>
-
-            <div id="devSqlResultBox" style="background:#02060f;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;min-height:160px;overflow-x:auto">
-              <span class="mut" style="font-size:.8rem">El resultado de la consulta aparecerá aquí...</span>
-            </div>
-          </div>
-        `;
-      }
-
-      // PESTAÑA 5: LOGS DEL AGENTE
-      if (S_DEV.activeTab === 'logs') {
-        return `
-          <div class="card" style="background:#02060e;border:1.5px solid rgba(0,212,255,.3)">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.1)">
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:1.1rem">📋</span>
-                <b style="font-size:.9rem;color:#00d4ff">Terminal de Operaciones & Logs</b>
-              </div>
-              <button class="g" id="btnDevClearLogs" type="button" style="padding:4px 8px;font-size:.72rem">🗑️ Limpiar Terminal</button>
-            </div>
-
-            <div id="devTerminalBody" style="min-height:360px;max-height:500px;overflow-y:auto;font-family:'Fira Code',Menlo,Consolas,monospace;font-size:.8rem;line-height:1.6;color:#94a3b8;display:flex;flex-direction:column;gap:4px">
-              ${S_DEV.logs.map(l => `<div>${esc(l)}</div>`).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      return '';
-    };
-
-    // Formateador simple de mensajes de markdown con bloques de código
-    const renderFormattedMessage = (rawText, msgIdx) => {
-      let t = esc(rawText);
-      // Reemplazar bloques de código ```language ... ```
-      t = t.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-        const cleanCode = code.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-        return `
-          <div style="margin:10px 0;background:#020611;border:1px solid rgba(0,212,255,.3);border-radius:8px;overflow:hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:rgba(0,212,255,.1);border-bottom:1px solid rgba(0,212,255,.2);font-size:.72rem">
-              <span style="color:#00d4ff;font-weight:700">📜 ${esc(lang || 'código')}</span>
-              <div style="display:flex;gap:6px">
-                <button class="ai-code-copy-btn" data-raw="${esc(cleanCode)}" type="button" style="padding:2px 8px;font-size:.68rem;background:rgba(255,255,255,.1);border:none;border-radius:4px;color:#fff;cursor:pointer">📋 Copiar</button>
-                <button class="ai-code-apply-btn" data-raw="${esc(cleanCode)}" type="button" style="padding:2px 8px;font-size:.68rem;background:#00f5a0;border:none;border-radius:4px;color:#04111d;font-weight:800;cursor:pointer">🚀 Cargar en Editor</button>
-              </div>
-            </div>
-            <pre style="margin:0;padding:10px;font-family:monospace;font-size:.8rem;overflow-x:auto;color:#38bdf8"><code>${code}</code></pre>
-          </div>
-        `;
-      });
-
-      // Negritas
-      t = t.replace(/\*\*(.*?)\*\*/g, '<b style="color:#fff">$1</b>');
-      // Saltos de línea
-      t = t.replace(/\n/g, '<br>');
-      return t;
-    };
-
-    // MODAL DE AJUSTES DE TOKENS (GEMINI Y GITHUB)
-    const openSettingsModal = () => {
-      $('#dlgBody').innerHTML = `
-        <div style="margin-bottom:14px">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:1.6rem">⚙️</span>
-            <div>
-              <h3 style="margin:0;color:#00d4ff">Ajustes de Conexión Dev Studio</h3>
-              <div class="mut" style="font-size:.78rem">Configura tus llaves de API para permitir que el agente programe y despliegue</div>
-            </div>
-          </div>
-        </div>
-
-        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;margin-bottom:14px">
-          <label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px">
-            1. Google Gemini API Key (Cerebro del Agente):
-          </label>
-          <input id="inDevGeminiKey" type="password" placeholder="AIzaSy..." style="width:100%;margin-bottom:6px">
-          <div class="mut" style="font-size:.72rem">
-            Obtenla gratis en <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color:#00f5a0">Google AI Studio</a>. Se usará para el razonamiento de código y asistencia.
-          </div>
-        </div>
-
-        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;margin-bottom:14px">
-          <label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px">
-            2. GitHub Personal Access Token (PAT):
-          </label>
-          <input id="inDevGithubPat" type="password" placeholder="ghp_..." style="width:100%;margin-bottom:6px">
-          <div class="mut" style="font-size:.72rem">
-            Permite que el agente lea archivos y haga commits automáticos a tu repositorio. Debe tener permiso <code>repo</code>. Puedes crearlo en <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" style="color:#38bdf8">GitHub Tokens</a>.
-          </div>
-        </div>
-
-        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;margin-bottom:14px">
-          <label style="font-size:.8rem;font-weight:700;display:block;margin-bottom:4px">
-            3. Repositorio de GitHub:
-          </label>
-          <input id="inDevGithubRepo" value="${esc(S_DEV.status.repo || 'gregoryizquierdo1990/tienda-gregory')}" placeholder="usuario/repositorio" style="width:100%">
-        </div>
-
-        <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button class="g" onclick="dlg.close()">Cancelar</button>
-          <button id="btnSaveDevSettings" style="padding:9px 18px;font-weight:800;background:linear-gradient(135deg,#00f5a0,#00d4ff);color:#04111d;border:none;border-radius:8px;cursor:pointer">
-            💾 Guardar Credenciales
-          </button>
-        </div>
-      `;
-
-      if (!dlg.open) dlg.showModal();
-
-      const btnSave = $('#btnSaveDevSettings');
-      if (btnSave) {
-        btnSave.onclick = () => run(btnSave, async () => {
-          const gKey = ($('#inDevGeminiKey')?.value || '').trim();
-          const ghPat = ($('#inDevGithubPat')?.value || '').trim();
-          const ghRepo = ($('#inDevGithubRepo')?.value || '').trim();
-
-          const res = await api('/api/dev-studio', {
-            action: 'save_config',
-            gemini_api_key: gKey || undefined,
-            github_pat: ghPat || undefined,
-            github_repo: ghRepo || undefined
-          });
-
-          if (!res.ok) throw new Error(res.error || 'Error al guardar');
-          dlg.close();
-          await fetchStatus();
-          await fetchCommits();
-          render();
-          return '✅ Credenciales guardadas con éxito en Supabase Secrets.';
-        });
-      }
-    };
-
-    // Vincular Eventos
-    const bindEvents = () => {
-      // Cambio de pestañas
-      box.querySelectorAll('.btn-dev-tab').forEach(btn => {
-        btn.onclick = () => {
-          S_DEV.activeTab = btn.dataset.tab;
-          render();
-          if (S_DEV.activeTab === 'editor' && !S_DEV.fileContent && S_DEV.status.github_configured) {
-            loadFileToEditor(S_DEV.selectedFile);
-          }
-        };
-      });
-
-      // Modelo selector
-      const selModel = box.querySelector('#selDevModel');
-      if (selModel) {
-        selModel.onchange = e => {
-          S_DEV.model = e.target.value;
-          addLog(`Modelo de IA seleccionado: ${S_DEV.model}`);
-        };
-      }
-
-      // Botón Ajustes
-      const btnSet = box.querySelector('#btnDevSettings');
-      if (btnSet) btnSet.onclick = openSettingsModal;
-
-      // Ver tienda en vivo
-      const btnLive = box.querySelector('#btnDevOpenLiveSite');
-      if (btnLive) btnLive.onclick = () => window.open('https://www.gregoryizquierdo.xyz', '_blank');
-
-      // --- EVENTOS PESTAÑA CHAT ---
-      const inpPrompt = box.querySelector('#inpDevPrompt');
-      const btnSendChat = box.querySelector('#btnDevSendChat');
-      const btnClearChat = box.querySelector('#btnDevClearChat');
-
-      if (btnClearChat) {
-        btnClearChat.onclick = () => {
-          S_DEV.chatHistory = [];
-          render();
-        };
-      }
-
-      const doSendChat = async () => {
-        const pText = (inpPrompt?.value || '').trim();
-        if (!pText) return;
-        inpPrompt.value = '';
-
-        const nowTime = new Date().toLocaleTimeString('es-VE');
-        S_DEV.chatHistory.push({ role: 'user', text: pText, timestamp: nowTime });
-        render();
-
-        const scrollBottom = () => {
-          const b = box.querySelector('#devChatBottom');
-          if (b) b.scrollIntoView({ behavior: 'smooth' });
-        };
-        scrollBottom();
-
-        addLog(`Usuario envió instrucción: "${pText.slice(0, 60)}..."`);
-
-        try {
-          const res = await api('/api/dev-studio', {
-            action: 'chat',
-            prompt: pText,
-            history: S_DEV.chatHistory.slice(0, -1),
-            active_file: S_DEV.selectedFile,
-            active_code: S_DEV.fileContent ? S_DEV.fileContent.slice(0, 5000) : null,
-            model: S_DEV.model
-          });
-
-          if (res.ok) {
-            S_DEV.chatHistory.push({
-              role: 'model',
-              text: res.reply || 'Sin respuesta.',
-              timestamp: new Date().toLocaleTimeString('es-VE'),
-              model: res.model
-            });
-            addLog(`Respuesta recibida de ${res.model}.`);
-          } else {
-            S_DEV.chatHistory.push({
-              role: 'model',
-              text: '⚠️ Error: ' + (res.error || 'No se pudo generar respuesta.'),
-              timestamp: new Date().toLocaleTimeString('es-VE')
-            });
-            addLog(`Error en chat: ${res.error || 'Desconocido'}`);
-          }
-        } catch (err) {
-          S_DEV.chatHistory.push({
-            role: 'model',
-            text: '⚠️ Error de conexión: ' + err.message,
-            timestamp: new Date().toLocaleTimeString('es-VE')
-          });
-          addLog(`Fallo de conexión: ${err.message}`);
-        }
-
-        render();
-        scrollBottom();
-      };
-
-      if (btnSendChat) btnSendChat.onclick = doSendChat;
-      if (inpPrompt) {
-        inpPrompt.onkeydown = e => {
-          if (e.key === 'Enter' && e.ctrlKey) {
-            e.preventDefault();
-            doSendChat();
-          }
-        };
-      }
-
-      // Chips de preguntas rápidas
-      box.querySelectorAll('.dev-quick-chip').forEach(c => {
-        c.onclick = () => {
-          if (inpPrompt) {
-            inpPrompt.value = c.dataset.p;
-            doSendChat();
-          }
-        };
-      });
-
-      // Botón copiar código de bloque
-      box.querySelectorAll('.ai-code-copy-btn').forEach(b => {
-        b.onclick = () => {
-          const code = b.dataset.raw || '';
-          navigator.clipboard.writeText(code).then(() => toast('Código copiado al portapapeles.'));
-        };
-      });
-
-      // Botón Cargar código en Editor
-      box.querySelectorAll('.ai-code-apply-btn').forEach(b => {
-        b.onclick = () => {
-          const code = b.dataset.raw || '';
-          S_DEV.fileContent = code;
-          S_DEV.activeTab = 'editor';
-          addLog('Código sugerido por IA cargado en el Editor.');
-          render();
-        };
-      });
-
-      // --- EVENTOS PESTAÑA EDITOR ---
-      const selFile = box.querySelector('#selDevEditorFile');
-      if (selFile) {
-        selFile.onchange = e => {
-          loadFileToEditor(e.target.value);
-        };
-      }
-
-      const btnReloadFile = box.querySelector('#btnDevReloadFile');
-      if (btnReloadFile) {
-        btnReloadFile.onclick = () => loadFileToEditor(S_DEV.selectedFile);
-      }
-
-      const txtEditor = box.querySelector('#txtDevEditorCode');
-      if (txtEditor) {
-        txtEditor.oninput = e => {
-          S_DEV.fileContent = e.target.value;
-        };
-      }
-
-      // Guardar y hacer commit a GitHub
-      const btnCommit = box.querySelector('#btnDevCommitFile');
-      if (btnCommit) {
-        btnCommit.onclick = () => run(btnCommit, async () => {
-          const content = S_DEV.fileContent;
-          const path = S_DEV.selectedFile;
-          const msg = (box.querySelector('#inpDevCommitMsg')?.value || '').trim() || `feat(dev-studio): actualizar ${path}`;
-
-          addLog(`Iniciando commit a GitHub en rama main para ${path}...`);
-
-          const res = await api('/api/dev-studio', {
-            action: 'commit_file',
-            path,
-            content,
-            message: msg,
-            sha: S_DEV.fileSha
-          });
-
-          if (!res.ok) throw new Error(res.error || 'Error al guardar commit');
-
-          S_DEV.fileSha = res.new_sha || S_DEV.fileSha;
-          addLog(`✅ Commit exitoso: ${res.commit_sha} en rama main. Vercel desplegará los cambios.`);
-          fetchCommits();
-          return `✅ Commit ${res.commit_sha} guardado en GitHub. ¡Despliegue iniciado!`;
-        });
-      }
-
-      // --- EVENTOS PESTAÑA COMMITS ---
-      const btnRefCommits = box.querySelector('#btnDevRefreshCommits');
-      if (btnRefCommits) {
-        btnRefCommits.onclick = () => run(btnRefCommits, async () => {
-          await fetchCommits();
-          render();
-          return 'Commits actualizados.';
-        });
-      }
-
-      // --- EVENTOS PESTAÑA SQL ---
-      const btnRunSql = box.querySelector('#btnDevRunSql');
-      const txtSql = box.querySelector('#txtDevSqlQuery');
-      const boxSqlRes = box.querySelector('#devSqlResultBox');
-
-      box.querySelectorAll('.btn-sql-preset').forEach(b => {
-        b.onclick = () => {
-          if (txtSql) txtSql.value = b.dataset.q;
-        };
-      });
-
-      if (btnRunSql && txtSql && boxSqlRes) {
-        btnRunSql.onclick = () => run(btnRunSql, async () => {
-          const q = (txtSql.value || '').trim();
-          if (!q) throw new Error('Ingresa una consulta SQL.');
-          boxSqlRes.innerHTML = '<span class="mut">Ejecutando consulta en Supabase...</span>';
-
-          try {
-            // Intentar consulta REST directa de lectura si es un SELECT simple
-            const selectMatch = q.match(/^SELECT\s+([\s\S]+?)\s+FROM\s+([a-zA-Z0-9_]+)/i);
-            if (selectMatch) {
-              const table = selectMatch[2];
-              const { data, error } = await sb.from(table).select('*').limit(15);
-              if (error) throw error;
-              if (!data || data.length === 0) {
-                boxSqlRes.innerHTML = '<span class="mut">Consulta exitosa. 0 registros retornados.</span>';
-                return '0 registros';
-              }
-              const cols = Object.keys(data[0] || {});
-              boxSqlRes.innerHTML = `
-                <div class="wrap">
-                  <table style="width:100%;font-size:.76rem">
-                    <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
-                    <tbody>${data.map(row => `<tr>${cols.map(c => `<td>${esc(row[c])}</td>`).join('')}</tr>`).join('')}</tbody>
-                  </table>
-                </div>
-              `;
-              return `✅ ${data.length} registros cargados`;
-            } else {
-              boxSqlRes.innerHTML = `<span class="mut">Para consultas de modificación o DDL usa el SQL Editor de Supabase o define un RPC.</span>`;
-              return 'Completado';
-            }
-          } catch (err) {
-            boxSqlRes.innerHTML = `<span style="color:#f87171">⚠️ Error SQL: ${esc(err.message)}</span>`;
-            throw err;
-          }
-        });
-      }
-
-      // --- EVENTOS PESTAÑA LOGS ---
-      const btnClearLogs = box.querySelector('#btnDevClearLogs');
-      if (btnClearLogs) {
-        btnClearLogs.onclick = () => {
-          S_DEV.logs = [];
-          render();
-        };
-      }
-    };
-
-    render();
   }
+
 };
 if (typeof window !== 'undefined') {
   window.EXTRA = Object.assign(window.EXTRA || {}, EXTRA);
