@@ -2531,6 +2531,12 @@ const EXTRA = {
             <button class="cal-sheet-btn" id="calSendTelegram" type="button" style="background:rgba(0,136,204,.15);border-color:#0088cc;color:#38bdf8;font-weight:700" title="Enviar listado de vencimientos de hoy a Telegram">
               ✈️ Enviar a Telegram
             </button>
+            <button class="cal-sheet-btn" id="calExportSheets" type="button" style="background:rgba(16,185,129,.15);border-color:#10b981;color:#10b981;font-weight:700" title="Crear libro de Google Sheets con el calendario de vencimientos en tu Google Drive">
+              📊 Crear Sheet en Drive
+            </button>
+            <button class="cal-sheet-btn" id="calDownloadXLSX" type="button" style="background:rgba(56,189,248,.15);border-color:#38bdf8;color:#38bdf8;font-weight:700" title="Descargar libro Excel (.xlsx) con el calendario completo de vencimientos">
+              📥 Descargar Excel
+            </button>
             ${calConnected ? `
               <button class="cal-sheet-btn" id="calSyncGCal" type="button" style="background:rgba(0,245,160,.12);border-color:#00f5a0;color:#00f5a0;font-weight:700" title="Sincronizar cambios en ambos sentidos con Google Calendar">
                 🔄 Sincronizar Google Calendar
@@ -2693,6 +2699,205 @@ const EXTRA = {
           msg += `\n• Todos los vencimientos de la tienda están al día en Google Calendar.`;
         }
         return msg;
+      });
+    }
+
+    // Helper para generar dataset estructurado de vencimientos para Google Sheets y Excel
+    const buildVencimientosReportData = async () => {
+      const todayDate = new Date(todayStr + 'T12:00:00Z');
+      const [resProf, resMoth] = await Promise.all([
+        sb.from('profiles_inventory')
+          .select('id,nombre_perfil,vence,vendedor,pin,estado,no_renueva,products(nombre),mother_accounts(plataforma,correo,proveedor)')
+          .eq('estado', 'vendido')
+          .not('vence', 'is', null)
+          .order('vence', { ascending: true }),
+        sb.from('mother_accounts')
+          .select('id,plataforma,correo,vence,activa,proveedor,costo_usd')
+          .not('vence', 'is', null)
+          .order('vence', { ascending: true })
+      ]);
+
+      const profList = resProf?.data || [];
+      const mothList = resMoth?.data || [];
+
+      const getDiffDays = (vDate) => {
+        if (!vDate) return 0;
+        const d = new Date(vDate + 'T12:00:00Z');
+        return Math.round((d - todayDate) / 86400000);
+      };
+
+      const getStatusLabel = (vDate) => {
+        if (!vDate) return 'Sin fecha';
+        const diff = getDiffDays(vDate);
+        if (diff < 0) return `🔴 VENCIDO (hace ${Math.abs(diff)}d)`;
+        if (diff === 0) return `🟡 VENCE HOY`;
+        if (diff <= 3) return `🟠 PRÓXIMO (${diff}d)`;
+        return `🟢 ACTIVO (${diff}d)`;
+      };
+
+      // 1. Clientes y Perfiles
+      const headersProf = ['Fecha Vencimiento', 'Días Restantes', 'Estado Alerta', 'Plataforma / Servicio', 'Perfil / Cliente', 'Revendedor / Vendedor', 'Cuenta Madre (Correo)', 'Proveedor', 'PIN / Clave', 'No Renueva'];
+      const rowsProf = profList.map(p => {
+        const srv = p.products?.nombre || p.mother_accounts?.plataforma || 'Servicio';
+        const isSede = !p.vendedor || p.vendedor === 'ADMIN' || String(p.vendedor).toLowerCase().includes('sede central');
+        const vend = isSede ? 'Sede Central' : p.vendedor;
+        const isEnc = typeof p.pin === 'string' && p.pin.startsWith('enc:');
+        const pinVal = isEnc ? '🔒 Cifrado' : (p.pin || '—');
+        return [
+          p.vence || '—',
+          getDiffDays(p.vence),
+          getStatusLabel(p.vence),
+          srv,
+          p.nombre_perfil || 'Perfil',
+          vend,
+          p.mother_accounts?.correo || '—',
+          p.mother_accounts?.proveedor || '—',
+          pinVal,
+          p.no_renueva ? 'SÍ (No Renueva)' : 'No'
+        ];
+      });
+
+      // 2. Cuentas Madre
+      const headersMoth = ['Fecha Vencimiento', 'Días Restantes', 'Estado Alerta', 'Plataforma', 'Correo Madre', 'Proveedor', 'Costo USD', 'Estado'];
+      const rowsMoth = mothList.map(m => [
+        m.vence || '—',
+        getDiffDays(m.vence),
+        getStatusLabel(m.vence),
+        m.plataforma || '—',
+        m.correo || '—',
+        m.proveedor || '—',
+        m.costo_usd != null ? Number(m.costo_usd) : 0,
+        m.activa ? 'Activa' : 'Inactiva'
+      ]);
+
+      // 3. Resumen Cronológico por Fecha
+      const dateMap = {};
+      profList.forEach(p => {
+        if (!p.vence) return;
+        if (!dateMap[p.vence]) dateMap[p.vence] = { prof: 0, moth: 0 };
+        dateMap[p.vence].prof++;
+      });
+      mothList.forEach(m => {
+        if (!m.vence) return;
+        if (!dateMap[m.vence]) dateMap[m.vence] = { prof: 0, moth: 0 };
+        dateMap[m.vence].moth++;
+      });
+
+      const dnames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      const headersSum = ['Fecha', 'Día', 'Días Relativos', '👤 Perfiles / Clientes', '🔑 Cuentas Madre', 'Total Vencimientos'];
+      const rowsSum = Object.keys(dateMap).sort().map(f => {
+        const dObj = new Date(f + 'T12:00:00Z');
+        const dayName = dnames[dObj.getDay()];
+        const diff = getDiffDays(f);
+        const item = dateMap[f];
+        const tot = item.prof + item.moth;
+        const rel = diff < 0 ? `Hace ${Math.abs(diff)}d` : (diff === 0 ? 'HOY' : `En ${diff}d`);
+        return [f, dayName, rel, item.prof, item.moth, tot];
+      });
+
+      return {
+        todayStr,
+        headersProf, rowsProf,
+        headersMoth, rowsMoth,
+        headersSum, rowsSum
+      };
+    };
+
+    // Crear Google Sheet directamente en Google Drive
+    const bExportSheets = box.querySelector('#calExportSheets');
+    if (bExportSheets) {
+      bExportSheets.onclick = () => run(bExportSheets, async () => {
+        if (!sessionStorage.getItem('gtk')) {
+          $('#dlgBody').innerHTML = `
+            <h3>📊 Conectar Google para Crear Sheet</h3>
+            <p class="mut" style="font-size:.85rem;margin:0 0 16px">
+              Para crear la hoja de cálculo directamente en tu cuenta de Google Drive (<code>emprendimientogregoryizquierdo@gmail.com</code>), inicia sesión con Google con 1 clic.
+            </p>
+            <div class="row" style="gap:8px;justify-content:flex-end">
+              <button class="g" id="dlgBtnAuthGoogle" style="background:var(--grad);color:#03121c;font-weight:800">🔑 Conectar Google Ahora</button>
+            </div>
+          `;
+          $('#dlg').showModal();
+          $('#dlgBtnAuthGoogle').onclick = () => {
+            $('#dlg').close();
+            GCal.connect();
+          };
+          return;
+        }
+
+        const rep = await buildVencimientosReportData();
+        const sh = await G('https://sheets.googleapis.com/v4/spreadsheets', {
+          method: 'POST',
+          body: JSON.stringify({
+            properties: {
+              title: `📅 Calendario de Vencimientos - Gregory Izquierdo (${rep.todayStr})`
+            },
+            sheets: [
+              { properties: { title: '👤 Clientes y Perfiles', gridProperties: { frozenRowCount: 1 } } },
+              { properties: { title: '🔑 Cuentas Madre', gridProperties: { frozenRowCount: 1 } } },
+              { properties: { title: '📊 Resumen por Fecha', gridProperties: { frozenRowCount: 1 } } }
+            ]
+          })
+        });
+
+        const dataRanges = [
+          { range: "'👤 Clientes y Perfiles'!A1", values: [rep.headersProf, ...rep.rowsProf] },
+          { range: "'🔑 Cuentas Madre'!A1", values: [rep.headersMoth, ...rep.rowsMoth] },
+          { range: "'📊 Resumen por Fecha'!A1", values: [rep.headersSum, ...rep.rowsSum] }
+        ];
+
+        await G(`https://sheets.googleapis.com/v4/spreadsheets/${sh.spreadsheetId}/values:batchUpdate`, {
+          method: 'POST',
+          body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: dataRanges })
+        });
+
+        await sb.from('google_integrations').upsert({
+          service: 'sheets',
+          enabled: true,
+          config: { last_vencimientos_sheet_url: sh.spreadsheetUrl, updated_at: new Date().toISOString() },
+          updated_at: new Date().toISOString()
+        });
+
+        window.open(sh.spreadsheetUrl, '_blank');
+
+        $('#dlgBody').innerHTML = `
+          <div style="text-align:center;padding:12px">
+            <div style="font-size:3rem;margin-bottom:10px">📊</div>
+            <h3 style="margin:0 0 8px;color:#00f5a0">¡Hoja de Cálculo Creada con Éxito!</h3>
+            <p class="mut" style="font-size:.85rem;margin:0 0 16px">
+              El archivo <b>Calendario de Vencimientos</b> ya está guardado en tu Google Drive (<code>emprendimientogregoryizquierdo@gmail.com</code>) con 3 pestañas organizadas: Clientes y Perfiles, Cuentas Madre y Resumen Diario.
+            </p>
+            <div class="row" style="gap:10px;justify-content:center">
+              <a href="${sh.spreadsheetUrl}" target="_blank" rel="noopener noreferrer" class="g" style="text-decoration:none;padding:10px 18px;font-weight:800;background:var(--grad);color:#03121c;border-radius:10px">
+                🌐 Abrir Hoja en Google Drive ➔
+              </a>
+            </div>
+          </div>
+        `;
+        $('#dlg').showModal();
+        return `✅ Hoja creada en Google Drive: ${sh.spreadsheetUrl}`;
+      });
+    }
+
+    // Descargar copia en Excel (.xlsx) de forma nativa e inmediata
+    const bDownloadXlsx = box.querySelector('#calDownloadXLSX');
+    if (bDownloadXlsx) {
+      bDownloadXlsx.onclick = () => run(bDownloadXlsx, async () => {
+        await loadXLSX();
+        const rep = await buildVencimientosReportData();
+        const wb = XLSX.utils.book_new();
+
+        const wsProf = XLSX.utils.aoa_to_sheet([rep.headersProf, ...rep.rowsProf]);
+        XLSX.utils.book_append_sheet(wb, wsProf, 'Clientes y Perfiles');
+
+        const wsMoth = XLSX.utils.aoa_to_sheet([rep.headersMoth, ...rep.rowsMoth]);
+        XLSX.utils.book_append_sheet(wb, wsMoth, 'Cuentas Madre');
+
+        const wsSum = XLSX.utils.aoa_to_sheet([rep.headersSum, ...rep.rowsSum]);
+        XLSX.utils.book_append_sheet(wb, wsSum, 'Resumen por Fecha');
+
+        XLSX.writeFile(wb, `Calendario_Vencimientos_${rep.todayStr}.xlsx`);
+        return '📥 Archivo Excel descargado exitosamente.';
       });
     }
 
@@ -4065,13 +4270,17 @@ Cobrar antes de ${fVenceCred}`;
         return `${n} vencimientos agregados y ${d} eventos de reembolsos eliminados en Calendar.`;
       },
       async sheets() {
-        const d = await dump(), { data: inv } = await sb.from('profiles_inventory').select('nombre_perfil,vendedor,estado,inicia,vence,mother_accounts(plataforma,correo)');
+        const d = await dump(), { data: inv } = await sb.from('profiles_inventory').select('nombre_perfil,vendedor,estado,inicia,vence,mother_accounts(plataforma,correo,proveedor)');
+        const { data: moth } = await sb.from('mother_accounts').select('plataforma,correo,vence,activa,proveedor,costo_usd');
         const T = { Clientes: ['nombre', 'email', 'telefono', 'zeny_balance'], Pedidos: ['created_at', 'total_usd', 'estado', 'inicia', 'vence'], Facturas: ['numero', 'emitida', 'total_usd', 'total_bs', 'tasa_bs'] }, src = { Clientes: d.customers, Pedidos: d.orders, Facturas: d.invoices };
-        const sh = await G('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({ properties: { title: 'Respaldo Tienda ' + today() }, sheets: [...Object.keys(T), 'Inventario'].map(title => ({ properties: { title } })) }) });
+        const sh = await G('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({ properties: { title: 'Respaldo Tienda y Vencimientos ' + today() }, sheets: [...Object.keys(T), 'Inventario', 'Vencimientos_Perfiles', 'Vencimientos_CuentasMadre'].map(title => ({ properties: { title } })) }) });
         const data = Object.entries(T).map(([k, c]) => ({ range: k + '!A1', values: [c, ...src[k].map(r => c.map(x => r[x] ?? ''))] }));
         data.push({ range: 'Inventario!A1', values: [['plataforma', 'cuenta', 'perfil', 'vendedor', 'estado', 'inicia', 'vence'], ...(inv || []).map(r => [r.mother_accounts?.plataforma, r.mother_accounts?.correo, r.nombre_perfil, r.vendedor, r.estado, r.inicia, r.vence].map(x => x ?? ''))] });
-        await G(`https://sheets.googleapis.com/v4/spreadsheets/${sh.spreadsheetId}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
-        return 'Respaldo creado: ' + sh.spreadsheetUrl;
+        data.push({ range: 'Vencimientos_Perfiles!A1', values: [['Fecha Vencimiento', 'Servicio', 'Perfil', 'Vendedor', 'Cuenta Madre', 'Proveedor', 'Estado'], ...(inv || []).filter(x => x.vence).map(r => [r.vence, r.mother_accounts?.plataforma, r.nombre_perfil, r.vendedor, r.mother_accounts?.correo, r.mother_accounts?.proveedor, r.estado].map(x => x ?? ''))] });
+        data.push({ range: 'Vencimientos_CuentasMadre!A1', values: [['Fecha Vencimiento', 'Plataforma', 'Correo Madre', 'Proveedor', 'Costo USD', 'Estado'], ...(moth || []).map(r => [r.vence, r.plataforma, r.correo, r.proveedor, r.costo_usd, r.activa ? 'Activa' : 'Inactiva'].map(x => x ?? ''))] });
+        await G(`https://sheets.googleapis.com/v4/spreadsheets/${sh.spreadsheetId}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data }) });
+        window.open(sh.spreadsheetUrl, '_blank');
+        return 'Respaldo y Vencimientos creados en Google Sheets: ' + sh.spreadsheetUrl;
       },
       async drive() {
         const b = 'b' + Date.now(), meta = { name: `respaldo-tienda-${today()}.json`, mimeType: 'application/json' };
