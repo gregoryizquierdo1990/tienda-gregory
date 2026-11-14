@@ -1033,7 +1033,7 @@ async function ensureAdminExtraLoaded() {
       existing.remove();
     }
     const script = document.createElement('script');
-    script.src = '/admin-extra.js?v=24';
+    script.src = '/admin-extra.js?v=25';
     script.async = true;
     const timeout = setTimeout(() => {
       if (typeof EXTRA !== 'undefined' && Object.keys(EXTRA).length > 0) resolve(true);
@@ -4220,6 +4220,9 @@ async function buyDlg(id){
     }
   }
 
+  // Parametros de cuotas (definidos para compatibilidad de calculo de fallback)
+  const pBnpl = p.bnpl_config || null;
+  const cuotasCfg = S.settings?.cuotas_config || { inicial_porcentaje: 50, total_cuotas: 2, dias_frecuencia: 15, monto_minimo: 5.00 };
   // Pagos exclusivamente a precio completo de contado (sin cuotas ni crédito)
   const isBnplEligible = false;
 
